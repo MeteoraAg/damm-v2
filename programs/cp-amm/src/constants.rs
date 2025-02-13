@@ -11,6 +11,14 @@ pub const BASIS_POINT_MAX: u64 = 10_000;
 
 pub const U24_MAX: u32 = 0xffffff;
 
+// Number of rewards supported by pool
+pub const NUM_REWARDS: usize = 2;
+
+// Minimum reward duration
+pub const MIN_REWARD_DURATION: u64 = 1;
+
+pub const MAX_REWARD_DURATION: u64 = 31536000; // 1 year = 365 * 24 * 3600
+
 pub mod activation {
     #[cfg(not(feature = "test-bpf"))]
     pub const SLOT_BUFFER: u64 = 9000;

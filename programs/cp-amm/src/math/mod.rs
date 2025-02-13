@@ -6,3 +6,5 @@ pub mod safe_math;
 pub mod u128x128_math;
 /// utils math
 pub mod utils_math;
+/// u64xu64 math
+pub mod u64x64_math;
