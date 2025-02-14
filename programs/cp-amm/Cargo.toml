@@ -17,8 +17,8 @@ default = []
 local = []
 
 [dependencies]
-anchor-lang = {workspace = true, features = ["event-cpi"]}
-anchor-spl = {workspace = true, features = []}
+anchor-lang = { workspace = true, features = ["event-cpi"] }
+anchor-spl = { workspace = true, features = [] }
 bytemuck = { workspace = true, features = ["derive", "min_const_generics"] }
 solana-program = { workspace = true }
 static_assertions = "1.1.0"
