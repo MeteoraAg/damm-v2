@@ -21,12 +21,12 @@ pub mod fee_update_authority {
     declare_id!("fee3qJNFpqUEYLCaCntRNqNdqrX2yCeYnpxUj2TJP9P");
 }
 
-#[cfg(feature = "test-bpf")]
+#[cfg(feature = "local")]
 pub fn assert_eq_admin(_admin: Pubkey) -> bool {
     true
 }
 
-#[cfg(not(feature = "test-bpf"))]
+#[cfg(not(feature = "local"))]
 pub fn assert_eq_admin(admin: Pubkey) -> bool {
     crate::admin::admin::ADMINS
         .iter()

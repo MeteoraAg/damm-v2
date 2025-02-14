@@ -18,7 +18,7 @@ pub struct PoolFees {
     /// Protocol trading fees are extra token amounts that are held inside the token
     /// accounts during a trade, with the equivalent in pool tokens minted to
     /// the protocol of the program.
-    /// Protocol trade fee numerator
+    /// Protocol trade fee numerator 
     pub protocol_fee_percent: u8,
     /// partner fee
     pub partner_fee_percent: u8,

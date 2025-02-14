@@ -21,14 +21,13 @@ pub mod tests;
 pub mod params;
 
 #[cfg(feature = "local")]
-declare_id!("6zQfrtZfRodgeFYdWxsqhMkTPyt8LSM1mZvgzJJ4GMDz");
+declare_id!("9sh3gorJVsWgpdJo317PqnoWoTuDN2LkxiyYUUTu4sNJ");
 
 #[cfg(not(feature = "local"))]
 declare_id!("2JyBCMjaYC6EE2DhzB5CxgAfTrSiX8QyYXfqX59qHuu8");
 
 #[program]
 pub mod cp_amm {
-
     use super::*;
 
     /// Create config
@@ -37,6 +36,16 @@ pub mod cp_amm {
         config_parameters: ConfigParameters
     ) -> Result<()> {
         instructions::handle_create_config(ctx, config_parameters)
+    }
+
+    /// update config
+    pub fn update_config(ctx: Context<UpdateConfigCtx>, param: u8, value: u8) -> Result<()> {
+        instructions::handle_update_config(ctx, param, value)
+    }
+
+    /// update config
+    pub fn update_pool_fee(ctx: Context<UpdateConfigCtx>, param: u8, value: u64) -> Result<()> {
+        instructions::handle_update_pool_fee(ctx, param, value)
     }
 
     /// Create token badge
@@ -51,7 +60,7 @@ pub mod cp_amm {
 
     pub fn initialize_pool<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, InitializePool<'info>>,
-        params: InitializePoolParameters,
+        params: InitializePoolParameters
     ) -> Result<()> {
         instructions::handle_initialize_pool(ctx, params)
     }

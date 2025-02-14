@@ -233,7 +233,7 @@ impl DynamicFeeStruct {
 
     pub fn get_variable_fee(&self) -> Result<u128> {
         if self.is_dynamic_fee_enable() {
-            let square_vfa_bin = self
+            let square_vfa_bin: u128 = self
                 .volatility_accumulator
                 .safe_mul(self.bin_step.into())?
                 .checked_pow(2)

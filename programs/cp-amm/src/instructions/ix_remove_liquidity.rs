@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
     state::{ ModifyLiquidityResult, Pool, Position },
-    token::{ transfer_from_pool },
+    token::transfer_from_pool,
     u128x128_math::Rounding,
     PoolError,
 };

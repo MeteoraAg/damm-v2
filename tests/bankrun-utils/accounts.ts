@@ -1,7 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 
-import { CP_AMM_PROGRAM_ID, getFirstKey, getSecondKey } from "./cp-amm";
+import { getFirstKey, getSecondKey } from "./cpAmm";
+import { CP_AMM_PROGRAM_ID } from "./constants";
 
 export function derivePoolAuthority(): PublicKey {
   return PublicKey.findProgramAddressSync(

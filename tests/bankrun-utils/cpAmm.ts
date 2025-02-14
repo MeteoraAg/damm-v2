@@ -24,7 +24,7 @@ import {
 import { BanksClient } from "solana-bankrun";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { CpAmm } from "../../target/types/cp_amm";
-import { getOrCreateAssociatedTokenAccount } from "./token";
+import { getOrCreateAssociatedTokenAccount, getTokenAccount } from "./token";
 import {
   deriveConfigAddress,
   derivePoolAddress,
@@ -33,13 +33,12 @@ import {
   deriveTokenVaultAddress,
 } from "./accounts";
 import { processTransactionMaybeThrow } from "./common";
-
-export const CP_AMM_PROGRAM_ID = new PublicKey(
-  "6zQfrtZfRodgeFYdWxsqhMkTPyt8LSM1mZvgzJJ4GMDz"
-);
+import { CP_AMM_PROGRAM_ID } from "./constants";
+import { assert, expect } from "chai";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
 export type Position = IdlAccounts<CpAmm>["position"];
+export type Config = IdlAccounts<CpAmm>["config"];
 
 export function getSecondKey(key1: PublicKey, key2: PublicKey) {
   const buf1 = key1.toBuffer();
@@ -102,8 +101,8 @@ export type CreateConfigParams = {
   sqrtMaxPrice: BN;
   vaultConfigKey: PublicKey;
   poolCreatorAuthority: PublicKey;
-  activationType: number;
-  collectFeeMode: number;
+  activationType: number; // 0: slot, 1: timestamp
+  collectFeeMode: number; // 0: BothToken, 1: OnlyTokenB
 };
 
 export async function createConfigIx(
@@ -127,7 +126,95 @@ export async function createConfigIx(
   transaction.sign(admin);
 
   await processTransactionMaybeThrow(banksClient, transaction);
+
+  // Check data
+  const configState = await getConfig(banksClient, config);
+  expect(configState.vaultConfigKey.toString()).eq(
+    params.vaultConfigKey.toString()
+  );
+  expect(configState.poolCreatorAuthority.toString()).eq(
+    params.poolCreatorAuthority.toString()
+  );
+  expect(configState.activationType).eq(params.activationType);
+  expect(configState.collectFeeMode).eq(params.collectFeeMode);
+  expect(configState.sqrtMinPrice.toNumber()).eq(
+    params.sqrtMinPrice.toNumber()
+  );
+  expect(configState.sqrtMaxPrice.toString()).eq(
+    params.sqrtMaxPrice.toString()
+  );
+  expect(configState.poolFees.tradeFeeNumerator.toNumber()).eq(
+    params.poolFees.tradeFeeNumerator.toNumber()
+  );
+  expect(configState.poolFees.protocolFeePercent).eq(
+    params.poolFees.protocolFeePercent
+  );
+  expect(configState.poolFees.partnerFeePercent).eq(
+    params.poolFees.partnerFeePercent
+  );
+  expect(configState.poolFees.referralFeePercent).eq(
+    params.poolFees.referralFeePercent
+  );
+
   return config;
+}
+
+export async function updateConfig(
+  banksClient: BanksClient,
+  admin: Keypair,
+  config: PublicKey,
+  param: number,
+  value: number
+): Promise<void> {
+  const program = createCpAmmProgram();
+
+  const transaction = await program.methods
+    .updateConfig(param, value)
+    .accounts({
+      config,
+      admin: admin.publicKey,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(admin);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+
+  // Check data
+  // const configState = await getConfig(banksClient, config);
+  // expect(configState.vaultConfigKey.toString()).eq(
+  //   params.vaultConfigKey.toString()
+  // );
+}
+
+export async function updatePoolFee(
+  banksClient: BanksClient,
+  admin: Keypair,
+  config: PublicKey,
+  param: number,
+  value: BN
+): Promise<void> {
+  const program = createCpAmmProgram();
+
+  const transaction = await program.methods
+    .updatePoolFee(param, value)
+    .accounts({
+      config,
+      admin: admin.publicKey
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(admin);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+
+  // Check data
+  // const configState = await getConfig(banksClient, config);
+  // expect(configState.vaultConfigKey.toString()).eq(
+  //   params.vaultConfigKey.toString()
+  // );
 }
 
 export async function closeConfigIx(
@@ -149,6 +236,9 @@ export async function closeConfigIx(
   transaction.sign(admin);
 
   await processTransactionMaybeThrow(banksClient, transaction);
+
+  const configState = await banksClient.getAccount(config);
+  expect(configState).to.be.null;
 }
 
 export type InitializePoolParams = {
@@ -194,13 +284,6 @@ export async function initializePool(
     payer.publicKey
   );
 
-  const tokenAProgram = (
-    await program.provider.connection.getAccountInfo(payerTokenA)
-  ).owner;
-  const tokenBProgram = (
-    await program.provider.connection.getAccountInfo(payerTokenB)
-  ).owner;
-
   const transaction = await program.methods
     .initializePool({
       liquidity: liquidity,
@@ -220,8 +303,8 @@ export async function initializePool(
       tokenBVault,
       payerTokenA,
       payerTokenB,
-      tokenAProgram,
-      tokenBProgram,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
@@ -298,13 +381,6 @@ export async function addLiquidity(
   const tokenAMint = poolState.tokenAMint;
   const tokenBMint = poolState.tokenBMint;
 
-  const tokenAProgram = (
-    await program.provider.connection.getAccountInfo(tokenAAccount)
-  ).owner;
-  const tokenBProgram = (
-    await program.provider.connection.getAccountInfo(tokenBAccount)
-  ).owner;
-
   const transaction = await program.methods
     .addLiquidity({
       liquidityDelta,
@@ -319,8 +395,8 @@ export async function addLiquidity(
       tokenBAccount,
       tokenAVault,
       tokenBVault,
-      tokenAProgram,
-      tokenBProgram,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
       tokenAMint,
       tokenBMint,
     })
@@ -364,13 +440,6 @@ export async function removeLiquidity(
   const tokenAMint = poolState.tokenAMint;
   const tokenBMint = poolState.tokenBMint;
 
-  const tokenAProgram = (
-    await program.provider.connection.getAccountInfo(tokenAAccount)
-  ).owner;
-  const tokenBProgram = (
-    await program.provider.connection.getAccountInfo(tokenBAccount)
-  ).owner;
-
   const transaction = await program.methods
     .removeLiquidity({
       liquidityDelta,
@@ -386,8 +455,8 @@ export async function removeLiquidity(
       tokenBAccount,
       tokenAVault,
       tokenBVault,
-      tokenAProgram,
-      tokenBProgram,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
       tokenAMint,
       tokenBMint,
     })
@@ -406,21 +475,18 @@ export type SwapParams = {
   outputTokenMint: PublicKey;
   amountIn: BN;
   minimumAmountOut: BN;
-  referralTokenAccount: PublicKey | null
+  referralTokenAccount: PublicKey | null;
 };
 
-export async function swap(
-  banksClient: BanksClient,
-  params: SwapParams
-) {
+export async function swap(banksClient: BanksClient, params: SwapParams) {
   const {
-   payer,
-   pool,
-   inputTokenMint,
-   outputTokenMint,
-   amountIn,
-   minimumAmountOut,
-   referralTokenAccount
+    payer,
+    pool,
+    inputTokenMint,
+    outputTokenMint,
+    amountIn,
+    minimumAmountOut,
+    referralTokenAccount,
   } = params;
 
   const program = createCpAmmProgram();
@@ -440,17 +506,10 @@ export async function swap(
   const tokenAMint = poolState.tokenAMint;
   const tokenBMint = poolState.tokenBMint;
 
-  const tokenAProgram = (
-    await program.provider.connection.getAccountInfo(tokenAVault)
-  ).owner;
-  const tokenBProgram = (
-    await program.provider.connection.getAccountInfo(tokenBVault)
-  ).owner;
-
   const transaction = await program.methods
     .swap({
-     amountIn,
-     minimumAmountOut
+      amountIn,
+      minimumAmountOut,
     })
     .accounts({
       poolAuthority,
@@ -460,11 +519,11 @@ export async function swap(
       outputTokenAccount,
       tokenAVault,
       tokenBVault,
-      tokenAProgram,
-      tokenBProgram,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
       tokenAMint,
       tokenBMint,
-      referralTokenAccount
+      referralTokenAccount,
     })
     .transaction();
 
@@ -474,8 +533,7 @@ export async function swap(
   await processTransactionMaybeThrow(banksClient, transaction);
 }
 
-
-export type ClaimPostionFeeParams = {
+export type ClaimpositionFeeParams = {
   owner: Keypair;
   pool: PublicKey;
   position: PublicKey;
@@ -483,7 +541,7 @@ export type ClaimPostionFeeParams = {
 
 export async function claimPositionFee(
   banksClient: BanksClient,
-  params: ClaimPostionFeeParams
+  params: ClaimpositionFeeParams
 ) {
   const { owner, pool, position } = params;
 
@@ -504,13 +562,6 @@ export async function claimPositionFee(
   const tokenAMint = poolState.tokenAMint;
   const tokenBMint = poolState.tokenBMint;
 
-  const tokenAProgram = (
-    await program.provider.connection.getAccountInfo(tokenAAccount)
-  ).owner;
-  const tokenBProgram = (
-    await program.provider.connection.getAccountInfo(tokenBAccount)
-  ).owner;
-
   const transaction = await program.methods
     .claimPositionFee()
     .accounts({
@@ -522,8 +573,8 @@ export async function claimPositionFee(
       tokenBAccount,
       tokenAVault,
       tokenBVault,
-      tokenAProgram,
-      tokenBProgram,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
       tokenAMint,
       tokenBMint,
     })
@@ -542,4 +593,22 @@ export async function getPool(
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(pool);
   return program.coder.accounts.decode("Pool", Buffer.from(account.data));
+}
+
+export async function getPosition(
+  banksClient: BanksClient,
+  position: PublicKey
+): Promise<Position> {
+  const program = createCpAmmProgram();
+  const account = await banksClient.getAccount(position);
+  return program.coder.accounts.decode("Position", Buffer.from(account.data));
+}
+
+export async function getConfig(
+  banksClient: BanksClient,
+  config: PublicKey
+): Promise<Config> {
+  const program = createCpAmmProgram();
+  const account = await banksClient.getAccount(config);
+  return program.coder.accounts.decode("Config", Buffer.from(account.data));
 }

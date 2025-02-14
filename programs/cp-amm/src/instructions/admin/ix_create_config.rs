@@ -9,7 +9,7 @@ use crate::state::config::Config;
 use crate::PoolError;
 use anchor_lang::prelude::*;
 
-#[derive(AnchorSerialize, AnchorDeserialize)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug)]
 pub struct ConfigParameters {
     pub pool_fees: PoolFees,
     pub sqrt_min_price: u128,

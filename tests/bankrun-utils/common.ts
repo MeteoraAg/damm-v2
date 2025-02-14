@@ -11,10 +11,11 @@ import {
   ProgramTestContext,
   startAnchor,
 } from "solana-bankrun";
-import { CP_AMM_PROGRAM_ID } from "./cp-amm";
-import BN from "bn.js";
+import { CP_AMM_PROGRAM_ID, DECIMALS } from "./constants";
+import BN, { min } from "bn.js";
 import { createMint, getMint, getTokenAccount, mintTo, wrapSOL } from "./token";
 import { getAssociatedTokenAddressSync, NATIVE_MINT } from "@solana/spl-token";
+import { publicKey } from "@coral-xyz/anchor/dist/cjs/utils";
 
 // bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1
 export const LOCAL_ADMIN_KEYPAIR = Keypair.fromSecretKey(
@@ -102,37 +103,23 @@ export async function expectThrowsAsync(
   throw new Error("Expected an error but didn't get one");
 }
 
-interface MintSetupParams {
-  mintAmount?: bigint;
-  decimals?: number;
-  mintAuthority?: Keypair;
-}
-
 export async function setupTokenMint(
   banksClient: BanksClient,
   payer: Keypair,
-  params: MintSetupParams
-) {
+  toWallet: PublicKey,
+  rawAmount: bigint
+): Promise<PublicKey> {
   const mintKeypair = Keypair.generate();
-  const { mintAmount, decimals, mintAuthority } = params;
 
-  await createMint(
-    banksClient,
-    payer,
-    mintKeypair,
-    mintAuthority ? mintAuthority.publicKey : payer.publicKey,
-    decimals ?? 9
-  );
-
-  const multiplier = new BN(10 ** (decimals ?? 9));
+  await createMint(banksClient, payer, mintKeypair, payer.publicKey, DECIMALS);
 
   await mintTo(
     banksClient,
     payer,
     mintKeypair.publicKey,
-    mintAuthority ?? payer,
-    mintAuthority ? mintAuthority.publicKey : payer.publicKey,
-    mintAmount ?? BigInt(new BN("1000000000").mul(multiplier).toString())
+    payer,
+    toWallet,
+    rawAmount
   );
 
   return mintKeypair.publicKey;
@@ -141,35 +128,92 @@ export async function setupTokenMint(
 export async function createUsersAndFund(
   banksClient: BanksClient,
   payer: Keypair,
-  mintAuthority: Keypair,
-  count: number,
-  memeMint: PublicKey,
-  uiAmount: BN
-): Promise<Keypair[]> {
-  const users = [];
-  const mintState = await getMint(banksClient, memeMint);
-  const solMultiplier = new BN(10 ** 9);
-  const tokenMultiplier = new BN(10 ** mintState.decimals);
-
-  for (let i = 0; i < count; i++) {
-    const user = Keypair.generate();
-    users.push(user);
-
-    await mintTo(
-      banksClient,
-      payer,
-      memeMint,
-      mintAuthority,
-      user.publicKey,
-      BigInt(uiAmount.mul(tokenMultiplier).toString())
-    );
-
-    await transferSol(
-      banksClient,
-      payer,
-      user.publicKey,
-      uiAmount.mul(solMultiplier)
-    );
+  user?: Keypair
+): Promise<Keypair> {
+  if (!user) {
+    user = Keypair.generate();
   }
-  return users;
+
+  await transferSol(
+    banksClient,
+    payer,
+    user.publicKey,
+    new BN(LAMPORTS_PER_SOL)
+  );
+
+  return user;
+}
+
+export async function setupTestContext(
+  banksClient: BanksClient,
+  rootKeypair: Keypair
+) {
+  const [admin, payer, poolCreator, user] = Array(4)
+    .fill(4)
+    .map(() => Keypair.generate());
+
+  await Promise.all(
+    [admin.publicKey, payer.publicKey, user.publicKey].map((publicKey) =>
+      transferSol(banksClient, rootKeypair, publicKey, new BN(LAMPORTS_PER_SOL))
+    )
+  );
+
+  const tokenAMintKeypair = Keypair.generate();
+  const tokenBMintKeypair = Keypair.generate();
+
+  await Promise.all([
+    createMint(
+      banksClient,
+      rootKeypair,
+      tokenAMintKeypair,
+      rootKeypair.publicKey,
+      DECIMALS
+    ),
+    createMint(
+      banksClient,
+      rootKeypair,
+      tokenBMintKeypair,
+      rootKeypair.publicKey,
+      DECIMALS
+    ),
+  ]);
+  //
+  const rawAmount = 1000 * 10 ** DECIMALS;
+
+  // Mint token A to payer & user
+  await Promise.all(
+    [payer.publicKey, user.publicKey].map((publicKey) =>
+      mintTo(
+        banksClient,
+        rootKeypair,
+        tokenAMintKeypair.publicKey,
+        rootKeypair,
+        publicKey,
+        BigInt(rawAmount)
+      )
+    )
+  );
+
+  // Mint token B to payer & user
+  await Promise.all(
+    [payer.publicKey, user.publicKey].map((publicKey) =>
+      mintTo(
+        banksClient,
+        rootKeypair,
+        tokenBMintKeypair.publicKey,
+        rootKeypair,
+        publicKey,
+        BigInt(rawAmount)
+      )
+    )
+  );
+
+  return {
+    admin,
+    payer,
+    poolCreator,
+    tokenAMint: tokenAMintKeypair.publicKey,
+    tokenBMint: tokenBMintKeypair.publicKey,
+    user,
+  };
 }

@@ -12,24 +12,24 @@ pub const BASIS_POINT_MAX: u64 = 10_000;
 pub const U24_MAX: u32 = 0xffffff;
 
 pub mod activation {
-    #[cfg(not(feature = "test-bpf"))]
-    pub const SLOT_BUFFER: u64 = 9000;
-    #[cfg(feature = "test-bpf")]
+    #[cfg(not(feature = "local"))]
+    pub const SLOT_BUFFER: u64 = 9000; // 1 slot = 400 mls => 1 hour
+    #[cfg(feature = "local")]
     pub const SLOT_BUFFER: u64 = 5;
 
-    #[cfg(not(feature = "test-bpf"))]
+    #[cfg(not(feature = "local"))]
     pub const TIME_BUFFER: u64 = 3600; // 1 hour
-    #[cfg(feature = "test-bpf")]
+    #[cfg(feature = "local")]
     pub const TIME_BUFFER: u64 = 5; // 5 secs
 
-    #[cfg(not(feature = "test-bpf"))]
+    #[cfg(not(feature = "local"))]
     pub const MAX_ACTIVATION_SLOT_DURATION: u64 = SLOT_BUFFER * 24 * 31; // 31 days
-    #[cfg(feature = "test-bpf")]
+    #[cfg(feature = "local")]
     pub const MAX_ACTIVATION_SLOT_DURATION: u64 = 30;
 
-    #[cfg(not(feature = "test-bpf"))]
+    #[cfg(not(feature = "local"))]
     pub const MAX_ACTIVATION_TIME_DURATION: u64 = TIME_BUFFER * 24 * 31; // 31 days
-    #[cfg(feature = "test-bpf")]
+    #[cfg(feature = "local")]
     pub const MAX_ACTIVATION_TIME_DURATION: u64 = 30;
 
     pub const FIVE_MINUTES_SLOT_BUFFER: u64 = SLOT_BUFFER / 12; // 5 minutes
