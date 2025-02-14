@@ -6,7 +6,6 @@ use crate::params::customizable_params::CustomizableParams;
 use crate::params::pool_fees::PartnerInfo;
 use crate::params::pool_fees::PoolFees;
 use crate::state::config::Config;
-use crate::state::CollectFeeMode;
 use crate::PoolError;
 use anchor_lang::prelude::*;
 
@@ -18,7 +17,7 @@ pub struct ConfigParameters {
     pub vault_config_key: Pubkey,
     pub pool_creator_authority: Pubkey,
     pub activation_type: u8,
-    pub collect_fee_mode: CollectFeeMode,
+    pub collect_fee_mode: u8,
     pub index: u64,
 }
 

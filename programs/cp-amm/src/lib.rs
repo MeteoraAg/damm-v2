@@ -20,7 +20,11 @@ pub mod tests;
 
 pub mod params;
 
-declare_id!("3VcoGUqpWGa9a2GCCDM3osCH6bYoaNMoV9J1cpmQzSwD");
+#[cfg(feature = "local")]
+declare_id!("6zQfrtZfRodgeFYdWxsqhMkTPyt8LSM1mZvgzJJ4GMDz");
+
+#[cfg(not(feature = "local"))]
+declare_id!("2JyBCMjaYC6EE2DhzB5CxgAfTrSiX8QyYXfqX59qHuu8");
 
 #[program]
 pub mod cp_amm {
@@ -30,7 +34,7 @@ pub mod cp_amm {
     /// Create config
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,
-        config_parameters: ConfigParameters,
+        config_parameters: ConfigParameters
     ) -> Result<()> {
         instructions::handle_create_config(ctx, config_parameters)
     }
@@ -57,7 +61,7 @@ pub mod cp_amm {
     }
     pub fn remove_liquidity(
         ctx: Context<RemoveLiquidity>,
-        params: RemoveLiquidityParameters,
+        params: RemoveLiquidityParameters
     ) -> Result<()> {
         instructions::handle_remove_liquidity(ctx, params)
     }
@@ -68,5 +72,9 @@ pub mod cp_amm {
 
     pub fn swap(ctx: Context<Swap>, params: SwapParameters) -> Result<()> {
         instructions::handle_swap(ctx, params)
+    }
+
+    pub fn claim_position_fee(ctx: Context<ClaimPositionFee>) -> Result<()> {
+        instructions::handle_claim_position_fee(ctx)
     }
 }

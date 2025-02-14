@@ -14,6 +14,7 @@ no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
 default = []
+local = []
 
 [dependencies]
 anchor-lang = {workspace = true, features = ["event-cpi"]}
