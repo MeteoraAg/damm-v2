@@ -71,27 +71,6 @@ export async function transferSol(
   await banksClient.processTransaction(transaction);
 }
 
-export async function advanceClockBySeconds(
-  context: ProgramTestContext,
-  seconds: BN
-) {
-  const clock = await context.banksClient.getClock();
-  context.setClock(
-    new Clock(
-      clock.slot,
-      clock.epochStartTimestamp,
-      clock.epoch,
-      clock.leaderScheduleEpoch,
-      clock.unixTimestamp + BigInt(seconds.toString())
-    )
-  );
-}
-
-export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
-  const clock = await context.banksClient.getClock();
-  context.warpToSlot(clock.slot + BigInt(slots.toString()));
-}
-
 export async function processTransactionMaybeThrow(
   banksClient: BanksClient,
   transaction: Transaction
@@ -123,7 +102,7 @@ export async function expectThrowsAsync(
   throw new Error("Expected an error but didn't get one");
 }
 
-interface MemeMintSetupParams {
+interface MintSetupParams {
   mintAmount?: bigint;
   decimals?: number;
   mintAuthority?: Keypair;
@@ -132,7 +111,7 @@ interface MemeMintSetupParams {
 export async function setupTokenMint(
   banksClient: BanksClient,
   payer: Keypair,
-  params: MemeMintSetupParams
+  params: MintSetupParams
 ) {
   const mintKeypair = Keypair.generate();
   const { mintAmount, decimals, mintAuthority } = params;
@@ -157,11 +136,6 @@ export async function setupTokenMint(
   );
 
   return mintKeypair.publicKey;
-}
-
-export interface PoolSetupParams {
-  tokenAAmount: BN;
-  tokenBAmount: BN;
 }
 
 export async function createUsersAndFund(
