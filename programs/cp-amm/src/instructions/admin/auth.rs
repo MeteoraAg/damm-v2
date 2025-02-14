@@ -1,8 +1,7 @@
 use anchor_lang::prelude::*;
 
 pub mod admin {
-    use anchor_lang::prelude::Pubkey;
-    use anchor_lang::solana_program::pubkey;
+    use anchor_lang::{prelude::Pubkey, pubkey};
 
     pub const ADMINS: [Pubkey; 3] = [
         pubkey!("5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"),

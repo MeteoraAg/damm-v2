@@ -5,3 +5,5 @@ pub use pool::*;
 pub mod position;
 pub use position::*;
 pub mod fee;
+pub mod token_badge;
+pub use token_badge::*;

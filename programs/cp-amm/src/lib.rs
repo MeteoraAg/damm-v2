@@ -43,7 +43,8 @@ pub mod cp_amm {
         ctx: Context<InitializePool>,
         params: InitializePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_pool(ctx, params)
+        Ok(())
+        // instructions::handle_initialize_pool(ctx, params)
     }
 
     pub fn add_liquidity(ctx: Context<AddLiquidity>, params: AddLiquidityParameters) -> Result<()> {

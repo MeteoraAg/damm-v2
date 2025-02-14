@@ -42,8 +42,18 @@ pub fn mul_shr(x: u128, y: u128, offset: u8, rounding: Rounding) -> Option<u128>
 /// (x << offset) / y
 #[inline]
 pub fn shl_div(x: u128, y: u128, offset: u8, rounding: Rounding) -> Option<u128> {
-    let scale = 1u128.checked_shl(offset.into())?;
-    mul_div(x, scale, y, rounding)
+    if y == 0 {
+        return None;
+    }
+    let denominator = U256::from(y);
+    let prod = U256::from(x).checked_shl(offset as usize)?;
+    match rounding {
+        Rounding::Up => prod.div_ceil(denominator).try_into().ok(),
+        Rounding::Down => {
+            let (quotient, _) = prod.div_rem(denominator);
+            quotient.try_into().ok()
+        }
+    }
 }
 
 /// (x * y) / denominator

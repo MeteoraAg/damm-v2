@@ -150,7 +150,7 @@ pub fn handle_swap(ctx: Context<Swap>, params: SwapParameters) -> Result<()> {
         &ctx.accounts.output_token_account,
         output_program,
         swap_result.output_amount,
-        *ctx.bumps.get("pool_authority").unwrap(),
+        ctx.bumps.pool_authority,
     )?;
     // send to referral
     if is_referral {
@@ -165,7 +165,7 @@ pub fn handle_swap(ctx: Context<Swap>, params: SwapParameters) -> Result<()> {
                 &ctx.accounts.referral_token_account.clone().unwrap(),
                 &ctx.accounts.token_b_program,
                 swap_result.referral_fee,
-                *ctx.bumps.get("pool_authority").unwrap(),
+                ctx.bumps.pool_authority,
             )?;
         } else {
             transfer_from_pool(
@@ -175,7 +175,7 @@ pub fn handle_swap(ctx: Context<Swap>, params: SwapParameters) -> Result<()> {
                 &ctx.accounts.referral_token_account.clone().unwrap(),
                 &ctx.accounts.token_a_program,
                 swap_result.referral_fee,
-                *ctx.bumps.get("pool_authority").unwrap(),
+                ctx.bumps.pool_authority,
             )?;
         }
     }

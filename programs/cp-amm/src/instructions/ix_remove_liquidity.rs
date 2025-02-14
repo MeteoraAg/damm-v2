@@ -92,7 +92,7 @@ pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidity>, params: RemoveLiqu
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_a_program,
         amount_a,
-        *ctx.bumps.get("pool_authority").unwrap(),
+        ctx.bumps.pool_authority,
     )?;
 
 
@@ -103,7 +103,7 @@ pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidity>, params: RemoveLiqu
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_b_program,
         amount_b,
-        *ctx.bumps.get("pool_authority").unwrap(),
+        ctx.bumps.pool_authority,
     )?;
 
     // TODO emit event

@@ -1,6 +1,5 @@
 pub mod alpha_vault {
-    use anchor_lang::prelude::Pubkey;
-    use anchor_lang::solana_program::declare_id;
+    use anchor_lang::{declare_id, prelude::Pubkey};
 
     #[cfg(not(feature = "test-bpf"))]
     declare_id!("vaU6kP7iNEGkbmPkLmZfGwiGxd4Mob24QQCie5R9kd2");

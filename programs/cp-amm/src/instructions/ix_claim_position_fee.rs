@@ -78,7 +78,7 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFee>) -> Result<()> {
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_a_program,
         position.fee_a_pending,
-        *ctx.bumps.get("pool_authority").unwrap(),
+        ctx.bumps.pool_authority,
     )?;
 
     transfer_from_pool(
@@ -88,7 +88,7 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFee>) -> Result<()> {
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_b_program,
         position.fee_b_pending,
-        *ctx.bumps.get("pool_authority").unwrap(),
+        ctx.bumps.pool_authority,
     )?;
 
     position.reset_pending_fee();

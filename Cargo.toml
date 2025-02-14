@@ -12,3 +12,11 @@ codegen-units = 1
 opt-level = 3
 incremental = false
 codegen-units = 1
+
+
+[workspace.dependencies]
+anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
+anchor-spl = "0.30.1"
+anchor-client = "0.30.1"
+solana-program = { version = "2.1.13" }
+bytemuck="1.21.0"

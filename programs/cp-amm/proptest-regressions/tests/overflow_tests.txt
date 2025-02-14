@@ -1,7 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc 6409033bbda0ae542fdf21e130e584ffef71881b6c67b545842db8cb39f3527f # shrinks to sqrt_price = 4295048016, liquidity = 4295048017

@@ -1,5 +1,5 @@
-use anchor_lang::prelude::InterfaceAccount;
 use anchor_lang::prelude::*;
+use anchor_lang::{prelude::InterfaceAccount, solana_program::program::invoke_signed};
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -7,7 +7,7 @@ use anchor_spl::{
         extension::{
             self,
             transfer_fee::{TransferFee, MAX_FEE_BASIS_POINTS},
-            BaseStateWithExtensions, StateWithExtensions,
+            BaseStateWithExtensions, ExtensionType, StateWithExtensions,
         },
     },
     token_interface::{Mint, TokenAccount, TokenInterface},
@@ -218,7 +218,7 @@ pub fn transfer_from_user<'a, 'c: 'info, 'info>(
         authority.to_account_info(),
     ];
 
-    solana_program::program::invoke_signed(&instruction, &account_infos, &[])?;
+    invoke_signed(&instruction, &account_infos, &[])?;
 
     Ok(())
 }
@@ -252,7 +252,26 @@ pub fn transfer_from_pool<'c: 'info, 'info>(
         pool_authority.to_account_info(),
     ];
 
-    solana_program::program::invoke_signed(&instruction, &account_infos, &[&signer_seeds[..]])?;
+    invoke_signed(&instruction, &account_infos, &[&signer_seeds[..]])?;
 
     Ok(())
+}
+
+pub fn is_supported_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
+    let mint_info = mint_account.to_account_info();
+    if *mint_info.owner == Token::id() {
+        return Ok(true);
+    }
+    let mint_data = mint_info.try_borrow_data()?;
+    let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
+    let extensions = mint.get_extension_types()?;
+    for e in extensions {
+        if e != ExtensionType::TransferFeeConfig
+            && e != ExtensionType::MetadataPointer
+            && e != ExtensionType::TokenMetadata
+        {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
