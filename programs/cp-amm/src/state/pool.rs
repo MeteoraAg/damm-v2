@@ -10,7 +10,7 @@ use crate::{
     },
     safe_math::SafeMath,
     u128x128_math::{ Rounding, mul_div },
-    u64x64_math::SCALE_OFFSET,
+    constants::SCALE_OFFSET,
     utils_math::{ safe_shl_div_cast, safe_mul_shr_cast, safe_mul_div_cast },
     PoolError,
 };
@@ -93,8 +93,6 @@ pub struct Pool {
     pub _padding_0: [u8; 3],
     /// Farming reward information
     pub reward_infos: [RewardInfo; NUM_REWARDS],
-    /// reward_a_per_token_stored
-    pub reward_per_token_stored: [u128; NUM_REWARDS],
     /// cummulative
     pub fee_a_per_liquidity: u128,
     /// cummulative
@@ -117,8 +115,14 @@ pub struct RewardInfo {
     pub reward_duration: u64, // 8
     /// TODO check whether we need to store it in pool
     pub reward_duration_end: u64, // 8
+    /// reward token flag
+    pub reward_token_flag: u8,
+    /// padding
+    pub _padding_0: [u8; 7],
     /// TODO check whether we need to store it in pool
     pub reward_rate: u128, // 8
+    /// reward_a_per_token_stored
+    pub reward_per_token_stored: u128,
     /// The last time reward states were updated.
     pub last_update_time: u64, // 8
     /// Accumulated seconds where when farm distribute rewards, but the bin is empty. The reward will be accumulated for next reward time window.
@@ -141,12 +145,14 @@ impl RewardInfo {
         mint: Pubkey,
         vault: Pubkey,
         funder: Pubkey,
-        reward_duration: u64
+        reward_duration: u64,
+        reward_token_flag: u8
     ) {
         self.mint = mint;
         self.vault = vault;
         self.funder = funder;
         self.reward_duration = reward_duration;
+        self.reward_token_flag = reward_token_flag;
     }
 
     pub fn update_last_update_time(&mut self, current_time: u64) {
@@ -176,6 +182,12 @@ impl RewardInfo {
         )
     }
 
+    pub fn accumulate_reward_per_token_stored(&mut self, amount: u128) -> Result<()> {
+        self.reward_per_token_stored = self.reward_per_token_stored.safe_add(amount)?;
+
+        Ok(())
+    }
+
     /// Farming rate after funding
     pub fn update_rate_after_funding(
         &mut self,
@@ -183,10 +195,9 @@ impl RewardInfo {
         funding_amount: u64
     ) -> Result<()> {
         let reward_duration_end = self.reward_duration_end;
-        let total_amount: u64;
 
-        if current_time >= reward_duration_end {
-            total_amount = funding_amount;
+        let total_amount = if current_time >= reward_duration_end {
+            funding_amount
         } else {
             let remaining_seconds = reward_duration_end.safe_sub(current_time)?;
             let leftover: u64 = safe_mul_shr_cast(
@@ -196,8 +207,10 @@ impl RewardInfo {
                 Rounding::Down
             )?;
 
-            total_amount = leftover.safe_add(funding_amount)?;
-        }
+            leftover.safe_add(funding_amount)?;
+
+            leftover
+        };
 
         self.reward_rate = safe_shl_div_cast(
             total_amount.into(),
@@ -542,9 +555,7 @@ impl Pool {
                             self.liquidity as u64
                         )?;
 
-                    self.reward_per_token_stored[reward_idx] = self.reward_per_token_stored[
-                        reward_idx
-                    ].safe_add(reward_per_token_stored_delta)?;
+                    reward_info.accumulate_reward_per_token_stored(reward_per_token_stored_delta)?;
                 } else {
                     // Time period which the reward was distributed to empty bin
                     let time_period =

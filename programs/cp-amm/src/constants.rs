@@ -11,6 +11,9 @@ pub const BASIS_POINT_MAX: u64 = 10_000;
 
 pub const U24_MAX: u32 = 0xffffff;
 
+// Number of bits to scale. This will decide the position of the radix point.
+pub const SCALE_OFFSET: u8 = 64;
+
 // Number of rewards supported by pool
 pub const NUM_REWARDS: usize = 2;
 

@@ -1,11 +1,11 @@
-use crate::constants::NUM_REWARDS;
+use crate::{ constants::NUM_REWARDS, token::transfer_from_user };
 use crate::error::PoolError;
 use crate::event::EvtFundReward;
 use crate::state::Pool;
 use crate::math::safe_math::SafeMath;
-use crate::math::u64x64_math::SCALE_OFFSET;
+use crate::constants::SCALE_OFFSET;
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface, TransferChecked };
+use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 use ruint::aliases::U256;
 
 #[event_cpi]
@@ -41,19 +41,6 @@ impl<'info> FundReward<'info> {
 
         Ok(())
     }
-
-    fn transfer_from_funder_to_vault(&self, amount: u64) -> Result<()> {
-        anchor_spl::token_2022::transfer_checked(
-            CpiContext::new(self.token_program.to_account_info(), TransferChecked {
-                from: self.funder_token_account.to_account_info(),
-                to: self.reward_vault.to_account_info(),
-                authority: self.funder.to_account_info(),
-                mint: self.reward_mint.to_account_info(),
-            }),
-            amount,
-            self.reward_mint.decimals
-        )
-    }
 }
 
 pub fn handle_fund_reward(
@@ -75,9 +62,7 @@ pub fn handle_fund_reward(
 
     let total_amount = if carry_forward {
         let (accumulated_ineligible_reward, _) = U256::from(reward_info.reward_rate)
-            .safe_mul(U256::from(
-                reward_info.cumulative_seconds_with_empty_liquidity_reward,
-            ))?
+            .safe_mul(U256::from(reward_info.cumulative_seconds_with_empty_liquidity_reward))?
             .overflowing_shr(SCALE_OFFSET.into());
 
         let carry_forward_ineligible_reward: u64 = accumulated_ineligible_reward
@@ -104,7 +89,14 @@ pub fn handle_fund_reward(
 
     if amount > 0 {
         // Transfer without ineligible reward because it's already in the vault
-        ctx.accounts.transfer_from_funder_to_vault(amount)?;
+        transfer_from_user(
+            &ctx.accounts.funder,
+            &ctx.accounts.reward_mint,
+            &ctx.accounts.funder_token_account,
+            &ctx.accounts.reward_vault,
+            &ctx.accounts.token_program,
+            amount
+        )?;
     }
 
     emit_cpi!(EvtFundReward {

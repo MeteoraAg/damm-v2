@@ -4,6 +4,7 @@ use crate::constants::{ MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS };
 use crate::error::PoolError;
 use crate::event::EvtInitializeReward;
 use crate::state::pool::Pool;
+use crate::token::get_token_program_flags;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 
@@ -38,7 +39,6 @@ pub struct InitializeReward<'info> {
 
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
 }
 
 impl<'info> InitializeReward<'info> {
@@ -65,17 +65,21 @@ pub fn handle_initialize_reward(
     reward_duration: u64,
     funder: Pubkey
 ) -> Result<()> {
+    // TODO validate reward mints
+
+
     let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(reward_index, reward_duration)?;
 
-    let mut pool: std::cell::RefMut<'_, Pool> = ctx.accounts.pool.load_mut()?;
+    let mut pool = ctx.accounts.pool.load_mut()?;
     let reward_info = &mut pool.reward_infos[reward_index];
 
     reward_info.init_reward(
         ctx.accounts.reward_mint.key(),
         ctx.accounts.reward_vault.key(),
         funder,
-        reward_duration
+        reward_duration,
+        get_token_program_flags(&ctx.accounts.reward_mint).into()
     );
 
     emit_cpi!(EvtInitializeReward {
