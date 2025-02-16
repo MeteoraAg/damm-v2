@@ -240,6 +240,10 @@ pub enum PoolError {
 
     #[msg("Invalid token badge")]
     InvalidTokenBadge,
+    
+    #[msg("Reward mint is not support")]
+    RewardMintIsNotSupport,
+
     #[msg("Invalid reward index")]
     InvalidRewardIndex,
 

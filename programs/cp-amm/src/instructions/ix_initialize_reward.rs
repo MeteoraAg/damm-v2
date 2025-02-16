@@ -4,7 +4,7 @@ use crate::constants::{ MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS };
 use crate::error::PoolError;
 use crate::event::EvtInitializeReward;
 use crate::state::pool::Pool;
-use crate::token::get_token_program_flags;
+use crate::token::{ get_token_program_flags, is_supported_mint };
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 
@@ -65,8 +65,9 @@ pub fn handle_initialize_reward(
     reward_duration: u64,
     funder: Pubkey
 ) -> Result<()> {
-    // TODO validate reward mints
 
+    // validate reward mint
+    require!(is_supported_mint(&ctx.accounts.reward_mint)?, PoolError::RewardMintIsNotSupport);
 
     let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(reward_index, reward_duration)?;

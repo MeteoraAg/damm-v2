@@ -96,7 +96,7 @@ pub fn handle_claim_reward(ctx: Context<ClaimReward>, index: u64) -> Result<()> 
             &ctx.accounts.user_token_account,
             &ctx.accounts.token_program,
             total_reward,
-            *ctx.bumps.get("pool_authority").unwrap()
+            ctx.bumps.pool_authority
         )?;
     }
 
