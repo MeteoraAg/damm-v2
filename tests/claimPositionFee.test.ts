@@ -80,7 +80,7 @@ describe("Claim position fee", () => {
     );
 
     liquidity = new BN(0);
-    sqrtPrice = new BN(MIN_SQRT_PRICE);
+    sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
     const initPoolParams: InitializePoolParams = {
       payer: payer,
@@ -103,12 +103,12 @@ describe("Claim position fee", () => {
     );
   });
 
-  it.skip("User claim position fee", async () => {
+  it("User claim position fee", async () => {
     const addLiquidityParams: AddLiquidityParams = {
       owner: user,
       pool,
       position,
-      liquidityDelta: new BN(100),
+      liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
       tokenAAmountThreshold: new BN(200),
       tokenBAmountThreshold: new BN(200),
     };

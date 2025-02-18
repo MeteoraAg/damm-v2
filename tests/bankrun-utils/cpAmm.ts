@@ -159,64 +159,6 @@ export async function createConfigIx(
   return config;
 }
 
-export async function updateConfig(
-  banksClient: BanksClient,
-  admin: Keypair,
-  config: PublicKey,
-  param: number,
-  value: number
-): Promise<void> {
-  const program = createCpAmmProgram();
-
-  const transaction = await program.methods
-    .updateConfig(param, value)
-    .accounts({
-      config,
-      admin: admin.publicKey,
-    })
-    .transaction();
-
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
-
-  // Check data
-  // const configState = await getConfig(banksClient, config);
-  // expect(configState.vaultConfigKey.toString()).eq(
-  //   params.vaultConfigKey.toString()
-  // );
-}
-
-export async function updatePoolFee(
-  banksClient: BanksClient,
-  admin: Keypair,
-  config: PublicKey,
-  param: number,
-  value: BN
-): Promise<void> {
-  const program = createCpAmmProgram();
-
-  const transaction = await program.methods
-    .updatePoolFee(param, value)
-    .accounts({
-      config,
-      admin: admin.publicKey
-    })
-    .transaction();
-
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
-
-  // Check data
-  // const configState = await getConfig(banksClient, config);
-  // expect(configState.vaultConfigKey.toString()).eq(
-  //   params.vaultConfigKey.toString()
-  // );
-}
-
 export async function closeConfigIx(
   banksClient: BanksClient,
   admin: Keypair,
@@ -229,7 +171,6 @@ export async function closeConfigIx(
     .accounts({
       config,
       admin: admin.publicKey,
-      rentReceiver,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
@@ -283,6 +224,24 @@ export async function initializePool(
     tokenBMint,
     payer.publicKey
   );
+
+  console.log({
+    creator,
+    payer: payer.publicKey,
+    config,
+    poolAuthority,
+    pool,
+    position,
+    tokenAMint,
+    tokenBMint,
+    tokenAVault,
+    tokenBVault,
+    payerTokenA,
+    payerTokenB,
+    tokenAProgram: TOKEN_PROGRAM_ID,
+    tokenBProgram: TOKEN_PROGRAM_ID,
+    systemProgram: SystemProgram.programId,
+  });
 
   const transaction = await program.methods
     .initializePool({

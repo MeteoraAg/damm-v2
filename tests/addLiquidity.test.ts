@@ -3,6 +3,7 @@ import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
   LOCAL_ADMIN_KEYPAIR,
   createUsersAndFund,
+  randomID,
   setupTestContext,
   setupTokenMint,
   startTest,
@@ -35,7 +36,6 @@ describe("Add liquidity", () => {
   let sqrtPrice: BN;
   let pool: PublicKey;
   let position: PublicKey;
-  const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
     context = await startTest();
@@ -50,7 +50,7 @@ describe("Add liquidity", () => {
 
     // create config
     const createConfigParams: CreateConfigParams = {
-      index: new BN(configId),
+      index: new BN(randomID()),
       poolFees: {
         tradeFeeNumerator: new BN(2_500_000),
         protocolFeePercent: 10,

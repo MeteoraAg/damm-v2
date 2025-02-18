@@ -3,6 +3,7 @@ import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
   LOCAL_ADMIN_KEYPAIR,
   createUsersAndFund,
+  randomID,
   setupTestContext,
   setupTokenMint,
   startTest,
@@ -39,7 +40,6 @@ describe("Swap token", () => {
   let position: PublicKey;
   let inputTokenMint: PublicKey;
   let outputTokenMint: PublicKey;
-  const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
     context = await startTest();
@@ -56,7 +56,7 @@ describe("Swap token", () => {
 
     // create config
     const createConfigParams: CreateConfigParams = {
-      index: new BN(configId),
+      index: new BN(randomID()),
       poolFees: {
         tradeFeeNumerator: new BN(2_500_000),
         protocolFeePercent: 10,
@@ -78,7 +78,7 @@ describe("Swap token", () => {
       createConfigParams
     );
 
-    liquidity = new BN(0);
+    liquidity = new BN(100);
     sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
     const initPoolParams: InitializePoolParams = {
@@ -102,12 +102,12 @@ describe("Swap token", () => {
     );
   });
 
-  it.skip("User swap A->B", async () => {
+  it("User swap A->B", async () => {
     const addLiquidityParams: AddLiquidityParams = {
       owner: user,
       pool,
       position,
-      liquidityDelta: new BN(100),
+      liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
       tokenAAmountThreshold: new BN(200),
       tokenBAmountThreshold: new BN(200),
     };

@@ -4,6 +4,7 @@ import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
   LOCAL_ADMIN_KEYPAIR,
   createUsersAndFund,
+  randomID,
   startTest,
   transferSol,
 } from "./bankrun-utils/common";
@@ -22,7 +23,6 @@ import { shlDiv } from "./bankrun-utils/math";
 
 describe("Admin function: Create config", () => {
   let context: ProgramTestContext;
-  const configId = Math.floor(Math.random() * 1000);
   let admin: Keypair;
   let createConfigParams: CreateConfigParams;
 
@@ -31,7 +31,7 @@ describe("Admin function: Create config", () => {
     admin = await createUsersAndFund(context.banksClient, context.payer);
 
     createConfigParams = {
-      index: new BN(configId),
+      index: new BN(randomID()),
       poolFees: {
         tradeFeeNumerator: new BN(2_500_000),
         protocolFeePercent: 10,

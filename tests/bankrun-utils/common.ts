@@ -217,3 +217,7 @@ export async function setupTestContext(
     user,
   };
 }
+
+export function randomID(min = 0, max = 10000) {
+  return Math.floor(Math.random() * (max - min) + min);
+}

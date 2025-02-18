@@ -3,6 +3,7 @@ import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
   LOCAL_ADMIN_KEYPAIR,
   createUsersAndFund,
+  randomID,
   setupTestContext,
   setupTokenMint,
   startTest,
@@ -28,11 +29,11 @@ describe("Create position", () => {
   let admin: Keypair;
   let user: Keypair;
   let payer: Keypair;
-  let config: PublicKey;
   let liquidity: BN;
   let sqrtPrice: BN;
-  let pool: PublicKey;
-  const configId = Math.floor(Math.random() * 1000);
+  let poolCreator: PublicKey;
+  let tokenAMint: PublicKey;
+  let tokenBMint: PublicKey;
 
   beforeEach(async () => {
     context = await startTest();
@@ -44,10 +45,15 @@ describe("Create position", () => {
     payer = prepareContext.payer;
     user = prepareContext.user;
     admin = prepareContext.admin;
+    tokenAMint = prepareContext.tokenAMint;
+    tokenBMint = prepareContext.tokenBMint;
+    poolCreator = prepareContext.poolCreator.publicKey;
+  });
 
+  it("User create a position", async () => {
     // create config
     const createConfigParams: CreateConfigParams = {
-      index: new BN(configId),
+      index: new BN(randomID()),
       poolFees: {
         tradeFeeNumerator: new BN(2_500_000),
         protocolFeePercent: 10,
@@ -63,7 +69,7 @@ describe("Create position", () => {
       collectFeeMode: 0,
     };
 
-    config = await createConfigIx(
+    const config = await createConfigIx(
       context.banksClient,
       admin,
       createConfigParams
@@ -74,26 +80,21 @@ describe("Create position", () => {
 
     const initPoolParams: InitializePoolParams = {
       payer: payer,
-      creator: prepareContext.poolCreator.publicKey,
+      creator: poolCreator,
       config,
-      tokenAMint: prepareContext.tokenAMint,
-      tokenBMint: prepareContext.tokenBMint,
+      tokenAMint: tokenAMint,
+      tokenBMint: tokenBMint,
       liquidity,
       sqrtPrice,
       activationPoint: null,
     };
 
-    const result = await initializePool(context.banksClient, initPoolParams);
-    pool = result.pool;
-  });
-
-  it("User create a position", async () => {
+    const { pool } = await initializePool(context.banksClient, initPoolParams);
     const position = await createPosition(
       context.banksClient,
       payer,
       user.publicKey,
       pool
     );
-    console.log(position);
   });
 });
