@@ -3,18 +3,24 @@ use std::ops::Deref;
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::{ solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program };
+use anchor_lang::InstructionData;
+use anchor_lang::ToAccountMetas;
 use anyhow::*;
 
-use cp_amm::accounts;
+use cp_amm::params::pool_fees::PoolFees;
+use cp_amm::{ accounts, ConfigParameters };
 use cp_amm::instruction;
+use cp_amm::state::Config;
 
 use crate::common::pda::derive_event_authority_pda;
 
 #[derive(Debug)]
 pub struct UpdateConfigParams {
     pub config: Pubkey,
-    pub param: u8,
-    pub value: u8,
+    pub trade_fee_numerator: u64,
+    pub protocol_fee_percent: u8,
+    pub partner_fee_percent: u8,
+    pub referral_fee_percent: u8,
 }
 
 pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
@@ -23,85 +29,96 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
     transaction_config: RpcSendTransactionConfig,
     compute_unit_price: Option<Instruction>
 ) -> Result<Pubkey> {
-    let UpdateConfigParams { config, param, value } = params;
+    let UpdateConfigParams {
+        config,
+        trade_fee_numerator,
+        protocol_fee_percent,
+        partner_fee_percent,
+        referral_fee_percent,
+    } = params;
 
-    if program.rpc().get_account_data(&config).is_ok() {
-        let event_authority = derive_event_authority_pda();
-        let accounts = accounts::UpdateConfigCtx {
-            config,
-            admin: program.payer(),
-            event_authority,
-            program: cp_amm::ID,
-        };
+    let mut index = 0u64;
+    loop {
+        let (config_pda, _bump) = Pubkey::find_program_address(
+            &[b"config", &index.to_le_bytes()],
+            &cp_amm::ID
+        );
 
-        let ix = instruction::UpdateConfig {
-            param,
-            value,
-        };
-
-        let mut request_builder = program.request();
-
-        if let Some(compute_unit_price) = compute_unit_price {
-            request_builder = request_builder.instruction(compute_unit_price);
+        if config_pda.eq(&config) {
+            break;
         }
 
-        let signature = request_builder
-            .accounts(accounts)
-            .args(ix)
-            .send_with_spinner_and_config(transaction_config);
+        index += 1;
+    }
+    let config_state = program.account::<Config>(config).unwrap();
 
-        println!("Update config {config}. Signature: {signature:#?}");
+    let event_authority = derive_event_authority_pda();
+    let mut request_builder = program.request();
+    // 1 close old config
+    let close_config_data = (instruction::CloseConfig {}).data();
+    let close_config_accounts = (accounts::CloseConfigCtx {
+        config,
+        admin: program.payer(),
+        event_authority,
+        program: cp_amm::ID,
+    }).to_account_metas(None);
 
-        signature?;
+    let close_config_ix = Instruction {
+        data: close_config_data,
+        accounts: close_config_accounts,
+        program_id: cp_amm::ID,
+    };
+
+    // 2. create config
+    let pool_fees = PoolFees {
+        trade_fee_numerator,
+        protocol_fee_percent,
+        partner_fee_percent,
+        referral_fee_percent,
+        dynamic_fee: None,
+    };
+    let config_parameters = ConfigParameters {
+        pool_fees,
+        vault_config_key: config_state.vault_config_key,
+        pool_creator_authority: config_state.pool_creator_authority,
+        activation_type: config_state.activation_type,
+        sqrt_min_price: config_state.sqrt_min_price,
+        sqrt_max_price: config_state.sqrt_max_price,
+        collect_fee_mode: config_state.collect_fee_mode,
+        index,
+    };
+
+    let create_config_data = (instruction::CreateConfig {
+        config_parameters,
+    }).data();
+
+    let create_config_accounts = (accounts::CreateConfigCtx {
+        config,
+        admin: program.payer(),
+        system_program: anchor_client::solana_sdk::system_program::ID,
+        event_authority,
+        program: cp_amm::ID,
+    }).to_account_metas(None);
+
+    let create_config_ix = Instruction {
+        data: create_config_data,
+        accounts: create_config_accounts,
+        program_id: cp_amm::ID,
+    };
+
+    //
+    if let Some(compute_unit_price) = compute_unit_price {
+        request_builder = request_builder.instruction(compute_unit_price);
     }
 
-    Ok(config)
-}
+    request_builder = request_builder.instruction(close_config_ix);
+    request_builder = request_builder.instruction(create_config_ix);
 
-#[derive(Debug)]
-pub struct UpdatePoolFeeParams {
-    pub config: Pubkey,
-    pub param: u8,
-    pub value: u64,
-}
+    let signature = request_builder.send_with_spinner_and_config(transaction_config);
 
-pub fn update_pool_fee<C: Deref<Target = impl Signer> + Clone>(
-    params: UpdatePoolFeeParams,
-    program: &Program<C>,
-    transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>
-) -> Result<Pubkey> {
-    let UpdatePoolFeeParams { config, param, value } = params;
+    println!("Update config {config} Signature: {signature:#?}");
 
-    if program.rpc().get_account_data(&config).is_ok() {
-        let event_authority = derive_event_authority_pda();
-        let accounts = accounts::UpdateConfigCtx {
-            config,
-            admin: program.payer(),
-            event_authority,
-            program: cp_amm::ID,
-        };
-
-        let ix = instruction::UpdatePoolFee {
-            param,
-            value,
-        };
-
-        let mut request_builder = program.request();
-
-        if let Some(compute_unit_price) = compute_unit_price {
-            request_builder = request_builder.instruction(compute_unit_price);
-        }
-
-        let signature = request_builder
-            .accounts(accounts)
-            .args(ix)
-            .send_with_spinner_and_config(transaction_config);
-
-        println!("Update config {config}. Signature: {signature:#?}");
-
-        signature?;
-    }
+    signature?;
 
     Ok(config)
 }

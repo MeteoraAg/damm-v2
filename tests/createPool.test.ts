@@ -17,8 +17,8 @@ import {
   getPosition,
   initializePool,
   InitializePoolParams,
-  U128_MAX,
-  U64_MAX,
+  MAX_SQRT_PRICE,
+  MIN_SQRT_PRICE,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -35,7 +35,10 @@ describe("Initialize pool", () => {
 
   beforeEach(async () => {
     context = await startTest();
-    const prepareContext = await setupTestContext(context.banksClient, context.payer);
+    const prepareContext = await setupTestContext(
+      context.banksClient,
+      context.payer
+    );
 
     creator = prepareContext.poolCreator.publicKey;
     payer = prepareContext.payer;
@@ -51,8 +54,8 @@ describe("Initialize pool", () => {
         referralFeePercent: 0,
         dynamicFee: null,
       },
-      sqrtMinPrice: new BN(0),
-      sqrtMaxPrice: new BN(U128_MAX),
+      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
       vaultConfigKey: PublicKey.default,
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
@@ -68,7 +71,7 @@ describe("Initialize pool", () => {
 
   it("Admin initialize pool", async () => {
     liquidity = new BN(0);
-    sqrtPrice = new BN(1);
+    sqrtPrice = new BN(MIN_SQRT_PRICE);
 
     const initPoolParams: InitializePoolParams = {
       payer: payer,

@@ -14,9 +14,9 @@ import {
   closeConfigIx,
   createConfigIx,
   CreateConfigParams,
+  MAX_SQRT_PRICE,
+  MIN_SQRT_PRICE,
   OFFSET,
-  U128_MAX,
-  U64_MAX,
 } from "./bankrun-utils";
 import { shlDiv } from "./bankrun-utils/math";
 
@@ -39,8 +39,8 @@ describe("Admin function: Create config", () => {
         referralFeePercent: 0,
         dynamicFee: null,
       },
-      sqrtMinPrice: new BN(0),
-      sqrtMaxPrice: new BN(U128_MAX),
+      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
       vaultConfigKey: PublicKey.default,
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
@@ -89,8 +89,8 @@ describe("Admin function: Create config", () => {
           variableFeeControl,
         },
       },
-      sqrtMinPrice: new BN(0),
-      sqrtMaxPrice: new BN(U128_MAX),
+      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
       vaultConfigKey: PublicKey.default,
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,

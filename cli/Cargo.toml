@@ -14,7 +14,7 @@ e2e-test = ["local"]
 [dependencies]
 anchor-lang = { workspace = true }
 anchor-spl = { workspace = true }
-anchor-client = "0.29.0"
+anchor-client = { workspace = true }
 clap = { version = "4.3.3", features = ["derive"] }
 anyhow = "1.0.71"
 cp-amm = { path = "../programs/cp-amm", features = ["cpi"] }

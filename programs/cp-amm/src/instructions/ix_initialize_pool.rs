@@ -134,21 +134,11 @@ pub struct InitializePool<'info> {
     pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// payer token a account
-    #[account(
-        mut,
-        token::mint = token_a_mint,
-        token::authority = payer,
-        token::token_program = token_a_program,
-    )]
+    #[account(mut)]
     pub payer_token_a: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// creator token b account
-    #[account(
-        mut,
-        token::mint = token_b_mint,
-        token::authority = payer,
-        token::token_program = token_b_program,
-    )]
+    #[account(mut)]
     pub payer_token_b: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// Program to create mint account and mint tokens

@@ -30,9 +30,6 @@ pub enum Command {
     /// Create a new config
     CreateConfig {
         #[clap(long)]
-        index: u64,
-
-        #[clap(long)]
         sqrt_min_price: u128,
 
         #[clap(long)]
@@ -68,31 +65,21 @@ pub enum Command {
         config: Pubkey,
 
         #[clap(long)]
-        param: u8,
+        trade_fee_numerator: u64,
 
         #[clap(long)]
-        value: u8,
-    },
+        protocol_fee_percent: u8,
 
-    /// Update pool fee
-    UpdatePoolFee {
         #[clap(long)]
-        config: Pubkey,
+        partner_fee_percent: u8,
         
         #[clap(long)]
-        param: u8,
-
-        #[clap(long)]
-        value: u64
+        referral_fee_percent: u8,
     },
-
     /// Close config
     CloseConfig {
         #[clap(long)]
         config: Pubkey,
-
-        #[clap(long)]
-        rent_receiver: Pubkey,
     },
     /// create token badge
     CreateTokenBadge {

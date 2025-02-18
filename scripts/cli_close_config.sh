@@ -1,4 +1,4 @@
-config=81HUoLfbVVKFgYak94yhbMhEkKqB3sM2G9YpcRkZchpL
-rent_receiver=4JTYKJAyS7eAXQRSxvMbmqgf6ajf3LR9JrAXpVEcww2q
+cluster=localnet
+config=HXBZBmv1vK6vwbY1f3o1mRfZMtj6RCXvnJQMbnccSGMP
 
-target/debug/cli close-config --config $config --rent-receiver $rent_receiver
+target/debug/cli --provider.cluster $cluster close-config --config $config

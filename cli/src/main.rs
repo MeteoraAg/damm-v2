@@ -10,17 +10,9 @@ use anchor_client::{
 use anyhow::*;
 use clap::*;
 
-#[cfg(feature = "e2e-test")]
-mod tests;
-
 use cp_amm::params::pool_fees::PoolFees;
-use cp_amm::ConfigParameters;
-use instructions::update_config::{
-    update_config,
-    update_pool_fee,
-    UpdateConfigParams,
-    UpdatePoolFeeParams,
-};
+use instructions::create_config::CreateConfigParams;
+use instructions::update_config::{ update_config, UpdateConfigParams };
 
 mod instructions;
 mod cmd;
@@ -30,7 +22,7 @@ use crate::{
     cmd::{ Command, Cli },
     instructions::{
         create_config::create_config,
-        close_config::{ close_config, CloseConfigParams },
+        close_config::close_config,
         create_token_badge::create_token_badge,
     },
 };
@@ -73,7 +65,6 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::CreateConfig {
-            index,
             sqrt_min_price,
             sqrt_max_price,
             vault_config_key,
@@ -93,8 +84,7 @@ fn main() -> Result<()> {
                 dynamic_fee: None, // TODO implement for dynamic fee
             };
 
-            let params = ConfigParameters {
-                index,
+            let params = CreateConfigParams {
                 sqrt_min_price,
                 sqrt_max_price,
                 vault_config_key,
@@ -105,29 +95,24 @@ fn main() -> Result<()> {
             };
             create_config(params, &program, transaction_config, compute_unit_price_ix)?;
         }
-        Command::UpdateConfig { config, param, value } => {
+        Command::UpdateConfig {
+            config,
+            trade_fee_numerator,
+            protocol_fee_percent,
+            partner_fee_percent,
+            referral_fee_percent,
+        } => {
             let params = UpdateConfigParams {
                 config,
-                param,
-                value,
+                trade_fee_numerator,
+                protocol_fee_percent,
+                partner_fee_percent,
+                referral_fee_percent,
             };
             update_config(params, &program, transaction_config, compute_unit_price_ix)?;
         }
-
-        Command::UpdatePoolFee { config, param, value } => {
-            let params = UpdatePoolFeeParams {
-                config,
-                param,
-                value,
-            };
-            update_pool_fee(params, &program, transaction_config, compute_unit_price_ix)?;
-        }
-        Command::CloseConfig { config, rent_receiver } => {
-            let close_config_params = CloseConfigParams {
-                config,
-                rent_receiver,
-            };
-            close_config(close_config_params, &program, transaction_config, compute_unit_price_ix)?;
+        Command::CloseConfig { config } => {
+            close_config(config, &program, transaction_config, compute_unit_price_ix)?;
         }
         Command::CreateTokenBadge { token_mint } => {
             create_token_badge(token_mint, &program, transaction_config, compute_unit_price_ix)?;

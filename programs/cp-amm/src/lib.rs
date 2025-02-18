@@ -38,16 +38,6 @@ pub mod cp_amm {
         instructions::handle_create_config(ctx, config_parameters)
     }
 
-    /// update config
-    pub fn update_config(ctx: Context<UpdateConfigCtx>, param: u8, value: u8) -> Result<()> {
-        instructions::handle_update_config(ctx, param, value)
-    }
-
-    /// update config
-    pub fn update_pool_fee(ctx: Context<UpdateConfigCtx>, param: u8, value: u64) -> Result<()> {
-        instructions::handle_update_pool_fee(ctx, param, value)
-    }
-
     /// Create token badge
     pub fn create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
         instructions::handle_create_token_badge(ctx)

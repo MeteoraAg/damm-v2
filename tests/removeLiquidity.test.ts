@@ -20,10 +20,10 @@ import {
   getPosition,
   initializePool,
   InitializePoolParams,
+  MAX_SQRT_PRICE,
+  MIN_SQRT_PRICE,
   removeLiquidity,
   RemoveLiquidityParams,
-  U128_MAX,
-  U64_MAX,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -59,8 +59,8 @@ describe("Remove liquidity", () => {
         referralFeePercent: 0,
         dynamicFee: null,
       },
-      sqrtMinPrice: new BN(0),
-      sqrtMaxPrice: new BN(U128_MAX),
+      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
       vaultConfigKey: PublicKey.default,
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
@@ -74,7 +74,7 @@ describe("Remove liquidity", () => {
     );
 
     liquidity = new BN(0);
-    sqrtPrice = new BN(1);
+    sqrtPrice = new BN(MIN_SQRT_PRICE);
 
     const initPoolParams = {
       payer: payer,

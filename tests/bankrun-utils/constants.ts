@@ -5,8 +5,6 @@ export const CP_AMM_PROGRAM_ID = new PublicKey(
   "9sh3gorJVsWgpdJo317PqnoWoTuDN2LkxiyYUUTu4sNJ"
 );
 
-export const U64_MAX = new BN("18446744073709551615");
-export const U128_MAX = new BN("340282366920938463463374607431768211455");
 export const MIN_SQRT_PRICE = new BN("4295048016");
 export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 

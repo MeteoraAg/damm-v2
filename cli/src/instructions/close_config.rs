@@ -10,19 +10,12 @@ use cp_amm::instruction;
 
 use crate::common::pda::derive_event_authority_pda;
 
-#[derive(Debug)]
-pub struct CloseConfigParams {
-    pub config: Pubkey,
-    pub rent_receiver: Pubkey,
-}
-
 pub fn close_config<C: Deref<Target = impl Signer> + Clone>(
-    params: CloseConfigParams,
+    config: Pubkey,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
     compute_unit_price: Option<Instruction>
 ) -> Result<Pubkey> {
-    let CloseConfigParams { config, rent_receiver } = params;
 
     if program.rpc().get_account_data(&config).is_ok() {
         let event_authority = derive_event_authority_pda();
@@ -30,7 +23,6 @@ pub fn close_config<C: Deref<Target = impl Signer> + Clone>(
         let accounts = accounts::CloseConfigCtx {
             config,
             admin: program.payer(),
-            rent_receiver,
             event_authority,
             program: cp_amm::ID,
         };
@@ -48,7 +40,7 @@ pub fn close_config<C: Deref<Target = impl Signer> + Clone>(
             .args(ix)
             .send_with_spinner_and_config(transaction_config);
 
-        println!("Closed config {config}. Signature: {signature:#?}");
+        println!("Closed config {config} Signature: {signature:#?}");
 
         signature?;
     }

@@ -6,5 +6,3 @@ pub mod auth;
 pub use auth::*;
 pub mod ix_create_token_badge;
 pub use ix_create_token_badge::*;
-pub mod update_config;
-pub use update_config::*;

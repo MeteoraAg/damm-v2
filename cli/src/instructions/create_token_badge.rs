@@ -41,7 +41,7 @@ pub fn create_token_badge<C: Deref<Target = impl Signer> + Clone>(
         .args(ix)
         .send_with_spinner_and_config(transaction_config);
 
-    println!("Initialize token badge {token_badge}. Signature: {signature:#?}");
+    println!("Initialize token badge {token_badge}  Signature: {signature:#?}");
 
     signature?;
 
