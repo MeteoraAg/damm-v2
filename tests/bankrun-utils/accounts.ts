@@ -33,16 +33,6 @@ export function derivePoolAddress(
   )[0];
 }
 
-export function derivePositionAddress(
-  pool: PublicKey,
-  owner: PublicKey
-): PublicKey {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("position"), pool.toBuffer(), owner.toBuffer()],
-    CP_AMM_PROGRAM_ID
-  )[0];
-}
-
 export function deriveTokenVaultAddress(
   tokenMint: PublicKey,
   pool: PublicKey

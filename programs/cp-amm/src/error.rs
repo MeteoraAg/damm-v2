@@ -246,4 +246,10 @@ pub enum PoolError {
 
     #[msg("Invalid position owner")]
     InvalidPositionOwner,
+
+    #[msg("Invalid vesting information")]
+    InvalidVestingInfo,
+
+    #[msg("Position already locked")]
+    PositionAlreadyLocked,
 }

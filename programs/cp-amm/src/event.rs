@@ -111,3 +111,15 @@ pub struct EvtTransferPosition {
     pub owner: Pubkey,
     pub new_owner: Pubkey,
 }
+
+#[event]
+pub struct EvtLockPosition {
+    pub pool: Pubkey,
+    pub position: Pubkey,
+    pub owner: Pubkey,
+    pub cliff_point: u64,
+    pub period_frequency: u64,
+    pub cliff_unlock_bps: u16,
+    pub unlock_bps_per_period: u16,
+    pub number_of_period: u16,
+}

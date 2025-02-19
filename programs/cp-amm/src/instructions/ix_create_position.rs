@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    constants::seeds::POSITION_PREFIX,
     state::{Pool, Position},
     EvtCreatePosition,
 };
@@ -20,12 +19,6 @@ pub struct CreatePositionCtx<'info> {
 
     #[account(
         init,
-        seeds = [
-            POSITION_PREFIX.as_ref(),
-            pool.key().as_ref(),
-            owner.key().as_ref(),
-        ],
-        bump,
         payer = payer,
         space = 8 + Position::INIT_SPACE
     )]

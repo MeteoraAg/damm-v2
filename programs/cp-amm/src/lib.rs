@@ -83,4 +83,8 @@ pub mod cp_amm {
     pub fn transfer_position(ctx: Context<TransferPosition>, new_owner: Pubkey) -> Result<()> {
         instructions::handle_transfer_position(ctx, new_owner)
     }
+
+    pub fn lock_position(ctx: Context<LockPosition>, params: VestingParameters) -> Result<()> {
+        instructions::handle_lock_position(ctx, params)
+    }
 }

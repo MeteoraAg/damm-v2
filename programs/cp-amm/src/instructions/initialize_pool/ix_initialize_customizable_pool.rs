@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 
 use crate::alpha_vault::alpha_vault;
-use crate::constants::seeds::{CUSTOMIZABLE_POOL_PREFIX, POSITION_PREFIX};
+use crate::constants::seeds::CUSTOMIZABLE_POOL_PREFIX;
 use crate::constants::{LOCK_LP_AMOUNT, MAX_SQRT_PRICE, MIN_SQRT_PRICE};
 use crate::curve::get_initialize_amounts;
 use crate::params::activation::ActivationParams;
@@ -110,12 +110,6 @@ pub struct InitializeCustomizablePoolCtx<'info> {
 
     #[account(
         init,
-        seeds = [
-            POSITION_PREFIX.as_ref(),
-            pool.key().as_ref(),
-            creator.key().as_ref(),
-        ],
-        bump,
         payer = payer,
         space = 8 + Position::INIT_SPACE
     )]
@@ -258,7 +252,6 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         pool_type,
     );
 
-    // init position
     let mut position = ctx.accounts.position.load_init()?;
     position.initialize(
         ctx.accounts.pool.key(),
@@ -288,12 +281,6 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         total_amount_b,
     )?;
 
-    emit_cpi!(EvtCreatePosition {
-        pool: ctx.accounts.pool.key(),
-        owner: ctx.accounts.creator.key(),
-        liquidity,
-    });
-
     emit_cpi!(EvtInitializePool {
         token_a_mint: ctx.accounts.token_a_mint.key(),
         token_b_mint: ctx.accounts.token_b_mint.key(),
@@ -313,6 +300,12 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         total_amount_a,
         total_amount_b,
         pool_type,
+    });
+
+    emit_cpi!(EvtCreatePosition {
+        pool: ctx.accounts.pool.key(),
+        owner: ctx.accounts.creator.key(),
+        liquidity,
     });
 
     Ok(())

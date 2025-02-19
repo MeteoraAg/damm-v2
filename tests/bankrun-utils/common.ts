@@ -221,3 +221,8 @@ export async function setupTestContext(
 export function randomID(min = 0, max = 10000) {
   return Math.floor(Math.random() * (max - min) + min);
 }
+
+export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
+  const clock = await context.banksClient.getClock();
+  await context.warpToSlot(clock.slot + BigInt(slots.toString()));
+}

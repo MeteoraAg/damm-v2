@@ -14,3 +14,5 @@ pub mod initialize_pool;
 pub use initialize_pool::*;
 pub mod ix_transfer_position;
 pub use ix_transfer_position::*;
+pub mod ix_lock_position;
+pub use ix_lock_position::*;

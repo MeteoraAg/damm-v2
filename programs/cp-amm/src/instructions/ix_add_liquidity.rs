@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    state::{ ModifyLiquidityResult, Pool, Position}, token::{calculate_transfer_fee_included_amount, transfer_from_user}, u128x128_math::Rounding, EvtAddLiquidity, PoolError
+    activation_handler::ActivationHandler, state::{ ModifyLiquidityResult, Pool, Position}, token::{calculate_transfer_fee_included_amount, transfer_from_user}, u128x128_math::Rounding, EvtAddLiquidity, PoolError
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -65,6 +65,10 @@ pub fn handle_add_liquidity(ctx: Context<AddLiquidityCtx>, params: AddLiquidityP
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
+
+    let (current_point, _) = ActivationHandler::get_current_point_and_buffer_duration(pool.activation_type)?;
+    require!(!position.is_locked(current_point)?, PoolError::PositionAlreadyLocked);
+
     let ModifyLiquidityResult{amount_a, amount_b} = pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)?;
 
     require!(amount_a > 0 || amount_b > 0, PoolError::AmountIsZero);

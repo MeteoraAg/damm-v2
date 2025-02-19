@@ -109,6 +109,8 @@ pub struct Pool {
     pub fee_a_per_liquidity: u128,
     /// cummulative
     pub fee_b_per_liquidity: u128,
+    // TODO: Is this large enough?
+    pub permanent_lock_liquidity: u128,
     /// Padding for further use
     pub _padding_1: [u64; 10],
 }
@@ -425,6 +427,15 @@ impl Pool {
                 self.pool_fees.dynamic_fee.last_update_timestamp = current_timestamp;
             }
         }
+        Ok(())
+    }
+
+    pub fn update_permanent_locked_liquidity(&mut self, position: &Position) -> Result<()> {
+        if position.is_permanently_locked() {
+            self.permanent_lock_liquidity =
+                self.permanent_lock_liquidity.safe_add(position.liquidity)?;
+        }
+
         Ok(())
     }
 }
