@@ -114,6 +114,7 @@ pub struct Pool {
 }
 
 impl Pool {
+    #[allow(clippy::too_many_arguments)]
     pub fn initialize(
         &mut self,
         pool_fees: PoolFeesStruct,

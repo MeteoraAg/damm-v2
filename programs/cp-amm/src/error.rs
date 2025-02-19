@@ -243,4 +243,7 @@ pub enum PoolError {
 
     #[msg("Invalid minimum liquidity")]
     InvalidMinimumLiquidity,
+
+    #[msg("Invalid position owner")]
+    InvalidPositionOwner,
 }

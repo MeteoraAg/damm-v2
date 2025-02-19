@@ -12,3 +12,5 @@ pub mod ix_claim_position_fee;
 pub use ix_claim_position_fee::*;
 pub mod initialize_pool;
 pub use initialize_pool::*;
+pub mod ix_transfer_position;
+pub use ix_transfer_position::*;

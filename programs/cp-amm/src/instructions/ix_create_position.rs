@@ -38,23 +38,13 @@ pub fn handle_create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
     // init position
     let mut position = ctx.accounts.position.load_init()?;
 
-    let operator = Pubkey::default();
-    let fee_claimer = Pubkey::default();
     let liquidity = 0;
 
-    position.initialize(
-        ctx.accounts.pool.key(),
-        ctx.accounts.owner.key(),
-        operator,    // TODO may add more params
-        fee_claimer, // TODO may add more params
-        liquidity,
-    );
+    position.initialize(ctx.accounts.pool.key(), ctx.accounts.owner.key(), liquidity);
 
     emit_cpi!(EvtCreatePosition {
         pool: ctx.accounts.pool.key(),
         owner: ctx.accounts.owner.key(),
-        operator,
-        fee_claimer,
         liquidity,
     });
 

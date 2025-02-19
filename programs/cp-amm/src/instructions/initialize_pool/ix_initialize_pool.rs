@@ -234,8 +234,6 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     position.initialize(
         ctx.accounts.pool.key(),
         ctx.accounts.creator.key(),
-        Pubkey::default(),                   // TODO may add more params
-        Pubkey::default(),                   // TODO may add more params
         liquidity.safe_sub(LOCK_LP_AMOUNT)?, // locked lp amount to mitigate inflation attack
     );
 
@@ -265,8 +263,6 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     emit_cpi!(EvtCreatePosition {
         pool: ctx.accounts.pool.key(),
         owner: ctx.accounts.creator.key(),
-        operator: Pubkey::default(),    // todo check this
-        fee_claimer: Pubkey::default(), // todo check this
         liquidity,
     });
 

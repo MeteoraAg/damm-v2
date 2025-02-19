@@ -79,4 +79,8 @@ pub mod cp_amm {
     pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
         instructions::handle_claim_position_fee(ctx)
     }
+
+    pub fn transfer_position(ctx: Context<TransferPosition>, new_owner: Pubkey) -> Result<()> {
+        instructions::handle_transfer_position(ctx, new_owner)
+    }
 }

@@ -13,10 +13,6 @@ pub struct Position {
     pub pool: Pubkey,
     /// Owner
     pub owner: Pubkey,
-    /// Operator of position
-    pub operator: Pubkey,
-    /// Fee claimer for this position
-    pub fee_claimer: Pubkey,
     /// fee a checkpoint
     pub fee_a_per_token_checkpoint: u128,
     /// fee b checkpoint
@@ -30,18 +26,9 @@ pub struct Position {
     // TODO implement locking here
 }
 impl Position {
-    pub fn initialize(
-        &mut self,
-        pool: Pubkey,
-        owner: Pubkey,
-        operator: Pubkey,
-        fee_claimer: Pubkey,
-        liquidity: u128,
-    ) {
+    pub fn initialize(&mut self, pool: Pubkey, owner: Pubkey, liquidity: u128) {
         self.pool = pool;
         self.owner = owner;
-        self.operator = operator;
-        self.fee_claimer = fee_claimer;
         self.liquidity = liquidity;
     }
 

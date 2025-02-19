@@ -162,7 +162,7 @@ export async function createConfigIx(
 export async function closeConfigIx(
   banksClient: BanksClient,
   admin: Keypair,
-  config: PublicKey,
+  config: PublicKey
 ) {
   const program = createCpAmmProgram();
   const transaction = await program.methods
@@ -170,7 +170,7 @@ export async function closeConfigIx(
     .accounts({
       config,
       admin: admin.publicKey,
-      rentReceiver: admin.publicKey
+      rentReceiver: admin.publicKey,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
@@ -273,6 +273,28 @@ export async function initializePool(
   await processTransactionMaybeThrow(banksClient, transaction);
 
   return { pool, position };
+}
+
+export async function transferPosition(
+  banksClient: BanksClient,
+  position: PublicKey,
+  owner: Keypair,
+  newOwner: PublicKey
+) {
+  const program = createCpAmmProgram();
+
+  const transaction = await program.methods
+    .transferPosition(newOwner)
+    .accounts({
+      position,
+      owner: owner.publicKey,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(owner);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
 }
 
 export async function createPosition(

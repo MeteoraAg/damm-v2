@@ -80,8 +80,6 @@ pub struct EvtClaimPositionFee {
 pub struct EvtCreatePosition {
     pub pool: Pubkey,
     pub owner: Pubkey,
-    pub operator: Pubkey,
-    pub fee_claimer: Pubkey,
     pub liquidity: u128,
 }
 
@@ -104,4 +102,12 @@ pub struct EvtSwap {
     pub swap_result: SwapResult,
     pub total_amount_in: u64,
     pub current_timestamp: u64,
+}
+
+#[event]
+pub struct EvtTransferPosition {
+    pub pool: Pubkey,
+    pub position: Pubkey,
+    pub owner: Pubkey,
+    pub new_owner: Pubkey,
 }
