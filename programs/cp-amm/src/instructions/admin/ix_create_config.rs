@@ -4,7 +4,8 @@ use crate::constants::seeds::CONFIG_PREFIX;
 use crate::constants::MAX_SQRT_PRICE;
 use crate::constants::MIN_SQRT_PRICE;
 use crate::event;
-use crate::params::customizable_params::CustomizableParams;
+use crate::params::activation::ActivationParams;
+// use crate::params::customizable_params::CustomizableParams;
 use crate::params::pool_fees::PartnerInfo;
 use crate::params::pool_fees::PoolFeeParamters;
 use crate::state::config::Config;
@@ -79,19 +80,12 @@ pub fn handle_create_config(
         activation_type,
     )?);
 
-    let customizable_parameters = CustomizableParams {
+    let activation_params = ActivationParams {
         activation_point,
-        has_alpha_vault,
         activation_type,
-        trade_fee_numerator: pool_fees
-            .trade_fee_numerator
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?,
-        padding: [0; 53],
+        has_alpha_vault,
     };
-
-    // validate
-    customizable_parameters.validate(&Clock::get()?)?;
+    activation_params.validate()?;
 
     let partner_info = PartnerInfo {
         partner_authority: pool_creator_authority,

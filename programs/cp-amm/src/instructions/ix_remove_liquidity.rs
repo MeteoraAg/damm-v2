@@ -64,12 +64,12 @@ pub struct RemoveLiquidityCtx<'info> {
 }
 
 pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveLiquidityParameters) -> Result<()> {
-    // TODO validate params
     let RemoveLiquidityParameters {
         liquidity_delta,
         token_a_amount_threshold,
         token_b_amount_threshold,
     } = params;
+    require!(params.liquidity_delta > 0, PoolError::InvalidParameters);
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
@@ -77,6 +77,8 @@ pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveL
         liquidity_delta,
         Rounding::Down
     )?;
+
+    require!(amount_a > 0 || amount_b > 0, PoolError::AmountIsZero);
 
     pool.apply_remove_liquidity(&mut position, liquidity_delta)?;
 

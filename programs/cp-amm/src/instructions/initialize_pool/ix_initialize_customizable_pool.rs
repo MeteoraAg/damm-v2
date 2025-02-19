@@ -2,10 +2,12 @@ use std::cmp::{max, min};
 
 use crate::alpha_vault::alpha_vault;
 use crate::constants::seeds::{CUSTOMIZABLE_POOL_PREFIX, POSITION_PREFIX};
-use crate::constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE};
+use crate::constants::{LOCK_LP_AMOUNT, MAX_SQRT_PRICE, MIN_SQRT_PRICE};
 use crate::curve::get_initialize_amounts;
+use crate::params::activation::ActivationParams;
 use crate::params::pool_fees::PoolFeeParamters;
-use crate::state::PoolType;
+use crate::safe_math::SafeMath;
+use crate::state::{CollectFeeMode, PoolType};
 use crate::token::{
     calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
     is_token_badge_initialized, transfer_from_user,
@@ -26,16 +28,16 @@ pub struct InitializeCustomizablePoolParameters {
     pub sqrt_min_price: u128,
     /// sqrt max price
     pub sqrt_max_price: u128,
-    /// activation type
-    pub activation_type: u8,
-    /// collect fee mode
-    pub collect_fee_mode: u8,
     /// has alpha vault
     pub has_alpha_vault: bool,
     /// initialize liquidity
     pub liquidity: u128,
     /// The init price of the pool as a sqrt(token_b/token_a) Q64.64 value
     pub sqrt_price: u128,
+    /// activation type
+    pub activation_type: u8,
+    /// collect fee mode
+    pub collect_fee_mode: u8,
     /// activation point
     pub activation_point: Option<u64>,
 }
@@ -51,6 +53,24 @@ impl InitializeCustomizablePoolParameters {
             PoolError::InvalidPriceRange
         );
 
+        require!(
+            self.liquidity >= LOCK_LP_AMOUNT,
+            PoolError::InvalidMinimumLiquidity
+        );
+
+        // validate fee
+        self.pool_fees.validate()?;
+
+        CollectFeeMode::try_from(self.collect_fee_mode)
+            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
+        // validate activation
+        let activation_params = ActivationParams {
+            activation_point: self.activation_point,
+            activation_type: self.activation_type,
+            has_alpha_vault: self.has_alpha_vault,
+        };
+        activation_params.validate()?;
         Ok(())
     }
 }
@@ -191,7 +211,6 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         )
     }
 
-    // TODO validate params
     let InitializeCustomizablePoolParameters {
         pool_fees,
         liquidity,
@@ -244,9 +263,9 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
     position.initialize(
         ctx.accounts.pool.key(),
         ctx.accounts.creator.key(),
-        Pubkey::default(), // TODO may add more params
-        Pubkey::default(), // TODO may add more params
-        liquidity,
+        Pubkey::default(),                   // TODO may add more params
+        Pubkey::default(),                   // TODO may add more params
+        liquidity.safe_sub(LOCK_LP_AMOUNT)?, // locked lp amount to mitigate inflation attack
     );
 
     // transfer token

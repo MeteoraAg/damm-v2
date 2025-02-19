@@ -240,4 +240,7 @@ pub enum PoolError {
 
     #[msg("Invalid token badge")]
     InvalidTokenBadge,
+
+    #[msg("Invalid minimum liquidity")]
+    InvalidMinimumLiquidity,
 }

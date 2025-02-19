@@ -2,39 +2,34 @@ use anchor_lang::prelude::*;
 
 use crate::{
     activation_handler::{ActivationHandler, ActivationType},
-    constants::fee::{FEE_DENOMINATOR, MEME_MIN_FEE_NUMERATOR},
-    params::pool_fees::validate_fee_fraction,
     safe_math::SafeMath,
     state::{get_timing_constraint_by_activation_type, TimingConstraint},
     PoolError,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
-pub struct CustomizableParams {
-    /// Trading fee.
-    pub trade_fee_numerator: u32,
+pub struct ActivationParams {
     /// The pool start trading.
     pub activation_point: Option<u64>,
     /// Whether the pool support alpha vault
     pub has_alpha_vault: bool,
     /// Activation type
     pub activation_type: u8,
-    /// Padding
-    pub padding: [u8; 53],
 }
 
-// static_assertions::const_assert_eq!(CustomizableParams::INIT_SPACE, 105);
-
-impl CustomizableParams {
-    fn validation_activation(&self, timing_constraint: &TimingConstraint) -> Result<()> {
-        let &TimingConstraint {
+impl ActivationParams {
+    pub fn validate(&self) -> Result<()> {
+        let clock = Clock::get()?;
+        let activation_type = ActivationType::try_from(self.activation_type)
+            .map_err(|_| PoolError::InvalidActivationType)?;
+        let TimingConstraint {
             current_point,
             min_activation_duration,
             max_activation_duration,
             pre_activation_swap_duration,
             last_join_buffer,
             ..
-        } = timing_constraint;
+        } = get_timing_constraint_by_activation_type(activation_type, &clock);
+
         if self.has_alpha_vault {
             // Must specify activation point to prevent "unable" create alpha vault
             match self.activation_point {
@@ -80,35 +75,6 @@ impl CustomizableParams {
                 PoolError::InvalidActivationPoint
             );
         }
-
-        Ok(())
-    }
-
-    pub fn validate(self, clock: &Clock) -> Result<()> {
-        let activation_type = ActivationType::try_from(self.activation_type)
-            .map_err(|_| PoolError::InvalidActivationType)?;
-
-        let timing_constraint = get_timing_constraint_by_activation_type(activation_type, clock);
-
-        // validate fee
-        self.validate_fee()?;
-        // validate activation point
-        self.validation_activation(&timing_constraint)?;
-        Ok(())
-    }
-
-    fn validate_fee(&self) -> Result<()> {
-        // 1. Fee must within the range
-        let trade_fee_numerator: u64 = self.trade_fee_numerator.into();
-
-        // avoid odd number
-        require!(
-            trade_fee_numerator % MEME_MIN_FEE_NUMERATOR == 0,
-            PoolError::InvalidFee
-        );
-
-        // 2. Validate fee fractions.
-        validate_fee_fraction(trade_fee_numerator, FEE_DENOMINATOR)?;
 
         Ok(())
     }

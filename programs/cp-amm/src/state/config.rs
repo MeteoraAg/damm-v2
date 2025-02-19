@@ -1,5 +1,7 @@
 use crate::constants::activation::*;
 use crate::params::pool_fees::{DynamicFeeParameters, PartnerInfo, PoolFeeParamters};
+use crate::safe_math::SafeMath;
+use crate::PoolError;
 use crate::{activation_handler::ActivationType, alpha_vault::alpha_vault};
 use anchor_lang::prelude::*;
 
@@ -219,6 +221,12 @@ pub struct TimingConstraint {
     pub max_high_tax_duration: u64,
 }
 
+impl TimingConstraint {
+    pub fn get_max_activation_point_from_current_time(&self) -> Result<u64> {
+        Ok(self.current_point.safe_add(self.max_activation_duration)?)
+    }
+}
+
 pub fn get_timing_constraint_by_activation_type(
     activation_type: ActivationType,
     clock: &Clock,
@@ -283,11 +291,25 @@ impl Config {
         }
     }
 
+    pub fn has_alpha_vault(&self) -> bool {
+        self.vault_config_key.ne(&Pubkey::default())
+    }
+
     pub fn get_whitelisted_alpha_vault(&self, pool: Pubkey) -> Pubkey {
         if self.vault_config_key.eq(&Pubkey::default()) {
             Pubkey::default()
         } else {
             alpha_vault::derive_vault_pubkey(self.vault_config_key, pool.key())
         }
+    }
+
+    pub fn get_max_activation_point_from_current_time(&self, clock: &Clock) -> Result<u64> {
+        let timing_contraints = get_timing_constraint_by_activation_type(
+            self.activation_type
+                .try_into()
+                .map_err(|_| PoolError::InvalidActivationType)?,
+            clock,
+        );
+        timing_contraints.get_max_activation_point_from_current_time()
     }
 }

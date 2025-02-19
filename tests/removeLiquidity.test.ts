@@ -21,10 +21,12 @@ import {
   getPosition,
   initializePool,
   InitializePoolParams,
+  LOCK_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
   removeLiquidity,
   RemoveLiquidityParams,
+  U64_MAX,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -73,7 +75,7 @@ describe("Remove liquidity", () => {
       createConfigParams
     );
 
-    liquidity = new BN(0);
+    liquidity = new BN(LOCK_LP_AMOUNT);
     sqrtPrice = new BN(MIN_SQRT_PRICE);
 
     const initPoolParams = {
@@ -101,15 +103,17 @@ describe("Remove liquidity", () => {
     );
 
     // add liquidity
+    let liquidity = new BN("100000000000");
     const addLiquidityParams = {
       owner: user,
       pool,
       position,
-      liquidityDelta: new BN(100),
-      tokenAAmountThreshold: new BN(200),
-      tokenBAmountThreshold: new BN(200),
+      liquidityDelta: liquidity,
+      tokenAAmountThreshold: U64_MAX,
+      tokenBAmountThreshold: U64_MAX,
     };
     await addLiquidity(context.banksClient, addLiquidityParams);
+    // return
 
     // remove liquidity
 
@@ -117,7 +121,7 @@ describe("Remove liquidity", () => {
       owner: user,
       pool,
       position,
-      liquidityDelta: new BN(100),
+      liquidityDelta: liquidity,
       tokenAAmountThreshold: new BN(0),
       tokenBAmountThreshold: new BN(0),
     };

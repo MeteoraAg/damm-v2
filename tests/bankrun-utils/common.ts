@@ -178,7 +178,7 @@ export async function setupTestContext(
     ),
   ]);
   //
-  const rawAmount = 1000 * 10 ** DECIMALS;
+  const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
 
   // Mint token A to payer & user
   await Promise.all(

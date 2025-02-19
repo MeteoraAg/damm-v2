@@ -1,26 +1,20 @@
 import { expect } from "chai";
 import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
-  LOCAL_ADMIN_KEYPAIR,
-  createUsersAndFund,
   randomID,
   setupTestContext,
-  setupTokenMint,
   startTest,
-  transferSol,
 } from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { createMint, wrapSOL } from "./bankrun-utils/token";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
   AddLiquidityParams,
   createConfigIx,
   CreateConfigParams,
   createPosition,
-  getPool,
-  getPosition,
   initializePool,
   InitializePoolParams,
+  LOCK_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE
 } from "./bankrun-utils";
@@ -72,7 +66,7 @@ describe("Add liquidity", () => {
       createConfigParams
     );
 
-    liquidity = new BN(0);
+    liquidity = new BN(LOCK_LP_AMOUNT);
     sqrtPrice = new BN(MIN_SQRT_PRICE);
 
     const initPoolParams: InitializePoolParams = {

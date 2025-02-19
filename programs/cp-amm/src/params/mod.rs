@@ -1,3 +1,3 @@
-pub mod customizable_params;
+pub mod activation;
 pub mod pool_fees;
 pub mod swap;

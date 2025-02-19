@@ -79,14 +79,11 @@ impl<'info> SwapCtx<'info> {
 
 // TODO impl swap exact out
 pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
-    // TODO validate accounts
-
-    // TODO validate params
-
     let SwapParameters {
         amount_in,
         minimum_amount_out,
     } = params;
+    require!(amount_in > 0, PoolError::AmountIsZero);
 
     let trade_direction = ctx.accounts.get_trade_direction();
     let is_referral = ctx.accounts.referral_token_account.is_some();
