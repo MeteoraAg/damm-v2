@@ -24,7 +24,7 @@ pub mod params;
 declare_id!("9sh3gorJVsWgpdJo317PqnoWoTuDN2LkxiyYUUTu4sNJ");
 
 #[cfg(not(feature = "local"))]
-declare_id!("2JyBCMjaYC6EE2DhzB5CxgAfTrSiX8QyYXfqX59qHuu8");
+declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
 
 #[program]
 pub mod cp_amm {

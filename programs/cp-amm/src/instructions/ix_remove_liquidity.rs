@@ -2,11 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 
 use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX,
-    state::{ ModifyLiquidityResult, Pool, Position },
-    token::transfer_from_pool,
-    u128x128_math::Rounding,
-    PoolError,
+    constants::seeds::POOL_AUTHORITY_PREFIX, state::{ ModifyLiquidityResult, Pool, Position }, token::transfer_from_pool, u128x128_math::Rounding, EvtRemoveLiquidity, PoolError
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -108,7 +104,14 @@ pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveL
         ctx.bumps.pool_authority,
     )?;
 
-    // TODO emit event
+    emit_cpi!(EvtRemoveLiquidity{
+        pool: ctx.accounts.pool.key(),
+        owner: ctx.accounts.owner.key(),
+        position: ctx.accounts.position.key(),
+        params,
+        amount_a,
+        amount_b, 
+    });
 
     Ok(())
 }

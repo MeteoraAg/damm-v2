@@ -1,12 +1,8 @@
 use anchor_lang::prelude::Pubkey;
-use std::{ cmp::max, cmp::min };
+use std::{cmp::max, cmp::min};
 
 use cp_amm::constants::seeds::{
-    CONFIG_PREFIX,
-    POOL_AUTHORITY_PREFIX,
-    POOL_PREFIX,
-    TOKEN_BADGE_PREFIX,
-    TOKEN_VAULT_PREFIX,
+    CONFIG_PREFIX, POOL_AUTHORITY_PREFIX, POOL_PREFIX, TOKEN_BADGE_PREFIX, TOKEN_VAULT_PREFIX,
 };
 use cp_amm::ID;
 
@@ -14,30 +10,36 @@ pub fn derive_config_pda(index: u64) -> Pubkey {
     Pubkey::find_program_address(&[CONFIG_PREFIX.as_ref(), index.to_le_bytes().as_ref()], &ID).0
 }
 
-pub fn derive_pool_pda(token_a_mint: Pubkey, token_b_mint: Pubkey, config: Pubkey) -> Pubkey {
+pub fn _derive_pool_pda(token_a_mint: Pubkey, token_b_mint: Pubkey, config: Pubkey) -> Pubkey {
     Pubkey::find_program_address(
         &[
             POOL_PREFIX.as_ref(),
             config.as_ref(),
-            min(token_a_mint, token_b_mint).as_ref(),
             max(token_a_mint, token_b_mint).as_ref(),
+            min(token_a_mint, token_b_mint).as_ref(),
         ],
-        &ID
-    ).0
+        &ID,
+    )
+    .0
 }
 
-pub fn derive_token_vault_pda(token_mint: Pubkey, pool: Pubkey) -> Pubkey {
+pub fn _derive_token_vault_pda(token_mint: Pubkey, pool: Pubkey) -> Pubkey {
     Pubkey::find_program_address(
-        &[TOKEN_VAULT_PREFIX.as_ref(), token_mint.as_ref(), pool.as_ref()],
-        &ID
-    ).0
+        &[
+            TOKEN_VAULT_PREFIX.as_ref(),
+            token_mint.as_ref(),
+            pool.as_ref(),
+        ],
+        &ID,
+    )
+    .0
 }
 
-pub fn derive_pool_authority() -> Pubkey {
+pub fn _derive_pool_authority() -> Pubkey {
     Pubkey::find_program_address(&[POOL_AUTHORITY_PREFIX.as_ref()], &ID).0
 }
 
-pub fn derive_position_pda(pool: Pubkey, owner: Pubkey) -> Pubkey {
+pub fn _derive_position_pda(pool: Pubkey, owner: Pubkey) -> Pubkey {
     Pubkey::find_program_address(&[POOL_PREFIX.as_ref(), pool.as_ref(), owner.as_ref()], &ID).0
 }
 

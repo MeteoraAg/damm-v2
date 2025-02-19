@@ -5,6 +5,7 @@ use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
     state::{Pool, Position},
     token::transfer_from_pool,
+    EvtClaimPositionFee,
 };
 
 #[event_cpi]
@@ -93,6 +94,13 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
 
     position.reset_pending_fee();
 
-    // TODO emit event
+    emit_cpi!(EvtClaimPositionFee {
+        pool: ctx.accounts.pool.key(),
+        position: ctx.accounts.position.key(),
+        owner: ctx.accounts.owner.key(),
+        fee_a_pending: position.fee_a_pending,
+        fee_b_pending: position.fee_b_pending,
+    });
+
     Ok(())
 }

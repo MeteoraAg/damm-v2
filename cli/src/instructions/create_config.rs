@@ -2,17 +2,17 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{ solana_sdk::signer::Signer, Program };
+use anchor_client::{solana_sdk::signer::Signer, Program};
 use anchor_lang::prelude::Pubkey;
 use anyhow::*;
-use cp_amm::params::pool_fees::PoolFees;
-use cp_amm::{ accounts, ConfigParameters };
 use cp_amm::instruction;
+use cp_amm::params::pool_fees::PoolFeeParamters;
+use cp_amm::{accounts, ConfigParameters};
 
-use crate::common::pda::{ derive_config_pda, derive_event_authority_pda };
+use crate::common::pda::{derive_config_pda, derive_event_authority_pda};
 
 pub struct CreateConfigParams {
-    pub pool_fees: PoolFees,
+    pub pool_fees: PoolFeeParamters,
     pub sqrt_min_price: u128,
     pub sqrt_max_price: u128,
     pub vault_config_key: Pubkey,
@@ -25,7 +25,7 @@ pub fn create_config<C: Deref<Target = impl Signer> + Clone>(
     params: CreateConfigParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
     let mut index = 0u64;
     let CreateConfigParams {
@@ -65,9 +65,7 @@ pub fn create_config<C: Deref<Target = impl Signer> + Clone>(
                 index,
             };
 
-            let ix = instruction::CreateConfig {
-                config_parameters,
-            };
+            let ix = instruction::CreateConfig { config_parameters };
 
             let mut request_builder = program.request();
 

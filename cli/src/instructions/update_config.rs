@@ -2,15 +2,15 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{ solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program };
+use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anchor_lang::InstructionData;
 use anchor_lang::ToAccountMetas;
 use anyhow::*;
 
-use cp_amm::params::pool_fees::PoolFees;
-use cp_amm::{ accounts, ConfigParameters };
 use cp_amm::instruction;
+use cp_amm::params::pool_fees::PoolFeeParamters;
 use cp_amm::state::Config;
+use cp_amm::{accounts, ConfigParameters};
 
 use crate::common::pda::derive_event_authority_pda;
 
@@ -27,7 +27,7 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
     params: UpdateConfigParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>
+    compute_unit_price: Option<Instruction>,
 ) -> Result<Pubkey> {
     let UpdateConfigParams {
         config,
@@ -49,7 +49,8 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
         rent_receiver: program.payer(),
         event_authority,
         program: cp_amm::ID,
-    }).to_account_metas(None);
+    })
+    .to_account_metas(None);
 
     let close_config_ix = Instruction {
         data: close_config_data,
@@ -58,7 +59,7 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
     };
 
     // 2. create config
-    let pool_fees = PoolFees {
+    let pool_fees = PoolFeeParamters {
         trade_fee_numerator,
         protocol_fee_percent,
         partner_fee_percent,
@@ -76,9 +77,7 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
         index: config_state.index,
     };
 
-    let create_config_data = (instruction::CreateConfig {
-        config_parameters,
-    }).data();
+    let create_config_data = (instruction::CreateConfig { config_parameters }).data();
 
     let create_config_accounts = (accounts::CreateConfigCtx {
         config,
@@ -86,7 +85,8 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
         system_program: anchor_client::solana_sdk::system_program::ID,
         event_authority,
         program: cp_amm::ID,
-    }).to_account_metas(None);
+    })
+    .to_account_metas(None);
 
     let create_config_ix = Instruction {
         data: create_config_data,

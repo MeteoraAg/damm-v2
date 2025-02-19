@@ -291,7 +291,7 @@ export async function createPosition(
       payer: payer.publicKey,
       pool,
       position,
-      program: SystemProgram.programId,
+      systemProgram: SystemProgram.programId,
     })
     .transaction();
 

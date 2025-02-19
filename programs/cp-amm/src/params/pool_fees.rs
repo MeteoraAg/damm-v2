@@ -3,6 +3,7 @@ use crate::constants::fee::{FEE_DENOMINATOR, MAX_BASIS_POINT};
 use crate::constants::{self, BASIS_POINT_MAX, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
+use crate::state::fee::{DynamicFeeStruct, PoolFeesStruct};
 use anchor_lang::prelude::*;
 use std::convert::TryFrom;
 
@@ -10,7 +11,7 @@ use super::swap::TradeDirection;
 
 /// Information regarding fee charges
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
-pub struct PoolFees {
+pub struct PoolFeeParamters {
     /// Trade fees are extra token amounts that are held inside the token
     /// accounts during a trade, making the value of liquidity tokens rise.
     /// Trade fee numerator
@@ -18,7 +19,7 @@ pub struct PoolFees {
     /// Protocol trading fees are extra token amounts that are held inside the token
     /// accounts during a trade, with the equivalent in pool tokens minted to
     /// the protocol of the program.
-    /// Protocol trade fee numerator 
+    /// Protocol trade fee numerator
     pub protocol_fee_percent: u8,
     /// partner fee
     pub partner_fee_percent: u8,
@@ -26,11 +27,59 @@ pub struct PoolFees {
     pub referral_fee_percent: u8,
 
     /// dynamic fee
-    pub dynamic_fee: Option<DynamicFee>,
+    pub dynamic_fee: Option<DynamicFeeParameters>,
+}
+impl PoolFeeParamters {
+    pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
+        let &PoolFeeParamters {
+            trade_fee_numerator,
+            protocol_fee_percent,
+            partner_fee_percent,
+            referral_fee_percent,
+            dynamic_fee,
+        } = self;
+        if let Some(DynamicFeeParameters {
+            bin_step,
+            bin_step_u128,
+            filter_period,
+            decay_period,
+            reduction_factor,
+            max_volatility_accumulator,
+            variable_fee_control,
+        }) = dynamic_fee
+        {
+            PoolFeesStruct {
+                trade_fee_numerator,
+                protocol_fee_percent,
+                partner_fee_percent,
+                referral_fee_percent,
+                dynamic_fee: DynamicFeeStruct {
+                    initialized: 1,
+                    bin_step,
+                    filter_period,
+                    decay_period,
+                    reduction_factor,
+                    bin_step_u128,
+                    max_volatility_accumulator,
+                    variable_fee_control,
+                    ..Default::default()
+                },
+                ..Default::default()
+            }
+        } else {
+            PoolFeesStruct {
+                trade_fee_numerator,
+                protocol_fee_percent,
+                partner_fee_percent,
+                referral_fee_percent,
+                ..Default::default()
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
-pub struct DynamicFee {
+pub struct DynamicFeeParameters {
     pub bin_step: u16,
     pub bin_step_u128: u128,
     pub filter_period: u16,
@@ -40,7 +89,7 @@ pub struct DynamicFee {
     pub variable_fee_control: u32,
 }
 
-impl DynamicFee {
+impl DynamicFeeParameters {
     pub fn validate(&self) -> Result<()> {
         require!(
             self.bin_step > 0 && self.bin_step <= 400,
@@ -114,7 +163,7 @@ pub fn to_bps(numerator: u128, denominator: u128) -> Option<u64> {
     bps.try_into().ok()
 }
 
-impl PoolFees {
+impl PoolFeeParamters {
     /// Calculate the host trading fee in trading tokens
     pub fn host_trading_fee(trading_tokens: u128) -> Option<u128> {
         // Floor division

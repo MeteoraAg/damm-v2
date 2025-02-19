@@ -5,7 +5,6 @@ use crate::{
         fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
         BASIS_POINT_MAX,
     },
-    params::pool_fees::{DynamicFee, PoolFees},
     safe_math::SafeMath,
     utils_math::safe_mul_div_cast_u64,
 };
@@ -53,52 +52,28 @@ pub struct PoolFeesStruct {
 }
 
 impl PoolFeesStruct {
-    pub fn from_pool_fees(pool_fees: &PoolFees) -> Self {
-        let &PoolFees {
-            trade_fee_numerator,
-            protocol_fee_percent,
-            partner_fee_percent,
-            referral_fee_percent,
-            dynamic_fee,
-        } = pool_fees;
-        if let Some(DynamicFee {
-            bin_step,
-            bin_step_u128,
-            filter_period,
-            decay_period,
-            reduction_factor,
-            max_volatility_accumulator,
-            variable_fee_control,
-        }) = dynamic_fee
-        {
-            Self {
-                trade_fee_numerator,
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
-                dynamic_fee: DynamicFeeStruct {
-                    initialized: 1,
-                    bin_step,
-                    filter_period,
-                    decay_period,
-                    reduction_factor,
-                    bin_step_u128,
-                    max_volatility_accumulator,
-                    variable_fee_control,
-                    ..Default::default()
-                },
-                ..Default::default()
-            }
-        } else {
-            Self {
-                trade_fee_numerator,
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
-                ..Default::default()
-            }
-        }
-    }
+    // pub fn to_pool_fees(&self) -> PoolFees {
+    //     let dynamic_fee = if self.dynamic_fee.is_dynamic_fee_enable() {
+    //         DynamicFee {
+    //              bin_step: self.dynamic_fee.bin_step,
+    //             pub bin_step_u128: u128,
+    //             pub filter_period: u16,
+    //             pub decay_period: u16,
+    //             pub reduction_factor: u16,
+    //             pub max_volatility_accumulator: u32,
+    //             pub variable_fee_control: u32,
+    //         }
+    //     }else{
+    //         None
+    //     };
+    //     PoolFees {
+    //         trade_fee_numerator: self.trade_fee_numerator,
+    //         protocol_fee_percent: self.protocol_fee_percent,
+    //         partner_fee_percent: self.partner_fee_percent,
+    //         referral_fee_percent: self.referral_fee_percent,
+    //         dynamic_fee,
+    //     }
+    // }
 
     // in numerator
     pub fn get_total_trading_fee(&self) -> Result<u128> {
@@ -168,6 +143,25 @@ pub struct DynamicFeeStruct {
 }
 
 impl DynamicFeeStruct {
+    // pub fn to_dynamic_fee(&self) -> Option<DynamicFee>{
+    //     if self.is_dynamic_fee_enable() {
+    //         DynamicFee {
+    //              max_volatility_accumulator: self.max_volatility_accumulator,
+    //              variable_fee_control: self.variable_fee_control,
+    //             pub bin_step: u16,
+    //             pub filter_period: u16,
+    //             pub decay_period: u16,
+    //             pub reduction_factor: u16,
+    //             pub last_update_timestamp: u64,
+    //             pub bin_step_u128: u128,
+    //             pub sqrt_price_reference: u128, // reference sqrt price
+    //             pub volatility_accumulator: u128,
+    //             pub volatility_reference: u128, // dec
+    //         }
+    //     }else {
+    //         None
+    //     }
+    // }
     // we approximate (1+bin_step)^bin_id = 1 + bin_step * bin_id
     pub fn get_detal_bin_id(
         bin_step_u128: u128,

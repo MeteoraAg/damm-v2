@@ -2,18 +2,18 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{ solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program };
+use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anyhow::*;
 use cp_amm::accounts;
 use cp_amm::instruction;
 
-use crate::common::pda::derive_token_badge_pda;
+use crate::common::pda::{derive_event_authority_pda, derive_token_badge_pda};
 
 pub fn create_token_badge<C: Deref<Target = impl Signer> + Clone>(
     token_mint: Pubkey,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>
+    compute_unit_price: Option<Instruction>,
 ) -> Result<Pubkey> {
     let token_badge = derive_token_badge_pda(token_mint);
 
@@ -21,11 +21,15 @@ pub fn create_token_badge<C: Deref<Target = impl Signer> + Clone>(
         return Ok(token_badge);
     }
 
+    let event_authority = derive_event_authority_pda();
+
     let accounts = accounts::CreateTokenBadgeCtx {
         token_mint,
         token_badge,
         admin: program.payer(),
         system_program: anchor_client::solana_sdk::system_program::ID,
+        event_authority,
+        program: cp_amm::ID,
     };
 
     let ix = instruction::CreateTokenBadge {};

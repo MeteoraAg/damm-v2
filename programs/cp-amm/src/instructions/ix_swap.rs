@@ -6,7 +6,7 @@ use crate::{
     params::swap::TradeDirection,
     state::{CollectFeeMode, Pool},
     token::{calculate_transfer_fee_included_amount, transfer_from_pool, transfer_from_user},
-    PoolError,
+    EvtSwap, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -180,7 +180,15 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         }
     }
 
-    // TODO emit event
+    emit_cpi!(EvtSwap {
+        pool: ctx.accounts.pool.key(),
+        trade_direction: trade_direction.into(),
+        params,
+        swap_result,
+        is_referral,
+        total_amount_in,
+        current_timestamp,
+    });
 
     Ok(())
 }

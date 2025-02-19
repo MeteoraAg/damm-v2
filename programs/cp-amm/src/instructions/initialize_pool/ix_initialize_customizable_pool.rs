@@ -1,37 +1,35 @@
-use crate::activation_handler::ActivationType;
+use std::cmp::{max, min};
+
 use crate::alpha_vault::alpha_vault;
 use crate::constants::seeds::{CUSTOMIZABLE_POOL_PREFIX, POSITION_PREFIX};
 use crate::constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE};
 use crate::curve::get_initialize_amounts;
-use crate::params::pool_fees::PoolFees;
-use crate::state::fee::PoolFeesStruct;
-use crate::state::CollectFeeMode;
+use crate::params::pool_fees::PoolFeeParamters;
+use crate::state::PoolType;
 use crate::token::{
     calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
     is_token_badge_initialized, transfer_from_user,
 };
-use crate::PoolError;
 use crate::{
     constants::seeds::{POOL_AUTHORITY_PREFIX, TOKEN_VAULT_PREFIX},
     state::{Pool, Position},
 };
+use crate::{EvtCreatePosition, EvtInitializePool, PoolError};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-
-use super::initialize_pool_utils::{get_first_key, get_second_key};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeCustomizablePoolParameters {
     /// pool fees
-    pub pool_fees: PoolFees,
+    pub pool_fees: PoolFeeParamters,
     /// sqrt min price
     pub sqrt_min_price: u128,
     /// sqrt max price
     pub sqrt_max_price: u128,
     /// activation type
-    pub activation_type: ActivationType,
+    pub activation_type: u8,
     /// collect fee mode
-    pub collect_fee_mode: CollectFeeMode,
+    pub collect_fee_mode: u8,
     /// has alpha vault
     pub has_alpha_vault: bool,
     /// initialize liquidity
@@ -81,8 +79,8 @@ pub struct InitializeCustomizablePoolCtx<'info> {
         init,
         seeds = [
             CUSTOMIZABLE_POOL_PREFIX.as_ref(),
-            get_first_key(token_a_mint.key(), token_b_mint.key()).as_ref(),
-            get_second_key(token_a_mint.key(), token_b_mint.key()).as_ref(),
+            max(token_a_mint.key(), token_b_mint.key()).as_ref(),
+            min(token_a_mint.key(), token_b_mint.key()).as_ref(),
         ],
         bump,
         payer = payer,
@@ -210,29 +208,35 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity)?;
     let mut pool = ctx.accounts.pool.load_init()?;
 
+    let token_a_flag: u8 = get_token_program_flags(&ctx.accounts.token_a_mint).into();
+    let token_b_flag: u8 = get_token_program_flags(&ctx.accounts.token_b_mint).into();
+    let activation_point = activation_point.unwrap_or_default();
+    let alpha_vault = get_whitelisted_alpha_vault(
+        ctx.accounts.payer.key(),
+        ctx.accounts.pool.key(),
+        has_alpha_vault,
+    );
+    let pool_type: u8 = PoolType::Customizable.into();
     pool.initialize(
-        PoolFeesStruct::from_pool_fees(&pool_fees),
+        pool_fees.to_pool_fees_struct(),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),
         ctx.accounts.token_b_mint.key(),
-        get_whitelisted_alpha_vault(
-            ctx.accounts.payer.key(),
-            ctx.accounts.pool.key(),
-            has_alpha_vault,
-        ),
+        alpha_vault,
         ctx.accounts.creator.key(),
         sqrt_min_price,
         sqrt_max_price,
         sqrt_price,
-        activation_point.unwrap_or_default(),
-        activation_type.into(),
-        get_token_program_flags(&ctx.accounts.token_a_mint).into(),
-        get_token_program_flags(&ctx.accounts.token_b_mint).into(),
+        activation_point,
+        activation_type,
+        token_a_flag,
+        token_b_flag,
         token_a_amount,
         token_b_amount,
         liquidity,
-        collect_fee_mode.into(),
+        collect_fee_mode,
+        pool_type,
     );
 
     // init position
@@ -243,8 +247,6 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         Pubkey::default(), // TODO may add more params
         Pubkey::default(), // TODO may add more params
         liquidity,
-        0, // TODO check this
-        0,
     );
 
     // transfer token
@@ -269,7 +271,34 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         total_amount_b,
     )?;
 
-    // TODO emit events
+    emit_cpi!(EvtCreatePosition {
+        pool: ctx.accounts.pool.key(),
+        owner: ctx.accounts.creator.key(),
+        operator: Pubkey::default(),    // todo check this
+        fee_claimer: Pubkey::default(), // todo check this
+        liquidity,
+    });
+
+    emit_cpi!(EvtInitializePool {
+        token_a_mint: ctx.accounts.token_a_mint.key(),
+        token_b_mint: ctx.accounts.token_b_mint.key(),
+        pool_fees,
+        creator: ctx.accounts.creator.key(),
+        payer: ctx.accounts.payer.key(),
+        activation_point,
+        activation_type,
+        token_a_flag,
+        token_b_flag,
+        sqrt_price,
+        liquidity,
+        sqrt_min_price,
+        sqrt_max_price,
+        alpha_vault,
+        collect_fee_mode,
+        total_amount_a,
+        total_amount_b,
+        pool_type,
+    });
 
     Ok(())
 }

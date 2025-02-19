@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    state::{ ModifyLiquidityResult, Pool, Position}, token::{calculate_transfer_fee_included_amount, transfer_from_user}, u128x128_math::Rounding, PoolError
+    state::{ ModifyLiquidityResult, Pool, Position}, token::{calculate_transfer_fee_included_amount, transfer_from_user}, u128x128_math::Rounding, EvtAddLiquidity, PoolError
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -95,7 +95,14 @@ pub fn handle_add_liquidity(ctx: Context<AddLiquidityCtx>, params: AddLiquidityP
         total_amount_b,
     )?;
 
-    // TODO emit event
+    emit_cpi!(EvtAddLiquidity{
+        pool: ctx.accounts.pool.key(),
+        position: ctx.accounts.position.key(),
+        owner: ctx.accounts.owner.key(),
+        params,
+        total_amount_a,
+        total_amount_b,
+    });
 
     Ok(())
 }

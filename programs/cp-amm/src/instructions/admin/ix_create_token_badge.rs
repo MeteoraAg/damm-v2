@@ -1,10 +1,12 @@
 use crate::constants::seeds::TOKEN_BADGE_PREFIX;
-use crate::state::*;
 use crate::token::is_supported_mint;
 use crate::{assert_eq_admin, PoolError};
+use crate::{state::*, EvtCreateTokenBadge};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 use token_badge::TokenBadge;
+
+#[event_cpi]
 #[derive(Accounts)]
 pub struct CreateTokenBadgeCtx<'info> {
     pub token_mint: InterfaceAccount<'info, Mint>,
@@ -37,5 +39,10 @@ pub fn handle_create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()
     );
     let mut token_badge = ctx.accounts.token_badge.load_init()?;
     token_badge.initialize(ctx.accounts.token_mint.key())?;
+
+    emit_cpi!(EvtCreateTokenBadge {
+        token_mint: ctx.accounts.token_mint.key(),
+    });
+
     Ok(())
 }

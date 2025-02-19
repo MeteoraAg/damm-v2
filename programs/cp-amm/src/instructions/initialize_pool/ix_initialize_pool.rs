@@ -1,18 +1,18 @@
 use crate::constants::seeds::POSITION_PREFIX;
 use crate::curve::get_initialize_amounts;
+use crate::state::PoolType;
 use crate::token::{
     calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
     is_token_badge_initialized, transfer_from_user,
 };
-use crate::PoolError;
 use crate::{
     constants::seeds::{POOL_AUTHORITY_PREFIX, POOL_PREFIX, TOKEN_VAULT_PREFIX},
     state::{Config, Pool, Position},
 };
+use crate::{EvtCreatePosition, EvtInitializePool, PoolError};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-
-use super::initialize_pool_utils::{get_first_key, get_second_key};
+use std::cmp::{max, min};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializePoolParameters {
@@ -52,8 +52,8 @@ pub struct InitializePoolCtx<'info> {
         seeds = [
             POOL_PREFIX.as_ref(),
             config.key().as_ref(),
-            get_first_key(token_a_mint.key(), token_b_mint.key()).as_ref(),
-            get_second_key(token_a_mint.key(), token_b_mint.key()).as_ref(),
+            max(token_a_mint.key(), token_b_mint.key()).as_ref(),
+            min(token_a_mint.key(), token_b_mint.key()).as_ref(),
         ],
         bump,
         payer = payer,
@@ -186,25 +186,31 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     )?;
     let mut pool = ctx.accounts.pool.load_init()?;
 
+    let token_a_flag: u8 = get_token_program_flags(&ctx.accounts.token_a_mint).into();
+    let token_b_flag: u8 = get_token_program_flags(&ctx.accounts.token_b_mint).into();
+    let pool_type: u8 = PoolType::Permissionless.into();
+    let activation_point = activation_point.unwrap_or_default();
+    let alpha_vault = config.get_whitelisted_alpha_vault(ctx.accounts.pool.key());
     pool.initialize(
-        config.pool_fees,
+        config.pool_fees.to_pool_fees_struct(),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),
         ctx.accounts.token_b_vault.key(),
-        config.get_whitelisted_alpha_vault(ctx.accounts.pool.key()),
+        alpha_vault,
         ctx.accounts.creator.key(),
         config.sqrt_min_price,
         config.sqrt_max_price,
         sqrt_price,
-        activation_point.unwrap_or_default(),
+        activation_point,
         config.activation_type,
-        get_token_program_flags(&ctx.accounts.token_a_mint).into(),
-        get_token_program_flags(&ctx.accounts.token_b_mint).into(),
+        token_a_flag,
+        token_b_flag,
         token_a_amount,
         token_b_amount,
         liquidity,
         config.collect_fee_mode,
+        pool_type,
     );
 
     // init position
@@ -215,8 +221,6 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         Pubkey::default(), // TODO may add more params
         Pubkey::default(), // TODO may add more params
         liquidity,
-        0, // TODO check this
-        0,
     );
 
     // transfer token
@@ -241,7 +245,34 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         total_amount_b,
     )?;
 
-    // TODO emit events
+    emit_cpi!(EvtCreatePosition {
+        pool: ctx.accounts.pool.key(),
+        owner: ctx.accounts.creator.key(),
+        operator: Pubkey::default(),    // todo check this
+        fee_claimer: Pubkey::default(), // todo check this
+        liquidity,
+    });
+
+    emit_cpi!(EvtInitializePool {
+        token_a_mint: ctx.accounts.token_a_mint.key(),
+        token_b_mint: ctx.accounts.token_b_mint.key(),
+        pool_fees: config.pool_fees.to_pool_fee_parameters(),
+        creator: ctx.accounts.creator.key(),
+        payer: ctx.accounts.payer.key(),
+        activation_point,
+        activation_type: config.activation_type,
+        token_a_flag,
+        token_b_flag,
+        sqrt_price,
+        liquidity,
+        sqrt_min_price: config.sqrt_min_price,
+        sqrt_max_price: config.sqrt_max_price,
+        alpha_vault,
+        collect_fee_mode: config.collect_fee_mode,
+        total_amount_a,
+        total_amount_b,
+        pool_type,
+    });
 
     Ok(())
 }

@@ -36,6 +36,22 @@ pub enum CollectFeeMode {
     OnlyB,
 }
 
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum PoolType {
+    Permissionless,
+    Customizable,
+}
+
 #[account(zero_copy)]
 #[derive(InitSpace, Debug, Default)]
 pub struct Pool {
@@ -85,8 +101,10 @@ pub struct Pool {
     pub token_b_flag: u8,
     /// 0 is collect fee in both token, 1 only collect fee in token a, 2 only collect fee in token b
     pub collect_fee_mode: u8,
+    /// pool type
+    pub pool_type: u8,
     /// padding
-    pub _padding_0: [u8; 3],
+    pub _padding_0: [u8; 2],
     /// cummulative
     pub fee_a_per_liquidity: u128,
     /// cummulative
@@ -116,6 +134,7 @@ impl Pool {
         token_b_reserve: u64,
         liquidity: u128,
         collect_fee_mode: u8,
+        pool_type: u8,
     ) {
         self.pool_fees = pool_fees;
         self.token_a_mint = token_a_mint;
@@ -135,6 +154,7 @@ impl Pool {
         self.liquidity = liquidity;
         self.sqrt_price = sqrt_price;
         self.collect_fee_mode = collect_fee_mode;
+        self.pool_type = pool_type;
     }
 
     pub fn get_swap_result(
@@ -409,7 +429,7 @@ impl Pool {
 }
 
 /// Encodes all results of swapping
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize)]
 pub struct SwapResult {
     pub output_amount: u64,
     pub next_sqrt_price: u128,

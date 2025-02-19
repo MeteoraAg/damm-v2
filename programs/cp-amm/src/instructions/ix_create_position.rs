@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 use crate::{
     constants::seeds::POSITION_PREFIX,
     state::{Pool, Position},
+    EvtCreatePosition,
 };
 
 #[event_cpi]
@@ -37,15 +38,25 @@ pub fn handle_create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
     // init position
     let mut position = ctx.accounts.position.load_init()?;
 
+    let operator = Pubkey::default();
+    let fee_claimer = Pubkey::default();
+    let liquidity = 0;
+
     position.initialize(
         ctx.accounts.pool.key(),
         ctx.accounts.owner.key(),
-        Pubkey::default(), // TODO may add more params
-        Pubkey::default(), // TODO may add more params
-        0,
-        0, // TODO check this
-        0,
+        operator,    // TODO may add more params
+        fee_claimer, // TODO may add more params
+        liquidity,
     );
+
+    emit_cpi!(EvtCreatePosition {
+        pool: ctx.accounts.pool.key(),
+        owner: ctx.accounts.owner.key(),
+        operator,
+        fee_claimer,
+        liquidity,
+    });
 
     Ok(())
 }

@@ -37,16 +37,12 @@ impl Position {
         operator: Pubkey,
         fee_claimer: Pubkey,
         liquidity: u128,
-        fee_a_per_token_checkpoint: u128,
-        fee_b_per_token_checkpoint: u128,
     ) {
         self.pool = pool;
         self.owner = owner;
         self.operator = operator;
         self.fee_claimer = fee_claimer;
         self.liquidity = liquidity;
-        self.fee_a_per_token_checkpoint = fee_a_per_token_checkpoint;
-        self.fee_b_per_token_checkpoint = fee_b_per_token_checkpoint;
     }
 
     pub fn update_fee(
