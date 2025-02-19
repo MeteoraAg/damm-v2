@@ -79,4 +79,26 @@ pub mod cp_amm {
     pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
         instructions::handle_claim_position_fee(ctx)
     }
+
+    pub fn initialize_reward(
+        ctx: Context<InitializeReward>,
+        reward_index: u8,
+        reward_duration: u64,
+        funder: Pubkey
+    ) -> Result<()> {
+        instructions::handle_initialize_reward(ctx, reward_index, reward_duration, funder)
+    }
+
+    pub fn fund_reward(
+        ctx: Context<FundReward>,
+        reward_index: u64,
+        amount: u64,
+        carry_forward: bool
+    ) -> Result<()> {
+        instructions::handle_fund_reward(ctx, reward_index, amount, carry_forward)
+    }
+
+    pub fn claim_reward(ctx: Context<ClaimReward>, reward_index: u64) -> Result<()> {
+        instructions::handle_claim_reward(ctx, reward_index)
+    }
 }

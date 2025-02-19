@@ -243,4 +243,28 @@ pub enum PoolError {
 
     #[msg("Invalid minimum liquidity")]
     InvalidMinimumLiquidity,
+
+    #[msg("Reward mint is not support")]
+    RewardMintIsNotSupport,
+
+    #[msg("Invalid reward index")]
+    InvalidRewardIndex,
+
+    #[msg("Invalid reward duration")]
+    InvalidRewardDuration,
+
+    #[msg("Reward already initialized")]
+    RewardInitialized,
+
+    #[msg("Reward not initialized")]
+    RewardUninitialized,
+
+    #[msg("Invalid reward vault")]
+    InvalidRewardVault,
+
+    #[msg("Must withdraw ineligible reward")]
+    MustWithdrawnIneligibleReward,
+
+    #[msg("Withdraw to wrong token account")]
+    WithdrawToWrongTokenAccount,
 }

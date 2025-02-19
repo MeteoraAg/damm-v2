@@ -160,6 +160,7 @@ export async function setupTestContext(
 
   const tokenAMintKeypair = Keypair.generate();
   const tokenBMintKeypair = Keypair.generate();
+  const rewardMintKeypair = Keypair.generate();
 
   await Promise.all([
     createMint(
@@ -173,6 +174,13 @@ export async function setupTestContext(
       banksClient,
       rootKeypair,
       tokenBMintKeypair,
+      rootKeypair.publicKey,
+      DECIMALS
+    ),
+    createMint(
+      banksClient,
+      rootKeypair,
+      rewardMintKeypair,
       rootKeypair.publicKey,
       DECIMALS
     ),
@@ -208,6 +216,16 @@ export async function setupTestContext(
     )
   );
 
+  // mint reward to payer
+  await mintTo(
+    banksClient,
+    rootKeypair,
+    rewardMintKeypair.publicKey,
+    rootKeypair,
+    payer.publicKey,
+    BigInt(rawAmount)
+  );
+
   return {
     admin,
     payer,
@@ -215,6 +233,7 @@ export async function setupTestContext(
     tokenAMint: tokenAMintKeypair.publicKey,
     tokenBMint: tokenBMintKeypair.publicKey,
     user,
+    rewardMint: rewardMintKeypair.publicKey,
   };
 }
 

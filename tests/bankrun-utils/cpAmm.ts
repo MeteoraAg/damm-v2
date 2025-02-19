@@ -30,6 +30,7 @@ import {
   derivePoolAddress,
   derivePoolAuthority,
   derivePositionAddress,
+  deriveRewardVaultAddress,
   deriveTokenVaultAddress,
 } from "./accounts";
 import { processTransactionMaybeThrow } from "./common";
@@ -162,7 +163,7 @@ export async function createConfigIx(
 export async function closeConfigIx(
   banksClient: BanksClient,
   admin: Keypair,
-  config: PublicKey,
+  config: PublicKey
 ) {
   const program = createCpAmmProgram();
   const transaction = await program.methods
@@ -170,7 +171,7 @@ export async function closeConfigIx(
     .accounts({
       config,
       admin: admin.publicKey,
-      rentReceiver: admin.publicKey
+      rentReceiver: admin.publicKey,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
@@ -225,24 +226,6 @@ export async function initializePool(
     payer.publicKey
   );
 
-  console.log({
-    creator,
-    payer: payer.publicKey,
-    config,
-    poolAuthority,
-    pool,
-    position,
-    tokenAMint,
-    tokenBMint,
-    tokenAVault,
-    tokenBVault,
-    payerTokenA,
-    payerTokenB,
-    tokenAProgram: TOKEN_PROGRAM_ID,
-    tokenBProgram: TOKEN_PROGRAM_ID,
-    systemProgram: SystemProgram.programId,
-  });
-
   const transaction = await program.methods
     .initializePool({
       liquidity: liquidity,
@@ -274,6 +257,47 @@ export async function initializePool(
 
   return { pool, position };
 }
+
+export type InitializeRewardParams = {
+  payer: Keypair;
+  index: number;
+  rewardDuration: BN;
+  pool: PublicKey;
+  rewardMint: PublicKey;
+};
+
+export async function initializeReward(
+  banksClient: BanksClient,
+  params: InitializeRewardParams
+): Promise<void> {
+  const { index, rewardDuration, pool, rewardMint, payer } = params;
+  const program = createCpAmmProgram();
+
+  const poolAuthority = derivePoolAuthority();
+  const rewardVault = deriveRewardVaultAddress(pool, index);
+
+  const transaction = await program.methods
+    .initializeReward(index, rewardDuration, payer.publicKey)
+    .accounts({
+      pool,
+      poolAuthority,
+      rewardVault,
+      rewardMint,
+      admin: payer.publicKey,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction();
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(payer);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+
+  // validate data
+  // const poolState = await getPool(banksClient, pool);
+}
+
+
 
 export async function createPosition(
   banksClient: BanksClient,

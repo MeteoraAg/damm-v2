@@ -52,3 +52,13 @@ export function deriveTokenVaultAddress(
     CP_AMM_PROGRAM_ID
   )[0];
 }
+
+export function deriveRewardVaultAddress(
+  pool: PublicKey,
+  rewardIndex: number
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [pool.toBuffer(), Buffer.from([rewardIndex])],
+    CP_AMM_PROGRAM_ID
+  )[0];
+}

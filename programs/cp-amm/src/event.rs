@@ -105,3 +105,45 @@ pub struct EvtSwap {
     pub total_amount_in: u64,
     pub current_timestamp: u64,
 }
+
+
+// Initialize reward
+#[event]
+pub struct EvtInitializeReward {
+    // Liquidity pool
+    pub pool: Pubkey,
+    // Mint address of the farm reward
+    pub reward_mint: Pubkey,
+    // Address of the funder
+    pub funder: Pubkey,
+    // Index of the farm reward being initialized
+    pub reward_index: u8,
+    // Duration of the farm reward in seconds
+    pub reward_duration: u64,
+}
+
+#[event]
+pub struct EvtFundReward {
+    // Liquidity pool 
+    pub pool: Pubkey,
+    // Address of the funder
+    pub funder: Pubkey,
+    // Index of the farm reward being funded
+    pub reward_index: u64,
+    // Amount of farm reward funded
+    pub amount: u64,
+}
+
+#[event]
+pub struct EvtClaimReward {
+    // Liquidity pool
+    pub pool: Pubkey,
+    // Position address
+    pub position: Pubkey,
+    // Owner of the position
+    pub owner: Pubkey,
+    // Index of the farm reward the owner is claiming
+    pub reward_index: u64,
+    // Total amount of reward claimed
+    pub total_reward: u64,
+}
