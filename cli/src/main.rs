@@ -5,35 +5,33 @@ use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::Client;
 use anchor_client::{
     solana_client::rpc_config::RpcSendTransactionConfig,
-    solana_sdk::{
-        commitment_config::CommitmentConfig,
-        signer::{keypair::*, Signer},
-    },
+    solana_sdk::{ commitment_config::CommitmentConfig, signer::{ keypair::*, Signer } },
 };
 use anyhow::*;
 use clap::*;
 
 use cp_amm::params::pool_fees::PoolFeeParamters;
 use instructions::create_config::CreateConfigParams;
-use instructions::update_config::{update_config, UpdateConfigParams};
+use instructions::create_reward::{ create_reward, InitializeRewardParams };
+use instructions::fund_reward::{ funding_reward, FundRewardParams };
+use instructions::update_config::{ update_config, UpdateConfigParams };
 
 mod cmd;
 mod common;
 mod instructions;
 
 use crate::{
-    cmd::{Cli, Command},
+    cmd::{ Cli, Command },
     instructions::{
-        close_config::close_config, create_config::create_config,
+        close_config::close_config,
+        create_config::create_config,
         create_token_badge::create_token_badge,
     },
 };
 
 fn get_set_compute_unit_price_ix(micro_lamports: u64) -> Option<Instruction> {
     if micro_lamports > 0 {
-        Some(ComputeBudgetInstruction::set_compute_unit_price(
-            micro_lamports,
-        ))
+        Some(ComputeBudgetInstruction::set_compute_unit_price(micro_lamports))
     } else {
         None
     }
@@ -42,8 +40,9 @@ fn get_set_compute_unit_price_ix(micro_lamports: u64) -> Option<Instruction> {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let payer =
-        read_keypair_file(cli.config_override.wallet).expect("Wallet keypair file not found");
+    let payer = read_keypair_file(cli.config_override.wallet).expect(
+        "Wallet keypair file not found"
+    );
 
     println!("Wallet {:#?}", payer.pubkey());
 
@@ -51,7 +50,7 @@ fn main() -> Result<()> {
     let client = Client::new_with_options(
         cli.config_override.cluster,
         Rc::new(Keypair::from_bytes(&payer.to_bytes())?),
-        commitment_config,
+        commitment_config
     );
 
     let program = client.program(cp_amm::ID).unwrap();
@@ -118,12 +117,24 @@ fn main() -> Result<()> {
             close_config(config, &program, transaction_config, compute_unit_price_ix)?;
         }
         Command::CreateTokenBadge { token_mint } => {
-            create_token_badge(
-                token_mint,
-                &program,
-                transaction_config,
-                compute_unit_price_ix,
-            )?;
+            create_token_badge(token_mint, &program, transaction_config, compute_unit_price_ix)?;
+        }
+        Command::CreateReward { pool, reward_mint, reward_duration } => {
+            let params = InitializeRewardParams {
+                pool,
+                reward_mint,
+                reward_duration,
+            };
+            create_reward(params, &program, transaction_config, compute_unit_price_ix)?;
+        }
+        Command::FundReward { pool, reward_index, carry_forward, funding_amount } => {
+            let params = FundRewardParams {
+                pool,
+                reward_index,
+                funding_amount,
+                carry_forward,
+            };
+            funding_reward(params, &program, transaction_config, compute_unit_price_ix)?;
         }
     }
 

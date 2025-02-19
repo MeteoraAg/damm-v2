@@ -75,7 +75,7 @@ describe("Initialize reward", () => {
     );
   });
 
-  it("Admin initialize reward", async () => {
+  it("Admin initialize reward with", async () => {
     liquidity = new BN(LOCK_LP_AMOUNT);
     sqrtPrice = new BN(MIN_SQRT_PRICE);
 
@@ -93,8 +93,9 @@ describe("Initialize reward", () => {
     const { pool } = await initializePool(context.banksClient, initPoolParams);
 
     // init reward
+    const index = 0;
     const initRewardParams: InitializeRewardParams = {
-      index: 1,
+      index: 0,
       payer: payer,
       rewardDuration: new BN(24 * 60 * 60),
       pool,

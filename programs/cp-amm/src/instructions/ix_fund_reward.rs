@@ -45,7 +45,7 @@ impl<'info> FundReward<'info> {
 
 pub fn handle_fund_reward(
     ctx: Context<FundReward>,
-    index: u64,
+    index: u8,
     amount: u64,
     carry_forward: bool
 ) -> Result<()> {
@@ -54,7 +54,7 @@ pub fn handle_fund_reward(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let current_time = Clock::get()?.unix_timestamp;
-    // 1. update rewards
+    // 1. update pool rewards
     pool.update_rewards(current_time as u64)?;
 
     // 2. set new farming rate
@@ -69,12 +69,14 @@ pub fn handle_fund_reward(
             .try_into()
             .map_err(|_| PoolError::TypeCastFailed)?;
 
-        // Reset cumulative seconds with empty liquidity reward because it will be brought forward to next reward window
+        // Reset cumulative seconds with empty liquidity reward 
+        // because it will be brought forward to next reward window
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 
         amount.safe_add(carry_forward_ineligible_reward)?
     } else {
-        // Because the program only keep track of cumulative seconds of rewards with empty liquidity, and funding will affect the reward rate, which directly affect ineligible reward calculation.
+        // Because the program only keep track of cumulative seconds of rewards with empty liquidity,
+        // and funding will affect the reward rate, which directly affect ineligible reward calculation.
         // ineligible_reward = reward_rate_per_seconds * cumulative_seconds_with_empty_liquidity_reward
         require!(
             reward_info.cumulative_seconds_with_empty_liquidity_reward == 0,

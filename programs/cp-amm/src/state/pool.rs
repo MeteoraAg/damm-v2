@@ -287,6 +287,10 @@ impl Pool {
         self.pool_type = pool_type;
     }
 
+    pub fn is_reward_initialized(&self) -> bool {
+        true
+    }
+
     pub fn get_swap_result(
         &self,
         amount_in: u64,
@@ -567,7 +571,7 @@ impl Pool {
         Ok(())
     }
 
-    /// Update the rewards per liquidity share stored.
+    /// Update the rewards per token stored.
     pub fn update_rewards(&mut self, current_time: u64) -> Result<()> {
         for reward_idx in 0..NUM_REWARDS {
             let reward_info = &mut self.reward_infos[reward_idx];
@@ -582,11 +586,11 @@ impl Pool {
 
                     reward_info.accumulate_reward_per_token_stored(reward_per_token_stored_delta)?;
                 } else {
-                    // Time period which the reward was distributed to empty bin
+                    // Time period which the reward was distributed to empty
                     let time_period =
                         reward_info.get_seconds_elapsed_since_last_update(current_time)?;
 
-                    // Save the time window of empty bin reward, and reward it in the next time window
+                    // Save the time window of empty reward, and reward it in the next time window
                     reward_info.cumulative_seconds_with_empty_liquidity_reward =
                         reward_info.cumulative_seconds_with_empty_liquidity_reward.safe_add(
                             time_period

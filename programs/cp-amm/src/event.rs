@@ -129,7 +129,7 @@ pub struct EvtFundReward {
     // Address of the funder
     pub funder: Pubkey,
     // Index of the farm reward being funded
-    pub reward_index: u64,
+    pub reward_index: u8,
     // Amount of farm reward funded
     pub amount: u64,
 }
@@ -143,7 +143,7 @@ pub struct EvtClaimReward {
     // Owner of the position
     pub owner: Pubkey,
     // Index of the farm reward the owner is claiming
-    pub reward_index: u64,
+    pub reward_index: u8,
     // Total amount of reward claimed
     pub total_reward: u64,
 }

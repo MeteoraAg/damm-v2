@@ -12,8 +12,12 @@ use crate::{
 #[zero_copy]
 #[derive(Default, Debug, AnchorDeserialize, AnchorSerialize, InitSpace, PartialEq)]
 pub struct UserRewardInfo {
+    /// The latest update reward checkpoint
     pub reward_per_token_checkpoint: u128,
+    /// Current pendings reward
     pub reward_pendings: u64,
+    /// Total claimed rewards
+    pub total_claimed_rewards: u64,
 }
 
 #[account(zero_copy)]
@@ -36,8 +40,6 @@ pub struct Position {
     pub fee_a_pending: u64,
     /// fee b pending
     pub fee_b_pending: u64,
-    /// Total claimed rewards
-    pub total_claimed_rewards: [u64; 2],
     /// liquidity share
     pub liquidity: u128,
     // TODO implement locking here
@@ -94,26 +96,31 @@ impl Position {
     }
 
     pub fn update_reward(&mut self, pool_reward_infos: [RewardInfo; NUM_REWARDS]) -> Result<()> {
-        let reward_info = &mut self.reward_infos;
+        let position_reward_info = &mut self.reward_infos;
         for reward_idx in 0..NUM_REWARDS {
-            let reward_per_token_stored = pool_reward_infos[reward_idx].reward_per_token_stored;
+            let pool_reward_info = pool_reward_infos[reward_idx];
 
-            let new_reward: u64 = safe_mul_shr_cast(
-                self.liquidity
-                    .safe_shr(SCALE_OFFSET.into())?
-                    .try_into()
-                    .map_err(|_| PoolError::TypeCastFailed)?,
-                reward_per_token_stored.safe_sub(
-                    reward_info[reward_idx].reward_per_token_checkpoint
-                )?,
-                SCALE_OFFSET,
-                Rounding::Down
-            )?;
+            if pool_reward_info.initialized() {
+                let reward_per_token_stored = pool_reward_info.reward_per_token_stored;
 
-            reward_info[reward_idx].reward_pendings = new_reward.safe_add(
-                reward_info[reward_idx].reward_pendings
-            )?;
-            reward_info[reward_idx].reward_per_token_checkpoint = reward_per_token_stored;
+                let new_reward: u64 = safe_mul_shr_cast(
+                    self.liquidity
+                        .safe_shr(SCALE_OFFSET.into())?
+                        .try_into()
+                        .map_err(|_| PoolError::TypeCastFailed)?,
+                    reward_per_token_stored.safe_sub(
+                        position_reward_info[reward_idx].reward_per_token_checkpoint
+                    )?,
+                    SCALE_OFFSET,
+                    Rounding::Down
+                )?;
+
+                position_reward_info[reward_idx].reward_pendings = new_reward.safe_add(
+                    position_reward_info[reward_idx].reward_pendings
+                )?;
+                position_reward_info[reward_idx].reward_per_token_checkpoint =
+                    reward_per_token_stored;
+            }
         }
 
         Ok(())
@@ -124,8 +131,9 @@ impl Position {
     }
 
     pub fn accumulate_total_claimed_rewards(&mut self, reward_index: usize, reward: u64) {
-        let total_claimed_reward = self.total_claimed_rewards[reward_index];
-        self.total_claimed_rewards[reward_index] = total_claimed_reward.wrapping_add(reward);
+        let total_claimed_reward = self.reward_infos[reward_index].total_claimed_rewards;
+        self.reward_infos[reward_index].total_claimed_rewards =
+            total_claimed_reward.wrapping_add(reward);
     }
 
     pub fn add_liquidity(&mut self, liquidity_delta: u128) -> Result<()> {

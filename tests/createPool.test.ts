@@ -27,11 +27,11 @@ describe("Initialize pool", () => {
   let context: ProgramTestContext;
   let payer: Keypair;
   let creator: PublicKey;
-  let config: PublicKey;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
   let liquidity: BN;
   let sqrtPrice: BN;
+  let admin: Keypair;
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
@@ -43,8 +43,12 @@ describe("Initialize pool", () => {
 
     creator = prepareContext.poolCreator.publicKey;
     payer = prepareContext.payer;
+    admin = prepareContext.admin;
     tokenAMint = prepareContext.tokenAMint;
     tokenBMint = prepareContext.tokenBMint;
+  });
+
+  it("Admin initialize pool", async () => {
     // create config
     const createConfigParams: CreateConfigParams = {
       index: new BN(configId),
@@ -63,14 +67,12 @@ describe("Initialize pool", () => {
       collectFeeMode: 0,
     };
 
-    config = await createConfigIx(
+    const config = await createConfigIx(
       context.banksClient,
-      prepareContext.admin,
+      admin,
       createConfigParams
     );
-  });
 
-  it("Admin initialize pool", async () => {
     liquidity = new BN(LOCK_LP_AMOUNT);
     sqrtPrice = new BN(MIN_SQRT_PRICE);
 

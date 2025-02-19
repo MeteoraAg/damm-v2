@@ -51,7 +51,7 @@ impl<'info> ClaimReward<'info> {
     }
 }
 
-pub fn handle_claim_reward(ctx: Context<ClaimReward>, index: u64) -> Result<()> {
+pub fn handle_claim_reward(ctx: Context<ClaimReward>, index: u8) -> Result<()> {
     let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(reward_index)?;
 

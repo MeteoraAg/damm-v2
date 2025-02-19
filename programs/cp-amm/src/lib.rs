@@ -91,14 +91,14 @@ pub mod cp_amm {
 
     pub fn fund_reward(
         ctx: Context<FundReward>,
-        reward_index: u64,
+        reward_index: u8,
         amount: u64,
         carry_forward: bool
     ) -> Result<()> {
         instructions::handle_fund_reward(ctx, reward_index, amount, carry_forward)
     }
 
-    pub fn claim_reward(ctx: Context<ClaimReward>, reward_index: u64) -> Result<()> {
+    pub fn claim_reward(ctx: Context<ClaimReward>, reward_index: u8) -> Result<()> {
         instructions::handle_claim_reward(ctx, reward_index)
     }
 }
