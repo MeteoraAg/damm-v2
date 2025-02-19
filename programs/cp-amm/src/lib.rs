@@ -76,7 +76,7 @@ pub mod cp_amm {
         instructions::handle_swap(ctx, params)
     }
 
-    pub fn claim_position_fee(ctx: Context<ClaimPositionFee>) -> Result<()> {
+    pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
         instructions::handle_claim_position_fee(ctx)
     }
 }

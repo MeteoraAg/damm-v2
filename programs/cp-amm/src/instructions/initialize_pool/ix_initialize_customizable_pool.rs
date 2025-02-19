@@ -140,7 +140,7 @@ pub struct InitializeCustomizablePoolCtx<'info> {
             token_b_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
-        token::mint = token_a_mint,
+        token::mint = token_b_mint,
         token::authority = pool_authority,
         token::token_program = token_b_program,
         payer = payer,
