@@ -27,7 +27,7 @@ pub fn create_config<C: Deref<Target = impl Signer> + Clone>(
     transaction_config: RpcSendTransactionConfig,
     compute_unit_price: Option<Instruction>
 ) -> Result<()> {
-    let mut index = 1u64;
+    let mut index = 0u64;
     let CreateConfigParams {
         pool_fees,
         vault_config_key,

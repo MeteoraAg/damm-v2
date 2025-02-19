@@ -163,7 +163,6 @@ export async function closeConfigIx(
   banksClient: BanksClient,
   admin: Keypair,
   config: PublicKey,
-  rentReceiver: PublicKey
 ) {
   const program = createCpAmmProgram();
   const transaction = await program.methods
@@ -171,6 +170,7 @@ export async function closeConfigIx(
     .accounts({
       config,
       admin: admin.publicKey,
+      rentReceiver: admin.publicKey
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];

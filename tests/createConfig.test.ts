@@ -58,7 +58,7 @@ describe("Admin function: Create config", () => {
       admin,
       createConfigParams
     );
-    await closeConfigIx(context.banksClient, admin, config, admin.publicKey);
+    await closeConfigIx(context.banksClient, admin, config);
   });
 
   it("Admin create config with dynamic fee", async () => {

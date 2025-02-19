@@ -23,6 +23,7 @@ pub fn close_config<C: Deref<Target = impl Signer> + Clone>(
         let accounts = accounts::CloseConfigCtx {
             config,
             admin: program.payer(),
+            rent_receiver: program.payer(),
             event_authority,
             program: cp_amm::ID,
         };

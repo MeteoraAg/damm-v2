@@ -37,19 +37,6 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
         referral_fee_percent,
     } = params;
 
-    let mut index = 0u64;
-    loop {
-        let (config_pda, _bump) = Pubkey::find_program_address(
-            &[b"config", &index.to_le_bytes()],
-            &cp_amm::ID
-        );
-
-        if config_pda.eq(&config) {
-            break;
-        }
-
-        index += 1;
-    }
     let config_state = program.account::<Config>(config).unwrap();
 
     let event_authority = derive_event_authority_pda();
@@ -59,6 +46,7 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
     let close_config_accounts = (accounts::CloseConfigCtx {
         config,
         admin: program.payer(),
+        rent_receiver: program.payer(),
         event_authority,
         program: cp_amm::ID,
     }).to_account_metas(None);
@@ -85,7 +73,7 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
         sqrt_min_price: config_state.sqrt_min_price,
         sqrt_max_price: config_state.sqrt_max_price,
         collect_fee_mode: config_state.collect_fee_mode,
-        index,
+        index: config_state.index,
     };
 
     let create_config_data = (instruction::CreateConfig {

@@ -20,6 +20,8 @@ pub struct Config {
     pub collect_fee_mode: u8,
     /// padding 0
     pub _padding_0: [u8; 6],
+    /// config index
+    pub index: u64,
     /// sqrt min price
     pub sqrt_min_price: u128,
     /// sqrt max price
@@ -74,6 +76,7 @@ pub fn get_timing_constraint_by_activation_type(
 impl Config {
     pub fn init(
         &mut self,
+        index: u64,
         pool_fees: &PoolFees,
         vault_config_key: Pubkey,
         pool_creator_authority: Pubkey,
@@ -82,6 +85,7 @@ impl Config {
         sqrt_max_price: u128,
         collect_fee_mode: u8,
     ) {
+        self.index = index;
         self.pool_fees = PoolFeesStruct::from_pool_fees(pool_fees);
         self.vault_config_key = vault_config_key;
         self.pool_creator_authority = pool_creator_authority;

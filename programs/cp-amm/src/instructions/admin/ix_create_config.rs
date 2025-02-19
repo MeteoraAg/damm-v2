@@ -97,6 +97,7 @@ pub fn handle_create_config(
 
     let mut config = ctx.accounts.config.load_init()?;
     config.init(
+        index,
         &pool_fees,
         vault_config_key,
         pool_creator_authority,

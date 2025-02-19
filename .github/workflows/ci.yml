@@ -37,7 +37,7 @@ jobs:
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
 
-      - run: anchor build -- --features local
+      - run: anchor build
         shell: bash
 
   cli_build:
@@ -54,7 +54,7 @@ jobs:
       - run: rustup target add x86_64-unknown-linux-gnu
       # Cache rust, cargo
       - uses: Swatinem/rust-cache@v1
-      - run: cargo build -p cli --features local --target=x86_64-unknown-linux-gnu
+      - run: cargo build -p cli --target=x86_64-unknown-linux-gnu
         shell: bash
 
   cargo_test:

@@ -16,6 +16,10 @@ pub struct CloseConfigCtx<'info> {
 
     #[account(mut, constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin)]
     pub admin: Signer<'info>,
+    
+    /// CHECK: Account to receive closed account rental SOL
+    #[account(mut)]
+    pub rent_receiver: UncheckedAccount<'info>,
 }
 
 pub fn handle_close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {
