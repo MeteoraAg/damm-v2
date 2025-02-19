@@ -1,17 +1,7 @@
+import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import {
-  LOCAL_ADMIN_KEYPAIR,
-  createUsersAndFund,
-  expectThrowsAsync,
-  setupTestContext,
-  setupTokenMint,
-  startTest,
-  transferSol,
-  warpSlotBy,
-} from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { createMint, wrapSOL } from "./bankrun-utils/token";
+import { ProgramTestContext } from "solana-bankrun";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -33,9 +23,14 @@ import {
   swap,
   SwapParams,
 } from "./bankrun-utils";
-import BN from "bn.js";
+import {
+  expectThrowsAsync,
+  setupTestContext,
+  startTest,
+  warpSlotBy,
+} from "./bankrun-utils/common";
 
-describe.only("Lock position", () => {
+describe("Lock position", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let user: Keypair;
@@ -66,7 +61,7 @@ describe.only("Lock position", () => {
     const createConfigParams: CreateConfigParams = {
       index: new BN(configId),
       poolFees: {
-        tradeFeeNumerator: new BN(2_500_000),
+        tradeFeeNumerator: new BN(10_000_000),
         protocolFeePercent: 10,
         partnerFeePercent: 0,
         referralFeePercent: 0,
@@ -113,23 +108,23 @@ describe.only("Lock position", () => {
       owner: user,
       pool,
       position,
-      liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
-      tokenAAmountThreshold: new BN(200),
-      tokenBAmountThreshold: new BN(200),
+      liquidityDelta: new BN(sqrtPrice.mul(new BN(1_000))),
+      tokenAAmountThreshold: new BN(2_000_000_000),
+      tokenBAmountThreshold: new BN(2_000_000_000),
     };
     await addLiquidity(context.banksClient, addLiquidityParams);
   });
 
   describe("Lock position", () => {
-    it("Lock position successfully", async () => {
-      const lockPositionParams: LockPositionParams = {
-        cliffPoint: null,
-        periodFrequency: new BN(5),
-        cliffUnlockBps: 5000,
-        numberOfPeriod: 10,
-        unlockBpsPerPeriod: 5000 / 10,
-      };
+    const lockPositionParams: LockPositionParams = {
+      cliffPoint: null,
+      periodFrequency: new BN(1),
+      cliffUnlockBps: 5000,
+      numberOfPeriod: 10,
+      unlockBpsPerPeriod: 5000 / 10,
+    };
 
+    it("Lock position successfully", async () => {
       const beforePositionState = await getPosition(
         context.banksClient,
         position
@@ -165,8 +160,49 @@ describe.only("Lock position", () => {
       }, getProgramErrorCodeHexString("PositionAlreadyLocked"));
     });
 
-    it("Withdraw after cliff point", async () => {
+    it("Cannot add liquidity when locked", async () => {
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await expectThrowsAsync(async () => {
+        await addLiquidity(context.banksClient, addLiquidityParams);
+      }, getProgramErrorCodeHexString("PositionAlreadyLocked"));
+    });
+
+    it("Able to claim fee", async () => {
+      const swapParams: SwapParams = {
+        payer: user,
+        pool,
+        inputTokenMint,
+        outputTokenMint,
+        amountIn: new BN(100),
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+      };
+
+      await swap(context.banksClient, swapParams);
+
+      const claimParams = {
+        owner: user,
+        pool,
+        position,
+      };
+      await claimPositionFee(context.banksClient, claimParams);
+    });
+
+    it("Withdraw cliff point", async () => {
       await warpSlotBy(context, new BN(1));
+
+      const beforePositionState = await getPosition(
+        context.banksClient,
+        position
+      );
+
       await removeLiquidity(context.banksClient, {
         liquidityDelta: new BN(2).pow(new BN(64)).subn(1),
         tokenAAmountThreshold: new BN(0),
@@ -175,29 +211,100 @@ describe.only("Lock position", () => {
         pool,
         owner: user,
       });
+
+      const afterPositionState = await getPosition(
+        context.banksClient,
+        position
+      );
+
+      const expectedLiquidityDelta = beforePositionState.liquidity
+        .mul(new BN(lockPositionParams.cliffUnlockBps))
+        .div(new BN(10000));
+
+      expect(
+        expectedLiquidityDelta.eq(
+          beforePositionState.liquidity.sub(afterPositionState.liquidity)
+        )
+      ).to.be.true;
+
+      await expectThrowsAsync(async () => {
+        await removeLiquidity(context.banksClient, {
+          liquidityDelta: new BN(2).pow(new BN(64)).subn(1),
+          tokenAAmountThreshold: new BN(0),
+          tokenBAmountThreshold: new BN(0),
+          position,
+          pool,
+          owner: user,
+        });
+      }, getProgramErrorCodeHexString("PositionAlreadyLocked"));
+    });
+
+    it("Withdraw period", async () => {
+      for (let i = 0; i < lockPositionParams.numberOfPeriod; i++) {
+        await warpSlotBy(context, lockPositionParams.periodFrequency);
+
+        const beforePositionState = await getPosition(
+          context.banksClient,
+          position
+        );
+
+        await removeLiquidity(context.banksClient, {
+          liquidityDelta: new BN(2).pow(new BN(64)).subn(1),
+          tokenAAmountThreshold: new BN(0),
+          tokenBAmountThreshold: new BN(0),
+          position,
+          pool,
+          owner: user,
+        });
+
+        const afterPositionState = await getPosition(
+          context.banksClient,
+          position
+        );
+
+        expect(afterPositionState.liquidity.lt(beforePositionState.liquidity))
+          .to.be.true;
+      }
     });
   });
 
-  //   it("User claim position fee", async () => {
+  describe("Permanent lock position", () => {
+    const lockPositionParams: LockPositionParams = {
+      cliffPoint: new BN(2).pow(new BN(64)).subn(1),
+      periodFrequency: new BN(0),
+      cliffUnlockBps: 10_000,
+      numberOfPeriod: 0,
+      unlockBpsPerPeriod: 0,
+    };
 
-  //     const swapParams: SwapParams = {
-  //       payer: user,
-  //       pool,
-  //       inputTokenMint,
-  //       outputTokenMint,
-  //       amountIn: new BN(10),
-  //       minimumAmountOut: new BN(0),
-  //       referralTokenAccount: null,
-  //     };
+    it("Lock position successfully", async () => {
+      const position = await createPosition(
+        context.banksClient,
+        user,
+        user.publicKey,
+        pool
+      );
 
-  //     await swap(context.banksClient, swapParams);
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(context.banksClient, addLiquidityParams);
 
-  //     // claim position fee
-  //     const claimParams = {
-  //       owner: user,
-  //       pool,
-  //       position,
-  //     };
-  //     await claimPositionFee(context.banksClient, claimParams);
-  //   });
+      await lockPosition(
+        context.banksClient,
+        position,
+        user,
+        user,
+        lockPositionParams
+      );
+
+      const poolState = await getPool(context.banksClient, pool);
+      expect(!poolState.permanentLockLiquidity.isZero()).to.be.true;
+    });
+  });
 });

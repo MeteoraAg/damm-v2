@@ -136,6 +136,10 @@ impl Position {
             .safe_sub(cliff_point)?
             .safe_div(period_frequency)?;
 
+        msg!("current_point: {}", current_point);
+        msg!("cliff_point: {}", cliff_point);
+        msg!("period: {}", period);
+
         let max_period: u64 = number_of_period.into();
 
         if period >= max_period {
@@ -159,6 +163,9 @@ impl Position {
             Rounding::Down,
         )
         .ok_or_else(|| PoolError::MathOverflow)?;
+
+        msg!("unlocked_cliff_liquidity: {}", unlocked_cliff_liquidity);
+        msg!("unlocked_period_liquidity: {}", unlocked_period_liquidity);
 
         let unlocked_liquidity = unlocked_cliff_liquidity.safe_add(unlocked_period_liquidity)?;
         Ok(unlocked_liquidity)
