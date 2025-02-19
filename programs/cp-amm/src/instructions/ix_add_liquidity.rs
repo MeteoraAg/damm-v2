@@ -17,7 +17,7 @@ pub struct AddLiquidityParameters {
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct AddLiquidity<'info> {
+pub struct AddLiquidityCtx<'info> {
     #[account(mut, has_one = token_a_vault, has_one = token_b_vault, has_one = token_a_mint, has_one = token_b_mint)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -59,7 +59,7 @@ pub struct AddLiquidity<'info> {
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
 }
 
-pub fn handle_add_liquidity(ctx: Context<AddLiquidity>, params: AddLiquidityParameters) -> Result<()> {
+pub fn handle_add_liquidity(ctx: Context<AddLiquidityCtx>, params: AddLiquidityParameters) -> Result<()> {
     let AddLiquidityParameters { liquidity_delta, token_a_amount_threshold, token_b_amount_threshold } = params;
     require!(params.liquidity_delta > 0, PoolError::InvalidParameters);
 

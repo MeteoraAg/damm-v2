@@ -1,9 +1,8 @@
 use crate::constants::seeds::POSITION_PREFIX;
 use crate::curve::get_initialize_amounts;
-use crate::state::TokenBadge;
 use crate::token::{
     calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
-    transfer_from_user,
+    is_token_badge_initialized, transfer_from_user,
 };
 use crate::PoolError;
 use crate::{
@@ -13,20 +12,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
-/// get first key, this is same as max(key1, key2)
-pub fn get_first_key(key1: Pubkey, key2: Pubkey) -> Pubkey {
-    if key1 > key2 {
-        return key1;
-    }
-    key2
-}
-/// get second key, this is same as min(key1, key2)
-pub fn get_second_key(key1: Pubkey, key2: Pubkey) -> Pubkey {
-    if key1 > key2 {
-        return key2;
-    }
-    key1
-}
+use super::initialize_pool_utils::{get_first_key, get_second_key};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializePoolParameters {
@@ -40,7 +26,7 @@ pub struct InitializePoolParameters {
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct InitializePool<'info> {
+pub struct InitializePoolCtx<'info> {
     /// CHECK: Pool creator
     pub creator: UncheckedAccount<'info>,
 
@@ -150,7 +136,7 @@ pub struct InitializePool<'info> {
 }
 
 pub fn handle_initialize_pool<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializePool<'info>>,
+    ctx: Context<'_, '_, 'c, 'info, InitializePoolCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
     if !is_supported_mint(&ctx.accounts.token_a_mint)? {
@@ -258,13 +244,4 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     // TODO emit events
 
     Ok(())
-}
-
-fn is_token_badge_initialized<'c: 'info, 'info>(
-    mint: Pubkey,
-    token_badge: &'c AccountInfo<'info>,
-) -> Result<bool> {
-    let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
-    let token_badge = token_badge.load()?;
-    Ok(token_badge.token_mint == mint)
 }

@@ -2,26 +2,25 @@ use crate::constants::activation::*;
 use crate::math::safe_math::SafeMath;
 use crate::PoolError;
 use anchor_lang::prelude::*;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::convert::TryFrom;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    AnchorSerialize,
+    AnchorDeserialize,
+    IntoPrimitive,
+    TryFromPrimitive,
+)]
 #[repr(u8)]
 /// Type of the activation
 pub enum ActivationType {
     Slot,
     Timestamp,
-}
-
-impl TryFrom<u8> for ActivationType {
-    type Error = String;
-
-    fn try_from(s: u8) -> std::result::Result<ActivationType, String> {
-        match s {
-            0 => Ok(ActivationType::Slot),
-            1 => Ok(ActivationType::Timestamp),
-            _ => Err("Invalid value".to_string()),
-        }
-    }
 }
 
 pub struct ActivationHandler {

@@ -7,7 +7,7 @@ use crate::{
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct CreatePosition<'info> {
+pub struct CreatePositionCtx<'info> {
     /// CHECK: position owner
     pub owner: UncheckedAccount<'info>,
 
@@ -33,7 +33,7 @@ pub struct CreatePosition<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_position(ctx: Context<CreatePosition>) -> Result<()> {
+pub fn handle_create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
     // init position
     let mut position = ctx.accounts.position.load_init()?;
 

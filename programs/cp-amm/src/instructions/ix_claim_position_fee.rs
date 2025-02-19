@@ -9,7 +9,7 @@ use crate::{
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct ClaimPositionFee<'info> {
+pub struct ClaimPositionFeeCtx<'info> {
     /// CHECK: pool authority
     #[account(
         seeds = [
@@ -64,7 +64,7 @@ pub struct ClaimPositionFee<'info> {
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
 }
 
-pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFee>) -> Result<()> {
+pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
     let mut position = ctx.accounts.position.load_mut()?;
 
     let pool = ctx.accounts.pool.load()?;

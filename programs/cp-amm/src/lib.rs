@@ -33,7 +33,7 @@ pub mod cp_amm {
     /// Create config
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,
-        config_parameters: ConfigParameters
+        config_parameters: ConfigParameters,
     ) -> Result<()> {
         instructions::handle_create_config(ctx, config_parameters)
     }
@@ -49,27 +49,30 @@ pub mod cp_amm {
     }
 
     pub fn initialize_pool<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializePool<'info>>,
-        params: InitializePoolParameters
+        ctx: Context<'_, '_, 'c, 'info, InitializePoolCtx<'info>>,
+        params: InitializePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_pool(ctx, params)
     }
 
-    pub fn add_liquidity(ctx: Context<AddLiquidity>, params: AddLiquidityParameters) -> Result<()> {
+    pub fn add_liquidity(
+        ctx: Context<AddLiquidityCtx>,
+        params: AddLiquidityParameters,
+    ) -> Result<()> {
         instructions::handle_add_liquidity(ctx, params)
     }
     pub fn remove_liquidity(
-        ctx: Context<RemoveLiquidity>,
-        params: RemoveLiquidityParameters
+        ctx: Context<RemoveLiquidityCtx>,
+        params: RemoveLiquidityParameters,
     ) -> Result<()> {
         instructions::handle_remove_liquidity(ctx, params)
     }
 
-    pub fn create_position(ctx: Context<CreatePosition>) -> Result<()> {
+    pub fn create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
         instructions::handle_create_position(ctx)
     }
 
-    pub fn swap(ctx: Context<Swap>, params: SwapParameters) -> Result<()> {
+    pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
         instructions::handle_swap(ctx, params)
     }
 

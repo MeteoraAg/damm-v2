@@ -92,6 +92,7 @@ pub mod fee {
 
 pub mod seeds {
     pub const CONFIG_PREFIX: &[u8] = b"config";
+    pub const CUSTOMIZABLE_POOL_PREFIX: &[u8] = b"cpool";
     pub const POOL_PREFIX: &[u8] = b"pool";
     pub const TOKEN_VAULT_PREFIX: &[u8] = b"token_vault";
     pub const POOL_AUTHORITY_PREFIX: &[u8] = b"pool_authority";

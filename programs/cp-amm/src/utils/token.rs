@@ -14,6 +14,7 @@ use anchor_spl::{
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use crate::state::TokenBadge;
 use crate::PoolError;
 
 #[derive(
@@ -274,4 +275,13 @@ pub fn is_supported_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> 
         }
     }
     Ok(true)
+}
+
+pub fn is_token_badge_initialized<'c: 'info, 'info>(
+    mint: Pubkey,
+    token_badge: &'c AccountInfo<'info>,
+) -> Result<bool> {
+    let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
+    let token_badge = token_badge.load()?;
+    Ok(token_badge.token_mint == mint)
 }

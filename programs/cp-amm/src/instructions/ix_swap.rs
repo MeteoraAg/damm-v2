@@ -17,7 +17,7 @@ pub struct SwapParameters {
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct Swap<'info> {
+pub struct SwapCtx<'info> {
     /// CHECK: pool authority
     #[account(
         seeds = [
@@ -67,7 +67,7 @@ pub struct Swap<'info> {
     pub referral_token_account: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
 }
 
-impl<'info> Swap<'info> {
+impl<'info> SwapCtx<'info> {
     /// Get the trading direction of the current swap. Eg: USDT -> USDC
     pub fn get_trade_direction(&self) -> TradeDirection {
         if self.input_token_account.mint == self.token_a_mint.key() {
@@ -78,7 +78,7 @@ impl<'info> Swap<'info> {
 }
 
 // TODO impl swap exact out
-pub fn handle_swap(ctx: Context<Swap>, params: SwapParameters) -> Result<()> {
+pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
     // TODO validate accounts
 
     // TODO validate params

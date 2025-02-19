@@ -1,5 +1,3 @@
-pub mod ix_initialize_pool;
-pub use ix_initialize_pool::*;
 pub mod admin;
 pub use admin::*;
 pub mod ix_swap;
@@ -12,3 +10,5 @@ pub mod ix_remove_liquidity;
 pub use ix_remove_liquidity::*;
 pub mod ix_claim_position_fee;
 pub use ix_claim_position_fee::*;
+pub mod initialize_pool;
+pub use initialize_pool::*;

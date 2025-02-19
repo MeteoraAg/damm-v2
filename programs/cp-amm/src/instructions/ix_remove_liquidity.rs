@@ -21,7 +21,7 @@ pub struct RemoveLiquidityParameters {
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct RemoveLiquidity<'info> {
+pub struct RemoveLiquidityCtx<'info> {
     /// CHECK: pool authority
     #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
     pub pool_authority: UncheckedAccount<'info>,
@@ -67,10 +67,7 @@ pub struct RemoveLiquidity<'info> {
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
 }
 
-pub fn handle_remove_liquidity(
-    ctx: Context<RemoveLiquidity>,
-    params: RemoveLiquidityParameters
-) -> Result<()> {
+pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveLiquidityParameters) -> Result<()> {
     // TODO validate params
     let RemoveLiquidityParameters {
         liquidity_delta,
