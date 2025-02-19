@@ -36,7 +36,8 @@ jobs:
       - uses: ./.github/actions/setup-solana
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
-
+       # Cache rust, cargo
+      - uses: Swatinem/rust-cache@v1
       - run: anchor build
         shell: bash
 
