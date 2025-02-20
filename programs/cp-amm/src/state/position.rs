@@ -51,7 +51,7 @@ impl Position {
             PoolError::InsufficientLiquidity
         );
 
-        self.remove_liquidity(total_lock_liquidity)?;
+        self.remove_unlocked_liquidity(total_lock_liquidity)?;
         self.vested_liquidity = self.vested_liquidity.safe_add(total_lock_liquidity)?;
 
         Ok(())
@@ -63,7 +63,7 @@ impl Position {
             PoolError::InsufficientLiquidity
         );
 
-        self.remove_liquidity(permanent_lock_liquidity)?;
+        self.remove_unlocked_liquidity(permanent_lock_liquidity)?;
         self.permanent_locked_liquidity = self
             .permanent_locked_liquidity
             .safe_add(permanent_lock_liquidity)?;
@@ -118,7 +118,7 @@ impl Position {
         Ok(())
     }
 
-    pub fn remove_liquidity(&mut self, liquidity_delta: u128) -> Result<()> {
+    pub fn remove_unlocked_liquidity(&mut self, liquidity_delta: u128) -> Result<()> {
         self.unlocked_liquidity = self.unlocked_liquidity.safe_sub(liquidity_delta)?;
         Ok(())
     }

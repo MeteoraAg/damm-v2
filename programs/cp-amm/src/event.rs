@@ -105,14 +105,6 @@ pub struct EvtSwap {
 }
 
 #[event]
-pub struct EvtTransferPosition {
-    pub pool: Pubkey,
-    pub position: Pubkey,
-    pub owner: Pubkey,
-    pub new_owner: Pubkey,
-}
-
-#[event]
 pub struct EvtLockPosition {
     pub pool: Pubkey,
     pub position: Pubkey,

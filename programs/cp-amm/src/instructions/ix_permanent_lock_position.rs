@@ -7,7 +7,7 @@ use crate::{
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct PermanentLockPosition<'info> {
+pub struct PermanentLockPositionCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -18,7 +18,7 @@ pub struct PermanentLockPosition<'info> {
 }
 
 pub fn handle_permanent_lock_position(
-    ctx: Context<PermanentLockPosition>,
+    ctx: Context<PermanentLockPositionCtx>,
     permanent_lock_liquidity: u128,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;

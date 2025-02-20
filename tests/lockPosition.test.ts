@@ -202,8 +202,6 @@ describe("Lock position", () => {
     });
 
     it("Cliff point", async () => {
-      await warpSlotBy(context, new BN(1));
-
       const beforePositionState = await getPosition(
         context.banksClient,
         position

@@ -35,6 +35,19 @@ pub struct ActivationHandler {
 }
 
 impl ActivationHandler {
+    pub fn get_current_point_and_max_vesting_duration(activation_type: u8) -> Result<(u64, u64)> {
+        let activation_type = ActivationType::try_from(activation_type)
+            .map_err(|_| PoolError::InvalidActivationType)?;
+        let (curr_point, max_vesting_duration) = match activation_type {
+            ActivationType::Slot => (Clock::get()?.slot, MAX_VESTING_SLOT_DURATION),
+            ActivationType::Timestamp => (
+                Clock::get()?.unix_timestamp as u64,
+                MAX_VESTING_TIME_DURATION,
+            ),
+        };
+        Ok((curr_point, max_vesting_duration))
+    }
+
     pub fn get_current_point_and_buffer_duration(activation_type: u8) -> Result<(u64, u64)> {
         let activation_type = ActivationType::try_from(activation_type)
             .map_err(|_| PoolError::InvalidActivationType)?;
