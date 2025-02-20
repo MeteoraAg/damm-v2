@@ -59,9 +59,13 @@ pub fn handle_create_config(
         index,
     } = config_parameters;
 
-    // Currently, only support price in fixed range: [MIN_SQRT_PRICE; MAX_SQRT_PRICE]
     require!(
-        sqrt_min_price == MIN_SQRT_PRICE && sqrt_max_price == MAX_SQRT_PRICE,
+        sqrt_min_price >= MIN_SQRT_PRICE && sqrt_max_price <= MAX_SQRT_PRICE,
+        PoolError::InvalidPriceRange
+    );
+    // TODO do we need more buffer here?
+    require!(
+        sqrt_min_price < sqrt_max_price,
         PoolError::InvalidPriceRange
     );
 

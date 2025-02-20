@@ -44,11 +44,16 @@ pub struct InitializeCustomizablePoolParameters {
 impl InitializeCustomizablePoolParameters {
     pub fn validate(&self) -> Result<()> {
         require!(
-            self.sqrt_min_price == MIN_SQRT_PRICE && self.sqrt_max_price == MAX_SQRT_PRICE,
+            self.sqrt_min_price >= MIN_SQRT_PRICE && self.sqrt_max_price <= MAX_SQRT_PRICE,
             PoolError::InvalidPriceRange
         );
         require!(
             self.sqrt_price >= self.sqrt_min_price && self.sqrt_price <= self.sqrt_max_price,
+            PoolError::InvalidPriceRange
+        );
+        // TODO do we need more buffer here?
+        require!(
+            self.sqrt_min_price < self.sqrt_max_price,
             PoolError::InvalidPriceRange
         );
 
