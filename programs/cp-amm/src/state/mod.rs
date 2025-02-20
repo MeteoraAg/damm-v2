@@ -7,3 +7,5 @@ pub use position::*;
 pub mod fee;
 pub mod token_badge;
 pub use token_badge::*;
+pub mod vesting;
+pub use vesting::*;

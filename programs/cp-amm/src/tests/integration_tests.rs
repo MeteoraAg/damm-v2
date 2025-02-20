@@ -56,11 +56,11 @@ proptest! {
             execute_remove_liquidity(&mut reserve, &mut pool, &mut position, liquidity_delta/2);
         }
 
-        let total_liquidity = position.liquidity;
+        let total_liquidity = position.unlocked_liquidity;
         execute_remove_liquidity(&mut reserve, &mut pool, &mut position, total_liquidity);
 
         assert!(pool.liquidity == 0);
-        assert!(position.liquidity == 0);
+        assert!(position.unlocked_liquidity == 0);
         assert!(position.fee_b_pending <= reserve.amount_b);
         assert!(position.fee_a_pending <= reserve.amount_a);
 
@@ -129,7 +129,7 @@ fn test_reserve_wont_lost_single() {
         execute_remove_liquidity(&mut reserve, &mut pool, &mut position, liquidity_delta / 2);
     }
 
-    let total_liquidity = position.liquidity;
+    let total_liquidity = position.unlocked_liquidity;
     println!(
         "swap count {} total liquidity {}",
         swap_count, total_liquidity
@@ -138,7 +138,7 @@ fn test_reserve_wont_lost_single() {
     execute_remove_liquidity(&mut reserve, &mut pool, &mut position, total_liquidity);
 
     assert!(pool.liquidity == 0);
-    assert!(position.liquidity == 0);
+    assert!(position.unlocked_liquidity == 0);
 
     println!("{:?}", reserve);
     println!("{:?}", position);

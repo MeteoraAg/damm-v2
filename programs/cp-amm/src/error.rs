@@ -250,6 +250,9 @@ pub enum PoolError {
     #[msg("Invalid vesting information")]
     InvalidVestingInfo,
 
-    #[msg("Position already locked")]
-    PositionAlreadyLocked,
+    #[msg("Insufficient liquidity")]
+    InsufficientLiquidity,
+
+    #[msg("Invalid vesting account")]
+    InvalidVestingAccount,
 }

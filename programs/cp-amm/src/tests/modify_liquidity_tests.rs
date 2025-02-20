@@ -38,7 +38,7 @@ proptest! {
         pool.apply_remove_liquidity(&mut position, liquidity_delta).unwrap();
 
         assert_eq!(pool.liquidity, 0);
-        assert_eq!(position.liquidity, 0);
+        assert_eq!(position.unlocked_liquidity, 0);
 
         assert!(result_0.amount_a >= result_1.amount_a);
         assert!(result_0.amount_b >= result_1.amount_b);

@@ -98,5 +98,7 @@ pub mod seeds {
     pub const POOL_PREFIX: &[u8] = b"pool";
     pub const TOKEN_VAULT_PREFIX: &[u8] = b"token_vault";
     pub const POOL_AUTHORITY_PREFIX: &[u8] = b"pool_authority";
+    pub const POSITION_PREFIX: &[u8] = b"position";
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
+    pub const VESTING_PREFIX: &[u8] = b"vesting";
 }

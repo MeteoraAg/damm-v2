@@ -430,11 +430,13 @@ impl Pool {
         Ok(())
     }
 
-    pub fn update_permanent_locked_liquidity(&mut self, position: &Position) -> Result<()> {
-        if position.is_permanently_locked() {
-            self.permanent_lock_liquidity =
-                self.permanent_lock_liquidity.safe_add(position.liquidity)?;
-        }
+    pub fn accumulate_permanent_locked_liquidity(
+        &mut self,
+        permanent_locked_liquidity: u128,
+    ) -> Result<()> {
+        self.permanent_lock_liquidity = self
+            .permanent_lock_liquidity
+            .safe_add(permanent_locked_liquidity)?;
 
         Ok(())
     }

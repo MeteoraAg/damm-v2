@@ -2,13 +2,13 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 
 use crate::{
-    activation_handler::ActivationHandler, constants::seeds::POOL_AUTHORITY_PREFIX, state::{ ModifyLiquidityResult, Pool, Position }, token::transfer_from_pool, u128x128_math::Rounding, EvtRemoveLiquidity, PoolError
+    constants::seeds::POOL_AUTHORITY_PREFIX, state::{ ModifyLiquidityResult, Pool, Position }, token::transfer_from_pool, u128x128_math::Rounding, EvtRemoveLiquidity, PoolError
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct RemoveLiquidityParameters {
     /// delta liquidity
-    pub max_liquidity_delta: u128,
+    pub liquidity_delta: u128,
     /// minimum token a amount
     pub token_a_amount_threshold: u64,
     /// minimum token b amount
@@ -65,22 +65,15 @@ pub struct RemoveLiquidityCtx<'info> {
 
 pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveLiquidityParameters) -> Result<()> {
     let RemoveLiquidityParameters {
-        max_liquidity_delta,
+        liquidity_delta,
         token_a_amount_threshold,
         token_b_amount_threshold,
     } = params;
 
-    require!(max_liquidity_delta > 0, PoolError::InvalidParameters);
+    require!(liquidity_delta > 0, PoolError::InvalidParameters);
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
-
-    let (current_point, _) = ActivationHandler::get_current_point_and_buffer_duration(pool.activation_type)?;
-    let withdrawable_liquidity = position.get_withdrawable_liquidity(current_point)?;
-
-    require!(withdrawable_liquidity > 0, PoolError::PositionAlreadyLocked);
-
-    let liquidity_delta = withdrawable_liquidity.min(max_liquidity_delta);
 
     let ModifyLiquidityResult { amount_a, amount_b } = pool.get_amounts_for_modify_liquidity(
         liquidity_delta,

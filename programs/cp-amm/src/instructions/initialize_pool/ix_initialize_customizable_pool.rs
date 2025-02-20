@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 
 use crate::alpha_vault::alpha_vault;
-use crate::constants::seeds::CUSTOMIZABLE_POOL_PREFIX;
+use crate::constants::seeds::{CUSTOMIZABLE_POOL_PREFIX, POSITION_PREFIX};
 use crate::constants::{LOCK_LP_AMOUNT, MAX_SQRT_PRICE, MIN_SQRT_PRICE};
 use crate::curve::get_initialize_amounts;
 use crate::params::activation::ActivationParams;
@@ -110,6 +110,12 @@ pub struct InitializeCustomizablePoolCtx<'info> {
 
     #[account(
         init,
+        seeds = [
+            POSITION_PREFIX.as_ref(),
+            pool.key().as_ref(),
+            creator.key().as_ref(),
+        ],
+        bump,
         payer = payer,
         space = 8 + Position::INIT_SPACE
     )]

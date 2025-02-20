@@ -117,9 +117,17 @@ pub struct EvtLockPosition {
     pub pool: Pubkey,
     pub position: Pubkey,
     pub owner: Pubkey,
+    pub vesting: Pubkey,
     pub cliff_point: u64,
     pub period_frequency: u64,
-    pub cliff_unlock_bps: u16,
-    pub unlock_bps_per_period: u16,
+    pub cliff_unlock_liquidity: u128,
+    pub liquidity_per_period: u128,
     pub number_of_period: u16,
+}
+#[event]
+pub struct EvtPermanentLockPosition {
+    pub pool: Pubkey,
+    pub position: Pubkey,
+    pub liquidity: u128,
+    pub pool_new_permanent_locked_liquidity: u128,
 }

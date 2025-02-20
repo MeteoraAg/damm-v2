@@ -1,3 +1,4 @@
+use crate::constants::seeds::POSITION_PREFIX;
 use crate::constants::LOCK_LP_AMOUNT;
 use crate::curve::get_initialize_amounts;
 use crate::params::activation::ActivationParams;
@@ -65,6 +66,12 @@ pub struct InitializePoolCtx<'info> {
 
     #[account(
         init,
+        seeds = [
+            POSITION_PREFIX.as_ref(),
+            pool.key().as_ref(),
+            creator.key().as_ref(),
+        ],
+        bump,
         payer = payer,
         space = 8 + Position::INIT_SPACE
     )]

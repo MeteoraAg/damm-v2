@@ -1,19 +1,20 @@
 use crate::activation_handler::ActivationHandler;
-use crate::constants::fee::MAX_BASIS_POINT;
+use crate::constants::seeds::VESTING_PREFIX;
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
-use crate::state::{Pool, Position};
+use crate::state::{Pool, Position, Vesting};
 use crate::EvtLockPosition;
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
 pub struct VestingParameters {
-    // Set cliff point to u64::MAX as permanent lock
+    // Set to None to start vesting immediately
     pub cliff_point: Option<u64>,
     pub period_frequency: u64,
-    pub cliff_unlock_bps: u16,
-    pub unlock_bps_per_period: u16,
+    pub cliff_unlock_liquidity: u128,
+    pub liquidity_per_period: u128,
     pub number_of_period: u16,
+    pub index: u16,
 }
 
 impl VestingParameters {
@@ -21,17 +22,19 @@ impl VestingParameters {
         Ok(self.cliff_point.unwrap_or(current_point.safe_add(1)?))
     }
 
+    pub fn get_total_lock_amount(&self) -> Result<u128> {
+        let total_amount = self.cliff_unlock_liquidity.safe_add(
+            self.liquidity_per_period
+                .safe_mul(self.number_of_period.into())?,
+        )?;
+
+        Ok(total_amount)
+    }
+
     pub fn validate(&self, current_point: u64) -> Result<()> {
         let cliff_point = self.get_cliff_point(current_point)?;
 
         require!(cliff_point > current_point, PoolError::InvalidVestingInfo);
-
-        let max_basis_point = MAX_BASIS_POINT as u16;
-        let total_bps = self
-            .cliff_unlock_bps
-            .safe_add(self.unlock_bps_per_period.safe_mul(self.number_of_period)?)?;
-
-        require!(total_bps == max_basis_point, PoolError::InvalidVestingInfo);
 
         if self.number_of_period > 0 {
             require!(self.period_frequency > 0, PoolError::InvalidVestingInfo);
@@ -43,65 +46,83 @@ impl VestingParameters {
                 .safe_mul(self.number_of_period.into())?,
         )?;
 
+        require!(
+            self.get_total_lock_amount()? > 0,
+            PoolError::InvalidVestingInfo
+        );
+
         Ok(())
     }
 }
 
 #[event_cpi]
 #[derive(Accounts)]
+#[instruction(params: VestingParameters)]
 pub struct LockPosition<'info> {
-    #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
+
+    #[account(
+        init,
+        seeds = [
+            VESTING_PREFIX.as_ref(),
+            position.key().as_ref(),
+            params.index.to_le_bytes().as_ref(),
+        ],
+        payer = owner,
+        bump,
+        space = 8 + Vesting::INIT_SPACE
+    )]
+    pub vesting: AccountLoader<'info, Vesting>,
 
     #[account(mut, has_one = pool, has_one = owner)]
     pub position: AccountLoader<'info, Position>,
 
+    #[account(mut)]
     pub owner: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 pub fn handle_lock_position(ctx: Context<LockPosition>, params: VestingParameters) -> Result<()> {
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    let pool = ctx.accounts.pool.load()?;
     let (current_point, _) =
         ActivationHandler::get_current_point_and_buffer_duration(pool.activation_type)?;
 
     params.validate(current_point)?;
 
-    let mut position = ctx.accounts.position.load_mut()?;
-    require!(position.liquidity > 0, PoolError::AmountIsZero);
-    // Add liquidity before lock position
-    require!(
-        !position.is_locked(current_point)?,
-        PoolError::PositionAlreadyLocked
-    );
+    let total_lock_liquidity = params.get_total_lock_amount()?;
+    let cliff_point = params.get_cliff_point(current_point)?;
 
     let VestingParameters {
         period_frequency,
-        cliff_unlock_bps,
-        unlock_bps_per_period,
+        cliff_unlock_liquidity,
+        liquidity_per_period,
         number_of_period,
         ..
     } = params;
 
-    let cliff_point = params.get_cliff_point(current_point)?;
-
-    position.lock(
+    let mut vesting = ctx.accounts.vesting.load_init()?;
+    vesting.initialize(
+        ctx.accounts.position.key(),
         cliff_point,
         period_frequency,
-        cliff_unlock_bps,
-        unlock_bps_per_period,
+        cliff_unlock_liquidity,
+        liquidity_per_period,
         number_of_period,
     );
 
-    pool.update_permanent_locked_liquidity(&position)?;
+    let mut position = ctx.accounts.position.load_mut()?;
+    position.lock(total_lock_liquidity)?;
 
     emit_cpi!(EvtLockPosition {
         position: ctx.accounts.position.key(),
         pool: ctx.accounts.pool.key(),
         owner: ctx.accounts.owner.key(),
+        vesting: ctx.accounts.vesting.key(),
         cliff_point,
         period_frequency,
-        cliff_unlock_bps,
-        unlock_bps_per_period,
+        cliff_unlock_liquidity,
+        liquidity_per_period,
         number_of_period,
     });
 
