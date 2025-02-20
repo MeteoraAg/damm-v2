@@ -48,6 +48,10 @@ impl Vesting {
             return Ok(0);
         }
 
+        if self.period_frequency == 0 {
+            return Ok(self.cliff_unlock_liquidity);
+        }
+
         let period = current_point
             .safe_sub(self.cliff_point)?
             .safe_div(self.period_frequency)?;

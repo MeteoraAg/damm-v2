@@ -52,17 +52,3 @@ export function deriveTokenVaultAddress(
     CP_AMM_PROGRAM_ID
   )[0];
 }
-
-export function deriveVestingAddress(
-  position: PublicKey,
-  index: BN
-): PublicKey {
-  return PublicKey.findProgramAddressSync(
-    [
-      Buffer.from("vesting"),
-      position.toBuffer(),
-      index.toArrayLike(Buffer, "le", 2),
-    ],
-    CP_AMM_PROGRAM_ID
-  )[0];
-}

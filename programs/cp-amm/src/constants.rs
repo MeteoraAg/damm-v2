@@ -34,8 +34,8 @@ pub mod activation {
     #[cfg(feature = "local")]
     pub const MAX_ACTIVATION_TIME_DURATION: u64 = 30;
 
-    pub const MAX_VESTING_SLOT_DURATION: u64 = SLOT_BUFFER * 24 * 365 * 50; // 50 years
-    pub const MAX_VESTING_TIME_DURATION: u64 = TIME_BUFFER * 24 * 365 * 50; // 50 years
+    pub const MAX_VESTING_SLOT_DURATION: u64 = SLOT_BUFFER * 24 * 365 * 10; // 10 years
+    pub const MAX_VESTING_TIME_DURATION: u64 = TIME_BUFFER * 24 * 365 * 10; // 10 years
 
     pub const FIVE_MINUTES_SLOT_BUFFER: u64 = SLOT_BUFFER / 12; // 5 minutes
 
@@ -103,5 +103,4 @@ pub mod seeds {
     pub const POOL_AUTHORITY_PREFIX: &[u8] = b"pool_authority";
     pub const POSITION_PREFIX: &[u8] = b"position";
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
-    pub const VESTING_PREFIX: &[u8] = b"vesting";
 }

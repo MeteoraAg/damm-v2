@@ -11,7 +11,6 @@ import {
   createPosition,
   getPool,
   getPosition,
-  getStakeProgramErrorCodeHexString as getProgramErrorCodeHexString,
   getVesting,
   initializePool,
   InitializePoolParams,
@@ -22,12 +21,10 @@ import {
   MIN_SQRT_PRICE,
   permanentLockPosition,
   refreshVestings,
-  removeLiquidity,
   swap,
   SwapParams,
 } from "./bankrun-utils";
 import {
-  expectThrowsAsync,
   setupTestContext,
   startTest,
   warpSlotBy,

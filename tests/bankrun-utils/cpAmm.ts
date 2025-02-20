@@ -32,7 +32,6 @@ import {
   derivePoolAuthority,
   derivePositionAddress,
   deriveTokenVaultAddress,
-  deriveVestingAddress,
 } from "./accounts";
 import { processTransactionMaybeThrow } from "./common";
 import { CP_AMM_PROGRAM_ID } from "./constants";
@@ -350,13 +349,13 @@ export async function lockPosition(
   const program = createCpAmmProgram();
   const positionState = await getPosition(banksClient, position);
 
-  const vesting = deriveVestingAddress(position, new BN(params.index));
+  const vestingKP = Keypair.generate();
 
   const transaction = await program.methods
     .lockPosition(params)
     .accounts({
       position,
-      vesting,
+      vesting: vestingKP.publicKey,
       owner: owner.publicKey,
       pool: positionState.pool,
       program: CP_AMM_PROGRAM_ID,
@@ -366,11 +365,11 @@ export async function lockPosition(
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer, owner);
+  transaction.sign(payer, owner, vestingKP);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
-  return vesting;
+  return vestingKP.publicKey;
 }
 
 export async function createPosition(

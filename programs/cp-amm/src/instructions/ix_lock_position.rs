@@ -1,5 +1,4 @@
 use crate::activation_handler::ActivationHandler;
-use crate::constants::seeds::VESTING_PREFIX;
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
 use crate::state::{Pool, Position, Vesting};
@@ -35,11 +34,17 @@ impl VestingParameters {
         let cliff_point = self.get_cliff_point(current_point)?;
 
         require!(cliff_point >= current_point, PoolError::InvalidVestingInfo);
-        require!(self.period_frequency > 0, PoolError::InvalidVestingInfo);
+        if self.number_of_period > 0 {
+            require!(
+                self.period_frequency > 0 && self.liquidity_per_period > 0,
+                PoolError::InvalidVestingInfo
+            );
+        }
 
-        let vesting_duration = self
-            .period_frequency
-            .safe_mul(self.number_of_period.into())?;
+        let vesting_duration = cliff_point.safe_sub(current_point)?.safe_add(
+            self.period_frequency
+                .safe_mul(self.number_of_period.into())?,
+        )?;
 
         require!(
             vesting_duration <= max_vesting_duration,
@@ -63,13 +68,7 @@ pub struct LockPositionCtx<'info> {
 
     #[account(
         init,
-        seeds = [
-            VESTING_PREFIX.as_ref(),
-            position.key().as_ref(),
-            params.index.to_le_bytes().as_ref(),
-        ],
         payer = payer,
-        bump,
         space = 8 + Vesting::INIT_SPACE
     )]
     pub vesting: AccountLoader<'info, Vesting>,
