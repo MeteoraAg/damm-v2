@@ -10,7 +10,6 @@ use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 
 #[event_cpi]
 #[derive(Accounts)]
-#[instruction(reward_index: u64)]
 pub struct ClaimRewardCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,

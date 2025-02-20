@@ -148,12 +148,12 @@ export async function setupTestContext(
   banksClient: BanksClient,
   rootKeypair: Keypair
 ) {
-  const [admin, payer, poolCreator, user] = Array(4)
-    .fill(4)
+  const [admin, payer, poolCreator, user, funder] = Array(5)
+    .fill(5)
     .map(() => Keypair.generate());
 
   await Promise.all(
-    [admin.publicKey, payer.publicKey, user.publicKey].map((publicKey) =>
+    [admin.publicKey, payer.publicKey, user.publicKey, funder.publicKey].map((publicKey) =>
       transferSol(banksClient, rootKeypair, publicKey, new BN(LAMPORTS_PER_SOL))
     )
   );
@@ -186,7 +186,7 @@ export async function setupTestContext(
     ),
   ]);
   //
-  const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
+  const rawAmount = 1_000_000_000 * 10 ** DECIMALS; // 1b
 
   // Mint token A to payer & user
   await Promise.all(
@@ -216,13 +216,22 @@ export async function setupTestContext(
     )
   );
 
-  // mint reward to payer
+  // mint reward to funder
   await mintTo(
     banksClient,
     rootKeypair,
     rewardMintKeypair.publicKey,
     rootKeypair,
-    payer.publicKey,
+    funder.publicKey,
+    BigInt(rawAmount)
+  );
+
+  await mintTo(
+    banksClient,
+    rootKeypair,
+    rewardMintKeypair.publicKey,
+    rootKeypair,
+    user.publicKey,
     BigInt(rawAmount)
   );
 
@@ -233,10 +242,11 @@ export async function setupTestContext(
     tokenAMint: tokenAMintKeypair.publicKey,
     tokenBMint: tokenBMintKeypair.publicKey,
     user,
+    funder,
     rewardMint: rewardMintKeypair.publicKey,
   };
 }
 
-export function randomID(min = 0, max = 10000) {
+export function randomID(min = 0, max = 1000000) {
   return Math.floor(Math.random() * (max - min) + min);
 }

@@ -1,5 +1,5 @@
 use crate::assert_eq_admin;
-use crate::constants::seeds::{ POOL_AUTHORITY_PREFIX, REWARD_VAULT };
+use crate::constants::seeds::{ POOL_AUTHORITY_PREFIX, REWARD_VAULT_PREFIX };
 use crate::constants::{ MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS };
 use crate::error::PoolError;
 use crate::event::EvtInitializeReward;
@@ -21,7 +21,7 @@ pub struct InitializeRewardCtx<'info> {
 
     #[account(
         init,
-        seeds = [REWARD_VAULT.as_ref(), pool.key().as_ref(), reward_index.to_le_bytes().as_ref()],
+        seeds = [REWARD_VAULT_PREFIX.as_ref(), pool.key().as_ref(), reward_index.to_le_bytes().as_ref()],
         bump,
         payer = admin,
         token::mint = reward_mint,

@@ -10,7 +10,6 @@ use ruint::aliases::U256;
 
 #[event_cpi]
 #[derive(Accounts)]
-#[instruction(reward_index: u64)]
 pub struct FundRewardCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,

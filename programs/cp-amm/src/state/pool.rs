@@ -14,6 +14,7 @@ use crate::{
     u128x128_math::Rounding,
     PoolError,
 };
+use num_traits::ConstOne;
 use ruint::aliases::U256;
 use std::u64;
 
@@ -123,6 +124,12 @@ pub struct Pool {
 #[zero_copy]
 #[derive(InitSpace, Default, Debug, PartialEq)]
 pub struct RewardInfo {
+    /// Reward initialize
+    pub intialized: u8,
+    /// reward token flag
+    pub reward_token_flag: u8,
+    /// padding
+    pub _padding_0: [u8; 6],
     /// Reward token mint.
     pub mint: Pubkey,
     /// Reward vault token account.
@@ -133,12 +140,6 @@ pub struct RewardInfo {
     pub reward_duration: u64, // 8
     /// TODO check whether we need to store it in pool
     pub reward_duration_end: u64, // 8
-    /// reward token flag
-    pub reward_token_flag: u8,
-    /// Reward initialize
-    pub intialized: u8,
-    /// padding
-    pub _padding_0: [u8; 6],
     /// TODO check whether we need to store it in pool
     pub reward_rate: u128, // 8
     /// reward_a_per_token_stored
@@ -168,6 +169,7 @@ impl RewardInfo {
         reward_duration: u64,
         reward_token_flag: u8
     ) {
+        self.intialized = 1u8;
         self.mint = mint;
         self.vault = vault;
         self.funder = funder;
@@ -192,17 +194,13 @@ impl RewardInfo {
         current_time: u64,
         liquidity_supply: u64
     ) -> Result<u128> {
-        let time_period = self.get_seconds_elapsed_since_last_update(current_time)?;
-        let x = u128::from(time_period);
-        let y = u128::from(self.reward_rate);
-        let prod = x.checked_mul(y).unwrap();
-
-        safe_mul_div_cast(prod, LIQUIDITY_MAX, liquidity_supply.into(), Rounding::Down)
+        let time_period: u128 = self.get_seconds_elapsed_since_last_update(current_time)?.into();
+        let total_reward = time_period.safe_mul(self.reward_rate.into())?;
+        safe_mul_div_cast(total_reward, LIQUIDITY_MAX, liquidity_supply.into(), Rounding::Down)
     }
 
     pub fn accumulate_reward_per_token_stored(&mut self, amount: u128) -> Result<()> {
         self.reward_per_token_stored = self.reward_per_token_stored.safe_add(amount)?;
-
         Ok(())
     }
 
@@ -605,10 +603,8 @@ impl Pool {
     ) -> Result<u64> {
         // update pool reward
         self.update_rewards(current_time)?;
-
         // calculate inegible reward
         let reward_info = &mut self.reward_infos[reward_index];
-
         let (ineligible_reward, _) = U256::from(
             reward_info.cumulative_seconds_with_empty_liquidity_reward
         )

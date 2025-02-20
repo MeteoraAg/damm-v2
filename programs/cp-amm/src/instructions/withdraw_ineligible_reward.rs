@@ -47,7 +47,6 @@ impl<'info> WithdrawIneligibleRewardCtx<'info> {
         require!(reward_info.is_valid_funder(self.funder.key()), PoolError::InvalidFunder);
 
         let current_timestamp = Clock::get()?.unix_timestamp as u64;
-
         require!(current_timestamp > reward_info.reward_duration_end, PoolError::RewardNotEnded);
 
         Ok(())

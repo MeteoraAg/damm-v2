@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
+import { BanksClient, Clock, ProgramTestContext } from "solana-bankrun";
 import {
   LOCAL_ADMIN_KEYPAIR,
   createUsersAndFund,
@@ -12,8 +12,13 @@ import {
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { createMint, wrapSOL } from "./bankrun-utils/token";
 import {
+  addLiquidity,
+  AddLiquidityParams,
+  claimReward,
   createConfigIx,
   CreateConfigParams,
+  createPosition,
+  fundReward,
   getPool,
   getPosition,
   initializePool,
@@ -23,6 +28,9 @@ import {
   LOCK_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  updateRewardDuration,
+  updateRewardFunder,
+  withdrawIneligibleReward,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -31,6 +39,8 @@ describe("Initialize reward", () => {
   let payer: Keypair;
   let creator: PublicKey;
   let config: PublicKey;
+  let funder: Keypair;
+  let user: Keypair;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
   let rewardMint: PublicKey;
@@ -50,6 +60,8 @@ describe("Initialize reward", () => {
     tokenAMint = prepareContext.tokenAMint;
     tokenBMint = prepareContext.tokenBMint;
     rewardMint = prepareContext.rewardMint;
+    funder = prepareContext.funder;
+    user = prepareContext.user;
     // create config
     const createConfigParams: CreateConfigParams = {
       index: new BN(configId),
@@ -75,7 +87,7 @@ describe("Initialize reward", () => {
     );
   });
 
-  it("Admin initialize reward with", async () => {
+  it("Full flow for reward", async () => {
     liquidity = new BN(LOCK_LP_AMOUNT);
     sqrtPrice = new BN(MIN_SQRT_PRICE);
 
@@ -92,15 +104,86 @@ describe("Initialize reward", () => {
 
     const { pool } = await initializePool(context.banksClient, initPoolParams);
 
+    // user create postion and add liquidity
+    const position = await createPosition(
+      context.banksClient,
+      payer,
+      user.publicKey,
+      pool
+    );
+
+    const addLiquidityParams: AddLiquidityParams = {
+      owner: user,
+      pool,
+      position,
+      liquidityDelta: new BN(100),
+      tokenAAmountThreshold: new BN(200),
+      tokenBAmountThreshold: new BN(200),
+    };
+    await addLiquidity(context.banksClient, addLiquidityParams);
+
     // init reward
     const index = 0;
     const initRewardParams: InitializeRewardParams = {
-      index: 0,
+      index,
       payer: payer,
       rewardDuration: new BN(24 * 60 * 60),
       pool,
       rewardMint,
     };
     await initializeReward(context.banksClient, initRewardParams);
+
+    // update duration
+    await updateRewardDuration(context.banksClient, {
+      index,
+      admin: payer,
+      pool,
+      newDuration: new BN(1),
+    });
+
+    // update new funder
+    await updateRewardFunder(context.banksClient, {
+      index,
+      admin: payer,
+      pool,
+      newFunder: funder.publicKey,
+    });
+
+    // fund reward
+    await fundReward(context.banksClient, {
+      index,
+      funder: funder,
+      pool,
+      carryForward: true,
+      amount: new BN("100"),
+    });
+
+    // claim reward
+
+    await claimReward(context.banksClient, {
+      index,
+      user,
+      pool,
+    });
+
+    // claim ineligible reward
+    // const poolState = await getPool(context.banksClient, pool);
+    // // set new timestamp to pass reward duration end
+    // const timestamp = poolState.rewardInfos[index].rewardDurationEnd.addn(5000);
+    // const currentClock = await context.banksClient.getClock();
+    // context.setClock(
+    //   new Clock(
+    //     currentClock.slot,
+    //     currentClock.epochStartTimestamp,
+    //     currentClock.epoch,
+    //     currentClock.leaderScheduleEpoch,
+    //     BigInt(timestamp.toString())
+    //   )
+    // );
+    // await withdrawIneligibleReward(context.banksClient, {
+    //   index,
+    //   funder,
+    //   pool,
+    // });
   });
 });

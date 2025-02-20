@@ -76,16 +76,16 @@ pub fn handle_add_liquidity(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
+    // update current pool reward & postion reward
+    let current_time = Clock::get()?.unix_timestamp as u64;
+    position.update_reward(&mut pool, current_time)?;
+    
     let ModifyLiquidityResult { amount_a, amount_b } = pool.get_amounts_for_modify_liquidity(
         liquidity_delta,
         Rounding::Up
     )?;
 
     require!(amount_a > 0 || amount_b > 0, PoolError::AmountIsZero);
-
-    // update current pool reward & postion reward
-    let current_time = Clock::get()?.unix_timestamp as u64;
-    position.update_reward(&mut pool, current_time)?;
 
     // apply add liquidity logic
     pool.apply_add_liquidity(&mut position, liquidity_delta)?;

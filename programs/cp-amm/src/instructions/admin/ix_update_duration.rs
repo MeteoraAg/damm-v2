@@ -30,7 +30,7 @@ impl<'info> UpdateRewardDurationCtx<'info> {
 
         let pool = self.pool.load()?;
         let reward_info = &pool.reward_infos[reward_index];
-        require!(!reward_info.initialized(), PoolError::RewardInitialized);
+        require!(reward_info.initialized(), PoolError::RewardInitialized);
 
         require!(
             reward_info.reward_duration != new_reward_duration,
