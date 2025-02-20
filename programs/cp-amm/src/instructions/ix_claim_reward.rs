@@ -66,9 +66,6 @@ pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, index: u8) -> Result<()
     // get all pending reward
     let total_reward = position.claim_reward(reward_index)?;
 
-    // set all pending rewards to zero
-    position.reset_all_pending_reward(reward_index);
-
     // transfer rewards to user
     if total_reward > 0 {
         transfer_from_pool(
