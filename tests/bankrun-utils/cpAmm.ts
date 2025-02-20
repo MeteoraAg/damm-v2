@@ -500,7 +500,7 @@ export async function removeLiquidity(
 
   const transaction = await program.methods
     .removeLiquidity({
-      liquidityDelta,
+      maxLiquidityDelta: liquidityDelta,
       tokenAAmountThreshold,
       tokenBAmountThreshold,
     })
