@@ -278,7 +278,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         ctx.accounts.pool.key(),
         ctx.accounts.creator.key(),
         liquidity,
-    );
+    )?;
 
     // transfer token
     let total_amount_a =
