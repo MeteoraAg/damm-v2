@@ -38,6 +38,13 @@ impl Position {
         self.unlocked_liquidity >= liquidity
     }
 
+    fn get_total_liquidity(&self) -> Result<u128> {
+        Ok(self
+            .unlocked_liquidity
+            .safe_add(self.vested_liquidity)?
+            .safe_add(self.permanent_locked_liquidity)?)
+    }
+
     pub fn lock(&mut self, total_lock_liquidity: u128) -> Result<()> {
         require!(
             self.has_sufficient_liquidity(total_lock_liquidity),
@@ -69,9 +76,10 @@ impl Position {
         fee_a_per_token_stored: u128,
         fee_b_per_token_stored: u128,
     ) -> Result<()> {
-        if self.unlocked_liquidity > 0 {
+        let liquidity = self.get_total_liquidity()?;
+        if liquidity > 0 {
             let new_fee_a: u64 = mul_div(
-                self.unlocked_liquidity,
+                liquidity,
                 fee_a_per_token_stored.safe_sub(self.fee_a_per_token_checkpoint)?,
                 LIQUIDITY_MAX,
                 Rounding::Down,
@@ -83,7 +91,7 @@ impl Position {
             self.fee_a_pending = new_fee_a.safe_add(self.fee_a_pending)?;
 
             let new_fee_b: u64 = mul_div(
-                self.unlocked_liquidity,
+                liquidity,
                 fee_b_per_token_stored.safe_sub(self.fee_b_per_token_checkpoint)?,
                 LIQUIDITY_MAX,
                 Rounding::Down,
@@ -96,6 +104,12 @@ impl Position {
         }
         self.fee_a_per_token_checkpoint = fee_a_per_token_stored;
         self.fee_b_per_token_checkpoint = fee_b_per_token_stored;
+        Ok(())
+    }
+
+    pub fn release_vested_liquidity(&mut self, released_liquidity: u128) -> Result<()> {
+        self.vested_liquidity = self.vested_liquidity.safe_sub(released_liquidity)?;
+        self.add_liquidity(released_liquidity)?;
         Ok(())
     }
 

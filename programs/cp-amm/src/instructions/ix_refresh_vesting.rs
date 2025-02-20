@@ -65,6 +65,7 @@ pub fn handle_refresh_vesting<'a, 'b, 'c: 'info, 'info>(
         release_vesting_liquidity_to_position(&mut vesting, &mut position, current_point)?;
 
         if vesting.done()? {
+            drop(vesting);
             vesting_account
                 .vesting
                 .close(ctx.accounts.owner.to_account_info())?;
@@ -80,7 +81,7 @@ fn release_vesting_liquidity_to_position(
     current_point: u64,
 ) -> Result<()> {
     let released_liquidity = vesting.get_new_release_liquidity(current_point)?;
-    position.add_liquidity(released_liquidity)?;
+    position.release_vested_liquidity(released_liquidity)?;
     vesting.accumulate_released_liquidity(released_liquidity)?;
 
     Ok(())

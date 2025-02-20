@@ -68,7 +68,7 @@ pub struct LockPosition<'info> {
             position.key().as_ref(),
             params.index.to_le_bytes().as_ref(),
         ],
-        payer = owner,
+        payer = payer,
         bump,
         space = 8 + Vesting::INIT_SPACE
     )]
@@ -77,8 +77,10 @@ pub struct LockPosition<'info> {
     #[account(mut, has_one = pool, has_one = owner)]
     pub position: AccountLoader<'info, Position>,
 
-    #[account(mut)]
     pub owner: Signer<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }

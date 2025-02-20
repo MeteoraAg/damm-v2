@@ -33,12 +33,36 @@ export function derivePoolAddress(
   )[0];
 }
 
+export function derivePositionAddress(
+  pool: PublicKey,
+  owner: PublicKey
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("position"), pool.toBuffer(), owner.toBuffer()],
+    CP_AMM_PROGRAM_ID
+  )[0];
+}
+
 export function deriveTokenVaultAddress(
   tokenMint: PublicKey,
   pool: PublicKey
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("token_vault"), tokenMint.toBuffer(), pool.toBuffer()],
+    CP_AMM_PROGRAM_ID
+  )[0];
+}
+
+export function deriveVestingAddress(
+  position: PublicKey,
+  index: BN
+): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("vesting"),
+      position.toBuffer(),
+      index.toArrayLike(Buffer, "le", 2),
+    ],
     CP_AMM_PROGRAM_ID
   )[0];
 }
