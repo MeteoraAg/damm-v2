@@ -33,11 +33,20 @@ jobs:
     if: needs.program_changed_files.outputs.program == 'true'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - uses: ./.github/actions/setup-solana
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
        # Cache rust, cargo
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: "true"
+          cache-on-failure: true
+      - uses: actions/cache@v4
+        with:
+          path: ~/.anchor
+          key: anchor-${{ runner.os }}-${{ hashFiles('Anchor.toml') }}
       - run: anchor build
         shell: bash
 

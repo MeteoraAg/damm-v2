@@ -86,6 +86,60 @@ pub enum Command {
         #[clap(long)]
         token_mint: Pubkey,
     },
+    // Create reward
+    CreateReward {
+        #[clap(long)]
+        pool: Pubkey,
+        #[clap(long)]
+        reward_mint: Pubkey,
+        #[clap(long)]
+        reward_duration: u64,
+    },
+    // Fund reward
+    FundReward {
+        #[clap(long)]
+        pool: Pubkey,
+
+        #[clap(long)]
+        reward_index: u8,
+
+        #[clap(long)]
+        carry_forward: bool,
+
+        #[clap(long)]
+        funding_amount: u64,
+    },
+
+    // update reward duration
+    UpdateRewardDuration {
+        #[clap(long)]
+        pool: Pubkey,
+
+        #[clap(long)]
+        reward_index: u8,
+
+        #[clap(long)]
+        new_duration: u64,
+    },
+    // update reward funder
+    UpdateRewardFunder {
+        #[clap(long)]
+        pool: Pubkey,
+
+        #[clap(long)]
+        reward_index: u8,
+
+        #[clap(long)]
+        new_funder: Pubkey,
+    },
+    // withdraw ineligible reward
+    WithdrawIneligibleReward {
+        #[clap(long)]
+        pool: Pubkey,
+
+        #[clap(long)]
+        reward_index: u8,
+    },
 }
 
 #[derive(Parser, Debug)]

@@ -143,3 +143,82 @@ pub struct EvtSetPoolStatus {
     pub pool: Pubkey,
     pub status: u8,
 }
+
+// Initialize reward
+#[event]
+pub struct EvtInitializeReward {
+    // Liquidity pool
+    pub pool: Pubkey,
+    // Mint address of the farm reward
+    pub reward_mint: Pubkey,
+    // Address of the funder
+    pub funder: Pubkey,
+    // Index of the farm reward being initialized
+    pub reward_index: u8,
+    // Duration of the farm reward in seconds
+    pub reward_duration: u64,
+}
+
+#[event]
+pub struct EvtFundReward {
+    // Liquidity pool 
+    pub pool: Pubkey,
+    // Address of the funder
+    pub funder: Pubkey,
+    // Mint reward
+    pub mint_reward: Pubkey,
+    // Index of the farm reward being funded
+    pub reward_index: u8,
+    // Amount of farm reward funded
+    pub amount: u64
+}
+
+#[event]
+pub struct EvtClaimReward {
+    // Liquidity pool
+    pub pool: Pubkey,
+    // Position address
+    pub position: Pubkey,
+    // Owner of the position
+    pub owner: Pubkey,
+    // Mint reward
+    pub mint_reward: Pubkey,
+    // Index of the farm reward the owner is claiming
+    pub reward_index: u8,
+    // Total amount of reward claimed
+    pub total_reward: u64,
+}
+
+#[event]
+pub struct EvtUpdateRewardDuration {
+    // Liquidity pool 
+    pub pool: Pubkey,
+    // Index of the farm reward being updated
+    pub reward_index: u8,
+    // Old farm reward duration
+    pub old_reward_duration: u64,
+    // New farm reward duration
+    pub new_reward_duration: u64,
+}
+
+#[event]
+pub struct EvtUpdateRewardFunder {
+    // Liquidity pool 
+    pub pool: Pubkey,
+    // Index of the farm reward being updated
+    pub reward_index: u8,
+    // Address of the old farm reward funder
+    pub old_funder: Pubkey,
+    // Address of the new farm reward funder
+    pub new_funder: Pubkey,
+}
+
+#[event]
+pub struct EvtWithdrawIneligibleReward {
+    // Liquidity pool
+    pub pool: Pubkey,
+    // Reward mint
+    pub reward_mint: Pubkey,
+    // Amount of ineligible reward withdrawn
+    pub amount: u64,
+}

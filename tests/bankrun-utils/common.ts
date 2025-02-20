@@ -148,18 +148,19 @@ export async function setupTestContext(
   banksClient: BanksClient,
   rootKeypair: Keypair
 ) {
-  const [admin, payer, poolCreator, user] = Array(4)
-    .fill(4)
+  const [admin, payer, poolCreator, user, funder] = Array(5)
+    .fill(5)
     .map(() => Keypair.generate());
 
   await Promise.all(
-    [admin.publicKey, payer.publicKey, user.publicKey].map((publicKey) =>
+    [admin.publicKey, payer.publicKey, user.publicKey, funder.publicKey].map((publicKey) =>
       transferSol(banksClient, rootKeypair, publicKey, new BN(LAMPORTS_PER_SOL))
     )
   );
 
   const tokenAMintKeypair = Keypair.generate();
   const tokenBMintKeypair = Keypair.generate();
+  const rewardMintKeypair = Keypair.generate();
 
   await Promise.all([
     createMint(
@@ -173,6 +174,13 @@ export async function setupTestContext(
       banksClient,
       rootKeypair,
       tokenBMintKeypair,
+      rootKeypair.publicKey,
+      DECIMALS
+    ),
+    createMint(
+      banksClient,
+      rootKeypair,
+      rewardMintKeypair,
       rootKeypair.publicKey,
       DECIMALS
     ),
@@ -208,12 +216,33 @@ export async function setupTestContext(
     )
   );
 
+   // mint reward to funder
+   await mintTo(
+    banksClient,
+    rootKeypair,
+    rewardMintKeypair.publicKey,
+    rootKeypair,
+    funder.publicKey,
+    BigInt(rawAmount)
+  );
+
+  await mintTo(
+    banksClient,
+    rootKeypair,
+    rewardMintKeypair.publicKey,
+    rootKeypair,
+    user.publicKey,
+    BigInt(rawAmount)
+  );
+
   return {
     admin,
     payer,
     poolCreator,
     tokenAMint: tokenAMintKeypair.publicKey,
     tokenBMint: tokenBMintKeypair.publicKey,
+    rewardMint: rewardMintKeypair.publicKey,
+    funder,
     user,
   };
 }

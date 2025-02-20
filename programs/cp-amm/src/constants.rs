@@ -14,6 +14,17 @@ pub const BASIS_POINT_MAX: u64 = 10_000;
 
 pub const U24_MAX: u32 = 0xffffff;
 
+// Number of bits to scale. This will decide the position of the radix point.
+pub const SCALE_OFFSET: u8 = 64;
+
+// Number of rewards supported by pool
+pub const NUM_REWARDS: usize = 2;
+
+// Minimum reward duration
+pub const MIN_REWARD_DURATION: u64 = 1;
+
+pub const MAX_REWARD_DURATION: u64 = 31536000; // 1 year = 365 * 24 * 3600
+
 pub mod activation {
     #[cfg(not(feature = "local"))]
     pub const SLOT_BUFFER: u64 = 9000; // 1 slot = 400 mls => 1 hour
@@ -99,6 +110,7 @@ pub mod seeds {
     pub const POOL_AUTHORITY_PREFIX: &[u8] = b"pool_authority";
     pub const POSITION_PREFIX: &[u8] = b"position";
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
+    pub const REWARD_VAULT_PREFIX: &[u8] = b"reward_vault";
 }
 
 pub mod treasury {

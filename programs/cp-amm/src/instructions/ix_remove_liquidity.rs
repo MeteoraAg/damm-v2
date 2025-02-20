@@ -91,6 +91,10 @@ pub fn handle_remove_liquidity(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
+    
+    // update current pool reward & postion reward before any logic
+    let current_time = Clock::get()?.unix_timestamp as u64;
+    position.update_reward(&mut pool, current_time)?;
 
     let liquidity_delta = position.unlocked_liquidity.min(max_liquidity_delta);
 

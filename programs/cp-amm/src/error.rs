@@ -261,4 +261,44 @@ pub enum PoolError {
 
     #[msg("Unsupported native mint token2022")]
     UnsupportNativeMintToken2022,
+
+    #[msg("Reward mint is not support")]
+    RewardMintIsNotSupport,
+
+    #[msg("Invalid reward index")]
+    InvalidRewardIndex,
+
+    #[msg("Invalid reward duration")]
+    InvalidRewardDuration,
+
+    #[msg("Reward already initialized")]
+    RewardInitialized,
+
+    #[msg("Reward not initialized")]
+    RewardUninitialized,
+
+    #[msg("Invalid reward vault")]
+    InvalidRewardVault,
+
+    #[msg("Must withdraw ineligible reward")]
+    MustWithdrawnIneligibleReward,
+
+    #[msg("Withdraw to wrong token account")]
+    WithdrawToWrongTokenAccount,
+
+    #[msg("Reward duration is the same")]
+    IdenticalRewardDuration,
+
+    #[msg("Reward campaign in progress")]
+    RewardCampaignInProgress,
+
+    #[msg("Identical funder")]
+    IdenticalFunder,
+
+    /// Invalid funder
+    #[msg("Invalid funder")]
+    InvalidFunder,
+
+    #[msg("Reward not ended")]
+    RewardNotEnded,
 }
