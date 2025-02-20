@@ -2,8 +2,9 @@ use anchor_lang::prelude::*;
 
 use crate::{
     constants::seeds::POSITION_PREFIX,
+    get_pool_access_validator,
     state::{Pool, Position},
-    EvtCreatePosition,
+    EvtCreatePosition, PoolError,
 };
 
 #[event_cpi]
@@ -16,6 +17,7 @@ pub struct CreatePositionCtx<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
     #[account(
@@ -35,12 +37,27 @@ pub struct CreatePositionCtx<'info> {
 }
 
 pub fn handle_create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
+    {
+        let pool = ctx.accounts.pool.load()?;
+        let access_validator = get_pool_access_validator(&pool)?;
+        require!(
+            access_validator.can_create_position(),
+            PoolError::PoolDisabled
+        );
+    }
+
     // init position
     let mut position = ctx.accounts.position.load_init()?;
+    let mut pool = ctx.accounts.pool.load_mut()?;
 
     let liquidity = 0;
 
-    position.initialize(ctx.accounts.pool.key(), ctx.accounts.owner.key(), liquidity);
+    position.initialize(
+        &mut pool,
+        ctx.accounts.pool.key(),
+        ctx.accounts.owner.key(),
+        liquidity,
+    )?;
 
     emit_cpi!(EvtCreatePosition {
         pool: ctx.accounts.pool.key(),

@@ -1,8 +1,6 @@
 use crate::constants::seeds::POSITION_PREFIX;
-use crate::constants::LOCK_LP_AMOUNT;
 use crate::curve::get_initialize_amounts;
 use crate::params::activation::ActivationParams;
-use crate::safe_math::SafeMath;
 use crate::state::PoolType;
 use crate::token::{
     calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
@@ -172,8 +170,16 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         activation_point,
     } = params;
 
+    require!(liquidity > 0, PoolError::InvalidMinimumLiquidity);
+
     // init pool
     let config = ctx.accounts.config.load()?;
+
+    require!(
+        config.pool_creator_authority.eq(&Pubkey::default())
+            || config.pool_creator_authority.eq(&ctx.accounts.payer.key()),
+        PoolError::InvalidAuthorityToCreateThePool
+    );
 
     let activation_params = ActivationParams {
         activation_point,
@@ -188,10 +194,6 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         sqrt_price >= config.sqrt_min_price && sqrt_price <= config.sqrt_max_price,
         PoolError::InvalidPriceRange
     );
-    require!(
-        liquidity >= LOCK_LP_AMOUNT,
-        PoolError::InvalidMinimumLiquidity
-    );
 
     let (token_a_amount, token_b_amount) = get_initialize_amounts(
         config.sqrt_min_price,
@@ -199,6 +201,11 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         sqrt_price,
         liquidity,
     )?;
+
+    require!(
+        token_a_amount > 0 || token_b_amount > 0,
+        PoolError::AmountIsZero
+    );
     let mut pool = ctx.accounts.pool.load_init()?;
 
     let token_a_flag: u8 = get_token_program_flags(&ctx.accounts.token_a_mint).into();
@@ -213,7 +220,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         ctx.accounts.token_a_vault.key(),
         ctx.accounts.token_b_vault.key(),
         alpha_vault,
-        ctx.accounts.creator.key(),
+        config.pool_creator_authority,
         config.sqrt_min_price,
         config.sqrt_max_price,
         sqrt_price,
@@ -232,9 +239,10 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     let mut position = ctx.accounts.position.load_init()?;
 
     position.initialize(
+        &mut pool,
         ctx.accounts.pool.key(),
         ctx.accounts.creator.key(),
-        liquidity.safe_sub(LOCK_LP_AMOUNT)?, // locked lp amount to mitigate inflation attack
+        liquidity,
     );
 
     // transfer token

@@ -72,7 +72,7 @@ pub enum Command {
 
         #[clap(long)]
         partner_fee_percent: u8,
-        
+
         #[clap(long)]
         referral_fee_percent: u8,
     },

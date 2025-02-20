@@ -9,6 +9,8 @@ use crate::{
     PoolError,
 };
 
+use super::Pool;
+
 #[account(zero_copy)]
 #[derive(InitSpace, Debug, Default)]
 pub struct Position {
@@ -26,12 +28,45 @@ pub struct Position {
     pub unlocked_liquidity: u128,
     pub vested_liquidity: u128,
     pub permanent_locked_liquidity: u128,
+    /// metrics
+    pub metrics: PositionMetrics,
+    /// padding for future usage
+    pub padding: [u128; 4],
+    // TODO implement locking here
 }
+
+#[zero_copy]
+#[derive(Debug, InitSpace, Default)]
+pub struct PositionMetrics {
+    pub total_claimed_a_fee: u64,
+    pub total_claimed_b_fee: u64,
+}
+
+impl PositionMetrics {
+    pub fn accumulate_claimed_fee(
+        &mut self,
+        token_a_amount: u64,
+        token_b_amount: u64,
+    ) -> Result<()> {
+        self.total_claimed_a_fee = self.total_claimed_a_fee.safe_add(token_a_amount)?;
+        self.total_claimed_b_fee = self.total_claimed_b_fee.safe_add(token_b_amount)?;
+        Ok(())
+    }
+}
+
 impl Position {
-    pub fn initialize(&mut self, pool: Pubkey, owner: Pubkey, liquidity: u128) {
+    pub fn initialize(
+        &mut self,
+        pool_state: &mut Pool,
+        pool: Pubkey,
+        owner: Pubkey,
+        liquidity: u128,
+    ) -> Result<()> {
+        pool_state.metrics.inc_position()?;
         self.pool = pool;
         self.owner = owner;
         self.unlocked_liquidity = liquidity;
+        Ok(())
     }
 
     fn has_sufficient_liquidity(&self, liquidity: u128) -> bool {

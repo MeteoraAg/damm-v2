@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{ solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program };
+use anchor_client::{solana_sdk::pubkey::Pubkey, solana_sdk::signer::Signer, Program};
 use anyhow::*;
 
 use cp_amm::accounts;
@@ -14,9 +14,8 @@ pub fn close_config<C: Deref<Target = impl Signer> + Clone>(
     config: Pubkey,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>
+    compute_unit_price: Option<Instruction>,
 ) -> Result<Pubkey> {
-
     if program.rpc().get_account_data(&config).is_ok() {
         let event_authority = derive_event_authority_pda();
 

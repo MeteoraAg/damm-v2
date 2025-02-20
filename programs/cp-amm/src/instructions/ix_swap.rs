@@ -3,6 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
+    get_pool_access_validator,
     params::swap::TradeDirection,
     state::{CollectFeeMode, Pool},
     token::{calculate_transfer_fee_included_amount, transfer_from_pool, transfer_from_user},
@@ -79,6 +80,15 @@ impl<'info> SwapCtx<'info> {
 
 // TODO impl swap exact out
 pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
+    {
+        let pool = ctx.accounts.pool.load()?;
+        let access_validator = get_pool_access_validator(&pool)?;
+        require!(
+            access_validator.can_swap(&ctx.accounts.payer.key()),
+            PoolError::PoolDisabled
+        );
+    }
+
     let SwapParameters {
         amount_in,
         minimum_amount_out,

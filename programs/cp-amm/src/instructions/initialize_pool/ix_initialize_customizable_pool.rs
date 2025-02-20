@@ -2,11 +2,10 @@ use std::cmp::{max, min};
 
 use crate::alpha_vault::alpha_vault;
 use crate::constants::seeds::{CUSTOMIZABLE_POOL_PREFIX, POSITION_PREFIX};
-use crate::constants::{LOCK_LP_AMOUNT, MAX_SQRT_PRICE, MIN_SQRT_PRICE};
+use crate::constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE};
 use crate::curve::get_initialize_amounts;
 use crate::params::activation::ActivationParams;
 use crate::params::pool_fees::PoolFeeParamters;
-use crate::safe_math::SafeMath;
 use crate::state::{CollectFeeMode, PoolType};
 use crate::token::{
     calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
@@ -53,13 +52,12 @@ impl InitializeCustomizablePoolParameters {
             PoolError::InvalidPriceRange
         );
 
-        require!(
-            self.liquidity >= LOCK_LP_AMOUNT,
-            PoolError::InvalidMinimumLiquidity
-        );
+        require!(self.liquidity > 0, PoolError::InvalidMinimumLiquidity);
 
         // validate fee
         self.pool_fees.validate()?;
+        // more validation for protocol fee and partner fee
+        self.pool_fees.validate_for_customizable_pool()?;
 
         CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
@@ -225,6 +223,10 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
 
     let (token_a_amount, token_b_amount) =
         get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity)?;
+    require!(
+        token_a_amount > 0 || token_b_amount > 0,
+        PoolError::AmountIsZero
+    );
     let mut pool = ctx.accounts.pool.load_init()?;
 
     let token_a_flag: u8 = get_token_program_flags(&ctx.accounts.token_a_mint).into();
@@ -243,7 +245,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         ctx.accounts.token_a_vault.key(),
         ctx.accounts.token_b_mint.key(),
         alpha_vault,
-        ctx.accounts.creator.key(),
+        Pubkey::default(),
         sqrt_min_price,
         sqrt_max_price,
         sqrt_price,
@@ -260,9 +262,10 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
 
     let mut position = ctx.accounts.position.load_init()?;
     position.initialize(
+        &mut pool,
         ctx.accounts.pool.key(),
         ctx.accounts.creator.key(),
-        liquidity.safe_sub(LOCK_LP_AMOUNT)?, // locked lp amount to mitigate inflation attack
+        liquidity,
     );
 
     // transfer token

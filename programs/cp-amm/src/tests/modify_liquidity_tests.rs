@@ -1,6 +1,5 @@
 use crate::{
-    constants::{LIQUIDITY_MAX, LOCK_LP_AMOUNT, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
-    curve::get_initialize_amounts,
+    constants::{LIQUIDITY_MAX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     state::{Pool, Position},
     u128x128_math::Rounding,
 };

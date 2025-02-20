@@ -1,6 +1,10 @@
-use crate::{ safe_math::SafeMath, u128x128_math::{ mul_div_u256, Rounding }, PoolError };
+use crate::{
+    safe_math::SafeMath,
+    u128x128_math::{mul_div_u256, Rounding},
+    PoolError,
+};
 use anchor_lang::prelude::*;
-use ruint::aliases::{ U256, U512 };
+use ruint::aliases::{U256, U512};
 
 pub const RESOLUTION: u8 = 64;
 
@@ -8,22 +12,14 @@ pub fn get_initialize_amounts(
     sqrt_min_price: u128,
     sqrt_max_price: u128,
     sqrt_price: u128,
-    liquidity: u128
+    liquidity: u128,
 ) -> Result<(u64, u64)> {
     // BASE TOKEN
-    let amount_a = get_delta_amount_a_unsigned(
-        sqrt_price,
-        sqrt_max_price,
-        liquidity,
-        Rounding::Up
-    ).unwrap();
+    let amount_a =
+        get_delta_amount_a_unsigned(sqrt_price, sqrt_max_price, liquidity, Rounding::Up)?;
     // QUOTE TOKEN
-    let amount_b = get_delta_amount_b_unsigned(
-        sqrt_min_price,
-        sqrt_price,
-        liquidity,
-        Rounding::Up
-    ).unwrap();
+    let amount_b =
+        get_delta_amount_b_unsigned(sqrt_min_price, sqrt_price, liquidity, Rounding::Up)?;
     Ok((amount_a, amount_b))
 }
 
@@ -37,16 +33,16 @@ pub fn get_delta_amount_a_unsigned(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
     liquidity: u128,
-    round: Rounding
+    round: Rounding,
 ) -> Result<u64> {
     let result = get_delta_amount_a_unsigned_unchecked(
         lower_sqrt_price,
         upper_sqrt_price,
         liquidity,
-        round
+        round,
     )?;
     require!(result <= U256::from(u64::MAX), PoolError::MathOverflow);
-    return Ok(result.try_into().unwrap());
+    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
 }
 
 /// * i.e. `L * (√P_upper - √P_lower) / (√P_upper * √P_lower)`
@@ -54,15 +50,16 @@ pub fn get_delta_amount_a_unsigned_unchecked(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
     liquidity: u128,
-    round: Rounding
+    round: Rounding,
 ) -> Result<U256> {
     let numerator_1 = U256::from(liquidity);
     let numerator_2 = U256::from(upper_sqrt_price - lower_sqrt_price);
 
-    let denominator = U256::from(lower_sqrt_price).safe_mul(U256::from(upper_sqrt_price)).unwrap();
+    let denominator = U256::from(lower_sqrt_price).safe_mul(U256::from(upper_sqrt_price))?;
 
     assert!(denominator > U256::ZERO);
-    let result = mul_div_u256(numerator_1, numerator_2, denominator, round).unwrap();
+    let result = mul_div_u256(numerator_1, numerator_2, denominator, round)
+        .ok_or_else(|| PoolError::MathOverflow)?;
     return Ok(result);
 }
 
@@ -72,16 +69,16 @@ pub fn get_delta_amount_b_unsigned(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
     liquidity: u128,
-    round: Rounding
+    round: Rounding,
 ) -> Result<u64> {
     let result = get_delta_amount_b_unsigned_unchecked(
         lower_sqrt_price,
         upper_sqrt_price,
         liquidity,
-        round
-    ).unwrap();
+        round,
+    )?;
     require!(result <= U256::from(u64::MAX), PoolError::MathOverflow);
-    return Ok(result.try_into().unwrap());
+    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
 }
 
 //Δb = L (√P_upper - √P_lower)
@@ -89,17 +86,13 @@ pub fn get_delta_amount_b_unsigned_unchecked(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
     liquidity: u128,
-    round: Rounding
+    round: Rounding,
 ) -> Result<U256> {
     let liquidity = U512::from(liquidity);
     let delta_sqrt_price = U512::from(upper_sqrt_price - lower_sqrt_price);
     let prod = liquidity.safe_mul(delta_sqrt_price)?;
 
-    let denominator = U512::from(
-        U256::from(1)
-            .safe_shl((RESOLUTION as usize) * 2)
-            .unwrap()
-    );
+    let denominator = U512::from(U256::from(1).safe_shl((RESOLUTION as usize) * 2)?);
     let result = match round {
         Rounding::Up => prod.div_ceil(denominator),
         Rounding::Down => {
@@ -117,7 +110,7 @@ pub fn get_next_sqrt_price_from_input(
     sqrt_price: u128,
     liquidity: u128,
     amount_in: u64,
-    a_for_b: bool
+    a_for_b: bool,
 ) -> Result<u128> {
     assert!(sqrt_price > 0);
     assert!(liquidity > 0);
@@ -158,7 +151,7 @@ pub fn get_next_sqrt_price_from_input(
 pub fn get_next_sqrt_price_from_amount_a_rounding_up(
     sqrt_price: u128,
     liquidity: u128,
-    amount: u64
+    amount: u64,
 ) -> Result<u128> {
     if amount == 0 {
         return Ok(sqrt_price);
@@ -168,8 +161,9 @@ pub fn get_next_sqrt_price_from_amount_a_rounding_up(
 
     let product = U256::from(amount).safe_mul(sqrt_price)?;
     let denominator = liquidity.safe_add(U256::from(product))?;
-    let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up).unwrap();
-    return Ok(result.try_into().unwrap());
+    let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
+        .ok_or_else(|| PoolError::MathOverflow)?;
+    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
 }
 
 /// Gets the next sqrt price given a delta of token_b
@@ -189,12 +183,12 @@ pub fn get_next_sqrt_price_from_amount_a_rounding_up(
 pub fn get_next_sqrt_price_from_amount_b_rounding_down(
     sqrt_price: u128,
     liquidity: u128,
-    amount: u64
+    amount: u64,
 ) -> Result<u128> {
     let quotient = U512::from(amount)
         .safe_shl((RESOLUTION * 2) as usize)?
         .safe_div(U512::from(liquidity))?;
 
     let result = U512::from(sqrt_price).safe_add(quotient)?;
-    Ok(result.try_into().unwrap())
+    Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }

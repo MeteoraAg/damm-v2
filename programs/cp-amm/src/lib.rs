@@ -18,6 +18,9 @@ pub use math::*;
 pub mod curve;
 pub mod tests;
 
+pub mod pool_action_access;
+pub use pool_action_access::*;
+
 pub mod params;
 
 #[cfg(feature = "local")]
@@ -95,5 +98,21 @@ pub mod cp_amm {
         permanent_lock_liquidity: u128,
     ) -> Result<()> {
         instructions::handle_permanent_lock_position(ctx, permanent_lock_liquidity)
+    }
+
+    pub fn claim_protocol_fee(ctx: Context<ClaimProtocolFeesCtx>) -> Result<()> {
+        instructions::handle_claim_protocol_fee(ctx)
+    }
+
+    pub fn claim_partner_fee(
+        ctx: Context<ClaimPartnerFeesCtx>,
+        max_amount_a: u64,
+        max_amount_b: u64,
+    ) -> Result<()> {
+        instructions::handle_claim_partner_fee(ctx, max_amount_a, max_amount_b)
+    }
+
+    pub fn set_pool_status(ctx: Context<SetPoolStatusCtx>, status: u8) -> Result<()> {
+        instructions::handle_set_pool_status(ctx, status)
     }
 }

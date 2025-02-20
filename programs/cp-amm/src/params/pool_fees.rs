@@ -1,5 +1,8 @@
 //! Fees module includes information about fee charges
-use crate::constants::fee::{FEE_DENOMINATOR, MAX_BASIS_POINT};
+use crate::constants::fee::{
+    CUSTOMIZABLE_HOST_FEE_PERCENT, CUSTOMIZABLE_PROTOCOL_FEE_PERCENT, FEE_DENOMINATOR,
+    MAX_BASIS_POINT,
+};
 use crate::constants::{self, BASIS_POINT_MAX, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
@@ -164,29 +167,12 @@ pub fn to_bps(numerator: u128, denominator: u128) -> Option<u64> {
 }
 
 impl PoolFeeParamters {
-    /// Calculate the host trading fee in trading tokens
-    pub fn host_trading_fee(trading_tokens: u128) -> Option<u128> {
-        // Floor division
-        trading_tokens
-            .checked_mul(constants::fee::HOST_TRADE_FEE_NUMERATOR.into())?
-            .checked_div(constants::fee::FEE_DENOMINATOR.into())
-    }
-
     /// Calculate the trading fee in trading tokens
     pub fn trading_fee(&self, trading_tokens: u128) -> Option<u128> {
         calculate_fee(
             trading_tokens,
             u128::try_from(self.trade_fee_numerator).ok()?,
             u128::try_from(FEE_DENOMINATOR).ok()?,
-        )
-    }
-
-    /// Calculate the protocol trading fee in trading tokens
-    pub fn protocol_trading_fee(&self, trading_tokens: u128) -> Option<u128> {
-        calculate_fee(
-            trading_tokens,
-            u128::try_from(self.protocol_fee_percent).ok()?,
-            100,
         )
     }
 
@@ -207,6 +193,19 @@ impl PoolFeeParamters {
         if let Some(dynamic_fee) = self.dynamic_fee {
             dynamic_fee.validate()?;
         }
+        Ok(())
+    }
+
+    pub fn validate_for_customizable_pool(&self) -> Result<()> {
+        require!(
+            self.protocol_fee_percent == CUSTOMIZABLE_PROTOCOL_FEE_PERCENT,
+            PoolError::InvalidParameters
+        );
+        require!(
+            self.referral_fee_percent == CUSTOMIZABLE_HOST_FEE_PERCENT,
+            PoolError::InvalidParameters
+        );
+        require!(self.partner_fee_percent == 0, PoolError::InvalidParameters);
         Ok(())
     }
 }

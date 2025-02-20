@@ -17,7 +17,7 @@ import {
   getPosition,
   initializePool,
   InitializePoolParams,
-  LOCK_LP_AMOUNT,
+  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
 } from "./bankrun-utils";
@@ -71,7 +71,7 @@ describe("Initialize pool", () => {
   });
 
   it("Admin initialize pool", async () => {
-    liquidity = new BN(LOCK_LP_AMOUNT);
+    liquidity = new BN(MIN_LP_AMOUNT);
     sqrtPrice = new BN(MIN_SQRT_PRICE);
 
     const initPoolParams: InitializePoolParams = {

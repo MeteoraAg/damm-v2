@@ -36,6 +36,23 @@ pub enum CollectFeeMode {
     OnlyB,
 }
 
+/// collect fee mode
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum PoolStatus {
+    Enable,
+    Disable,
+}
+
 #[repr(u8)]
 #[derive(
     Clone,
@@ -67,8 +84,8 @@ pub struct Pool {
     pub token_b_vault: Pubkey,
     /// Whitelisted vault to be able to buy pool before activation_point
     pub whitelisted_vault: Pubkey,
-    /// pool creator
-    pub pool_creator: Pubkey,
+    /// partner
+    pub partner: Pubkey,
     /// liquidity share
     pub liquidity: u128,
     /// token a reserve
@@ -93,7 +110,7 @@ pub struct Pool {
     pub activation_point: u64,
     /// Activation type, 0 means by slot, 1 means by timestamp
     pub activation_type: u8,
-    /// pool status
+    /// pool status, 0: enable, 1 disable
     pub pool_status: u8,
     /// token a flag
     pub token_a_flag: u8,
@@ -111,8 +128,53 @@ pub struct Pool {
     pub fee_b_per_liquidity: u128,
     // TODO: Is this large enough?
     pub permanent_lock_liquidity: u128,
+    /// metrics
+    pub metrics: PoolMetrics,
     /// Padding for further use
     pub _padding_1: [u64; 10],
+}
+
+#[zero_copy]
+#[derive(Debug, InitSpace, Default)]
+pub struct PoolMetrics {
+    pub total_lp_a_fee: u128,
+    pub total_lp_b_fee: u128,
+    pub total_protocol_a_fee: u64,
+    pub total_protocol_b_fee: u64,
+    pub total_partner_a_fee: u64,
+    pub total_partner_b_fee: u64,
+    pub total_position: u64,
+}
+
+impl PoolMetrics {
+    pub fn inc_position(&mut self) -> Result<()> {
+        self.total_position = self.total_position.safe_add(1)?;
+        Ok(())
+    }
+    pub fn rec_position(&mut self) -> Result<()> {
+        self.total_position = self.total_position.safe_sub(1)?;
+        Ok(())
+    }
+
+    pub fn accumulate_fee(
+        &mut self,
+        lp_fee: u64,
+        protocol_fee: u64,
+        partner_fee: u64,
+        is_token_a: bool,
+    ) -> Result<()> {
+        if is_token_a {
+            self.total_lp_a_fee = self.total_lp_a_fee.safe_add(lp_fee.into())?;
+            self.total_protocol_a_fee = self.total_protocol_a_fee.safe_add(protocol_fee)?;
+            self.total_partner_a_fee = self.total_partner_a_fee.safe_add(partner_fee)?;
+        } else {
+            self.total_lp_b_fee = self.total_lp_b_fee.safe_add(lp_fee.into())?;
+            self.total_protocol_b_fee = self.total_protocol_b_fee.safe_add(protocol_fee)?;
+            self.total_partner_b_fee = self.total_partner_b_fee.safe_add(partner_fee)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Pool {
@@ -125,7 +187,7 @@ impl Pool {
         token_a_vault: Pubkey,
         token_b_vault: Pubkey,
         whitelisted_vault: Pubkey,
-        pool_creator: Pubkey,
+        partner: Pubkey,
         sqrt_min_price: u128,
         sqrt_max_price: u128,
         sqrt_price: u128,
@@ -145,7 +207,7 @@ impl Pool {
         self.token_a_vault = token_a_vault;
         self.token_b_vault = token_b_vault;
         self.whitelisted_vault = whitelisted_vault;
-        self.pool_creator = pool_creator;
+        self.partner = partner;
         self.sqrt_min_price = sqrt_min_price;
         self.sqrt_max_price = sqrt_max_price;
         self.activation_point = activation_point;
@@ -304,6 +366,7 @@ impl Pool {
             partner_fee,
             referral_fee: _referral_fee,
         } = swap_result;
+
         let old_sqrt_price = self.sqrt_price;
         self.sqrt_price = next_sqrt_price;
         let fee_per_token_stored: u128 =
@@ -316,10 +379,14 @@ impl Pool {
             self.partner_b_fee = self.partner_b_fee.safe_add(partner_fee)?;
             self.protocol_b_fee = self.partner_b_fee.safe_add(protocol_fee)?;
             self.fee_b_per_liquidity = self.fee_b_per_liquidity.safe_add(fee_per_token_stored)?;
+            self.metrics
+                .accumulate_fee(lp_fee, protocol_fee, partner_fee, false)?;
         } else {
             self.partner_a_fee = self.partner_a_fee.safe_add(partner_fee)?;
             self.protocol_a_fee = self.partner_a_fee.safe_add(protocol_fee)?;
             self.fee_a_per_liquidity = self.fee_a_per_liquidity.safe_add(fee_per_token_stored)?;
+            self.metrics
+                .accumulate_fee(lp_fee, protocol_fee, partner_fee, true)?;
         }
         self.update_post_swap(old_sqrt_price, current_timestamp)?;
         Ok(())
@@ -439,6 +506,26 @@ impl Pool {
             .safe_add(permanent_locked_liquidity)?;
 
         Ok(())
+    }
+
+    pub fn claim_protocol_fee(&mut self) -> (u64, u64) {
+        let token_a_amount = self.protocol_a_fee;
+        let token_b_amount = self.protocol_b_fee;
+        self.protocol_a_fee = 0;
+        self.protocol_b_fee = 0;
+        (token_a_amount, token_b_amount)
+    }
+
+    pub fn claim_partner_fee(
+        &mut self,
+        max_amount_a: u64,
+        max_amount_b: u64,
+    ) -> Result<(u64, u64)> {
+        let token_a_amount = self.partner_a_fee.min(max_amount_a);
+        let token_b_amount = self.partner_b_fee.min(max_amount_b);
+        self.partner_a_fee = self.partner_a_fee.safe_sub(token_a_amount)?;
+        self.partner_b_fee = self.partner_a_fee.safe_sub(token_b_amount)?;
+        Ok((token_a_amount, token_b_amount))
     }
 }
 

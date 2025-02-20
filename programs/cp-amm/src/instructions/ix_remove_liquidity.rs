@@ -1,8 +1,13 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX, state::{ ModifyLiquidityResult, Pool, Position }, token::transfer_from_pool, u128x128_math::Rounding, EvtRemoveLiquidity, PoolError
+    constants::seeds::POOL_AUTHORITY_PREFIX,
+    get_pool_access_validator,
+    state::{ModifyLiquidityResult, Pool, Position},
+    token::transfer_from_pool,
+    u128x128_math::Rounding,
+    EvtRemoveLiquidity, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -26,7 +31,7 @@ pub struct RemoveLiquidityCtx<'info> {
     pub pool: AccountLoader<'info, Pool>,
 
     #[account(
-      mut, 
+      mut,
       has_one = pool,
       has_one = owner,
     )]
@@ -63,7 +68,19 @@ pub struct RemoveLiquidityCtx<'info> {
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
 }
 
-pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveLiquidityParameters) -> Result<()> {
+pub fn handle_remove_liquidity(
+    ctx: Context<RemoveLiquidityCtx>,
+    params: RemoveLiquidityParameters,
+) -> Result<()> {
+    {
+        let pool = ctx.accounts.pool.load()?;
+        let access_validator = get_pool_access_validator(&pool)?;
+        require!(
+            access_validator.can_remove_liquidity(),
+            PoolError::PoolDisabled
+        );
+    }
+
     let RemoveLiquidityParameters {
         max_liquidity_delta,
         token_a_amount_threshold,
@@ -77,17 +94,21 @@ pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveL
 
     let liquidity_delta = position.unlocked_liquidity.min(max_liquidity_delta);
 
-    let ModifyLiquidityResult { amount_a, amount_b } = pool.get_amounts_for_modify_liquidity(
-        liquidity_delta,
-        Rounding::Down
-    )?;
+    let ModifyLiquidityResult { amount_a, amount_b } =
+        pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Down)?;
 
     require!(amount_a > 0 || amount_b > 0, PoolError::AmountIsZero);
 
     pool.apply_remove_liquidity(&mut position, liquidity_delta)?;
 
-    require!(amount_a >= token_a_amount_threshold, PoolError::ExceededSlippage);
-    require!(amount_b >= token_b_amount_threshold, PoolError::ExceededSlippage);
+    require!(
+        amount_a >= token_a_amount_threshold,
+        PoolError::ExceededSlippage
+    );
+    require!(
+        amount_b >= token_b_amount_threshold,
+        PoolError::ExceededSlippage
+    );
 
     // send to user
     transfer_from_pool(
@@ -110,13 +131,13 @@ pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveL
         ctx.bumps.pool_authority,
     )?;
 
-    emit_cpi!(EvtRemoveLiquidity{
+    emit_cpi!(EvtRemoveLiquidity {
         pool: ctx.accounts.pool.key(),
         owner: ctx.accounts.owner.key(),
         position: ctx.accounts.position.key(),
         params,
         amount_a,
-        amount_b, 
+        amount_b,
     });
 
     Ok(())

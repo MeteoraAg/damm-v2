@@ -255,4 +255,7 @@ pub enum PoolError {
 
     #[msg("Invalid vesting account")]
     InvalidVestingAccount,
+
+    #[msg("Invalid pool status")]
+    InvalidPoolStatus,
 }
