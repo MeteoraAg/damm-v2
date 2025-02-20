@@ -263,6 +263,11 @@ pub fn is_supported_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> 
     if *mint_info.owner == Token::id() {
         return Ok(true);
     }
+
+    if spl_token_2022::native_mint::check_id(&mint_account.key()) {
+        return Err(PoolError::UnsupportNativeMintToken2022.into());
+    }
+
     let mint_data = mint_info.try_borrow_data()?;
     let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
     let extensions = mint.get_extension_types()?;

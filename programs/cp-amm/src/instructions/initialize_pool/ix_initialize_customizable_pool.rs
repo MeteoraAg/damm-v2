@@ -2,7 +2,7 @@ use std::cmp::{max, min};
 
 use crate::alpha_vault::alpha_vault;
 use crate::constants::seeds::{CUSTOMIZABLE_POOL_PREFIX, POSITION_PREFIX};
-use crate::constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE};
+use crate::constants::{DEFAULT_QUOTE_MINTS, MAX_SQRT_PRICE, MIN_SQRT_PRICE};
 use crate::curve::get_initialize_amounts;
 use crate::params::activation::ActivationParams;
 use crate::params::pool_fees::PoolFeeParamters;
@@ -221,6 +221,13 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         has_alpha_vault,
     } = params;
 
+    // validate quote token
+    validate_quote_token(
+        &ctx.accounts.token_a_mint.key(),
+        &ctx.accounts.token_b_mint.key(),
+        has_alpha_vault,
+    )?;
+
     let (token_a_amount, token_b_amount) =
         get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity)?;
     require!(
@@ -326,4 +333,31 @@ pub fn get_whitelisted_alpha_vault(payer: Pubkey, pool: Pubkey, has_alpha_vault:
     } else {
         Pubkey::default()
     }
+}
+
+pub fn validate_quote_token(
+    token_mint_a: &Pubkey,
+    token_mint_b: &Pubkey,
+    has_alpha_vault: bool,
+) -> Result<()> {
+    let is_a_whitelisted_quote_token = is_whitelisted_quote_token(token_mint_a);
+    // A will never be a whitelisted quote token
+    require!(!is_a_whitelisted_quote_token, PoolError::InvalidQuoteMint);
+    let is_b_whitelisted_quote_token = is_whitelisted_quote_token(token_mint_b);
+    if !is_b_whitelisted_quote_token {
+        // BE AWARE!!!!!!!!!!!!!!!!!!!!!!!!!!
+        // even B is not whitelisted quote token, but deployer should always be aware that B is quote token, A is base token
+        // if B is not whitelisted quote token, then pool shouldn't be linked with an alpha-vault
+        require!(!has_alpha_vault, PoolError::InvalidQuoteMint);
+    }
+    Ok(())
+}
+
+fn is_whitelisted_quote_token(mint: &Pubkey) -> bool {
+    for i in 0..DEFAULT_QUOTE_MINTS.len() {
+        if DEFAULT_QUOTE_MINTS[i].eq(mint) {
+            return true;
+        }
+    }
+    false
 }

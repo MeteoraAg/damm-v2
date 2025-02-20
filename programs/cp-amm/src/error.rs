@@ -258,4 +258,7 @@ pub enum PoolError {
 
     #[msg("Invalid pool status")]
     InvalidPoolStatus,
+
+    #[msg("Unsupported native mint token2022")]
+    UnsupportNativeMintToken2022,
 }

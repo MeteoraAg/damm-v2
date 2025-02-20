@@ -524,7 +524,7 @@ impl Pool {
         let token_a_amount = self.partner_a_fee.min(max_amount_a);
         let token_b_amount = self.partner_b_fee.min(max_amount_b);
         self.partner_a_fee = self.partner_a_fee.safe_sub(token_a_amount)?;
-        self.partner_b_fee = self.partner_a_fee.safe_sub(token_b_amount)?;
+        self.partner_b_fee = self.partner_b_fee.safe_sub(token_b_amount)?;
         Ok((token_a_amount, token_b_amount))
     }
 }

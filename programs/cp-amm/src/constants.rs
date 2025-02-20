@@ -1,3 +1,6 @@
+use anchor_lang::prelude::Pubkey;
+use solana_program::pubkey;
+
 pub const FEE_CURVE_DURATION_NUMBER: usize = 6;
 
 /// refer raydium clmm
@@ -103,3 +106,8 @@ pub mod treasury {
     // https://v3.squads.so/dashboard/RW5xNldRYjJaS1FFdlYzQUhWUTQxaTU3VlZoRHRoQWJ0eU12Wm9SaFo3RQ==
     declare_id!("BJQbRiRWhJCyTYZcAuAL3ngDCx3AyFQGKDq8zhiZAKUw");
 }
+
+// Supported quote mints
+const SOL: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
+const USDC: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+pub const DEFAULT_QUOTE_MINTS: [Pubkey; 2] = [SOL, USDC];
