@@ -7,6 +7,7 @@ import {
   Wallet,
 } from "@coral-xyz/anchor";
 import {
+  AccountLayout,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
   TOKEN_PROGRAM_ID,
@@ -231,24 +232,6 @@ export async function initializePool(
     payer.publicKey
   );
 
-  console.log({
-    creator,
-    payer: payer.publicKey,
-    config,
-    poolAuthority,
-    pool,
-    position,
-    tokenAMint,
-    tokenBMint,
-    tokenAVault,
-    tokenBVault,
-    payerTokenA,
-    payerTokenB,
-    tokenAProgram: TOKEN_PROGRAM_ID,
-    tokenBProgram: TOKEN_PROGRAM_ID,
-    systemProgram: SystemProgram.programId,
-  });
-
   const transaction = await program.methods
     .initializePool({
       liquidity: liquidity,
@@ -277,6 +260,18 @@ export async function initializePool(
   transaction.sign(payer);
 
   await processTransactionMaybeThrow(banksClient, transaction);
+
+  // validate pool data
+  const poolState = await getPool(banksClient, pool);
+  expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
+  expect(poolState.tokenBMint.toString()).eq(tokenBMint.toString());
+  expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
+  expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
+  expect(poolState.liquidity.toString()).eq(liquidity.toString());
+  expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
+
+  expect(poolState.rewardInfos[0].intialized).eq(0);
+  expect(poolState.rewardInfos[1].intialized).eq(0);
 
   return { pool, position: position };
 }
@@ -316,8 +311,15 @@ export async function initializeReward(
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
-  // validate data
-  // const poolState = await getPool(banksClient, pool);
+  // validate reward data
+  const poolState = await getPool(banksClient, pool);
+  expect(poolState.rewardInfos[index].intialized).eq(1);
+  expect(poolState.rewardInfos[index].vault.toString()).eq(
+    rewardVault.toString()
+  );
+  expect(poolState.rewardInfos[index].mint.toString()).eq(
+    rewardMint.toString()
+  );
 }
 
 export type UpdateRewardDurationParams = {
@@ -344,6 +346,11 @@ export async function updateRewardDuration(
   transaction.sign(admin);
 
   await processTransactionMaybeThrow(banksClient, transaction);
+
+  const poolState = await getPool(banksClient, pool);
+  expect(poolState.rewardInfos[index].rewardDuration.toNumber()).eq(
+    newDuration.toNumber()
+  );
 }
 
 export type UpdateRewardFunderParams = {
@@ -370,6 +377,11 @@ export async function updateRewardFunder(
   transaction.sign(admin);
 
   await processTransactionMaybeThrow(banksClient, transaction);
+
+  const poolState = await getPool(banksClient, pool);
+  expect(poolState.rewardInfos[index].funder.toString()).eq(
+    newFunder.toString()
+  );
 }
 
 export type FundRewardParams = {
@@ -388,10 +400,22 @@ export async function fundReward(
   const program = createCpAmmProgram();
 
   const poolState = await getPool(banksClient, pool);
+  const rewardVault = poolState.rewardInfos[index].vault;
   const funderTokenAccount = getAssociatedTokenAddressSync(
     poolState.rewardInfos[index].mint,
     funder.publicKey
   );
+
+  const rewardVaultPreBalance = Number(
+    AccountLayout.decode((await banksClient.getAccount(rewardVault)).data)
+      .amount
+  );
+  const funderPreBalance = Number(
+    AccountLayout.decode(
+      (await banksClient.getAccount(funderTokenAccount)).data
+    ).amount
+  );
+
   const transaction = await program.methods
     .fundReward(index, amount, carryForward)
     .accounts({
@@ -407,6 +431,20 @@ export async function fundReward(
   transaction.sign(funder);
 
   await processTransactionMaybeThrow(banksClient, transaction);
+
+  const rewardVaultPostBalance = Number(
+    AccountLayout.decode((await banksClient.getAccount(rewardVault)).data)
+      .amount
+  );
+  const funderPostBalance = Number(
+    AccountLayout.decode(
+      (await banksClient.getAccount(funderTokenAccount)).data
+    ).amount
+  );
+
+  expect(funderPreBalance - funderPostBalance).eq(amount.toNumber());
+
+  expect(rewardVaultPostBalance - rewardVaultPreBalance).eq(amount.toNumber());
 }
 
 export type ClaimRewardParams = {
@@ -460,8 +498,6 @@ export async function withdrawIneligibleReward(
   banksClient: BanksClient,
   params: WithdrawIneligibleRewardParams
 ): Promise<void> {
-
-
   const { index, pool, funder } = params;
   const program = createCpAmmProgram();
 
