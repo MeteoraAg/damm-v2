@@ -1,32 +1,15 @@
 use super::{
     safe_math::SafeMath,
-    u128x128_math::{mul_div, mul_shr, shl_div, Rounding},
+    u128x128_math::{mul_shr, shl_div, Rounding},
 };
 use crate::error::PoolError;
 use anchor_lang::prelude::Result;
 use num_traits::cast::FromPrimitive;
 
-/// safe_mul_div_cast
-#[inline]
-pub fn safe_mul_div_cast<T: FromPrimitive>(
-    x: u128,
-    y: u128,
-    denominator: u128,
-    rounding: Rounding,
-) -> Result<T> {
-    T::from_u128(mul_div(x, y, denominator, rounding).ok_or_else(|| PoolError::MathOverflow)?)
-        .ok_or_else(|| PoolError::TypeCastFailed.into())
-}
-
 /// safe_mul_shr_cast
 #[inline]
-pub fn safe_mul_shr_cast<T: FromPrimitive>(
-    x: u128,
-    y: u128,
-    offset: u8,
-    rounding: Rounding,
-) -> Result<T> {
-    T::from_u128(mul_shr(x, y, offset, rounding).ok_or_else(|| PoolError::MathOverflow)?)
+pub fn safe_mul_shr_cast<T: FromPrimitive>(x: u128, y: u128, offset: u8) -> Result<T> {
+    T::from_u128(mul_shr(x, y, offset).ok_or_else(|| PoolError::MathOverflow)?)
         .ok_or_else(|| PoolError::TypeCastFailed.into())
 }
 

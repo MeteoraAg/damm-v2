@@ -1,7 +1,8 @@
 use crate::{
-    constants::{LIQUIDITY_MAX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::swap::TradeDirection,
     state::{fee::PoolFeesStruct, Pool, Position},
+    tests::LIQUIDITY_MAX,
     u128x128_math::Rounding,
 };
 use proptest::{bool::ANY, prelude::*};
@@ -73,11 +74,11 @@ proptest! {
 
 #[test]
 fn test_reserve_wont_lost_single() {
-    let sqrt_price = 6128332425810928500549733;
-    let liquidity_delta = 22173830520782590729150219;
+    let sqrt_price = 4295048016;
+    let liquidity_delta = 256772808979395951;
     let is_referral = false;
-    let trade_direction = true;
-    let amount_in = 1000_000_00;
+    let trade_direction = false;
+    let amount_in = 1;
 
     let pool_fees = PoolFeesStruct {
         trade_fee_numerator: 1_000_000, //1%

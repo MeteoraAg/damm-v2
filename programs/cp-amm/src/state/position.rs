@@ -3,10 +3,7 @@ use std::u64;
 use anchor_lang::prelude::*;
 
 use crate::{
-    constants::LIQUIDITY_MAX,
-    safe_math::SafeMath,
-    u128x128_math::{mul_div, Rounding},
-    PoolError,
+    constants::LIQUIDITY_SCALE, safe_math::SafeMath, utils_math::safe_mul_shr_cast, PoolError,
 };
 
 use super::Pool;
@@ -113,27 +110,19 @@ impl Position {
     ) -> Result<()> {
         let liquidity = self.get_total_liquidity()?;
         if liquidity > 0 {
-            let new_fee_a: u64 = mul_div(
+            let new_fee_a: u64 = safe_mul_shr_cast(
                 liquidity,
                 fee_a_per_token_stored.safe_sub(self.fee_a_per_token_checkpoint)?,
-                LIQUIDITY_MAX,
-                Rounding::Down,
-            )
-            .unwrap()
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?;
+                LIQUIDITY_SCALE,
+            )?;
 
             self.fee_a_pending = new_fee_a.safe_add(self.fee_a_pending)?;
 
-            let new_fee_b: u64 = mul_div(
+            let new_fee_b: u64 = safe_mul_shr_cast(
                 liquidity,
                 fee_b_per_token_stored.safe_sub(self.fee_b_per_token_checkpoint)?,
-                LIQUIDITY_MAX,
-                Rounding::Down,
-            )
-            .unwrap()
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?;
+                LIQUIDITY_SCALE,
+            )?;
 
             self.fee_b_pending = new_fee_b.safe_add(self.fee_b_pending)?;
         }

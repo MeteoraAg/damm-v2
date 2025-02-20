@@ -4,8 +4,9 @@ use proptest::proptest;
 use ruint::aliases::U256;
 
 use crate::{
-    constants::{LIQUIDITY_MAX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::{get_initialize_amounts, get_next_sqrt_price_from_input, RESOLUTION},
+    tests::LIQUIDITY_MAX,
 };
 use proptest::prelude::*;
 

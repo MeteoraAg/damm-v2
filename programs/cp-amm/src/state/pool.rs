@@ -1,7 +1,7 @@
-use crate::constants::LIQUIDITY_MAX;
+use crate::constants::LIQUIDITY_SCALE;
 use crate::curve::get_delta_amount_a_unsigned_unchecked;
 use crate::params::swap::TradeDirection;
-use crate::u128x128_math::mul_div;
+use crate::utils_math::safe_shl_div_cast;
 use crate::{
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
@@ -369,8 +369,12 @@ impl Pool {
 
         let old_sqrt_price = self.sqrt_price;
         self.sqrt_price = next_sqrt_price;
-        let fee_per_token_stored: u128 =
-            mul_div(lp_fee.into(), LIQUIDITY_MAX, self.liquidity, Rounding::Down).unwrap();
+        let fee_per_token_stored: u128 = safe_shl_div_cast(
+            lp_fee.into(),
+            self.liquidity,
+            LIQUIDITY_SCALE,
+            Rounding::Down,
+        )?;
 
         let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;

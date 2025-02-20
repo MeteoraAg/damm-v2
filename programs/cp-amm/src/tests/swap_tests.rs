@@ -1,11 +1,12 @@
 use std::{u128, u64};
 
 use crate::{
-    constants::{LIQUIDITY_MAX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     curve::get_initialize_amounts,
     params::swap::TradeDirection,
     safe_math::SafeMath,
     state::Pool,
+    tests::LIQUIDITY_MAX,
 };
 use proptest::prelude::*;
 
