@@ -49,7 +49,7 @@ pub mod cp_amm {
     }
 
     pub fn update_reward_funder(
-        ctx: Context<UpdateRewardFunder>,
+        ctx: Context<UpdateRewardFunderCtx>,
         reward_index: u8,
         new_funder: Pubkey
     ) -> Result<()> {
@@ -57,7 +57,7 @@ pub mod cp_amm {
     }
 
     pub fn update_reward_duration(
-        ctx: Context<UpdateRewardDuration>,
+        ctx: Context<UpdateRewardDurationCtx>,
         reward_index: u8,
         new_duration: u64
     ) -> Result<()> {
@@ -97,7 +97,7 @@ pub mod cp_amm {
     }
 
     pub fn initialize_reward<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializeReward<'info>>,
+        ctx: Context<'_, '_, 'c, 'info, InitializeRewardCtx<'info>>,
         reward_index: u8,
         reward_duration: u64,
         funder: Pubkey
@@ -106,7 +106,7 @@ pub mod cp_amm {
     }
 
     pub fn fund_reward(
-        ctx: Context<FundReward>,
+        ctx: Context<FundRewardCtx>,
         reward_index: u8,
         amount: u64,
         carry_forward: bool
@@ -114,12 +114,12 @@ pub mod cp_amm {
         instructions::handle_fund_reward(ctx, reward_index, amount, carry_forward)
     }
 
-    pub fn claim_reward(ctx: Context<ClaimReward>, reward_index: u8) -> Result<()> {
+    pub fn claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Result<()> {
         instructions::handle_claim_reward(ctx, reward_index)
     }
 
     pub fn withdraw_ineligible_reward(
-        ctx: Context<WithdrawIneligibleReward>,
+        ctx: Context<WithdrawIneligibleRewardCtx>,
         reward_index: u8
     ) -> Result<()> {
         instructions::handle_withdraw_ineligible_reward(ctx, reward_index)

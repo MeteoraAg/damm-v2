@@ -25,7 +25,7 @@ pub fn update_reward_funder<C: Deref<Target = impl Signer> + Clone>(
     let UpdateRewardFunderParams { pool, reward_index, new_funder } = params;
     let event_authority = derive_event_authority_pda();
 
-    let accounts = accounts::UpdateRewardFunder {
+    let accounts = accounts::UpdateRewardFunderCtx {
         pool,
         admin: program.payer(),
         event_authority,

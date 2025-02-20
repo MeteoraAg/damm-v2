@@ -11,7 +11,7 @@ use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 #[event_cpi]
 #[derive(Accounts)]
 #[instruction(reward_index: u8)]
-pub struct InitializeReward<'info> {
+pub struct InitializeRewardCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -41,7 +41,7 @@ pub struct InitializeReward<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> InitializeReward<'info> {
+impl<'info> InitializeRewardCtx<'info> {
     fn validate(&self, reward_index: usize, reward_duration: u64) -> Result<()> {
         let pool = self.pool.load()?;
 
@@ -60,7 +60,7 @@ impl<'info> InitializeReward<'info> {
 }
 
 pub fn handle_initialize_reward<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializeReward<'info>>,
+    ctx: Context<'_, '_, 'c, 'info, InitializeRewardCtx<'info>>,
     index: u8,
     reward_duration: u64,
     funder: Pubkey

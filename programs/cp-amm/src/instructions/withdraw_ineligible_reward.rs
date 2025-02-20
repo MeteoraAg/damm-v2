@@ -12,7 +12,7 @@ use anchor_spl::token_interface::{ TokenInterface, Mint, TokenAccount };
 #[event_cpi]
 #[derive(Accounts)]
 #[instruction(reward_index: u8)]
-pub struct WithdrawIneligibleReward<'info> {
+pub struct WithdrawIneligibleRewardCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -33,7 +33,7 @@ pub struct WithdrawIneligibleReward<'info> {
     pub token_program: Interface<'info, TokenInterface>,
 }
 
-impl<'info> WithdrawIneligibleReward<'info> {
+impl<'info> WithdrawIneligibleRewardCtx<'info> {
     fn validate(&self, reward_index: usize) -> Result<()> {
         let pool = self.pool.load()?;
         require!(reward_index < NUM_REWARDS, PoolError::InvalidRewardIndex);
@@ -55,7 +55,7 @@ impl<'info> WithdrawIneligibleReward<'info> {
 }
 
 pub fn handle_withdraw_ineligible_reward(
-    ctx: Context<WithdrawIneligibleReward>,
+    ctx: Context<WithdrawIneligibleRewardCtx>,
     index: u8
 ) -> Result<()> {
     let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;

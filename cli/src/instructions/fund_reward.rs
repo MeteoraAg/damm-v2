@@ -33,7 +33,7 @@ pub fn funding_reward<C: Deref<Target = impl Signer> + Clone>(
     let event_authority = derive_event_authority_pda();
     let funder_token_account = get_associated_token_address(&program.payer(), &reward_mint);
 
-    let accounts = accounts::FundReward {
+    let accounts = accounts::FundRewardCtx {
         pool,
         reward_vault,
         reward_mint,

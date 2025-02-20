@@ -11,7 +11,7 @@ use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 #[event_cpi]
 #[derive(Accounts)]
 #[instruction(reward_index: u64)]
-pub struct ClaimReward<'info> {
+pub struct ClaimRewardCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -38,7 +38,7 @@ pub struct ClaimReward<'info> {
     pub token_program: Interface<'info, TokenInterface>,
 }
 
-impl<'info> ClaimReward<'info> {
+impl<'info> ClaimRewardCtx<'info> {
     fn validate(&self, reward_index: usize) -> Result<()> {
         let pool = self.pool.load()?;
         require!(reward_index < NUM_REWARDS, PoolError::InvalidRewardIndex);
@@ -51,7 +51,7 @@ impl<'info> ClaimReward<'info> {
     }
 }
 
-pub fn handle_claim_reward(ctx: Context<ClaimReward>, index: u8) -> Result<()> {
+pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, index: u8) -> Result<()> {
     let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(reward_index)?;
 

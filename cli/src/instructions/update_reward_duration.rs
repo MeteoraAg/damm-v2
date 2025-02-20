@@ -25,7 +25,7 @@ pub fn update_reward_duration<C: Deref<Target = impl Signer> + Clone>(
     let UpdateRewardDurationParams { pool, reward_index, new_duration } = params;
     let event_authority = derive_event_authority_pda();
 
-    let accounts = accounts::UpdateRewardDuration {
+    let accounts = accounts::UpdateRewardDurationCtx {
         pool,
         admin: program.payer(),
         event_authority,

@@ -41,7 +41,7 @@ pub fn create_reward<C: Deref<Target = impl Signer> + Clone>(
     let reward_vault = derive_reward_vault_pda(reward_index, pool);
     let event_authority = derive_event_authority_pda();
 
-    let accounts = accounts::InitializeReward {
+    let accounts = accounts::InitializeRewardCtx {
         pool,
         pool_authority,
         reward_vault,

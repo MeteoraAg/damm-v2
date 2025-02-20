@@ -11,7 +11,7 @@ use ruint::aliases::U256;
 #[event_cpi]
 #[derive(Accounts)]
 #[instruction(reward_index: u64)]
-pub struct FundReward<'info> {
+pub struct FundRewardCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -28,7 +28,7 @@ pub struct FundReward<'info> {
     pub token_program: Interface<'info, TokenInterface>,
 }
 
-impl<'info> FundReward<'info> {
+impl<'info> FundRewardCtx<'info> {
     fn validate(&self, reward_index: usize) -> Result<()> {
         let pool = self.pool.load()?;
 
@@ -44,7 +44,7 @@ impl<'info> FundReward<'info> {
 }
 
 pub fn handle_fund_reward(
-    ctx: Context<FundReward>,
+    ctx: Context<FundRewardCtx>,
     index: u8,
     amount: u64,
     carry_forward: bool

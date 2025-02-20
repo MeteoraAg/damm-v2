@@ -36,7 +36,7 @@ pub fn withdraw_inegible_reward<C: Deref<Target = impl Signer> + Clone>(
 
     let funder_token_account = get_associated_token_address(&program.payer(), &reward_mint);
 
-    let accounts = accounts::WithdrawIneligibleReward {
+    let accounts = accounts::WithdrawIneligibleRewardCtx {
         pool,
         pool_authority,
         reward_mint,

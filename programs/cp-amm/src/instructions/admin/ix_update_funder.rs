@@ -7,7 +7,7 @@ use anchor_lang::prelude::*;
 #[event_cpi]
 #[derive(Accounts)]
 #[instruction(reward_index: u8)]
-pub struct UpdateRewardFunder<'info> {
+pub struct UpdateRewardFunderCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -15,7 +15,7 @@ pub struct UpdateRewardFunder<'info> {
     pub admin: Signer<'info>,
 }
 
-impl<'info> UpdateRewardFunder<'info> {
+impl<'info> UpdateRewardFunderCtx<'info> {
     fn validate(&self, reward_index: usize, new_funder: Pubkey) -> Result<()> {
         require!(reward_index < NUM_REWARDS, PoolError::InvalidRewardIndex);
 
@@ -30,7 +30,7 @@ impl<'info> UpdateRewardFunder<'info> {
     }
 }
 
-pub fn handle_update_reward_funder(ctx: Context<UpdateRewardFunder>, index: u8, new_funder: Pubkey) -> Result<()> {
+pub fn handle_update_reward_funder(ctx: Context<UpdateRewardFunderCtx>, index: u8, new_funder: Pubkey) -> Result<()> {
     let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(reward_index, new_funder)?;
 
