@@ -104,6 +104,7 @@ pub fn handle_fund_reward(
     emit_cpi!(EvtFundReward {
         pool: ctx.accounts.pool.key(),
         funder: ctx.accounts.funder.key(),
+        mint_reward: ctx.accounts.reward_mint.key(),
         reward_index: index,
         amount,
     });

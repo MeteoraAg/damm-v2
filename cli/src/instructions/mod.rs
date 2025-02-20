@@ -4,3 +4,6 @@ pub mod create_token_badge;
 pub mod update_config;
 pub mod create_reward;
 pub mod fund_reward;
+pub mod update_reward_duration;
+pub mod update_reward_funder;
+pub mod withdraw_inegible_reward;

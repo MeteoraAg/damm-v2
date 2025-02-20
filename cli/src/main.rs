@@ -15,6 +15,12 @@ use instructions::create_config::CreateConfigParams;
 use instructions::create_reward::{ create_reward, InitializeRewardParams };
 use instructions::fund_reward::{ funding_reward, FundRewardParams };
 use instructions::update_config::{ update_config, UpdateConfigParams };
+use instructions::update_reward_duration::{ update_reward_duration, UpdateRewardDurationParams };
+use instructions::update_reward_funder::{ update_reward_funder, UpdateRewardFunderParams };
+use instructions::withdraw_inegible_reward::{
+    withdraw_inegible_reward,
+    WithdrawInegibleRewardParams,
+};
 
 mod cmd;
 mod common;
@@ -135,6 +141,31 @@ fn main() -> Result<()> {
                 carry_forward,
             };
             funding_reward(params, &program, transaction_config, compute_unit_price_ix)?;
+        }
+        Command::UpdateRewardDuration { pool, reward_index, new_duration } => {
+            let params = UpdateRewardDurationParams {
+                pool,
+                reward_index,
+                new_duration,
+            };
+            update_reward_duration(params, &program, transaction_config, compute_unit_price_ix)?;
+        }
+        Command::UpdateRewardFunder { pool, reward_index, new_funder } => {
+            let params = UpdateRewardFunderParams {
+                pool,
+                reward_index,
+                new_funder,
+            };
+            update_reward_funder(params, &program, transaction_config, compute_unit_price_ix)?;
+        }
+
+        Command::WithdrawInegibleReward { pool, reward_index } => {
+            let params = WithdrawInegibleRewardParams {
+                pool,
+                reward_index,
+            };
+
+            withdraw_inegible_reward(params, &program, transaction_config, compute_unit_price_ix)?;
         }
     }
 

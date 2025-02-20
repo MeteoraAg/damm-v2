@@ -135,8 +135,10 @@ pub struct RewardInfo {
     pub reward_duration_end: u64, // 8
     /// reward token flag
     pub reward_token_flag: u8,
+    /// Reward initialize
+    pub intialized: u8,
     /// padding
-    pub _padding_0: [u8; 7],
+    pub _padding_0: [u8; 6],
     /// TODO check whether we need to store it in pool
     pub reward_rate: u128, // 8
     /// reward_a_per_token_stored
@@ -151,7 +153,7 @@ impl RewardInfo {
     /// Returns true if this reward is initialized.
     /// Once initialized, a reward cannot transition back to uninitialized.
     pub fn initialized(&self) -> bool {
-        self.mint.ne(&Pubkey::default())
+        self.intialized != 0
     }
 
     pub fn is_valid_funder(&self, funder: Pubkey) -> bool {
@@ -191,13 +193,11 @@ impl RewardInfo {
         liquidity_supply: u64
     ) -> Result<u128> {
         let time_period = self.get_seconds_elapsed_since_last_update(current_time)?;
+        let x = u128::from(time_period);
+        let y = u128::from(self.reward_rate);
+        let prod = x.checked_mul(y).unwrap();
 
-        safe_mul_div_cast(
-            time_period.into(),
-            self.reward_rate,
-            liquidity_supply.into(),
-            Rounding::Down
-        )
+        safe_mul_div_cast(prod, LIQUIDITY_MAX, liquidity_supply.into(), Rounding::Down)
     }
 
     pub fn accumulate_reward_per_token_stored(&mut self, amount: u128) -> Result<()> {
@@ -287,8 +287,8 @@ impl Pool {
         self.pool_type = pool_type;
     }
 
-    pub fn is_reward_initialized(&self) -> bool {
-        true
+    pub fn pool_reward_initialized(&self) -> bool {
+        self.reward_infos[0].initialized() || self.reward_infos[1].initialized()
     }
 
     pub fn get_swap_result(
@@ -494,8 +494,6 @@ impl Pool {
         // update current fee for position
         position.update_fee(self.fee_a_per_liquidity, self.fee_b_per_liquidity)?;
 
-        // update current reward for postion
-        position.update_reward(self.reward_infos)?;
         // add liquidity
         position.add_liquidity(liquidity_delta)?;
 
@@ -511,9 +509,6 @@ impl Pool {
     ) -> Result<()> {
         // update current fee for position
         position.update_fee(self.fee_a_per_liquidity, self.fee_b_per_liquidity)?;
-
-        // update current reward for postion
-        position.update_reward(self.reward_infos)?;
 
         // remove liquidity
         position.remove_liquidity(liquidity_delta)?;
@@ -601,6 +596,32 @@ impl Pool {
             }
         }
         Ok(())
+    }
+
+    pub fn claim_ineligible_reward(
+        &mut self,
+        reward_index: usize,
+        current_time: u64
+    ) -> Result<u64> {
+        // update pool reward
+        self.update_rewards(current_time)?;
+
+        // calculate inegible reward
+        let reward_info = &mut self.reward_infos[reward_index];
+
+        let (ineligible_reward, _) = U256::from(
+            reward_info.cumulative_seconds_with_empty_liquidity_reward
+        )
+            .safe_mul(U256::from(reward_info.reward_rate))?
+            .overflowing_shr(SCALE_OFFSET.into());
+
+        reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
+
+        let ineligible_reward: u64 = ineligible_reward
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?;
+
+        Ok(ineligible_reward)
     }
 }
 

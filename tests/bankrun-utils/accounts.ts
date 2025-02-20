@@ -58,7 +58,7 @@ export function deriveRewardVaultAddress(
   rewardIndex: number
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [pool.toBuffer(), Buffer.from([rewardIndex])],
+    [Buffer.from("reward_vault"), pool.toBuffer(), Buffer.from([rewardIndex])],
     CP_AMM_PROGRAM_ID
   )[0];
 }

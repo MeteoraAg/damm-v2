@@ -2,7 +2,12 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 
 use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX, state::{ ModifyLiquidityResult, Pool, Position }, token::transfer_from_pool, u128x128_math::Rounding, EvtRemoveLiquidity, PoolError
+    constants::seeds::POOL_AUTHORITY_PREFIX,
+    state::{ ModifyLiquidityResult, Pool, Position },
+    token::transfer_from_pool,
+    u128x128_math::Rounding,
+    EvtRemoveLiquidity,
+    PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -63,7 +68,10 @@ pub struct RemoveLiquidityCtx<'info> {
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
 }
 
-pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveLiquidityParameters) -> Result<()> {
+pub fn handle_remove_liquidity(
+    ctx: Context<RemoveLiquidityCtx>,
+    params: RemoveLiquidityParameters
+) -> Result<()> {
     let RemoveLiquidityParameters {
         liquidity_delta,
         token_a_amount_threshold,
@@ -80,6 +88,11 @@ pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveL
 
     require!(amount_a > 0 || amount_b > 0, PoolError::AmountIsZero);
 
+    // update current pool reward & postion reward
+    let current_time = Clock::get()?.unix_timestamp as u64;
+    position.update_reward(&mut pool, current_time)?;
+
+    // apply remove liquidity logic
     pool.apply_remove_liquidity(&mut position, liquidity_delta)?;
 
     require!(amount_a >= token_a_amount_threshold, PoolError::ExceededSlippage);
@@ -93,7 +106,7 @@ pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveL
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_a_program,
         amount_a,
-        ctx.bumps.pool_authority,
+        ctx.bumps.pool_authority
     )?;
 
     transfer_from_pool(
@@ -103,16 +116,16 @@ pub fn handle_remove_liquidity(ctx: Context<RemoveLiquidityCtx>, params: RemoveL
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_b_program,
         amount_b,
-        ctx.bumps.pool_authority,
+        ctx.bumps.pool_authority
     )?;
 
-    emit_cpi!(EvtRemoveLiquidity{
+    emit_cpi!(EvtRemoveLiquidity {
         pool: ctx.accounts.pool.key(),
         owner: ctx.accounts.owner.key(),
         position: ctx.accounts.position.key(),
         params,
         amount_a,
-        amount_b, 
+        amount_b,
     });
 
     Ok(())

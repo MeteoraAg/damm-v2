@@ -33,7 +33,7 @@ pub mod cp_amm {
     /// Create config
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,
-        config_parameters: ConfigParameters,
+        config_parameters: ConfigParameters
     ) -> Result<()> {
         instructions::handle_create_config(ctx, config_parameters)
     }
@@ -48,22 +48,38 @@ pub mod cp_amm {
         instructions::handle_close_config(ctx)
     }
 
+    pub fn update_reward_funder(
+        ctx: Context<UpdateRewardFunder>,
+        reward_index: u8,
+        new_funder: Pubkey
+    ) -> Result<()> {
+        instructions::handle_update_reward_funder(ctx, reward_index, new_funder)
+    }
+
+    pub fn update_reward_duration(
+        ctx: Context<UpdateRewardDuration>,
+        reward_index: u8,
+        new_duration: u64
+    ) -> Result<()> {
+        instructions::handle_update_reward_duration(ctx, reward_index, new_duration)
+    }
+
     pub fn initialize_pool<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, InitializePoolCtx<'info>>,
-        params: InitializePoolParameters,
+        params: InitializePoolParameters
     ) -> Result<()> {
         instructions::handle_initialize_pool(ctx, params)
     }
 
     pub fn add_liquidity(
         ctx: Context<AddLiquidityCtx>,
-        params: AddLiquidityParameters,
+        params: AddLiquidityParameters
     ) -> Result<()> {
         instructions::handle_add_liquidity(ctx, params)
     }
     pub fn remove_liquidity(
         ctx: Context<RemoveLiquidityCtx>,
-        params: RemoveLiquidityParameters,
+        params: RemoveLiquidityParameters
     ) -> Result<()> {
         instructions::handle_remove_liquidity(ctx, params)
     }
@@ -80,8 +96,8 @@ pub mod cp_amm {
         instructions::handle_claim_position_fee(ctx)
     }
 
-    pub fn initialize_reward(
-        ctx: Context<InitializeReward>,
+    pub fn initialize_reward<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, InitializeReward<'info>>,
         reward_index: u8,
         reward_duration: u64,
         funder: Pubkey
@@ -100,5 +116,12 @@ pub mod cp_amm {
 
     pub fn claim_reward(ctx: Context<ClaimReward>, reward_index: u8) -> Result<()> {
         instructions::handle_claim_reward(ctx, reward_index)
+    }
+
+    pub fn withdraw_ineligible_reward(
+        ctx: Context<WithdrawIneligibleReward>,
+        reward_index: u8
+    ) -> Result<()> {
+        instructions::handle_withdraw_ineligible_reward(ctx, reward_index)
     }
 }

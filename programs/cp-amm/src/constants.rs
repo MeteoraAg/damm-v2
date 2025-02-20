@@ -111,4 +111,5 @@ pub mod seeds {
     pub const POOL_AUTHORITY_PREFIX: &[u8] = b"pool_authority";
     pub const POSITION_PREFIX: &[u8] = b"position";
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
+    pub const REWARD_VAULT: &[u8] = b"reward_vault";
 }

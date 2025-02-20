@@ -1,10 +1,10 @@
 use crate::assert_eq_admin;
-use crate::constants::seeds::POOL_AUTHORITY_PREFIX;
+use crate::constants::seeds::{ POOL_AUTHORITY_PREFIX, REWARD_VAULT };
 use crate::constants::{ MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS };
 use crate::error::PoolError;
 use crate::event::EvtInitializeReward;
 use crate::state::pool::Pool;
-use crate::token::{ get_token_program_flags, is_supported_mint };
+use crate::token::{ get_token_program_flags, is_supported_mint, is_token_badge_initialized };
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 
@@ -21,7 +21,7 @@ pub struct InitializeReward<'info> {
 
     #[account(
         init,
-        seeds = [pool.key().as_ref(), reward_index.to_le_bytes().as_ref()],
+        seeds = [REWARD_VAULT.as_ref(), pool.key().as_ref(), reward_index.to_le_bytes().as_ref()],
         bump,
         payer = admin,
         token::mint = reward_mint,
@@ -43,9 +43,6 @@ pub struct InitializeReward<'info> {
 
 impl<'info> InitializeReward<'info> {
     fn validate(&self, reward_index: usize, reward_duration: u64) -> Result<()> {
-        // validate reward mint
-        require!(is_supported_mint(&self.reward_mint)?, PoolError::RewardMintIsNotSupport);
-
         let pool = self.pool.load()?;
 
         require!(reward_index < NUM_REWARDS, PoolError::InvalidRewardIndex);
@@ -62,12 +59,22 @@ impl<'info> InitializeReward<'info> {
     }
 }
 
-pub fn handle_initialize_reward(
-    ctx: Context<InitializeReward>,
+pub fn handle_initialize_reward<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, InitializeReward<'info>>,
     index: u8,
     reward_duration: u64,
     funder: Pubkey
 ) -> Result<()> {
+    if !is_supported_mint(&ctx.accounts.reward_mint)? {
+        require!(
+            is_token_badge_initialized(
+                ctx.accounts.reward_mint.key(),
+                ctx.remaining_accounts.get(0).ok_or(PoolError::InvalidTokenBadge)?
+            )?,
+            PoolError::InvalidTokenBadge
+        );
+    }
+
     let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(reward_index, reward_duration)?;
 

@@ -83,6 +83,11 @@ pub fn handle_add_liquidity(
 
     require!(amount_a > 0 || amount_b > 0, PoolError::AmountIsZero);
 
+    // update current pool reward & postion reward
+    let current_time = Clock::get()?.unix_timestamp as u64;
+    position.update_reward(&mut pool, current_time)?;
+
+    // apply add liquidity logic
     pool.apply_add_liquidity(&mut position, liquidity_delta)?;
 
     let total_amount_a = calculate_transfer_fee_included_amount(

@@ -72,7 +72,7 @@ pub enum Command {
 
         #[clap(long)]
         partner_fee_percent: u8,
-        
+
         #[clap(long)]
         referral_fee_percent: u8,
     },
@@ -105,10 +105,41 @@ pub enum Command {
 
         #[clap(long)]
         carry_forward: bool,
-        
+
         #[clap(long)]
         funding_amount: u64,
-    }
+    },
+
+    // update reward duration
+    UpdateRewardDuration {
+        #[clap(long)]
+        pool: Pubkey,
+
+        #[clap(long)]
+        reward_index: u8,
+
+        #[clap(long)]
+        new_duration: u64,
+    },
+    // update reward funder
+    UpdateRewardFunder {
+        #[clap(long)]
+        pool: Pubkey,
+
+        #[clap(long)]
+        reward_index: u8,
+
+        #[clap(long)]
+        new_funder: Pubkey,
+    },
+    // withdraw inegible reward
+    WithdrawInegibleReward {
+        #[clap(long)]
+        pool: Pubkey,
+
+        #[clap(long)]
+        reward_index: u8,
+    },
 }
 
 #[derive(Parser, Debug)]

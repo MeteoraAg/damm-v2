@@ -2,11 +2,7 @@ use anchor_lang::prelude::Pubkey;
 use std::{ cmp::max, cmp::min };
 
 use cp_amm::constants::seeds::{
-    CONFIG_PREFIX,
-    POOL_AUTHORITY_PREFIX,
-    POOL_PREFIX,
-    TOKEN_BADGE_PREFIX,
-    TOKEN_VAULT_PREFIX,
+    CONFIG_PREFIX, POOL_AUTHORITY_PREFIX, POOL_PREFIX, REWARD_VAULT, TOKEN_BADGE_PREFIX, TOKEN_VAULT_PREFIX
 };
 use cp_amm::ID;
 
@@ -50,5 +46,5 @@ pub fn derive_event_authority_pda() -> Pubkey {
 }
 
 pub fn derive_reward_vault_pda(index: u8, pool: Pubkey) -> Pubkey {
-    Pubkey::find_program_address(&[pool.as_ref(), index.to_le_bytes().as_ref()], &ID).0
+    Pubkey::find_program_address(&[REWARD_VAULT.as_ref(), pool.as_ref(), index.to_le_bytes().as_ref()], &ID).0
 }

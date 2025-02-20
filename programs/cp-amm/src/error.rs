@@ -267,4 +267,20 @@ pub enum PoolError {
 
     #[msg("Withdraw to wrong token account")]
     WithdrawToWrongTokenAccount,
+
+    #[msg("Reward duration is the same")]
+    IdenticalRewardDuration,
+
+    #[msg("Reward campaign in progress")]
+    RewardCampaignInProgress,
+
+    #[msg("Identical funder")]
+    IdenticalFunder,
+
+    /// Invalid funder
+    #[msg("Invalid funder")]
+    InvalidFunder,
+    
+    #[msg("Reward not ended")]
+    RewardNotEnded,
 }
