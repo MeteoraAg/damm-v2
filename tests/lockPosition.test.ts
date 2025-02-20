@@ -14,7 +14,7 @@ import {
   getVesting,
   initializePool,
   InitializePoolParams,
-  LOCK_LP_AMOUNT,
+  MIN_LP_AMOUNT,
   lockPosition,
   LockPositionParams,
   MAX_SQRT_PRICE,
@@ -84,7 +84,7 @@ describe("Lock position", () => {
       createConfigParams
     );
 
-    liquidity = new BN(LOCK_LP_AMOUNT);
+    liquidity = new BN(MIN_LP_AMOUNT);
     sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
     liquidityDelta = new BN(sqrtPrice.mul(new BN(1_000)));
 
