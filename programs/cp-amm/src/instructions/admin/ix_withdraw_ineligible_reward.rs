@@ -11,7 +11,6 @@ use anchor_spl::token_interface::{ TokenInterface, Mint, TokenAccount };
 
 #[event_cpi]
 #[derive(Accounts)]
-#[instruction(reward_index: u8)]
 pub struct WithdrawIneligibleRewardCtx<'info> {
     /// CHECK: pool authority
     #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
@@ -55,17 +54,19 @@ impl<'info> WithdrawIneligibleRewardCtx<'info> {
 
 pub fn handle_withdraw_ineligible_reward(
     ctx: Context<WithdrawIneligibleRewardCtx>,
-    index: u8
+    reward_index: u8
 ) -> Result<()> {
-    let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
-    ctx.accounts.validate(reward_index)?;
+    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    ctx.accounts.validate(index)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
 
     let current_time = Clock::get()?.unix_timestamp as u64;
-    let ineligible_reward = pool.claim_ineligible_reward(reward_index, current_time)?;
+    
+    // update pool reward
+    pool.update_rewards(current_time)?;
 
-    drop(pool);
+    let ineligible_reward = pool.claim_ineligible_reward(index)?;
 
     // transfer rewards to funder
     if ineligible_reward > 0 {

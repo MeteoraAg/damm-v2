@@ -20,5 +20,3 @@ pub mod ix_permanent_lock_position;
 pub use ix_permanent_lock_position::*;
 pub mod ix_claim_reward;
 pub use ix_claim_reward::*;
-pub mod ix_withdraw_ineligible_reward;
-pub use ix_withdraw_ineligible_reward::*;

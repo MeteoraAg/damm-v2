@@ -1,3 +1,5 @@
+use crate::token::calculate_transfer_fee_included_amount;
+use crate::utils_math::safe_mul_shr_cast;
 use crate::{ constants::NUM_REWARDS, token::transfer_from_user };
 use crate::error::PoolError;
 use crate::event::EvtFundReward;
@@ -6,7 +8,6 @@ use crate::math::safe_math::SafeMath;
 use crate::constants::SCALE_OFFSET;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
-use ruint::aliases::U256;
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -44,12 +45,12 @@ impl<'info> FundRewardCtx<'info> {
 
 pub fn handle_fund_reward(
     ctx: Context<FundRewardCtx>,
-    index: u8,
+    reward_index: u8,
     amount: u64,
     carry_forward: bool
 ) -> Result<()> {
-    let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
-    ctx.accounts.validate(reward_index)?;
+    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    ctx.accounts.validate(index)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let current_time = Clock::get()?.unix_timestamp;
@@ -57,18 +58,16 @@ pub fn handle_fund_reward(
     pool.update_rewards(current_time as u64)?;
 
     // 2. set new farming rate
-    let reward_info = &mut pool.reward_infos[reward_index];
+    let reward_info = &mut pool.reward_infos[index];
 
     let total_amount = if carry_forward {
-        let (accumulated_ineligible_reward, _) = U256::from(reward_info.reward_rate)
-            .safe_mul(U256::from(reward_info.cumulative_seconds_with_empty_liquidity_reward))?
-            .overflowing_shr(SCALE_OFFSET.into());
+        let carry_forward_ineligible_reward: u64 = safe_mul_shr_cast(
+            reward_info.reward_rate,
+            reward_info.cumulative_seconds_with_empty_liquidity_reward.into(),
+            SCALE_OFFSET
+        )?;
 
-        let carry_forward_ineligible_reward: u64 = accumulated_ineligible_reward
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?;
-
-        // Reset cumulative seconds with empty liquidity reward 
+        // Reset cumulative seconds with empty liquidity reward
         // because it will be brought forward to next reward window
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 
@@ -87,8 +86,13 @@ pub fn handle_fund_reward(
 
     // Reward rate might include ineligible reward based on whether to brought forward
     reward_info.update_rate_after_funding(current_time as u64, total_amount)?;
+    // actual amount need to transfer
+    let total_amount_include_fee = calculate_transfer_fee_included_amount(
+        &ctx.accounts.reward_mint,
+        total_amount
+    )?.amount;
 
-    if amount > 0 {
+    if total_amount_include_fee > 0 {
         // Transfer without ineligible reward because it's already in the vault
         transfer_from_user(
             &ctx.accounts.funder,
@@ -96,7 +100,7 @@ pub fn handle_fund_reward(
             &ctx.accounts.funder_token_account,
             &ctx.accounts.reward_vault,
             &ctx.accounts.token_program,
-            amount
+            total_amount_include_fee
         )?;
     }
 
@@ -104,8 +108,8 @@ pub fn handle_fund_reward(
         pool: ctx.accounts.pool.key(),
         funder: ctx.accounts.funder.key(),
         mint_reward: ctx.accounts.reward_mint.key(),
-        reward_index: index,
-        amount,
+        reward_index,
+        amount: total_amount,
     });
 
     Ok(())

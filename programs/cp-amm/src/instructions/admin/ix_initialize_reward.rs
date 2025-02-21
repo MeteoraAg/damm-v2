@@ -62,7 +62,7 @@ impl<'info> InitializeRewardCtx<'info> {
 
 pub fn handle_initialize_reward<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializeRewardCtx<'info>>,
-    index: u8,
+    reward_index: u8,
     reward_duration: u64,
     funder: Pubkey
 ) -> Result<()> {
@@ -76,11 +76,11 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
         );
     }
 
-    let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
-    ctx.accounts.validate(reward_index, reward_duration)?;
+    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    ctx.accounts.validate(index, reward_duration)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
-    let reward_info = &mut pool.reward_infos[reward_index];
+    let reward_info = &mut pool.reward_infos[index];
 
     reward_info.init_reward(
         ctx.accounts.reward_mint.key(),
@@ -95,7 +95,7 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
         reward_mint: ctx.accounts.reward_mint.key(),
         funder,
         reward_duration,
-        reward_index: index,
+        reward_index,
     });
 
     Ok(())

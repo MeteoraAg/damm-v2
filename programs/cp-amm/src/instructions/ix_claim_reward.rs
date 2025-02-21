@@ -50,9 +50,9 @@ impl<'info> ClaimRewardCtx<'info> {
     }
 }
 
-pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, index: u8) -> Result<()> {
-    let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
-    ctx.accounts.validate(reward_index)?;
+pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Result<()> {
+    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    ctx.accounts.validate(index)?;
 
     let mut position = ctx.accounts.position.load_mut()?;
 
@@ -63,7 +63,7 @@ pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, index: u8) -> Result<()
     position.update_reward(&mut pool, current_time)?;
 
     // get all pending reward
-    let total_reward = position.claim_reward(reward_index)?;
+    let total_reward = position.claim_reward(index)?;
 
     // transfer rewards to user
     if total_reward > 0 {
@@ -83,7 +83,7 @@ pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, index: u8) -> Result<()
         position: ctx.accounts.position.key(),
         mint_reward: ctx.accounts.reward_mint.key(),
         owner: position.owner,
-        reward_index: index,
+        reward_index,
         total_reward,
     });
 

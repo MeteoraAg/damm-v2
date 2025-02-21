@@ -20,3 +20,5 @@ pub mod ix_update_duration;
 pub use ix_update_duration::*;
 pub mod ix_update_funder;
 pub use ix_update_funder::*;
+pub mod ix_withdraw_ineligible_reward;
+pub use ix_withdraw_ineligible_reward::*;

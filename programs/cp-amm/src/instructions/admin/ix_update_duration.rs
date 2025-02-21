@@ -6,13 +6,11 @@ use anchor_lang::prelude::*;
 
 #[event_cpi]
 #[derive(Accounts)]
-#[instruction(reward_index: u8)]
 pub struct UpdateRewardDurationCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
     #[account(
-        mut,
         constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
     )]
     pub admin: Signer<'info>,
@@ -50,15 +48,15 @@ impl<'info> UpdateRewardDurationCtx<'info> {
 
 pub fn handle_update_reward_duration(
     ctx: Context<UpdateRewardDurationCtx>,
-    index: u8,
+    reward_index: u8,
     new_reward_duration: u64
 ) -> Result<()> {
-    let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
 
-    ctx.accounts.validate(reward_index, new_reward_duration)?;
+    ctx.accounts.validate(index, new_reward_duration)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
-    let reward_info = &mut pool.reward_infos[reward_index];
+    let reward_info = &mut pool.reward_infos[index];
 
     let old_reward_duration = reward_info.reward_duration;
     reward_info.reward_duration = new_reward_duration;
@@ -67,7 +65,7 @@ pub fn handle_update_reward_duration(
         pool: ctx.accounts.pool.key(),
         old_reward_duration,
         new_reward_duration,
-        reward_index: index,
+        reward_index,
     });
 
     Ok(())

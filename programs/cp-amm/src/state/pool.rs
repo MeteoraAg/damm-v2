@@ -15,6 +15,7 @@ use crate::{
 };
 use ruint::aliases::U256;
 use std::u64;
+use std::cmp::min;
 
 use super::fee::{ DynamicFeeStruct, FeeOnAmountResult, PoolFeesStruct };
 use super::Position;
@@ -198,11 +199,11 @@ pub struct RewardInfo {
     pub vault: Pubkey,
     /// Authority account that allows to fund rewards
     pub funder: Pubkey,
-    /// TODO check whether we need to store it in pool
+    /// reward duration
     pub reward_duration: u64, // 8
-    /// TODO check whether we need to store it in pool
+    /// reward duration end
     pub reward_duration_end: u64, // 8
-    /// TODO check whether we need to store it in pool
+    /// reward rate
     pub reward_rate: u128, // 8
     /// reward_a_per_token_stored
     pub reward_per_token_stored: u128,
@@ -231,7 +232,7 @@ impl RewardInfo {
         reward_duration: u64,
         reward_token_flag: u8
     ) {
-        self.intialized = 1u8;
+        self.intialized = 1;
         self.mint = mint;
         self.vault = vault;
         self.funder = funder;
@@ -239,12 +240,38 @@ impl RewardInfo {
         self.reward_token_flag = reward_token_flag;
     }
 
+    pub fn update_rewards(&mut self, liquidity_supply: u64, current_time: u64) -> Result<()> {
+        // Update reward if it initialized
+        if self.initialized() {
+            if liquidity_supply > 0 {
+                let reward_per_token_stored_delta =
+                    self.calculate_reward_per_token_stored_since_last_update(
+                        current_time,
+                        liquidity_supply
+                    )?;
+
+                self.accumulate_reward_per_token_stored(reward_per_token_stored_delta)?;
+            } else {
+                // Time period which the reward was distributed to empty
+                let time_period = self.get_seconds_elapsed_since_last_update(current_time)?;
+
+                // Save the time window of empty reward, and reward it in the next time window
+                self.cumulative_seconds_with_empty_liquidity_reward =
+                    self.cumulative_seconds_with_empty_liquidity_reward.safe_add(time_period)?;
+            }
+
+            self.update_last_update_time(current_time);
+        }
+
+        Ok(())
+    }
+
     pub fn update_last_update_time(&mut self, current_time: u64) {
-        self.last_update_time = std::cmp::min(current_time, self.reward_duration_end);
+        self.last_update_time = min(current_time, self.reward_duration_end);
     }
 
     pub fn get_seconds_elapsed_since_last_update(&self, current_time: u64) -> Result<u64> {
-        let last_time_reward_applicable = std::cmp::min(current_time, self.reward_duration_end);
+        let last_time_reward_applicable = min(current_time, self.reward_duration_end);
         let time_period = last_time_reward_applicable.safe_sub(self.last_update_time.into())?;
 
         Ok(time_period)
@@ -259,11 +286,11 @@ impl RewardInfo {
         let time_period: u128 = self.get_seconds_elapsed_since_last_update(current_time)?.into();
         let total_reward = time_period.safe_mul(self.reward_rate.into())?;
 
-        safe_shl_div_cast(total_reward, liquidity_supply.into(), LIQUIDITY_SCALE, Rounding::Down)
+        safe_shl_div_cast(total_reward, liquidity_supply.into(), SCALE_OFFSET, Rounding::Down)
     }
 
-    pub fn accumulate_reward_per_token_stored(&mut self, amount: u128) -> Result<()> {
-        self.reward_per_token_stored = self.reward_per_token_stored.safe_add(amount)?;
+    pub fn accumulate_reward_per_token_stored(&mut self, delta: u128) -> Result<()> {
+        self.reward_per_token_stored = self.reward_per_token_stored.safe_add(delta)?;
         Ok(())
     }
 
@@ -665,41 +692,13 @@ impl Pool {
     pub fn update_rewards(&mut self, current_time: u64) -> Result<()> {
         for reward_idx in 0..NUM_REWARDS {
             let reward_info = &mut self.reward_infos[reward_idx];
-
-            if reward_info.initialized() {
-                if self.liquidity > 0 {
-                    let reward_per_token_stored_delta =
-                        reward_info.calculate_reward_per_token_stored_since_last_update(
-                            current_time,
-                            self.liquidity as u64
-                        )?;
-
-                    reward_info.accumulate_reward_per_token_stored(reward_per_token_stored_delta)?;
-                } else {
-                    // Time period which the reward was distributed to empty
-                    let time_period =
-                        reward_info.get_seconds_elapsed_since_last_update(current_time)?;
-
-                    // Save the time window of empty reward, and reward it in the next time window
-                    reward_info.cumulative_seconds_with_empty_liquidity_reward =
-                        reward_info.cumulative_seconds_with_empty_liquidity_reward.safe_add(
-                            time_period
-                        )?;
-                }
-
-                reward_info.update_last_update_time(current_time);
-            }
+            reward_info.update_rewards(self.liquidity as u64, current_time)?;
         }
+
         Ok(())
     }
 
-    pub fn claim_ineligible_reward(
-        &mut self,
-        reward_index: usize,
-        current_time: u64
-    ) -> Result<u64> {
-        // update pool reward
-        self.update_rewards(current_time)?;
+    pub fn claim_ineligible_reward(&mut self, reward_index: usize) -> Result<u64> {
         // calculate ineligible reward
         let reward_info = &mut self.reward_infos[reward_index];
         let (ineligible_reward, _) = U256::from(

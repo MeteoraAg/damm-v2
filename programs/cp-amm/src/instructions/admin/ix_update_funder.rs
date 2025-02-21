@@ -6,7 +6,6 @@ use anchor_lang::prelude::*;
 
 #[event_cpi]
 #[derive(Accounts)]
-#[instruction(reward_index: u8)]
 pub struct UpdateRewardFunderCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
@@ -30,19 +29,19 @@ impl<'info> UpdateRewardFunderCtx<'info> {
     }
 }
 
-pub fn handle_update_reward_funder(ctx: Context<UpdateRewardFunderCtx>, index: u8, new_funder: Pubkey) -> Result<()> {
-    let reward_index: usize = index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
-    ctx.accounts.validate(reward_index, new_funder)?;
+pub fn handle_update_reward_funder(ctx: Context<UpdateRewardFunderCtx>, reward_index: u8, new_funder: Pubkey) -> Result<()> {
+    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    ctx.accounts.validate(index, new_funder)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
-    let reward_info = &mut pool.reward_infos[reward_index];
+    let reward_info = &mut pool.reward_infos[index];
 
     let old_funder = reward_info.funder;
     reward_info.funder = new_funder;
 
     emit_cpi!(EvtUpdateRewardFunder {
         pool: ctx.accounts.pool.key(),
-        reward_index: index,
+        reward_index,
         old_funder,
         new_funder,
     });
