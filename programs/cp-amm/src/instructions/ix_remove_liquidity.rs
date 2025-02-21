@@ -37,8 +37,6 @@ pub struct RemoveLiquidityCtx<'info> {
     )]
     pub position: AccountLoader<'info, Position>,
 
-    pub owner: Signer<'info>,
-
     /// The user token a account
     #[account(mut)]
     pub token_a_account: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -55,17 +53,19 @@ pub struct RemoveLiquidityCtx<'info> {
     #[account(mut, token::token_program = token_b_program, token::mint = token_b_mint)]
     pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Token a program
-    pub token_a_program: Interface<'info, TokenInterface>,
-
-    /// Token b program
-    pub token_b_program: Interface<'info, TokenInterface>,
-
     /// The mint of token a
     pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// The mint of token b
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    pub owner: Signer<'info>,
+
+    /// Token a program
+    pub token_a_program: Interface<'info, TokenInterface>,
+
+    /// Token b program
+    pub token_b_program: Interface<'info, TokenInterface>,
 }
 
 pub fn handle_remove_liquidity(
@@ -91,7 +91,7 @@ pub fn handle_remove_liquidity(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
-    
+
     // update current pool reward & postion reward before any logic
     let current_time = Clock::get()?.unix_timestamp as u64;
     position.update_reward(&mut pool, current_time)?;

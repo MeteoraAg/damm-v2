@@ -1,8 +1,11 @@
-use crate::{ assert_eq_admin, EvtUpdateRewardDuration };
-use crate::constants::{ MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS };
-use crate::error::PoolError;
-use crate::state::pool::Pool;
 use anchor_lang::prelude::*;
+
+use crate::{
+    assert_eq_admin,
+    constants::{MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS},
+    state::Pool,
+    EvtUpdateRewardDuration, PoolError,
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -21,8 +24,8 @@ impl<'info> UpdateRewardDurationCtx<'info> {
         require!(reward_index < NUM_REWARDS, PoolError::InvalidRewardIndex);
 
         require!(
-            new_reward_duration >= MIN_REWARD_DURATION &&
-                new_reward_duration <= MAX_REWARD_DURATION,
+            new_reward_duration >= MIN_REWARD_DURATION
+                && new_reward_duration <= MAX_REWARD_DURATION,
             PoolError::InvalidRewardDuration
         );
 
@@ -49,9 +52,11 @@ impl<'info> UpdateRewardDurationCtx<'info> {
 pub fn handle_update_reward_duration(
     ctx: Context<UpdateRewardDurationCtx>,
     reward_index: u8,
-    new_reward_duration: u64
+    new_reward_duration: u64,
 ) -> Result<()> {
-    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
 
     ctx.accounts.validate(index, new_reward_duration)?;
 

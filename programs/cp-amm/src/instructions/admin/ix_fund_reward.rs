@@ -1,13 +1,15 @@
-use crate::token::calculate_transfer_fee_included_amount;
-use crate::utils_math::safe_mul_shr_cast;
-use crate::{ constants::NUM_REWARDS, token::transfer_from_user };
-use crate::error::PoolError;
-use crate::event::EvtFundReward;
-use crate::state::Pool;
-use crate::math::safe_math::SafeMath;
-use crate::constants::SCALE_OFFSET;
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+
+use crate::{
+    constants::{NUM_REWARDS, SCALE_OFFSET},
+    event::EvtFundReward,
+    math::safe_math::SafeMath,
+    state::Pool,
+    token::{calculate_transfer_fee_included_amount, transfer_from_user},
+    utils_math::safe_mul_shr_cast,
+    PoolError,
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -36,8 +38,14 @@ impl<'info> FundRewardCtx<'info> {
 
         let reward_info = &pool.reward_infos[reward_index];
         require!(reward_info.initialized(), PoolError::RewardUninitialized);
-        require!(reward_info.vault.eq(&self.reward_vault.key()), PoolError::InvalidRewardVault);
-        require!(reward_info.is_valid_funder(self.funder.key()), PoolError::InvalidAdmin);
+        require!(
+            reward_info.vault.eq(&self.reward_vault.key()),
+            PoolError::InvalidRewardVault
+        );
+        require!(
+            reward_info.is_valid_funder(self.funder.key()),
+            PoolError::InvalidAdmin
+        );
 
         Ok(())
     }
@@ -47,9 +55,11 @@ pub fn handle_fund_reward(
     ctx: Context<FundRewardCtx>,
     reward_index: u8,
     amount: u64,
-    carry_forward: bool
+    carry_forward: bool,
 ) -> Result<()> {
-    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(index)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
@@ -63,8 +73,10 @@ pub fn handle_fund_reward(
     let total_amount = if carry_forward {
         let carry_forward_ineligible_reward: u64 = safe_mul_shr_cast(
             reward_info.reward_rate,
-            reward_info.cumulative_seconds_with_empty_liquidity_reward.into(),
-            SCALE_OFFSET
+            reward_info
+                .cumulative_seconds_with_empty_liquidity_reward
+                .into(),
+            SCALE_OFFSET,
         )?;
 
         // Reset cumulative seconds with empty liquidity reward
@@ -87,10 +99,8 @@ pub fn handle_fund_reward(
     // Reward rate might include ineligible reward based on whether to brought forward
     reward_info.update_rate_after_funding(current_time as u64, total_amount)?;
     // actual amount need to transfer
-    let total_amount_include_fee = calculate_transfer_fee_included_amount(
-        &ctx.accounts.reward_mint,
-        total_amount
-    )?.amount;
+    let total_amount_include_fee =
+        calculate_transfer_fee_included_amount(&ctx.accounts.reward_mint, total_amount)?.amount;
 
     if total_amount_include_fee > 0 {
         // Transfer without ineligible reward because it's already in the vault
@@ -100,7 +110,7 @@ pub fn handle_fund_reward(
             &ctx.accounts.funder_token_account,
             &ctx.accounts.reward_vault,
             &ctx.accounts.token_program,
-            total_amount_include_fee
+            total_amount_include_fee,
         )?;
     }
 

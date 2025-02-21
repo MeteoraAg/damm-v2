@@ -4,10 +4,9 @@ use crate::{
     constants::activation::{SLOT_BUFFER, TIME_BUFFER},
     safe_math::SafeMath,
     state::{Pool, PoolStatus},
-    PoolError,
+    PoolError, {ActivationType, PoolActionAccess},
 };
 
-use super::{ActivationType, PoolActionAccess};
 pub struct PermissionlessActionAccess {
     is_enabled: bool,
     activation_point: u64,

@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use static_assertions::const_assert_eq;
 
 use crate::safe_math::SafeMath;
 
@@ -15,6 +16,8 @@ pub struct Vesting {
     pub padding: [u8; 14],
     pub padding2: [u128; 4],
 }
+
+const_assert_eq!(Vesting::INIT_SPACE, 176);
 
 impl Vesting {
     pub fn initialize(

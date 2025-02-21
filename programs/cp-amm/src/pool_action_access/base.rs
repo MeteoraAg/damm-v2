@@ -1,9 +1,8 @@
-use crate::state::Pool;
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use solana_program::pubkey::Pubkey;
 
-use super::PermissionlessActionAccess;
+use crate::{state::Pool, PermissionlessActionAccess};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]

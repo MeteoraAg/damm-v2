@@ -1,12 +1,13 @@
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+
 use crate::{
-    constants::{ seeds::POOL_AUTHORITY_PREFIX, NUM_REWARDS },
+    constants::{seeds::POOL_AUTHORITY_PREFIX, NUM_REWARDS},
     error::PoolError,
     event::EvtClaimReward,
-    state::{ pool::Pool, position::Position },
+    state::{pool::Pool, position::Position},
     token::transfer_from_pool,
 };
-use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -25,14 +26,17 @@ pub struct ClaimRewardCtx<'info> {
     )]
     pub position: AccountLoader<'info, Position>,
 
-    pub owner: Signer<'info>,
-
+    /// The vault token account for reward token
     #[account(mut)]
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    // Reward mint
     pub reward_mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(mut)]
     pub user_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub owner: Signer<'info>,
 
     pub token_program: Interface<'info, TokenInterface>,
 }
@@ -44,14 +48,19 @@ impl<'info> ClaimRewardCtx<'info> {
 
         let reward_info = &pool.reward_infos[reward_index];
         require!(reward_info.initialized(), PoolError::RewardUninitialized);
-        require!(reward_info.vault.eq(&self.reward_vault.key()), PoolError::InvalidRewardVault);
+        require!(
+            reward_info.vault.eq(&self.reward_vault.key()),
+            PoolError::InvalidRewardVault
+        );
 
         Ok(())
     }
 }
 
 pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Result<()> {
-    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(index)?;
 
     let mut position = ctx.accounts.position.load_mut()?;
@@ -74,7 +83,7 @@ pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Re
             &ctx.accounts.user_token_account,
             &ctx.accounts.token_program,
             total_reward,
-            ctx.bumps.pool_authority
+            ctx.bumps.pool_authority,
         )?;
     }
 

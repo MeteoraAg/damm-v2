@@ -1,13 +1,13 @@
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+
 use crate::{
-    constants::{ seeds::POOL_AUTHORITY_PREFIX, NUM_REWARDS },
+    constants::{seeds::POOL_AUTHORITY_PREFIX, NUM_REWARDS},
     error::PoolError,
     event::EvtWithdrawIneligibleReward,
     state::pool::Pool,
     token::transfer_from_pool,
 };
-
-use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{ TokenInterface, Mint, TokenAccount };
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -41,12 +41,21 @@ impl<'info> WithdrawIneligibleRewardCtx<'info> {
 
         require!(reward_info.initialized(), PoolError::RewardUninitialized);
 
-        require!(reward_info.vault.eq(&self.reward_vault.key()), PoolError::InvalidRewardVault);
+        require!(
+            reward_info.vault.eq(&self.reward_vault.key()),
+            PoolError::InvalidRewardVault
+        );
 
-        require!(reward_info.is_valid_funder(self.funder.key()), PoolError::InvalidFunder);
+        require!(
+            reward_info.is_valid_funder(self.funder.key()),
+            PoolError::InvalidFunder
+        );
 
         let current_timestamp = Clock::get()?.unix_timestamp as u64;
-        require!(current_timestamp > reward_info.reward_duration_end, PoolError::RewardNotEnded);
+        require!(
+            current_timestamp > reward_info.reward_duration_end,
+            PoolError::RewardNotEnded
+        );
 
         Ok(())
     }
@@ -54,15 +63,17 @@ impl<'info> WithdrawIneligibleRewardCtx<'info> {
 
 pub fn handle_withdraw_ineligible_reward(
     ctx: Context<WithdrawIneligibleRewardCtx>,
-    reward_index: u8
+    reward_index: u8,
 ) -> Result<()> {
-    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(index)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
 
     let current_time = Clock::get()?.unix_timestamp as u64;
-    
+
     // update pool reward
     pool.update_rewards(current_time)?;
 
@@ -77,7 +88,7 @@ pub fn handle_withdraw_ineligible_reward(
             &ctx.accounts.funder_token_account,
             &ctx.accounts.token_program,
             ineligible_reward,
-            ctx.bumps.pool_authority
+            ctx.bumps.pool_authority,
         )?;
     }
 

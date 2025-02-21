@@ -1,9 +1,12 @@
-use crate::activation_handler::ActivationHandler;
-use crate::error::PoolError;
-use crate::safe_math::SafeMath;
-use crate::state::{Pool, Position, Vesting};
-use crate::{get_pool_access_validator, EvtLockPosition};
 use anchor_lang::prelude::*;
+
+use crate::{
+    activation_handler::ActivationHandler,
+    error::PoolError,
+    safe_math::SafeMath,
+    state::{Pool, Position, Vesting},
+    {get_pool_access_validator, EvtLockPosition},
+};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
 pub struct VestingParameters {
@@ -66,15 +69,15 @@ impl VestingParameters {
 pub struct LockPositionCtx<'info> {
     pub pool: AccountLoader<'info, Pool>,
 
+    #[account(mut, has_one = pool, has_one = owner)]
+    pub position: AccountLoader<'info, Position>,
+
     #[account(
         init,
         payer = payer,
         space = 8 + Vesting::INIT_SPACE
     )]
     pub vesting: AccountLoader<'info, Vesting>,
-
-    #[account(mut, has_one = pool, has_one = owner)]
-    pub position: AccountLoader<'info, Position>,
 
     pub owner: Signer<'info>,
 

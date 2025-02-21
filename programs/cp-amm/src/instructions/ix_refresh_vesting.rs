@@ -1,9 +1,12 @@
-use crate::activation_handler::ActivationHandler;
-use crate::error::PoolError;
-use crate::state::{Pool, Position, Vesting};
 use anchor_lang::prelude::*;
 use std::cell::RefMut;
 use std::collections::BTreeSet;
+
+use crate::{
+    activation_handler::ActivationHandler,
+    state::{Pool, Position, Vesting},
+    PoolError,
+};
 
 #[derive(Accounts)]
 pub struct RefreshVesting<'info> {

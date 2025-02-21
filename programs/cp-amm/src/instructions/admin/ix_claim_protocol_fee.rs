@@ -1,9 +1,10 @@
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+
 use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX, state::Pool, token::transfer_from_pool, treasury,
     EvtClaimProtocolFee,
 };
-use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 /// Accounts for withdraw protocol fees
 #[event_cpi]
@@ -23,12 +24,6 @@ pub struct ClaimProtocolFeesCtx<'info> {
     /// The vault token account for output token
     #[account(mut, token::token_program = token_b_program, token::mint = token_b_mint)]
     pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    /// Token a program
-    pub token_a_program: Interface<'info, TokenInterface>,
-
-    /// Token b program
-    pub token_b_program: Interface<'info, TokenInterface>,
 
     /// The mint of token a
     pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
@@ -53,6 +48,12 @@ pub struct ClaimProtocolFeesCtx<'info> {
         associated_token::token_program = token_b_program,
     )]
     pub token_b_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// Token a program
+    pub token_a_program: Interface<'info, TokenInterface>,
+
+    /// Token b program
+    pub token_b_program: Interface<'info, TokenInterface>,
 }
 
 /// Withdraw protocol fees. Permissionless.

@@ -1,9 +1,10 @@
-use crate::assert_eq_admin;
-use crate::event;
-use crate::state::Pool;
-use crate::state::PoolStatus;
-use crate::PoolError;
 use anchor_lang::prelude::*;
+
+use crate::{
+    assert_eq_admin, event,
+    state::{Pool, PoolStatus},
+    PoolError,
+};
 
 #[event_cpi]
 #[derive(Accounts)]

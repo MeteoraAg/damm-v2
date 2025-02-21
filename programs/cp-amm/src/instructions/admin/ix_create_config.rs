@@ -1,16 +1,17 @@
-use crate::activation_handler::ActivationHandler;
-use crate::assert_eq_admin;
-use crate::constants::seeds::CONFIG_PREFIX;
-use crate::constants::MAX_SQRT_PRICE;
-use crate::constants::MIN_SQRT_PRICE;
-use crate::event;
-use crate::params::activation::ActivationParams;
-use crate::params::fee_parameters::PartnerInfo;
-use crate::params::fee_parameters::PoolFeeParamters;
-use crate::state::config::Config;
-use crate::state::CollectFeeMode;
-use crate::PoolError;
 use anchor_lang::prelude::*;
+
+use crate::{
+    activation_handler::ActivationHandler,
+    assert_eq_admin,
+    constants::{seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    event,
+    params::{
+        activation::ActivationParams,
+        fee_parameters::{PartnerInfo, PoolFeeParamters},
+    },
+    state::{CollectFeeMode, Config},
+    PoolError,
+};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug)]
 pub struct ConfigParameters {

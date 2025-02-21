@@ -1,8 +1,8 @@
-use crate::{ assert_eq_admin, EvtUpdateRewardFunder };
-use crate::constants::NUM_REWARDS;
-use crate::error::PoolError;
-use crate::state::pool::Pool;
 use anchor_lang::prelude::*;
+
+use crate::{
+    assert_eq_admin, constants::NUM_REWARDS, state::Pool, EvtUpdateRewardFunder, PoolError,
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -29,8 +29,14 @@ impl<'info> UpdateRewardFunderCtx<'info> {
     }
 }
 
-pub fn handle_update_reward_funder(ctx: Context<UpdateRewardFunderCtx>, reward_index: u8, new_funder: Pubkey) -> Result<()> {
-    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+pub fn handle_update_reward_funder(
+    ctx: Context<UpdateRewardFunderCtx>,
+    reward_index: u8,
+    new_funder: Pubkey,
+) -> Result<()> {
+    let index: usize = reward_index
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(index, new_funder)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;

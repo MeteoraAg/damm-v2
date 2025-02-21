@@ -161,7 +161,7 @@ pub struct EvtInitializeReward {
 
 #[event]
 pub struct EvtFundReward {
-    // Liquidity pool 
+    // Liquidity pool
     pub pool: Pubkey,
     // Address of the funder
     pub funder: Pubkey,
@@ -170,7 +170,7 @@ pub struct EvtFundReward {
     // Index of the farm reward being funded
     pub reward_index: u8,
     // Amount of farm reward funded
-    pub amount: u64
+    pub amount: u64,
 }
 
 #[event]
@@ -191,7 +191,7 @@ pub struct EvtClaimReward {
 
 #[event]
 pub struct EvtUpdateRewardDuration {
-    // Liquidity pool 
+    // Liquidity pool
     pub pool: Pubkey,
     // Index of the farm reward being updated
     pub reward_index: u8,
@@ -203,7 +203,7 @@ pub struct EvtUpdateRewardDuration {
 
 #[event]
 pub struct EvtUpdateRewardFunder {
-    // Liquidity pool 
+    // Liquidity pool
     pub pool: Pubkey,
     // Index of the farm reward being updated
     pub reward_index: u8,

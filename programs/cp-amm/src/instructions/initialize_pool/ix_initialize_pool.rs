@@ -1,20 +1,19 @@
-use crate::activation_handler::ActivationHandler;
-use crate::constants::seeds::POSITION_PREFIX;
-use crate::curve::get_initialize_amounts;
-use crate::params::activation::ActivationParams;
-use crate::state::PoolType;
-use crate::token::{
-    calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
-    is_token_badge_initialized, transfer_from_user,
-};
-use crate::{
-    constants::seeds::{POOL_AUTHORITY_PREFIX, POOL_PREFIX, TOKEN_VAULT_PREFIX},
-    state::{Config, Pool, Position},
-};
-use crate::{EvtCreatePosition, EvtInitializePool, PoolError};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use std::cmp::{max, min};
+
+use crate::{
+    activation_handler::ActivationHandler,
+    constants::seeds::{POOL_AUTHORITY_PREFIX, POOL_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX},
+    curve::get_initialize_amounts,
+    params::activation::ActivationParams,
+    state::{Config, Pool, PoolType, Position},
+    token::{
+        calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
+        is_token_badge_initialized, transfer_from_user,
+    },
+    {EvtCreatePosition, EvtInitializePool, PoolError},
+};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializePoolParameters {

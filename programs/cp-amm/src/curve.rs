@@ -1,10 +1,11 @@
+use anchor_lang::prelude::*;
+use ruint::aliases::{U256, U512};
+
 use crate::{
     safe_math::SafeMath,
     u128x128_math::{mul_div_u256, Rounding},
     PoolError,
 };
-use anchor_lang::prelude::*;
-use ruint::aliases::{U256, U512};
 
 pub const RESOLUTION: u8 = 64;
 

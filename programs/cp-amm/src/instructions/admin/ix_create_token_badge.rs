@@ -1,16 +1,14 @@
-use crate::constants::seeds::TOKEN_BADGE_PREFIX;
-use crate::token::is_supported_mint;
-use crate::{assert_eq_admin, PoolError};
-use crate::{state::*, EvtCreateTokenBadge};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
-use token_badge::TokenBadge;
+
+use crate::{
+    assert_eq_admin, constants::seeds::TOKEN_BADGE_PREFIX, state::TokenBadge,
+    token::is_supported_mint, EvtCreateTokenBadge, PoolError,
+};
 
 #[event_cpi]
 #[derive(Accounts)]
 pub struct CreateTokenBadgeCtx<'info> {
-    pub token_mint: InterfaceAccount<'info, Mint>,
-
     #[account(
         init,
         payer = admin,
@@ -22,6 +20,8 @@ pub struct CreateTokenBadgeCtx<'info> {
         space = 8 + TokenBadge::INIT_SPACE
     )]
     pub token_badge: AccountLoader<'info, TokenBadge>,
+
+    pub token_mint: InterfaceAccount<'info, Mint>,
 
     #[account(
         mut,

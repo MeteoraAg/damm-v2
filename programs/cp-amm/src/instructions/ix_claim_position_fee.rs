@@ -20,9 +20,6 @@ pub struct ClaimPositionFeeCtx<'info> {
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
-    /// position owner
-    pub owner: Signer<'info>,
-
     #[account(
         has_one = token_a_mint,
         has_one = token_b_mint,
@@ -52,17 +49,20 @@ pub struct ClaimPositionFeeCtx<'info> {
     #[account(mut, token::token_program = token_b_program, token::mint = token_b_mint)]
     pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Token a program
-    pub token_a_program: Interface<'info, TokenInterface>,
-
-    /// Token b program
-    pub token_b_program: Interface<'info, TokenInterface>,
-
     /// The mint of token a
     pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// The mint of token b
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// position owner
+    pub owner: Signer<'info>,
+
+    /// Token a program
+    pub token_a_program: Interface<'info, TokenInterface>,
+
+    /// Token b program
+    pub token_b_program: Interface<'info, TokenInterface>,
 }
 
 pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {

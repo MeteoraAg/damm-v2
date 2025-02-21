@@ -1,24 +1,23 @@
-use std::cmp::{max, min};
-
-use crate::activation_handler::ActivationHandler;
-use crate::alpha_vault::alpha_vault;
-use crate::constants::seeds::{CUSTOMIZABLE_POOL_PREFIX, POSITION_PREFIX};
-use crate::constants::{DEFAULT_QUOTE_MINTS, MAX_SQRT_PRICE, MIN_SQRT_PRICE};
-use crate::curve::get_initialize_amounts;
-use crate::params::activation::ActivationParams;
-use crate::params::fee_parameters::PoolFeeParamters;
-use crate::state::{CollectFeeMode, PoolType};
-use crate::token::{
-    calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
-    is_token_badge_initialized, transfer_from_user,
-};
-use crate::{
-    constants::seeds::{POOL_AUTHORITY_PREFIX, TOKEN_VAULT_PREFIX},
-    state::{Pool, Position},
-};
-use crate::{EvtCreatePosition, EvtInitializePool, PoolError};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use std::cmp::{max, min};
+
+use crate::{
+    activation_handler::ActivationHandler,
+    alpha_vault::alpha_vault,
+    constants::seeds::{
+        CUSTOMIZABLE_POOL_PREFIX, POOL_AUTHORITY_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX,
+    },
+    constants::{DEFAULT_QUOTE_MINTS, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    curve::get_initialize_amounts,
+    params::{activation::ActivationParams, fee_parameters::PoolFeeParamters},
+    state::{CollectFeeMode, Pool, PoolType, Position},
+    token::{
+        calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
+        is_token_badge_initialized, transfer_from_user,
+    },
+    {EvtCreatePosition, EvtInitializePool, PoolError},
+};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeCustomizablePoolParameters {

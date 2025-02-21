@@ -1,13 +1,17 @@
-use crate::constants::activation::*;
-use crate::params::fee_parameters::{
-    BaseFeeParameters, DynamicFeeParameters, PartnerInfo, PoolFeeParamters,
-};
-use crate::safe_math::SafeMath;
-use crate::PoolError;
-use crate::{activation_handler::ActivationType, alpha_vault::alpha_vault};
 use anchor_lang::prelude::*;
+use static_assertions::const_assert_eq;
 
-use super::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
+use crate::{
+    activation_handler::ActivationType,
+    alpha_vault::alpha_vault,
+    constants::activation::*,
+    error::PoolError,
+    params::fee_parameters::{
+        BaseFeeParameters, DynamicFeeParameters, PartnerInfo, PoolFeeParamters,
+    },
+    safe_math::SafeMath,
+    state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
+};
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -22,6 +26,8 @@ pub struct PoolFeesConfig {
     pub padding_1: [u64; 2],
 }
 
+const_assert_eq!(PoolFeesConfig::INIT_SPACE, 96);
+
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeConfig {
@@ -31,6 +37,8 @@ pub struct BaseFeeConfig {
     pub period_frequency: u64,
     pub delta_per_period: u64,
 }
+
+const_assert_eq!(BaseFeeConfig::INIT_SPACE, 32);
 
 impl BaseFeeConfig {
     fn to_base_fee_parameters(&self) -> BaseFeeParameters {
@@ -136,6 +144,8 @@ pub struct DynamicFeeConfig {
     pub bin_step_u128: u128,
 }
 
+const_assert_eq!(DynamicFeeConfig::INIT_SPACE, 40);
+
 impl DynamicFeeConfig {
     fn to_dynamic_fee_struct(&self) -> DynamicFeeStruct {
         if self.initialized == 0 {
@@ -181,6 +191,8 @@ pub struct Config {
     /// Padding for further use
     pub _padding_1: [u64; 10],
 }
+
+const_assert_eq!(Config::INIT_SPACE, 288);
 
 pub struct BootstrappingConfig {
     pub activation_point: u64,

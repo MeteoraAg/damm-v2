@@ -1,12 +1,17 @@
-use crate::assert_eq_admin;
-use crate::constants::seeds::{ POOL_AUTHORITY_PREFIX, REWARD_VAULT_PREFIX };
-use crate::constants::{ MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS };
-use crate::error::PoolError;
-use crate::event::EvtInitializeReward;
-use crate::state::pool::Pool;
-use crate::token::{ get_token_program_flags, is_supported_mint, is_token_badge_initialized };
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{ Mint, TokenAccount, TokenInterface };
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+
+use crate::{
+    assert_eq_admin,
+    constants::{
+        seeds::{POOL_AUTHORITY_PREFIX, REWARD_VAULT_PREFIX},
+        MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS,
+    },
+    error::PoolError,
+    event::EvtInitializeReward,
+    state::Pool,
+    token::{get_token_program_flags, is_supported_mint, is_token_badge_initialized},
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -38,7 +43,7 @@ pub struct InitializeRewardCtx<'info> {
     pub admin: Signer<'info>,
 
     pub token_program: Interface<'info, TokenInterface>,
-    
+
     pub system_program: Program<'info, System>,
 }
 
@@ -64,19 +69,23 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializeRewardCtx<'info>>,
     reward_index: u8,
     reward_duration: u64,
-    funder: Pubkey
+    funder: Pubkey,
 ) -> Result<()> {
     if !is_supported_mint(&ctx.accounts.reward_mint)? {
         require!(
             is_token_badge_initialized(
                 ctx.accounts.reward_mint.key(),
-                ctx.remaining_accounts.get(0).ok_or(PoolError::InvalidTokenBadge)?
+                ctx.remaining_accounts
+                    .get(0)
+                    .ok_or(PoolError::InvalidTokenBadge)?
             )?,
             PoolError::InvalidTokenBadge
         );
     }
 
-    let index: usize = reward_index.try_into().map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(index, reward_duration)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
@@ -87,7 +96,7 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
         ctx.accounts.reward_vault.key(),
         funder,
         reward_duration,
-        get_token_program_flags(&ctx.accounts.reward_mint).into()
+        get_token_program_flags(&ctx.accounts.reward_mint).into(),
     );
 
     emit_cpi!(EvtInitializeReward {

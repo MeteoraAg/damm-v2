@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use static_assertions::const_assert_eq;
 
 use crate::{
     constants::{
@@ -51,6 +52,8 @@ pub struct PoolFeesStruct {
     pub padding_1: [u64; 2],
 }
 
+const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
+
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeStruct {
@@ -61,6 +64,8 @@ pub struct BaseFeeStruct {
     pub delta_per_period: u64,
     pub start_point: u64,
 }
+
+const_assert_eq!(BaseFeeStruct::INIT_SPACE, 40);
 
 impl BaseFeeStruct {
     pub fn get_max_base_fee_numerator(&self) -> u64 {
@@ -163,6 +168,8 @@ pub struct DynamicFeeStruct {
     pub volatility_accumulator: u128,
     pub volatility_reference: u128, // decayed volatility accumulator
 }
+
+const_assert_eq!(DynamicFeeStruct::INIT_SPACE, 96);
 
 impl DynamicFeeStruct {
     // we approximate (1+bin_step)^bin_id = 1 + bin_step * bin_id

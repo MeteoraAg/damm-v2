@@ -1,10 +1,11 @@
-use super::{
-    safe_math::SafeMath,
-    u128x128_math::{mul_shr, shl_div, Rounding},
-};
-use crate::error::PoolError;
 use anchor_lang::prelude::Result;
 use num_traits::cast::FromPrimitive;
+
+use crate::{
+    safe_math::SafeMath,
+    u128x128_math::{mul_shr, shl_div, Rounding},
+    PoolError,
+};
 
 /// safe_mul_shr_cast
 #[inline]

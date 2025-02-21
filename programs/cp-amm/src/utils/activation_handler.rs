@@ -1,9 +1,8 @@
-use crate::constants::activation::*;
-use crate::math::safe_math::SafeMath;
-use crate::PoolError;
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::convert::TryFrom;
+
+use crate::{constants::activation::*, math::safe_math::SafeMath, PoolError};
 
 #[derive(
     Copy,

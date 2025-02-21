@@ -24,26 +24,6 @@ pub struct ClaimPartnerFeesCtx<'info> {
     )]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// The vault token account for input token
-    #[account(mut, token::token_program = token_a_program, token::mint = token_a_mint)]
-    pub token_a_vault: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    /// The vault token account for output token
-    #[account(mut, token::token_program = token_b_program, token::mint = token_b_mint)]
-    pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    /// Token a program
-    pub token_a_program: Interface<'info, TokenInterface>,
-
-    /// Token b program
-    pub token_b_program: Interface<'info, TokenInterface>,
-
-    /// The mint of token a
-    pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    /// The mint of token b
-    pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
-
     /// The treasury token a account
     #[account(mut)]
     pub token_a_account: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -52,7 +32,27 @@ pub struct ClaimPartnerFeesCtx<'info> {
     #[account(mut)]
     pub token_b_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
+    /// The vault token account for input token
+    #[account(mut, token::token_program = token_a_program, token::mint = token_a_mint)]
+    pub token_a_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// The vault token account for output token
+    #[account(mut, token::token_program = token_b_program, token::mint = token_b_mint)]
+    pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// The mint of token a
+    pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// The mint of token b
+    pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
+
     pub partner: Signer<'info>,
+
+    /// Token a program
+    pub token_a_program: Interface<'info, TokenInterface>,
+
+    /// Token b program
+    pub token_b_program: Interface<'info, TokenInterface>,
 }
 
 /// Partner claim fees.

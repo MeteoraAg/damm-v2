@@ -1,24 +1,29 @@
-use crate::assert_eq_admin;
-use crate::constants::{LIQUIDITY_SCALE, NUM_REWARDS, SCALE_OFFSET};
-use crate::curve::get_delta_amount_a_unsigned_unchecked;
-use crate::params::swap::TradeDirection;
-use crate::utils_math::{safe_mul_shr_cast, safe_shl_div_cast};
-use crate::{
-    curve::{
-        get_delta_amount_a_unsigned, get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
-    },
-    safe_math::SafeMath,
-    u128x128_math::Rounding,
-    PoolError,
-};
 use ruint::aliases::U256;
+use static_assertions::const_assert_eq;
 use std::cmp::min;
 use std::u64;
 
-use super::fee::{DynamicFeeStruct, FeeOnAmountResult, PoolFeesStruct};
-use super::Position;
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+
+use crate::{
+    assert_eq_admin,
+    constants::{LIQUIDITY_SCALE, NUM_REWARDS, SCALE_OFFSET},
+    curve::{
+        get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
+        get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
+    },
+    params::swap::TradeDirection,
+    safe_math::SafeMath,
+    state::{
+        fee::{DynamicFeeStruct, FeeOnAmountResult, PoolFeesStruct},
+        Position,
+    },
+    u128x128_math::Rounding,
+    utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
+    PoolError,
+};
+
 /// collect fee mode
 #[repr(u8)]
 #[derive(
@@ -138,6 +143,8 @@ pub struct Pool {
     pub _padding_1: [u64; 10],
 }
 
+const_assert_eq!(Pool::INIT_SPACE, 1016);
+
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct PoolMetrics {
@@ -149,6 +156,8 @@ pub struct PoolMetrics {
     pub total_partner_b_fee: u64,
     pub total_position: u64,
 }
+
+const_assert_eq!(PoolMetrics::INIT_SPACE, 72);
 
 impl PoolMetrics {
     pub fn inc_position(&mut self) -> Result<()> {
@@ -210,6 +219,8 @@ pub struct RewardInfo {
     /// Accumulated seconds where when farm distribute rewards, but the bin is empty. The reward will be accumulated for next reward time window.
     pub cumulative_seconds_with_empty_liquidity_reward: u64,
 }
+
+const_assert_eq!(RewardInfo::INIT_SPACE, 168);
 
 impl RewardInfo {
     /// Returns true if this reward is initialized.

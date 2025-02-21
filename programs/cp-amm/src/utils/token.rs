@@ -14,8 +14,7 @@ use anchor_spl::{
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::state::TokenBadge;
-use crate::PoolError;
+use crate::{state::TokenBadge, PoolError};
 
 #[derive(
     AnchorSerialize, AnchorDeserialize, Debug, PartialEq, Eq, IntoPrimitive, TryFromPrimitive,

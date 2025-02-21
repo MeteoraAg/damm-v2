@@ -33,9 +33,6 @@ pub struct SwapCtx<'info> {
     #[account(mut, has_one = token_a_vault, has_one = token_b_vault)]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// The user performing the swap
-    pub payer: Signer<'info>,
-
     /// The user token account for input token
     #[account(mut)]
     pub input_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -52,17 +49,20 @@ pub struct SwapCtx<'info> {
     #[account(mut, token::token_program = token_b_program, token::mint = token_b_mint)]
     pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Token a program
-    pub token_a_program: Interface<'info, TokenInterface>,
-
-    /// Token b program
-    pub token_b_program: Interface<'info, TokenInterface>,
-
     /// The mint of token a
     pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// The mint of token b
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// The user performing the swap
+    pub payer: Signer<'info>,
+
+    /// Token a program
+    pub token_a_program: Interface<'info, TokenInterface>,
+
+    /// Token b program
+    pub token_b_program: Interface<'info, TokenInterface>,
 
     /// referral token account
     #[account(mut)]

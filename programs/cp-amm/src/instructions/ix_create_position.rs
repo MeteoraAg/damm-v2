@@ -13,10 +13,6 @@ pub struct CreatePositionCtx<'info> {
     /// CHECK: position owner
     pub owner: UncheckedAccount<'info>,
 
-    /// Address paying to create the position. Can be anyone
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -32,6 +28,10 @@ pub struct CreatePositionCtx<'info> {
         space = 8 + Position::INIT_SPACE
     )]
     pub position: AccountLoader<'info, Position>,
+
+    /// Address paying to create the position. Can be anyone
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }
