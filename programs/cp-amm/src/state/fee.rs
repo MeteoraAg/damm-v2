@@ -30,7 +30,7 @@ pub struct PoolFeesStruct {
     /// Trade fees are extra token amounts that are held inside the token
     /// accounts during a trade, making the value of liquidity tokens rise.
     /// Trade fee numerator
-    pub trade_fee_numerator: u64,
+    pub base_fee: BaseFeeStruct,
 
     /// Protocol trading fees are extra token amounts that are held inside the token
     /// accounts during a trade, with the equivalent in pool tokens minted to
@@ -51,18 +51,63 @@ pub struct PoolFeesStruct {
     pub padding_1: [u64; 2],
 }
 
+#[zero_copy]
+#[derive(Debug, InitSpace, Default)]
+pub struct BaseFeeStruct {
+    pub cliff_fee_numerator: u64,
+    pub padding: [u8; 6],
+    pub number_of_period: u16,
+    pub period_frequency: u64,
+    pub delta_per_period: u64,
+    pub start_point: u64,
+}
+
+impl BaseFeeStruct {
+    pub fn get_max_base_fee_numerator(&self) -> u64 {
+        self.cliff_fee_numerator
+    }
+    pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
+        let fee_numerator = self.cliff_fee_numerator.safe_sub(
+            self.delta_per_period
+                .safe_mul(self.number_of_period.into())?,
+        )?;
+        Ok(fee_numerator)
+    }
+    pub fn get_current_base_fee_numerator(&self, current_point: u64) -> Result<u64> {
+        if self.period_frequency == 0 {
+            return Ok(self.cliff_fee_numerator);
+        }
+        let period = current_point
+            .safe_sub(self.start_point)?
+            .safe_div(self.period_frequency)?;
+        let period = period.min(self.number_of_period.into());
+        let fee_numerator = self
+            .cliff_fee_numerator
+            .safe_sub(period.safe_mul(self.delta_per_period.into())?)?;
+        Ok(fee_numerator)
+    }
+}
+
 impl PoolFeesStruct {
     // in numerator
-    pub fn get_total_trading_fee(&self) -> Result<u128> {
+    pub fn get_total_trading_fee(&self, current_point: u64) -> Result<u128> {
+        let base_fee_numerator = self
+            .base_fee
+            .get_current_base_fee_numerator(current_point)?;
         let total_fee_numerator = self
             .dynamic_fee
             .get_variable_fee()?
-            .safe_add(self.trade_fee_numerator.into())?;
+            .safe_add(base_fee_numerator.into())?;
         Ok(total_fee_numerator)
     }
 
-    pub fn get_fee_on_amount(&self, amount: u64, is_referral: bool) -> Result<FeeOnAmountResult> {
-        let trade_fee_numerator = self.get_total_trading_fee()?;
+    pub fn get_fee_on_amount(
+        &self,
+        amount: u64,
+        is_referral: bool,
+        current_point: u64,
+    ) -> Result<FeeOnAmountResult> {
+        let trade_fee_numerator = self.get_total_trading_fee(current_point)?;
         let trade_fee_numerator = if trade_fee_numerator > MAX_FEE_NUMERATOR.into() {
             MAX_FEE_NUMERATOR
         } else {

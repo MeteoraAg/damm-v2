@@ -60,7 +60,12 @@ describe("Claim position fee", () => {
     const createConfigParams: CreateConfigParams = {
       index: new BN(configId),
       poolFees: {
-        tradeFeeNumerator: new BN(2_500_000),
+        baseFee: {
+          cliffFeeNumerator: new BN(2_500_000),
+          numberOfPeriod: 0,
+          deltaPerPeriod: new BN(0),
+          periodFrequency: new BN(0)
+        },
         protocolFeePercent: 10,
         partnerFeePercent: 0,
         referralFeePercent: 0,

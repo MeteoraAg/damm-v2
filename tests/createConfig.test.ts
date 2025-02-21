@@ -33,7 +33,12 @@ describe("Admin function: Create config", () => {
     createConfigParams = {
       index: new BN(randomID()),
       poolFees: {
-        tradeFeeNumerator: new BN(2_500_000),
+        baseFee: {
+          cliffFeeNumerator: new BN(2_500_000),
+          numberOfPeriod: 0,
+          deltaPerPeriod: new BN(0),
+          periodFrequency: new BN(0)
+        },
         protocolFeePercent: 10,
         partnerFeePercent: 0,
         referralFeePercent: 0,
@@ -75,7 +80,12 @@ describe("Admin function: Create config", () => {
     const createConfigParams: CreateConfigParams = {
       index: new BN(Math.floor(Math.random() * 1000)),
       poolFees: {
-        tradeFeeNumerator: new BN(2_500_000),
+        baseFee: {
+          cliffFeeNumerator: new BN(2_500_000),
+          numberOfPeriod: 0,
+          deltaPerPeriod: new BN(0),
+          periodFrequency: new BN(0)
+        },
         protocolFeePercent: 10,
         partnerFeePercent: 0,
         referralFeePercent: 0,

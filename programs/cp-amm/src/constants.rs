@@ -1,8 +1,6 @@
 use anchor_lang::prelude::Pubkey;
 use solana_program::pubkey;
 
-pub const FEE_CURVE_DURATION_NUMBER: usize = 6;
-
 /// refer raydium clmm
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
 /// refer raydium clmm
@@ -67,18 +65,14 @@ pub mod fee {
     pub const FEE_DENOMINATOR: u64 = 1_000_000_000;
 
     /// Max fee BPS
-    pub const MAX_FEE_BPS: u64 = 1500; // 15%
-    pub const MAX_FEE_NUMERATOR: u64 = 150_000_000; // 15%
+    pub const MAX_FEE_BPS: u64 = 5000; // 50%
+    pub const MAX_FEE_NUMERATOR: u64 = 500_000_000; // 50%
 
     /// Max basis point. 100% in pct
     pub const MAX_BASIS_POINT: u64 = 10000;
 
-    // For meme coins
-    pub const MEME_MIN_FEE_NUMERATOR: u64 = 2_500_000; // 250 / FEE_DENOMINATOR = 0.25%
-    pub const MEME_CONFIG_START_MAX_FEE_NUMERATOR: u64 = 990_000_000; // 99_000 / FEE_DENOMINATOR = 99%
-
-    pub const MEME_MIN_FEE_BPS: u64 = 25; // 0.25%
-    pub const MEME_CONFIG_START_MAX_FEE_BPS: u64 = 9900; // 99%
+    pub const MIN_FEE_BPS: u64 = 1; // 0.01%
+    pub const MIN_FEE_NUMERATOR: u64 = 100_000;
 
     static_assertions::const_assert_eq!(
         MAX_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT,
@@ -86,13 +80,8 @@ pub mod fee {
     );
 
     static_assertions::const_assert_eq!(
-        MEME_CONFIG_START_MAX_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT,
-        MEME_CONFIG_START_MAX_FEE_NUMERATOR
-    );
-
-    static_assertions::const_assert_eq!(
-        MEME_MIN_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT,
-        MEME_MIN_FEE_NUMERATOR
+        MIN_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT,
+        MIN_FEE_NUMERATOR
     );
 
     pub const CUSTOMIZABLE_PROTOCOL_FEE_PERCENT: u8 = 20; // 20%

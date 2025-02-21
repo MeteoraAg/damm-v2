@@ -1,3 +1,4 @@
+use crate::activation_handler::ActivationHandler;
 use crate::constants::seeds::POSITION_PREFIX;
 use crate::curve::get_initialize_amounts;
 use crate::params::activation::ActivationParams;
@@ -214,7 +215,11 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
 
     let alpha_vault = config.get_whitelisted_alpha_vault(ctx.accounts.pool.key());
     pool.initialize(
-        config.pool_fees.to_pool_fees_struct(),
+        config
+            .pool_fees
+            .to_pool_fees_struct(ActivationHandler::get_current_point(
+                config.activation_type,
+            )?),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),

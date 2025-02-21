@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 
 use crate::{
+    get_pool_access_validator,
     state::{Pool, Position},
-    EvtPermanentLockPosition,
+    EvtPermanentLockPosition, PoolError,
 };
 
 #[event_cpi]
@@ -21,6 +22,15 @@ pub fn handle_permanent_lock_position(
     ctx: Context<PermanentLockPositionCtx>,
     permanent_lock_liquidity: u128,
 ) -> Result<()> {
+    {
+        let pool = ctx.accounts.pool.load()?;
+        let access_validator = get_pool_access_validator(&pool)?;
+        require!(
+            access_validator.can_lock_position(),
+            PoolError::PoolDisabled
+        );
+    }
+
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
 

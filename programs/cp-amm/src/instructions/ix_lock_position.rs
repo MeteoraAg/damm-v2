@@ -2,7 +2,7 @@ use crate::activation_handler::ActivationHandler;
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
 use crate::state::{Pool, Position, Vesting};
-use crate::EvtLockPosition;
+use crate::{get_pool_access_validator, EvtLockPosition};
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
@@ -89,6 +89,12 @@ pub fn handle_lock_position(
     params: VestingParameters,
 ) -> Result<()> {
     let pool = ctx.accounts.pool.load()?;
+    let access_validator = get_pool_access_validator(&pool)?;
+    require!(
+        access_validator.can_lock_position(),
+        PoolError::PoolDisabled
+    );
+
     let (current_point, max_vesting_duration) =
         ActivationHandler::get_current_point_and_max_vesting_duration(pool.activation_type)?;
 

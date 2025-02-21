@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
+    activation_handler::ActivationHandler,
     constants::seeds::POOL_AUTHORITY_PREFIX,
     get_pool_access_validator,
     params::swap::TradeDirection,
@@ -104,7 +105,11 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     let current_timestamp = Clock::get()?.unix_timestamp as u64;
     pool.update_pre_swap(current_timestamp)?;
 
-    let swap_result = pool.get_swap_result(amount_in, is_referral, trade_direction)?;
+    let (current_point, _) =
+        ActivationHandler::get_current_point_and_buffer_duration(pool.activation_type)?;
+
+    let swap_result =
+        pool.get_swap_result(amount_in, is_referral, trade_direction, current_point)?;
 
     require!(
         swap_result.output_amount >= minimum_amount_out,

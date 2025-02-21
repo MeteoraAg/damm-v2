@@ -1,16 +1,18 @@
 use crate::constants::activation::*;
-use crate::params::pool_fees::{DynamicFeeParameters, PartnerInfo, PoolFeeParamters};
+use crate::params::fee_parameters::{
+    BaseFeeParameters, DynamicFeeParameters, PartnerInfo, PoolFeeParamters,
+};
 use crate::safe_math::SafeMath;
 use crate::PoolError;
 use crate::{activation_handler::ActivationType, alpha_vault::alpha_vault};
 use anchor_lang::prelude::*;
 
-use super::fee::{DynamicFeeStruct, PoolFeesStruct};
+use super::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct PoolFeesConfig {
-    pub trade_fee_numerator: u64,
+    pub base_fee: BaseFeeConfig,
     pub protocol_fee_percent: u8,
     pub partner_fee_percent: u8,
     pub referral_fee_percent: u8,
@@ -19,57 +21,43 @@ pub struct PoolFeesConfig {
     pub dynamic_fee: DynamicFeeConfig,
     pub padding_1: [u64; 2],
 }
-impl PoolFeesConfig {
-    pub fn from_pool_fee_parameters(pool_fees: &PoolFeeParamters) -> Self {
-        let &PoolFeeParamters {
-            trade_fee_numerator,
-            protocol_fee_percent,
-            partner_fee_percent,
-            referral_fee_percent,
-            dynamic_fee,
-        } = pool_fees;
-        if let Some(DynamicFeeParameters {
-            bin_step,
-            bin_step_u128,
-            filter_period,
-            decay_period,
-            reduction_factor,
-            max_volatility_accumulator,
-            variable_fee_control,
-        }) = dynamic_fee
-        {
-            Self {
-                trade_fee_numerator,
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
-                dynamic_fee: DynamicFeeConfig {
-                    initialized: 1,
-                    bin_step,
-                    filter_period,
-                    decay_period,
-                    reduction_factor,
-                    bin_step_u128,
-                    max_volatility_accumulator,
-                    variable_fee_control,
-                    ..Default::default()
-                },
-                ..Default::default()
-            }
-        } else {
-            Self {
-                trade_fee_numerator,
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
-                ..Default::default()
-            }
+
+#[zero_copy]
+#[derive(Debug, InitSpace, Default)]
+pub struct BaseFeeConfig {
+    pub cliff_fee_numerator: u64,
+    pub padding: [u8; 6],
+    pub number_of_period: u16,
+    pub period_frequency: u64,
+    pub delta_per_period: u64,
+}
+
+impl BaseFeeConfig {
+    fn to_base_fee_parameters(&self) -> BaseFeeParameters {
+        BaseFeeParameters {
+            cliff_fee_numerator: self.cliff_fee_numerator,
+            number_of_period: self.number_of_period,
+            period_frequency: self.period_frequency,
+            delta_per_period: self.delta_per_period,
         }
     }
 
+    fn to_base_fee_struct(&self, start_point: u64) -> BaseFeeStruct {
+        BaseFeeStruct {
+            cliff_fee_numerator: self.cliff_fee_numerator,
+            number_of_period: self.number_of_period,
+            period_frequency: self.period_frequency,
+            delta_per_period: self.delta_per_period,
+            start_point,
+            ..Default::default()
+        }
+    }
+}
+
+impl PoolFeesConfig {
     pub fn to_pool_fee_parameters(&self) -> PoolFeeParamters {
         let &PoolFeesConfig {
-            trade_fee_numerator,
+            base_fee,
             protocol_fee_percent,
             partner_fee_percent,
             referral_fee_percent,
@@ -89,7 +77,7 @@ impl PoolFeesConfig {
         } = self;
         if initialized == 1 {
             PoolFeeParamters {
-                trade_fee_numerator,
+                base_fee: base_fee.to_base_fee_parameters(),
                 protocol_fee_percent,
                 partner_fee_percent,
                 referral_fee_percent,
@@ -105,7 +93,7 @@ impl PoolFeesConfig {
             }
         } else {
             PoolFeeParamters {
-                trade_fee_numerator,
+                base_fee: base_fee.to_base_fee_parameters(),
                 protocol_fee_percent,
                 partner_fee_percent,
                 referral_fee_percent,
@@ -114,54 +102,23 @@ impl PoolFeesConfig {
         }
     }
 
-    pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
+    pub fn to_pool_fees_struct(&self, start_point: u64) -> PoolFeesStruct {
         let &PoolFeesConfig {
-            trade_fee_numerator,
+            base_fee,
             protocol_fee_percent,
             partner_fee_percent,
             referral_fee_percent,
-            dynamic_fee:
-                DynamicFeeConfig {
-                    initialized,
-                    bin_step,
-                    bin_step_u128,
-                    filter_period,
-                    decay_period,
-                    reduction_factor,
-                    max_volatility_accumulator,
-                    variable_fee_control,
-                    ..
-                },
+            dynamic_fee,
             ..
         } = self;
 
-        if initialized == 1 {
-            PoolFeesStruct {
-                trade_fee_numerator,
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
-                dynamic_fee: DynamicFeeStruct {
-                    initialized: 1,
-                    bin_step,
-                    filter_period,
-                    decay_period,
-                    reduction_factor,
-                    bin_step_u128,
-                    max_volatility_accumulator,
-                    variable_fee_control,
-                    ..Default::default()
-                },
-                ..Default::default()
-            }
-        } else {
-            PoolFeesStruct {
-                trade_fee_numerator,
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
-                ..Default::default()
-            }
+        PoolFeesStruct {
+            base_fee: base_fee.to_base_fee_struct(start_point),
+            protocol_fee_percent,
+            partner_fee_percent,
+            referral_fee_percent,
+            dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
+            ..Default::default()
         }
     }
 }
@@ -177,6 +134,26 @@ pub struct DynamicFeeConfig {
     pub decay_period: u16,
     pub reduction_factor: u16,
     pub bin_step_u128: u128,
+}
+
+impl DynamicFeeConfig {
+    fn to_dynamic_fee_struct(&self) -> DynamicFeeStruct {
+        if self.initialized == 0 {
+            DynamicFeeStruct::default()
+        } else {
+            DynamicFeeStruct {
+                initialized: 1,
+                bin_step: self.bin_step,
+                bin_step_u128: self.bin_step_u128,
+                filter_period: self.filter_period,
+                decay_period: self.decay_period,
+                reduction_factor: self.reduction_factor,
+                max_volatility_accumulator: self.max_volatility_accumulator,
+                variable_fee_control: self.variable_fee_control,
+                ..Default::default()
+            }
+        }
+    }
 }
 
 #[account(zero_copy)]
@@ -266,7 +243,7 @@ impl Config {
         collect_fee_mode: u8,
     ) {
         self.index = index;
-        self.pool_fees = PoolFeesConfig::from_pool_fee_parameters(pool_fees);
+        self.pool_fees = pool_fees.to_pool_fees_config();
         self.vault_config_key = vault_config_key;
         self.pool_creator_authority = pool_creator_authority;
         self.activation_type = activation_type;

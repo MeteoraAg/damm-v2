@@ -1,77 +1,133 @@
 //! Fees module includes information about fee charges
 use crate::constants::fee::{
     CUSTOMIZABLE_HOST_FEE_PERCENT, CUSTOMIZABLE_PROTOCOL_FEE_PERCENT, FEE_DENOMINATOR,
-    MAX_BASIS_POINT,
+    MAX_BASIS_POINT, MAX_FEE_NUMERATOR, MIN_FEE_NUMERATOR,
 };
-use crate::constants::{self, BASIS_POINT_MAX, U24_MAX};
+use crate::constants::{BASIS_POINT_MAX, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
-use crate::state::fee::{DynamicFeeStruct, PoolFeesStruct};
+use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
+use crate::state::{BaseFeeConfig, DynamicFeeConfig, PoolFeesConfig};
 use anchor_lang::prelude::*;
-use std::convert::TryFrom;
 
 use super::swap::TradeDirection;
 
 /// Information regarding fee charges
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
 pub struct PoolFeeParamters {
-    /// Trade fees are extra token amounts that are held inside the token
-    /// accounts during a trade, making the value of liquidity tokens rise.
-    /// Trade fee numerator
-    pub trade_fee_numerator: u64,
-    /// Protocol trading fees are extra token amounts that are held inside the token
-    /// accounts during a trade, with the equivalent in pool tokens minted to
-    /// the protocol of the program.
-    /// Protocol trade fee numerator
+    /// Base fee
+    pub base_fee: BaseFeeParameters,
+    /// Protocol trade fee percent
     pub protocol_fee_percent: u8,
-    /// partner fee
+    /// partner fee percent
     pub partner_fee_percent: u8,
-    /// referral fee
+    /// referral fee percent
     pub referral_fee_percent: u8,
-
     /// dynamic fee
     pub dynamic_fee: Option<DynamicFeeParameters>,
 }
+
+#[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
+pub struct BaseFeeParameters {
+    pub cliff_fee_numerator: u64,
+    pub number_of_period: u16,
+    pub period_frequency: u64,
+    pub delta_per_period: u64,
+}
+
+impl BaseFeeParameters {
+    pub fn get_max_base_fee_numerator(&self) -> u64 {
+        self.cliff_fee_numerator
+    }
+    pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
+        let fee_numerator = self.cliff_fee_numerator.safe_sub(
+            self.delta_per_period
+                .safe_mul(self.number_of_period.into())?,
+        )?;
+        Ok(fee_numerator)
+    }
+
+    fn validate(&self) -> Result<()> {
+        let min_fee_numerator = self.get_min_base_fee_numerator()?;
+        let max_fee_numerator = self.get_max_base_fee_numerator();
+        validate_fee_fraction(min_fee_numerator, FEE_DENOMINATOR)?;
+        validate_fee_fraction(max_fee_numerator, FEE_DENOMINATOR)?;
+        require!(
+            min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR,
+            PoolError::ExceedMaxFeeBps
+        );
+        Ok(())
+    }
+    fn to_base_fee_struct(&self, start_point: u64) -> BaseFeeStruct {
+        BaseFeeStruct {
+            cliff_fee_numerator: self.cliff_fee_numerator,
+            number_of_period: self.number_of_period,
+            period_frequency: self.period_frequency,
+            delta_per_period: self.delta_per_period,
+            start_point,
+            ..Default::default()
+        }
+    }
+
+    pub fn to_base_fee_config(&self) -> BaseFeeConfig {
+        BaseFeeConfig {
+            cliff_fee_numerator: self.cliff_fee_numerator,
+            number_of_period: self.number_of_period,
+            period_frequency: self.period_frequency,
+            delta_per_period: self.delta_per_period,
+            ..Default::default()
+        }
+    }
+}
+
 impl PoolFeeParamters {
-    pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
+    pub fn to_pool_fees_config(&self) -> PoolFeesConfig {
         let &PoolFeeParamters {
-            trade_fee_numerator,
+            base_fee,
             protocol_fee_percent,
             partner_fee_percent,
             referral_fee_percent,
             dynamic_fee,
         } = self;
-        if let Some(DynamicFeeParameters {
-            bin_step,
-            bin_step_u128,
-            filter_period,
-            decay_period,
-            reduction_factor,
-            max_volatility_accumulator,
-            variable_fee_control,
-        }) = dynamic_fee
-        {
-            PoolFeesStruct {
-                trade_fee_numerator,
+        if let Some(dynamic_fee) = dynamic_fee {
+            PoolFeesConfig {
+                base_fee: base_fee.to_base_fee_config(),
                 protocol_fee_percent,
                 partner_fee_percent,
                 referral_fee_percent,
-                dynamic_fee: DynamicFeeStruct {
-                    initialized: 1,
-                    bin_step,
-                    filter_period,
-                    decay_period,
-                    reduction_factor,
-                    bin_step_u128,
-                    max_volatility_accumulator,
-                    variable_fee_control,
-                    ..Default::default()
-                },
+                dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
+                ..Default::default()
+            }
+        } else {
+            PoolFeesConfig {
+                base_fee: base_fee.to_base_fee_config(),
+                protocol_fee_percent,
+                partner_fee_percent,
+                referral_fee_percent,
+                ..Default::default()
+            }
+        }
+    }
+    pub fn to_pool_fees_struct(&self, start_point: u64) -> PoolFeesStruct {
+        let &PoolFeeParamters {
+            base_fee,
+            protocol_fee_percent,
+            partner_fee_percent,
+            referral_fee_percent,
+            dynamic_fee,
+        } = self;
+        if let Some(dynamic_fee) = dynamic_fee {
+            PoolFeesStruct {
+                base_fee: base_fee.to_base_fee_struct(start_point),
+                protocol_fee_percent,
+                partner_fee_percent,
+                referral_fee_percent,
+                dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
                 ..Default::default()
             }
         } else {
             PoolFeesStruct {
-                trade_fee_numerator,
+                base_fee: base_fee.to_base_fee_struct(start_point),
                 protocol_fee_percent,
                 partner_fee_percent,
                 referral_fee_percent,
@@ -93,6 +149,32 @@ pub struct DynamicFeeParameters {
 }
 
 impl DynamicFeeParameters {
+    fn to_dynamic_fee_config(&self) -> DynamicFeeConfig {
+        DynamicFeeConfig {
+            initialized: 1,
+            bin_step: self.bin_step,
+            filter_period: self.filter_period,
+            decay_period: self.decay_period,
+            reduction_factor: self.reduction_factor,
+            bin_step_u128: self.bin_step_u128,
+            max_volatility_accumulator: self.max_volatility_accumulator,
+            variable_fee_control: self.variable_fee_control,
+            ..Default::default()
+        }
+    }
+    fn to_dynamic_fee_struct(&self) -> DynamicFeeStruct {
+        DynamicFeeStruct {
+            initialized: 1,
+            bin_step: self.bin_step,
+            bin_step_u128: self.bin_step_u128,
+            filter_period: self.filter_period,
+            decay_period: self.decay_period,
+            reduction_factor: self.reduction_factor,
+            max_volatility_accumulator: self.max_volatility_accumulator,
+            variable_fee_control: self.variable_fee_control,
+            ..Default::default()
+        }
+    }
     pub fn validate(&self) -> Result<()> {
         require!(
             self.bin_step > 0 && self.bin_step <= 400,
@@ -168,27 +250,20 @@ pub fn to_bps(numerator: u128, denominator: u128) -> Option<u64> {
 
 impl PoolFeeParamters {
     /// Calculate the trading fee in trading tokens
-    pub fn trading_fee(&self, trading_tokens: u128) -> Option<u128> {
-        calculate_fee(
-            trading_tokens,
-            u128::try_from(self.trade_fee_numerator).ok()?,
-            u128::try_from(FEE_DENOMINATOR).ok()?,
-        )
-    }
+    // pub fn trading_fee(&self, trading_tokens: u128) -> Option<u128> {
+    //     calculate_fee(
+    //         trading_tokens,
+    //         u128::try_from(self.trade_fee_numerator).ok()?,
+    //         u128::try_from(FEE_DENOMINATOR).ok()?,
+    //     )
+    // }
 
     /// Validate that the fees are reasonable
     pub fn validate(&self) -> Result<()> {
-        validate_fee_fraction(self.trade_fee_numerator, FEE_DENOMINATOR)?;
+        self.base_fee.validate()?;
         validate_fee_fraction(self.protocol_fee_percent.into(), 100)?;
         validate_fee_fraction(self.partner_fee_percent.into(), 100)?;
         validate_fee_fraction(self.referral_fee_percent.into(), 100)?;
-
-        let trade_fee_bps = to_bps(self.trade_fee_numerator.into(), FEE_DENOMINATOR.into())
-            .ok_or(PoolError::MathOverflow)?;
-
-        if trade_fee_bps > constants::fee::MAX_FEE_BPS {
-            return Err(PoolError::ExceedMaxFeeBps.into());
-        }
 
         if let Some(dynamic_fee) = self.dynamic_fee {
             dynamic_fee.validate()?;

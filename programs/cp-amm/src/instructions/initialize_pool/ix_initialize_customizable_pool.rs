@@ -1,11 +1,12 @@
 use std::cmp::{max, min};
 
+use crate::activation_handler::ActivationHandler;
 use crate::alpha_vault::alpha_vault;
 use crate::constants::seeds::{CUSTOMIZABLE_POOL_PREFIX, POSITION_PREFIX};
 use crate::constants::{DEFAULT_QUOTE_MINTS, MAX_SQRT_PRICE, MIN_SQRT_PRICE};
 use crate::curve::get_initialize_amounts;
 use crate::params::activation::ActivationParams;
-use crate::params::pool_fees::PoolFeeParamters;
+use crate::params::fee_parameters::PoolFeeParamters;
 use crate::state::{CollectFeeMode, PoolType};
 use crate::token::{
     calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
@@ -251,7 +252,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
     );
     let pool_type: u8 = PoolType::Customizable.into();
     pool.initialize(
-        pool_fees.to_pool_fees_struct(),
+        pool_fees.to_pool_fees_struct(ActivationHandler::get_current_point(activation_type)?),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),

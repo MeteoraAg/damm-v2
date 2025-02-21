@@ -8,7 +8,7 @@ use anchor_lang::ToAccountMetas;
 use anyhow::*;
 
 use cp_amm::instruction;
-use cp_amm::params::pool_fees::PoolFeeParamters;
+use cp_amm::params::fee_parameters::{BaseFeeParameters, PoolFeeParamters};
 use cp_amm::state::Config;
 use cp_amm::{accounts, ConfigParameters};
 
@@ -17,7 +17,7 @@ use crate::common::pda::derive_event_authority_pda;
 #[derive(Debug)]
 pub struct UpdateConfigParams {
     pub config: Pubkey,
-    pub trade_fee_numerator: u64,
+    pub base_fee: BaseFeeParameters,
     pub protocol_fee_percent: u8,
     pub partner_fee_percent: u8,
     pub referral_fee_percent: u8,
@@ -31,7 +31,7 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
 ) -> Result<Pubkey> {
     let UpdateConfigParams {
         config,
-        trade_fee_numerator,
+        base_fee,
         protocol_fee_percent,
         partner_fee_percent,
         referral_fee_percent,
@@ -60,7 +60,7 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
 
     // 2. create config
     let pool_fees = PoolFeeParamters {
-        trade_fee_numerator,
+        base_fee,
         protocol_fee_percent,
         partner_fee_percent,
         referral_fee_percent,

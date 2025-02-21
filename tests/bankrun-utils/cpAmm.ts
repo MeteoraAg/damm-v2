@@ -92,8 +92,15 @@ export type DynamicFee = {
   variableFeeControl: number;
 };
 
+export type BaseFee = {
+  cliffFeeNumerator: BN;
+  numberOfPeriod: number;
+  periodFrequency: BN;
+  deltaPerPeriod: BN;
+};
+
 export type PoolFees = {
-  tradeFeeNumerator: BN;
+  baseFee: BaseFee;
   protocolFeePercent: number;
   partnerFeePercent: number;
   referralFeePercent: number;
@@ -149,8 +156,17 @@ export async function createConfigIx(
   expect(configState.sqrtMaxPrice.toString()).eq(
     params.sqrtMaxPrice.toString()
   );
-  expect(configState.poolFees.tradeFeeNumerator.toNumber()).eq(
-    params.poolFees.tradeFeeNumerator.toNumber()
+  expect(configState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(
+    params.poolFees.baseFee.cliffFeeNumerator.toNumber()
+  );
+  expect(configState.poolFees.baseFee.numberOfPeriod).eq(
+    params.poolFees.baseFee.numberOfPeriod
+  );
+  expect(configState.poolFees.baseFee.deltaPerPeriod.toNumber()).eq(
+    params.poolFees.baseFee.deltaPerPeriod.toNumber()
+  );
+  expect(configState.poolFees.baseFee.periodFrequency.toNumber()).eq(
+    params.poolFees.baseFee.periodFrequency.toNumber()
   );
   expect(configState.poolFees.protocolFeePercent).eq(
     params.poolFees.protocolFeePercent

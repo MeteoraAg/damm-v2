@@ -64,7 +64,12 @@ describe("Lock position", () => {
     const createConfigParams: CreateConfigParams = {
       index: new BN(configId),
       poolFees: {
-        tradeFeeNumerator: new BN(10_000_000),
+        baseFee: {
+          cliffFeeNumerator: new BN(10_000_000),
+          numberOfPeriod: 0,
+          deltaPerPeriod: new BN(0),
+          periodFrequency: new BN(0)
+        },
         protocolFeePercent: 10,
         partnerFeePercent: 0,
         referralFeePercent: 0,

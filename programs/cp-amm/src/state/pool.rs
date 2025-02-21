@@ -1,26 +1,24 @@
 use crate::assert_eq_admin;
-use crate::constants::{ LIQUIDITY_SCALE, NUM_REWARDS, SCALE_OFFSET };
+use crate::constants::{LIQUIDITY_SCALE, NUM_REWARDS, SCALE_OFFSET};
 use crate::curve::get_delta_amount_a_unsigned_unchecked;
 use crate::params::swap::TradeDirection;
-use crate::utils_math::{ safe_mul_shr_cast, safe_shl_div_cast };
+use crate::utils_math::{safe_mul_shr_cast, safe_shl_div_cast};
 use crate::{
     curve::{
-        get_delta_amount_a_unsigned,
-        get_delta_amount_b_unsigned,
-        get_next_sqrt_price_from_input,
+        get_delta_amount_a_unsigned, get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
     },
     safe_math::SafeMath,
     u128x128_math::Rounding,
     PoolError,
 };
 use ruint::aliases::U256;
-use std::u64;
 use std::cmp::min;
+use std::u64;
 
-use super::fee::{ DynamicFeeStruct, FeeOnAmountResult, PoolFeesStruct };
+use super::fee::{DynamicFeeStruct, FeeOnAmountResult, PoolFeesStruct};
 use super::Position;
 use anchor_lang::prelude::*;
-use num_enum::{ IntoPrimitive, TryFromPrimitive };
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 /// collect fee mode
 #[repr(u8)]
 #[derive(
@@ -31,7 +29,7 @@ use num_enum::{ IntoPrimitive, TryFromPrimitive };
     IntoPrimitive,
     TryFromPrimitive,
     AnchorDeserialize,
-    AnchorSerialize
+    AnchorSerialize,
 )]
 pub enum CollectFeeMode {
     /// Both token, in this mode only out token is collected
@@ -50,7 +48,7 @@ pub enum CollectFeeMode {
     IntoPrimitive,
     TryFromPrimitive,
     AnchorDeserialize,
-    AnchorSerialize
+    AnchorSerialize,
 )]
 pub enum PoolStatus {
     Enable,
@@ -66,7 +64,7 @@ pub enum PoolStatus {
     IntoPrimitive,
     TryFromPrimitive,
     AnchorDeserialize,
-    AnchorSerialize
+    AnchorSerialize,
 )]
 pub enum PoolType {
     Permissionless,
@@ -167,7 +165,7 @@ impl PoolMetrics {
         lp_fee: u64,
         protocol_fee: u64,
         partner_fee: u64,
-        is_token_a: bool
+        is_token_a: bool,
     ) -> Result<()> {
         if is_token_a {
             self.total_lp_a_fee = self.total_lp_a_fee.safe_add(lp_fee.into())?;
@@ -230,7 +228,7 @@ impl RewardInfo {
         vault: Pubkey,
         funder: Pubkey,
         reward_duration: u64,
-        reward_token_flag: u8
+        reward_token_flag: u8,
     ) {
         self.intialized = 1;
         self.mint = mint;
@@ -244,10 +242,10 @@ impl RewardInfo {
         // Update reward if it initialized
         if self.initialized() {
             if liquidity_supply > 0 {
-                let reward_per_token_stored_delta =
-                    self.calculate_reward_per_token_stored_since_last_update(
+                let reward_per_token_stored_delta = self
+                    .calculate_reward_per_token_stored_since_last_update(
                         current_time,
-                        liquidity_supply
+                        liquidity_supply,
                     )?;
 
                 self.accumulate_reward_per_token_stored(reward_per_token_stored_delta)?;
@@ -256,8 +254,9 @@ impl RewardInfo {
                 let time_period = self.get_seconds_elapsed_since_last_update(current_time)?;
 
                 // Save the time window of empty reward, and reward it in the next time window
-                self.cumulative_seconds_with_empty_liquidity_reward =
-                    self.cumulative_seconds_with_empty_liquidity_reward.safe_add(time_period)?;
+                self.cumulative_seconds_with_empty_liquidity_reward = self
+                    .cumulative_seconds_with_empty_liquidity_reward
+                    .safe_add(time_period)?;
             }
 
             self.update_last_update_time(current_time);
@@ -281,12 +280,19 @@ impl RewardInfo {
     pub fn calculate_reward_per_token_stored_since_last_update(
         &self,
         current_time: u64,
-        liquidity_supply: u64
+        liquidity_supply: u64,
     ) -> Result<u128> {
-        let time_period: u128 = self.get_seconds_elapsed_since_last_update(current_time)?.into();
+        let time_period: u128 = self
+            .get_seconds_elapsed_since_last_update(current_time)?
+            .into();
         let total_reward = time_period.safe_mul(self.reward_rate.into())?;
 
-        safe_shl_div_cast(total_reward, liquidity_supply.into(), SCALE_OFFSET, Rounding::Down)
+        safe_shl_div_cast(
+            total_reward,
+            liquidity_supply.into(),
+            SCALE_OFFSET,
+            Rounding::Down,
+        )
     }
 
     pub fn accumulate_reward_per_token_stored(&mut self, delta: u128) -> Result<()> {
@@ -298,7 +304,7 @@ impl RewardInfo {
     pub fn update_rate_after_funding(
         &mut self,
         current_time: u64,
-        funding_amount: u64
+        funding_amount: u64,
     ) -> Result<()> {
         let reward_duration_end = self.reward_duration_end;
 
@@ -306,11 +312,8 @@ impl RewardInfo {
             funding_amount
         } else {
             let remaining_seconds = reward_duration_end.safe_sub(current_time)?;
-            let leftover: u64 = safe_mul_shr_cast(
-                self.reward_rate,
-                remaining_seconds.into(),
-                SCALE_OFFSET
-            )?;
+            let leftover: u64 =
+                safe_mul_shr_cast(self.reward_rate, remaining_seconds.into(), SCALE_OFFSET)?;
 
             leftover.safe_add(funding_amount)?;
 
@@ -321,7 +324,7 @@ impl RewardInfo {
             total_amount.into(),
             self.reward_duration.into(),
             SCALE_OFFSET,
-            Rounding::Down
+            Rounding::Down,
         )?;
         self.last_update_time = current_time;
         self.reward_duration_end = current_time.safe_add(self.reward_duration)?;
@@ -352,7 +355,7 @@ impl Pool {
         token_b_reserve: u64,
         liquidity: u128,
         collect_fee_mode: u8,
-        pool_type: u8
+        pool_type: u8,
     ) {
         self.pool_fees = pool_fees;
         self.token_a_mint = token_a_mint;
@@ -383,61 +386,61 @@ impl Pool {
         &self,
         amount_in: u64,
         is_referral: bool,
-        trade_direction: TradeDirection
+        trade_direction: TradeDirection,
+        current_point: u64,
     ) -> Result<SwapResult> {
-        let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode).map_err(
-            |_| PoolError::InvalidCollectFeeMode
-        )?;
+        let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
+            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
 
         match collect_fee_mode {
-            CollectFeeMode::BothToken =>
-                match trade_direction {
-                    TradeDirection::AtoB =>
-                        self.get_swap_result_from_a_to_b(amount_in, is_referral),
-                    TradeDirection::BtoA => {
-                        self.get_swap_result_from_b_to_a(amount_in, is_referral, false)
-                    }
+            CollectFeeMode::BothToken => match trade_direction {
+                TradeDirection::AtoB => {
+                    self.get_swap_result_from_a_to_b(amount_in, is_referral, current_point)
                 }
-            CollectFeeMode::OnlyB =>
-                match trade_direction {
-                    TradeDirection::AtoB =>
-                        self.get_swap_result_from_a_to_b(amount_in, is_referral), // this is fine since we still collect fee in token out
-                    TradeDirection::BtoA => {
-                        // fee will be in token b
-                        let FeeOnAmountResult {
-                            amount,
-                            lp_fee,
-                            protocol_fee,
-                            partner_fee,
-                            referral_fee,
-                        } = self.pool_fees.get_fee_on_amount(amount_in, is_referral)?;
-                        // skip fee
-                        let swap_result = self.get_swap_result_from_b_to_a(
-                            amount,
-                            is_referral,
-                            true
-                        )?;
+                TradeDirection::BtoA => {
+                    self.get_swap_result_from_b_to_a(amount_in, is_referral, false, current_point)
+                }
+            },
+            CollectFeeMode::OnlyB => match trade_direction {
+                TradeDirection::AtoB => {
+                    self.get_swap_result_from_a_to_b(amount_in, is_referral, current_point)
+                } // this is fine since we still collect fee in token out
+                TradeDirection::BtoA => {
+                    // fee will be in token b
+                    let FeeOnAmountResult {
+                        amount,
+                        lp_fee,
+                        protocol_fee,
+                        partner_fee,
+                        referral_fee,
+                    } = self
+                        .pool_fees
+                        .get_fee_on_amount(amount_in, is_referral, current_point)?;
+                    // skip fee
+                    let swap_result =
+                        self.get_swap_result_from_b_to_a(amount, is_referral, true, current_point)?;
 
-                        Ok(SwapResult {
-                            output_amount: swap_result.output_amount,
-                            next_sqrt_price: swap_result.next_sqrt_price,
-                            lp_fee,
-                            protocol_fee,
-                            partner_fee,
-                            referral_fee,
-                        })
-                    }
+                    Ok(SwapResult {
+                        output_amount: swap_result.output_amount,
+                        next_sqrt_price: swap_result.next_sqrt_price,
+                        lp_fee,
+                        protocol_fee,
+                        partner_fee,
+                        referral_fee,
+                    })
                 }
+            },
         }
     }
-    fn get_swap_result_from_a_to_b(&self, amount_in: u64, is_referral: bool) -> Result<SwapResult> {
+    fn get_swap_result_from_a_to_b(
+        &self,
+        amount_in: u64,
+        is_referral: bool,
+        current_point: u64,
+    ) -> Result<SwapResult> {
         // finding new target price
-        let next_sqrt_price = get_next_sqrt_price_from_input(
-            self.sqrt_price,
-            self.liquidity,
-            amount_in,
-            true
-        )?;
+        let next_sqrt_price =
+            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, true)?;
 
         if next_sqrt_price < self.sqrt_min_price {
             return Err(PoolError::PriceRangeViolation.into());
@@ -448,11 +451,18 @@ impl Pool {
             next_sqrt_price,
             self.sqrt_price,
             self.liquidity,
-            Rounding::Down
+            Rounding::Down,
         )?;
 
-        let FeeOnAmountResult { amount, lp_fee, protocol_fee, partner_fee, referral_fee } =
-            self.pool_fees.get_fee_on_amount(output_amount, is_referral)?;
+        let FeeOnAmountResult {
+            amount,
+            lp_fee,
+            protocol_fee,
+            partner_fee,
+            referral_fee,
+        } = self
+            .pool_fees
+            .get_fee_on_amount(output_amount, is_referral, current_point)?;
         Ok(SwapResult {
             output_amount: amount,
             lp_fee,
@@ -467,15 +477,12 @@ impl Pool {
         &self,
         amount_in: u64,
         is_referral: bool,
-        is_skip_fee: bool
+        is_skip_fee: bool,
+        current_point: u64,
     ) -> Result<SwapResult> {
         // finding new target price
-        let next_sqrt_price = get_next_sqrt_price_from_input(
-            self.sqrt_price,
-            self.liquidity,
-            amount_in,
-            false
-        )?;
+        let next_sqrt_price =
+            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, false)?;
 
         if next_sqrt_price > self.sqrt_max_price {
             return Err(PoolError::PriceRangeViolation.into());
@@ -485,7 +492,7 @@ impl Pool {
             self.sqrt_price,
             next_sqrt_price,
             self.liquidity,
-            Rounding::Down
+            Rounding::Down,
         )?;
 
         if is_skip_fee {
@@ -498,8 +505,15 @@ impl Pool {
                 next_sqrt_price,
             })
         } else {
-            let FeeOnAmountResult { amount, lp_fee, protocol_fee, partner_fee, referral_fee } =
-                self.pool_fees.get_fee_on_amount(output_amount, is_referral)?;
+            let FeeOnAmountResult {
+                amount,
+                lp_fee,
+                protocol_fee,
+                partner_fee,
+                referral_fee,
+            } = self
+                .pool_fees
+                .get_fee_on_amount(output_amount, is_referral, current_point)?;
             Ok(SwapResult {
                 output_amount: amount,
                 lp_fee,
@@ -515,7 +529,7 @@ impl Pool {
         &mut self,
         swap_result: &SwapResult,
         trade_direction: TradeDirection,
-        current_timestamp: u64
+        current_timestamp: u64,
     ) -> Result<()> {
         let &SwapResult {
             output_amount: _output_amount,
@@ -532,23 +546,24 @@ impl Pool {
             lp_fee.into(),
             self.liquidity,
             LIQUIDITY_SCALE,
-            Rounding::Down
+            Rounding::Down,
         )?;
 
-        let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode).map_err(
-            |_| PoolError::InvalidCollectFeeMode
-        )?;
+        let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
+            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
 
         if collect_fee_mode == CollectFeeMode::OnlyB || trade_direction == TradeDirection::AtoB {
             self.partner_b_fee = self.partner_b_fee.safe_add(partner_fee)?;
             self.protocol_b_fee = self.partner_b_fee.safe_add(protocol_fee)?;
             self.fee_b_per_liquidity = self.fee_b_per_liquidity.safe_add(fee_per_token_stored)?;
-            self.metrics.accumulate_fee(lp_fee, protocol_fee, partner_fee, false)?;
+            self.metrics
+                .accumulate_fee(lp_fee, protocol_fee, partner_fee, false)?;
         } else {
             self.partner_a_fee = self.partner_a_fee.safe_add(partner_fee)?;
             self.protocol_a_fee = self.partner_a_fee.safe_add(protocol_fee)?;
             self.fee_a_per_liquidity = self.fee_a_per_liquidity.safe_add(fee_per_token_stored)?;
-            self.metrics.accumulate_fee(lp_fee, protocol_fee, partner_fee, true)?;
+            self.metrics
+                .accumulate_fee(lp_fee, protocol_fee, partner_fee, true)?;
         }
         self.update_post_swap(old_sqrt_price, current_timestamp)?;
         Ok(())
@@ -557,21 +572,21 @@ impl Pool {
     pub fn get_amounts_for_modify_liquidity(
         &self,
         liquidity_delta: u128,
-        round: Rounding
+        round: Rounding,
     ) -> Result<ModifyLiquidityResult> {
         // finding output amount
         let amount_a = get_delta_amount_a_unsigned(
             self.sqrt_price,
             self.sqrt_max_price,
             liquidity_delta,
-            round
+            round,
         )?;
 
         let amount_b = get_delta_amount_b_unsigned(
             self.sqrt_min_price,
             self.sqrt_price,
             liquidity_delta,
-            round
+            round,
         )?;
 
         Ok(ModifyLiquidityResult { amount_a, amount_b })
@@ -580,7 +595,7 @@ impl Pool {
     pub fn apply_add_liquidity(
         &mut self,
         position: &mut Position,
-        liquidity_delta: u128
+        liquidity_delta: u128,
     ) -> Result<()> {
         // update current fee for position
         position.update_fee(self.fee_a_per_liquidity, self.fee_b_per_liquidity)?;
@@ -596,7 +611,7 @@ impl Pool {
     pub fn apply_remove_liquidity(
         &mut self,
         position: &mut Position,
-        liquidity_delta: u128
+        liquidity_delta: u128,
     ) -> Result<()> {
         // update current fee for position
         position.update_fee(self.fee_a_per_liquidity, self.fee_b_per_liquidity)?;
@@ -611,20 +626,18 @@ impl Pool {
 
     pub fn get_max_amount_in(&self, trade_direction: TradeDirection) -> Result<u64> {
         let amount = match trade_direction {
-            TradeDirection::AtoB =>
-                get_delta_amount_a_unsigned_unchecked(
-                    self.sqrt_min_price,
-                    self.sqrt_price,
-                    self.liquidity,
-                    Rounding::Down
-                )?,
-            TradeDirection::BtoA =>
-                get_delta_amount_a_unsigned_unchecked(
-                    self.sqrt_price,
-                    self.sqrt_max_price,
-                    self.liquidity,
-                    Rounding::Down
-                )?,
+            TradeDirection::AtoB => get_delta_amount_a_unsigned_unchecked(
+                self.sqrt_min_price,
+                self.sqrt_price,
+                self.liquidity,
+                Rounding::Down,
+            )?,
+            TradeDirection::BtoA => get_delta_amount_a_unsigned_unchecked(
+                self.sqrt_price,
+                self.sqrt_max_price,
+                self.liquidity,
+                Rounding::Down,
+            )?,
         };
         if amount > U256::from(u64::MAX) {
             Ok(u64::MAX)
@@ -635,20 +648,24 @@ impl Pool {
 
     pub fn update_pre_swap(&mut self, current_timestamp: u64) -> Result<()> {
         if self.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
-            self.pool_fees.dynamic_fee.update_references(self.sqrt_price, current_timestamp)?;
+            self.pool_fees
+                .dynamic_fee
+                .update_references(self.sqrt_price, current_timestamp)?;
         }
         Ok(())
     }
 
     pub fn update_post_swap(&mut self, old_sqrt_price: u128, current_timestamp: u64) -> Result<()> {
         if self.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
-            self.pool_fees.dynamic_fee.update_volatility_accumulator(self.sqrt_price)?;
+            self.pool_fees
+                .dynamic_fee
+                .update_volatility_accumulator(self.sqrt_price)?;
 
             // update only last_update_timestamp if bin is crossed
             let delta_price = DynamicFeeStruct::get_detal_bin_id(
                 self.pool_fees.dynamic_fee.bin_step_u128,
                 old_sqrt_price,
-                self.sqrt_price
+                self.sqrt_price,
             )?;
             if delta_price > 0 {
                 self.pool_fees.dynamic_fee.last_update_timestamp = current_timestamp;
@@ -659,11 +676,11 @@ impl Pool {
 
     pub fn accumulate_permanent_locked_liquidity(
         &mut self,
-        permanent_locked_liquidity: u128
+        permanent_locked_liquidity: u128,
     ) -> Result<()> {
-        self.permanent_lock_liquidity = self.permanent_lock_liquidity.safe_add(
-            permanent_locked_liquidity
-        )?;
+        self.permanent_lock_liquidity = self
+            .permanent_lock_liquidity
+            .safe_add(permanent_locked_liquidity)?;
 
         Ok(())
     }
@@ -679,7 +696,7 @@ impl Pool {
     pub fn claim_partner_fee(
         &mut self,
         max_amount_a: u64,
-        max_amount_b: u64
+        max_amount_b: u64,
     ) -> Result<(u64, u64)> {
         let token_a_amount = self.partner_a_fee.min(max_amount_a);
         let token_b_amount = self.partner_b_fee.min(max_amount_b);
@@ -701,11 +718,10 @@ impl Pool {
     pub fn claim_ineligible_reward(&mut self, reward_index: usize) -> Result<u64> {
         // calculate ineligible reward
         let reward_info = &mut self.reward_infos[reward_index];
-        let (ineligible_reward, _) = U256::from(
-            reward_info.cumulative_seconds_with_empty_liquidity_reward
-        )
-            .safe_mul(U256::from(reward_info.reward_rate))?
-            .overflowing_shr(SCALE_OFFSET.into());
+        let (ineligible_reward, _) =
+            U256::from(reward_info.cumulative_seconds_with_empty_liquidity_reward)
+                .safe_mul(U256::from(reward_info.reward_rate))?
+                .overflowing_shr(SCALE_OFFSET.into());
 
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 

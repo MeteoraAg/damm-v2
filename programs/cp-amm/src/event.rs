@@ -2,7 +2,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    params::pool_fees::PoolFeeParamters, state::SwapResult, AddLiquidityParameters,
+    params::fee_parameters::PoolFeeParamters, state::SwapResult, AddLiquidityParameters,
     RemoveLiquidityParameters, SwapParameters,
 };
 

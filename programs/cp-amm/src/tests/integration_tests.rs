@@ -1,7 +1,10 @@
 use crate::{
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::swap::TradeDirection,
-    state::{fee::PoolFeesStruct, Pool, Position},
+    state::{
+        fee::{BaseFeeStruct, PoolFeesStruct},
+        Pool, Position,
+    },
     tests::LIQUIDITY_MAX,
     u128x128_math::Rounding,
 };
@@ -21,7 +24,10 @@ proptest! {
     ) {
 
         let pool_fees = PoolFeesStruct {
-            trade_fee_numerator: 1_000_000, //1%
+            base_fee: BaseFeeStruct{
+                cliff_fee_numerator: 1_000_000,
+                ..Default::default()
+            }, //1%
             protocol_fee_percent: 20,
             partner_fee_percent: 50,
             referral_fee_percent: 20,
@@ -81,7 +87,10 @@ fn test_reserve_wont_lost_single() {
     let amount_in = 1;
 
     let pool_fees = PoolFeesStruct {
-        trade_fee_numerator: 1_000_000, //1%
+        base_fee: BaseFeeStruct {
+            cliff_fee_numerator: 1_000_000,
+            ..Default::default()
+        }, //1%
         protocol_fee_percent: 20,
         partner_fee_percent: 50,
         referral_fee_percent: 20,
@@ -199,7 +208,7 @@ fn execute_swap_liquidity(
         return false;
     }
     let swap_result = pool
-        .get_swap_result(amount_in, is_referral, trade_direction)
+        .get_swap_result(amount_in, is_referral, trade_direction, 0)
         .unwrap();
 
     pool.apply_swap_result(&swap_result, trade_direction, 0)
