@@ -105,8 +105,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     let current_timestamp = Clock::get()?.unix_timestamp as u64;
     pool.update_pre_swap(current_timestamp)?;
 
-    let (current_point, _) =
-        ActivationHandler::get_current_point_and_buffer_duration(pool.activation_type)?;
+    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
     let swap_result =
         pool.get_swap_result(amount_in, is_referral, trade_direction, current_point)?;

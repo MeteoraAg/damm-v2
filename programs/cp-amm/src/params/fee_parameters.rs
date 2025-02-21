@@ -249,15 +249,6 @@ pub fn to_bps(numerator: u128, denominator: u128) -> Option<u64> {
 }
 
 impl PoolFeeParamters {
-    /// Calculate the trading fee in trading tokens
-    // pub fn trading_fee(&self, trading_tokens: u128) -> Option<u128> {
-    //     calculate_fee(
-    //         trading_tokens,
-    //         u128::try_from(self.trade_fee_numerator).ok()?,
-    //         u128::try_from(FEE_DENOMINATOR).ok()?,
-    //     )
-    // }
-
     /// Validate that the fees are reasonable
     pub fn validate(&self) -> Result<()> {
         self.base_fee.validate()?;
