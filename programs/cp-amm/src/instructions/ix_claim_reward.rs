@@ -69,7 +69,7 @@ pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Re
     let current_time = Clock::get()?.unix_timestamp as u64;
 
     // update pool reward & position reward
-    position.update_reward(&mut pool, current_time)?;
+    position.update_rewards(&mut pool, current_time)?;
 
     // get all pending reward
     let total_reward = position.claim_reward(index)?;

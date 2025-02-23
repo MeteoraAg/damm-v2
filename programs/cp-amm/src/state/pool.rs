@@ -129,9 +129,9 @@ pub struct Pool {
     pub pool_type: u8,
     /// padding
     pub _padding_0: [u8; 2],
-    /// cummulative
+    /// cumulative
     pub fee_a_per_liquidity: u128,
-    /// cummulative
+    /// cumulative
     pub fee_b_per_liquidity: u128,
     // TODO: Is this large enough?
     pub permanent_lock_liquidity: u128,
@@ -194,8 +194,8 @@ impl PoolMetrics {
 #[zero_copy]
 #[derive(InitSpace, Default, Debug, PartialEq)]
 pub struct RewardInfo {
-    /// Reward initialize
-    pub intialized: u8,
+    /// Indicates if the reward has been initialized
+    pub initialized: u8,
     /// reward token flag
     pub reward_token_flag: u8,
     /// padding
@@ -207,16 +207,17 @@ pub struct RewardInfo {
     /// Authority account that allows to fund rewards
     pub funder: Pubkey,
     /// reward duration
-    pub reward_duration: u64, // 8
+    pub reward_duration: u64,
     /// reward duration end
-    pub reward_duration_end: u64, // 8
+    pub reward_duration_end: u64,
     /// reward rate
-    pub reward_rate: u128, // 8
-    /// reward_a_per_token_stored
+    pub reward_rate: u128,
+    /// Reward per token stored
     pub reward_per_token_stored: u128,
     /// The last time reward states were updated.
-    pub last_update_time: u64, // 8
-    /// Accumulated seconds where when farm distribute rewards, but the bin is empty. The reward will be accumulated for next reward time window.
+    pub last_update_time: u64,
+    /// Accumulated seconds when the farm distributed rewards but the bin was empty.
+    /// These rewards will be carried over to the next reward time window.
     pub cumulative_seconds_with_empty_liquidity_reward: u64,
 }
 
@@ -226,7 +227,7 @@ impl RewardInfo {
     /// Returns true if this reward is initialized.
     /// Once initialized, a reward cannot transition back to uninitialized.
     pub fn initialized(&self) -> bool {
-        self.intialized != 0
+        self.initialized != 0
     }
 
     pub fn is_valid_funder(&self, funder: Pubkey) -> bool {
@@ -241,7 +242,7 @@ impl RewardInfo {
         reward_duration: u64,
         reward_token_flag: u8,
     ) {
-        self.intialized = 1;
+        self.initialized = 1;
         self.mint = mint;
         self.vault = vault;
         self.funder = funder;
@@ -323,10 +324,10 @@ impl RewardInfo {
             funding_amount
         } else {
             let remaining_seconds = reward_duration_end.safe_sub(current_time)?;
-            let leftover: u64 =
+            let mut leftover: u64 =
                 safe_mul_shr_cast(self.reward_rate, remaining_seconds.into(), SCALE_OFFSET)?;
 
-            leftover.safe_add(funding_amount)?;
+            leftover = leftover.safe_add(funding_amount)?;
 
             leftover
         };
@@ -564,13 +565,13 @@ impl Pool {
 
         if collect_fee_mode == CollectFeeMode::OnlyB || trade_direction == TradeDirection::AtoB {
             self.partner_b_fee = self.partner_b_fee.safe_add(partner_fee)?;
-            self.protocol_b_fee = self.partner_b_fee.safe_add(protocol_fee)?;
+            self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
             self.fee_b_per_liquidity = self.fee_b_per_liquidity.safe_add(fee_per_token_stored)?;
             self.metrics
                 .accumulate_fee(lp_fee, protocol_fee, partner_fee, false)?;
         } else {
             self.partner_a_fee = self.partner_a_fee.safe_add(partner_fee)?;
-            self.protocol_a_fee = self.partner_a_fee.safe_add(protocol_fee)?;
+            self.protocol_a_fee = self.protocol_a_fee.safe_add(protocol_fee)?;
             self.fee_a_per_liquidity = self.fee_a_per_liquidity.safe_add(fee_per_token_stored)?;
             self.metrics
                 .accumulate_fee(lp_fee, protocol_fee, partner_fee, true)?;
@@ -672,7 +673,7 @@ impl Pool {
                 .update_volatility_accumulator(self.sqrt_price)?;
 
             // update only last_update_timestamp if bin is crossed
-            let delta_price = DynamicFeeStruct::get_detal_bin_id(
+            let delta_price = DynamicFeeStruct::get_delta_bin_id(
                 self.pool_fees.dynamic_fee.bin_step_u128,
                 old_sqrt_price,
                 self.sqrt_price,
@@ -728,16 +729,15 @@ impl Pool {
     pub fn claim_ineligible_reward(&mut self, reward_index: usize) -> Result<u64> {
         // calculate ineligible reward
         let reward_info = &mut self.reward_infos[reward_index];
-        let (ineligible_reward, _) =
-            U256::from(reward_info.cumulative_seconds_with_empty_liquidity_reward)
-                .safe_mul(U256::from(reward_info.reward_rate))?
-                .overflowing_shr(SCALE_OFFSET.into());
+        let ineligible_reward: u64 = safe_mul_shr_cast(
+            reward_info
+                .cumulative_seconds_with_empty_liquidity_reward
+                .into(),
+            reward_info.reward_rate,
+            SCALE_OFFSET,
+        )?;
 
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
-
-        let ineligible_reward: u64 = ineligible_reward
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?;
 
         Ok(ineligible_reward)
     }

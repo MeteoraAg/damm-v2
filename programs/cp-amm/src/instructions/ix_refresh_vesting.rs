@@ -84,8 +84,10 @@ fn release_vesting_liquidity_to_position(
     current_point: u64,
 ) -> Result<()> {
     let released_liquidity = vesting.get_new_release_liquidity(current_point)?;
-    position.release_vested_liquidity(released_liquidity)?;
-    vesting.accumulate_released_liquidity(released_liquidity)?;
+    if released_liquidity > 0 {
+        position.release_vested_liquidity(released_liquidity)?;
+        vesting.accumulate_released_liquidity(released_liquidity)?;
+    }
 
     Ok(())
 }

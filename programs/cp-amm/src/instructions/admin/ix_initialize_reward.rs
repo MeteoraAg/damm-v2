@@ -86,6 +86,7 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
     let index: usize = reward_index
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
+
     ctx.accounts.validate(index, reward_duration)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;

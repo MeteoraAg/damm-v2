@@ -90,7 +90,7 @@ pub fn handle_add_liquidity(
 
     // update current pool reward & postion reward before any logic
     let current_time = Clock::get()?.unix_timestamp as u64;
-    position.update_reward(&mut pool, current_time)?;
+    position.update_rewards(&mut pool, current_time)?;
 
     let ModifyLiquidityResult { amount_a, amount_b } =
         pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)?;

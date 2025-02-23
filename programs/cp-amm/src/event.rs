@@ -72,8 +72,8 @@ pub struct EvtClaimPositionFee {
     pub pool: Pubkey,
     pub position: Pubkey,
     pub owner: Pubkey,
-    pub fee_a_pending: u64,
-    pub fee_b_pending: u64,
+    pub fee_a_claimed: u64,
+    pub fee_b_claimed: u64,
 }
 
 #[event]

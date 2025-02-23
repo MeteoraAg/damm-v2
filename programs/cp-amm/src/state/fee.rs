@@ -173,7 +173,7 @@ const_assert_eq!(DynamicFeeStruct::INIT_SPACE, 96);
 
 impl DynamicFeeStruct {
     // we approximate (1+bin_step)^bin_id = 1 + bin_step * bin_id
-    pub fn get_detal_bin_id(
+    pub fn get_delta_bin_id(
         bin_step_u128: u128,
         sqrt_price_a: u128,
         sqrt_price_b: u128,
@@ -184,14 +184,14 @@ impl DynamicFeeStruct {
                 .safe_div(bin_step_u128)?
         } else {
             sqrt_price_b
-                .safe_sub(sqrt_price_b)?
+                .safe_sub(sqrt_price_a)?
                 .safe_div(bin_step_u128)?
         };
         Ok(delta_id.safe_mul(2)?) // mul 2 because we are using sqrt price
     }
     pub fn update_volatility_accumulator(&mut self, sqrt_price: u128) -> Result<()> {
         let delta_price =
-            Self::get_detal_bin_id(self.bin_step_u128, sqrt_price, self.sqrt_price_reference)?;
+            Self::get_delta_bin_id(self.bin_step_u128, sqrt_price, self.sqrt_price_reference)?;
 
         let volatility_accumulator = self
             .volatility_reference

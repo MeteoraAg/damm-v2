@@ -1,7 +1,5 @@
 use ruint::aliases::{U256, U512};
 
-/// Number of bits to scale. This will decide the position of the radix point.
-pub const SCALE_OFFSET: u8 = 64;
 /// Round up, down
 #[derive(PartialEq, Clone, Copy)]
 pub enum Rounding {

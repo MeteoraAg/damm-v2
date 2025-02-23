@@ -77,26 +77,31 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
     position
         .metrics
         .accumulate_claimed_fee(fee_a_pending, fee_b_pending)?;
-    // send to user
-    transfer_from_pool(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.token_a_mint,
-        &ctx.accounts.token_a_vault,
-        &ctx.accounts.token_a_account,
-        &ctx.accounts.token_a_program,
-        fee_a_pending,
-        ctx.bumps.pool_authority,
-    )?;
 
-    transfer_from_pool(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.token_b_mint,
-        &ctx.accounts.token_b_vault,
-        &ctx.accounts.token_b_account,
-        &ctx.accounts.token_b_program,
-        fee_b_pending,
-        ctx.bumps.pool_authority,
-    )?;
+    if fee_a_pending > 0 {
+        // send to user
+        transfer_from_pool(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.token_a_mint,
+            &ctx.accounts.token_a_vault,
+            &ctx.accounts.token_a_account,
+            &ctx.accounts.token_a_program,
+            fee_a_pending,
+            ctx.bumps.pool_authority,
+        )?;
+    }
+
+    if fee_b_pending > 0 {
+        transfer_from_pool(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.token_b_mint,
+            &ctx.accounts.token_b_vault,
+            &ctx.accounts.token_b_account,
+            &ctx.accounts.token_b_program,
+            fee_b_pending,
+            ctx.bumps.pool_authority,
+        )?;
+    }
 
     position.reset_pending_fee();
 
@@ -104,8 +109,8 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
         owner: ctx.accounts.owner.key(),
-        fee_a_pending,
-        fee_b_pending,
+        fee_a_claimed: fee_a_pending,
+        fee_b_claimed: fee_b_pending,
     });
 
     Ok(())

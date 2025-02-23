@@ -94,7 +94,7 @@ pub fn handle_remove_liquidity(
 
     // update current pool reward & postion reward before any logic
     let current_time = Clock::get()?.unix_timestamp as u64;
-    position.update_reward(&mut pool, current_time)?;
+    position.update_rewards(&mut pool, current_time)?;
 
     let liquidity_delta = position.unlocked_liquidity.min(max_liquidity_delta);
 
@@ -102,9 +102,7 @@ pub fn handle_remove_liquidity(
         pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Down)?;
 
     require!(amount_a > 0 || amount_b > 0, PoolError::AmountIsZero);
-
-    pool.apply_remove_liquidity(&mut position, liquidity_delta)?;
-
+    // Slippage check
     require!(
         amount_a >= token_a_amount_threshold,
         PoolError::ExceededSlippage
@@ -114,26 +112,32 @@ pub fn handle_remove_liquidity(
         PoolError::ExceededSlippage
     );
 
-    // send to user
-    transfer_from_pool(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.token_a_mint,
-        &ctx.accounts.token_a_vault,
-        &ctx.accounts.token_a_account,
-        &ctx.accounts.token_a_program,
-        amount_a,
-        ctx.bumps.pool_authority,
-    )?;
+    pool.apply_remove_liquidity(&mut position, liquidity_delta)?;
 
-    transfer_from_pool(
-        ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.token_b_mint,
-        &ctx.accounts.token_b_vault,
-        &ctx.accounts.token_b_account,
-        &ctx.accounts.token_b_program,
-        amount_b,
-        ctx.bumps.pool_authority,
-    )?;
+    // send to user
+    if amount_a > 0 {
+        transfer_from_pool(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.token_a_mint,
+            &ctx.accounts.token_a_vault,
+            &ctx.accounts.token_a_account,
+            &ctx.accounts.token_a_program,
+            amount_a,
+            ctx.bumps.pool_authority,
+        )?;
+    }
+
+    if amount_b > 0 {
+        transfer_from_pool(
+            ctx.accounts.pool_authority.to_account_info(),
+            &ctx.accounts.token_b_mint,
+            &ctx.accounts.token_b_vault,
+            &ctx.accounts.token_b_account,
+            &ctx.accounts.token_b_program,
+            amount_b,
+            ctx.bumps.pool_authority,
+        )?;
+    }
 
     emit_cpi!(EvtRemoveLiquidity {
         pool: ctx.accounts.pool.key(),

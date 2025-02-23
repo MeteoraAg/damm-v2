@@ -18,3 +18,6 @@ mod dynamic_fee_tests;
 
 #[cfg(test)]
 mod price_math;
+
+#[cfg(test)]
+mod reward_tests;

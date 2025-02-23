@@ -15,7 +15,7 @@ use crate::{
 pub struct UserRewardInfo {
     /// The latest update reward checkpoint
     pub reward_per_token_checkpoint: u128,
-    /// Current pendings reward
+    /// Current pending rewards
     pub reward_pendings: u64,
     /// Total claimed rewards
     pub total_claimed_rewards: u64,
@@ -32,7 +32,7 @@ impl UserRewardInfo {
         let new_reward: u64 = safe_mul_shr_cast(
             total_liquidity,
             reward_per_token_stored.safe_sub(self.reward_per_token_checkpoint)?,
-            SCALE_OFFSET,
+            SCALE_OFFSET * 2,
         )?;
 
         self.reward_pendings = new_reward.safe_add(self.reward_pendings)?;
@@ -114,7 +114,7 @@ impl Position {
         Ok(())
     }
 
-    fn has_sufficient_liquidity(&self, liquidity: u128) -> bool {
+    pub fn has_sufficient_liquidity(&self, liquidity: u128) -> bool {
         self.unlocked_liquidity >= liquidity
     }
 
@@ -200,23 +200,22 @@ impl Position {
         self.fee_b_pending = 0;
     }
 
-    pub fn update_reward(&mut self, pool: &mut RefMut<'_, Pool>, current_time: u64) -> Result<()> {
-        // skip if rewards are not initialized
-        if !pool.pool_reward_initialized() {
-            return Ok(());
-        }
-        // update pool reward before any update about position reward
-        pool.update_rewards(current_time)?;
+    pub fn update_rewards(&mut self, pool: &mut RefMut<'_, Pool>, current_time: u64) -> Result<()> {
+        // update if reward has been initialized
+        if pool.pool_reward_initialized() {
+            // update pool reward before any update about position reward
+            pool.update_rewards(current_time)?;
 
-        let total_liquidity = self.get_total_liquidity()?;
-        let position_reward_infos = &mut self.reward_infos;
-        for reward_idx in 0..NUM_REWARDS {
-            let pool_reward_info = pool.reward_infos[reward_idx];
+            let total_liquidity = self.get_total_liquidity()?;
+            let position_reward_infos = &mut self.reward_infos;
+            for reward_idx in 0..NUM_REWARDS {
+                let pool_reward_info = pool.reward_infos[reward_idx];
 
-            if pool_reward_info.initialized() {
-                let reward_per_token_stored = pool_reward_info.reward_per_token_stored;
-                position_reward_infos[reward_idx]
-                    .update_rewards(total_liquidity, reward_per_token_stored)?;
+                if pool_reward_info.initialized() {
+                    let reward_per_token_stored = pool_reward_info.reward_per_token_stored;
+                    position_reward_infos[reward_idx]
+                        .update_rewards(total_liquidity, reward_per_token_stored)?;
+                }
             }
         }
 
