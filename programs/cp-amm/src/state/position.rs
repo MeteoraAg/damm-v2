@@ -119,7 +119,7 @@ impl Position {
         Ok(())
     }
 
-    fn has_sufficient_liquidity(&self, liquidity: u128) -> bool {
+    pub fn has_sufficient_liquidity(&self, liquidity: u128) -> bool {
         self.unlocked_liquidity >= liquidity
     }
 
