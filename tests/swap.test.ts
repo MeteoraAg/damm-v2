@@ -5,7 +5,6 @@ import {
   createUsersAndFund,
   randomID,
   setupTestContext,
-  setupTokenMint,
   startTest,
   transferSol,
 } from "./bankrun-utils/common";

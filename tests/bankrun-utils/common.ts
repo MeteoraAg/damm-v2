@@ -103,28 +103,6 @@ export async function expectThrowsAsync(
   throw new Error("Expected an error but didn't get one");
 }
 
-export async function setupTokenMint(
-  banksClient: BanksClient,
-  payer: Keypair,
-  toWallet: PublicKey,
-  rawAmount: bigint
-): Promise<PublicKey> {
-  const mintKeypair = Keypair.generate();
-
-  await createMint(banksClient, payer, mintKeypair, payer.publicKey, DECIMALS);
-
-  await mintTo(
-    banksClient,
-    payer,
-    mintKeypair.publicKey,
-    payer,
-    toWallet,
-    rawAmount
-  );
-
-  return mintKeypair.publicKey;
-}
-
 export async function createUsersAndFund(
   banksClient: BanksClient,
   payer: Keypair,
@@ -146,7 +124,8 @@ export async function createUsersAndFund(
 
 export async function setupTestContext(
   banksClient: BanksClient,
-  rootKeypair: Keypair
+  rootKeypair: Keypair,
+  token2022: boolean,
 ) {
   const [admin, payer, poolCreator, user, funder] = Array(5)
     .fill(5)
@@ -168,21 +147,24 @@ export async function setupTestContext(
       rootKeypair,
       tokenAMintKeypair,
       rootKeypair.publicKey,
-      DECIMALS
+      DECIMALS,
+      token2022
     ),
     createMint(
       banksClient,
       rootKeypair,
       tokenBMintKeypair,
       rootKeypair.publicKey,
-      DECIMALS
+      DECIMALS,
+      token2022
     ),
     createMint(
       banksClient,
       rootKeypair,
       rewardMintKeypair,
       rootKeypair.publicKey,
-      DECIMALS
+      DECIMALS,
+      token2022
     ),
   ]);
   //

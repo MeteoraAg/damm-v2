@@ -8,6 +8,7 @@ import {
   MINT_SIZE,
   MintLayout,
   NATIVE_MINT,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
@@ -51,8 +52,10 @@ export async function createMint(
   payer: Keypair,
   mintKeypair: Keypair,
   mintAuthority: PublicKey,
-  decimals: number
+  decimals: number,
+  token2022: boolean
 ) {
+  let tokenProgram = token2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
   const rent = await banksClient.getRent();
   const lamports = rent.minimumBalance(BigInt(MINT_SIZE));
 
@@ -61,7 +64,7 @@ export async function createMint(
     newAccountPubkey: mintKeypair.publicKey,
     space: MINT_SIZE,
     lamports: Number(lamports.toString()),
-    programId: TOKEN_PROGRAM_ID,
+    programId: tokenProgram,
   });
 
   const initializeMintIx = createInitializeMint2Instruction(

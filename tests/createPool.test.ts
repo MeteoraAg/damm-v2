@@ -4,7 +4,6 @@ import {
   LOCAL_ADMIN_KEYPAIR,
   createUsersAndFund,
   setupTestContext,
-  setupTokenMint,
   startTest,
   transferSol,
 } from "./bankrun-utils/common";

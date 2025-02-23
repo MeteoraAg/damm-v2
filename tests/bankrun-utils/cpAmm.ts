@@ -286,8 +286,8 @@ export async function initializePool(
   expect(poolState.liquidity.toString()).eq(liquidity.toString());
   expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
 
-  expect(poolState.rewardInfos[0].intialized).eq(0);
-  expect(poolState.rewardInfos[1].intialized).eq(0);
+  expect(poolState.rewardInfos[0].initialized).eq(0);
+  expect(poolState.rewardInfos[1].initialized).eq(0);
 
   return { pool, position: position };
 }
@@ -329,7 +329,7 @@ export async function initializeReward(
 
   // validate reward data
   const poolState = await getPool(banksClient, pool);
-  expect(poolState.rewardInfos[index].intialized).eq(1);
+  expect(poolState.rewardInfos[index].initialized).eq(1);
   expect(poolState.rewardInfos[index].vault.toString()).eq(
     rewardVault.toString()
   );
