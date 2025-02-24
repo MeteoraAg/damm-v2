@@ -1,4 +1,4 @@
-use ruint::aliases::U256;
+use ruint::aliases::{U192, U256};
 use static_assertions::const_assert_eq;
 use std::cmp::min;
 use std::u64;
@@ -20,7 +20,8 @@ use crate::{
         Position,
     },
     u128x128_math::Rounding,
-    utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
+    u192x192_math::{mul_shr_u192, shl_div_u192},
+    utils_math::{safe_shl_div_cast, U192Conversion},
     PoolError,
 };
 
@@ -143,7 +144,7 @@ pub struct Pool {
     pub _padding_1: [u64; 10],
 }
 
-const_assert_eq!(Pool::INIT_SPACE, 1016);
+const_assert_eq!(Pool::INIT_SPACE, 1048);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -211,9 +212,9 @@ pub struct RewardInfo {
     /// reward duration end
     pub reward_duration_end: u64,
     /// reward rate
-    pub reward_rate: u128,
+    pub reward_rate: [u8; 24],
     /// Reward per token stored
-    pub reward_per_token_stored: u128,
+    pub reward_per_token_stored: [u8; 24],
     /// The last time reward states were updated.
     pub last_update_time: u64,
     /// Accumulated seconds when the farm distributed rewards but the bin was empty.
@@ -221,7 +222,7 @@ pub struct RewardInfo {
     pub cumulative_seconds_with_empty_liquidity_reward: u64,
 }
 
-const_assert_eq!(RewardInfo::INIT_SPACE, 168);
+const_assert_eq!(RewardInfo::INIT_SPACE, 184);
 
 impl RewardInfo {
     /// Returns true if this reward is initialized.
@@ -259,7 +260,6 @@ impl RewardInfo {
                         current_time,
                         liquidity_supply,
                     )?;
-
                 self.accumulate_reward_per_token_stored(reward_per_token_stored_delta)?;
             } else {
                 // Time period which the reward was distributed to empty
@@ -293,22 +293,24 @@ impl RewardInfo {
         &self,
         current_time: u64,
         liquidity_supply: u64,
-    ) -> Result<u128> {
-        let time_period: u128 = self
-            .get_seconds_elapsed_since_last_update(current_time)?
-            .into();
-        let total_reward = time_period.safe_mul(self.reward_rate.into())?;
+    ) -> Result<U192> {
+        let time_period: U192 =
+            U192::from(self.get_seconds_elapsed_since_last_update(current_time)?);
+        let total_reward = time_period.safe_mul(U192::from_bytes(self.reward_rate))?;
 
-        safe_shl_div_cast(
-            total_reward,
-            liquidity_supply.into(),
-            SCALE_OFFSET,
-            Rounding::Down,
-        )
+        let reward_per_token_stored = total_reward.safe_div(U192::from(liquidity_supply))?;
+        msg!("total reward: {:?}", u128::try_from(total_reward));
+        msg!(
+            "reward per token: {:?}",
+            u128::try_from(reward_per_token_stored)
+        );
+        msg!("liquidity: {:?}", liquidity_supply);
+        Ok(reward_per_token_stored)
     }
 
-    pub fn accumulate_reward_per_token_stored(&mut self, delta: u128) -> Result<()> {
-        self.reward_per_token_stored = self.reward_per_token_stored.safe_add(delta)?;
+    pub fn accumulate_reward_per_token_stored(&mut self, delta: U192) -> Result<()> {
+        let reward_per_token_stored_u192 = U192::from_bytes(self.reward_per_token_stored);
+        self.reward_per_token_stored = reward_per_token_stored_u192.safe_add(delta)?.as_bytes();
         Ok(())
     }
 
@@ -324,18 +326,27 @@ impl RewardInfo {
             funding_amount
         } else {
             let remaining_seconds = reward_duration_end.safe_sub(current_time)?;
-            let leftover: u64 =
-                safe_mul_shr_cast(self.reward_rate, remaining_seconds.into(), SCALE_OFFSET)?;
+            let leftover = mul_shr_u192(
+                U192::from_bytes(self.reward_rate),
+                U192::from(remaining_seconds),
+                SCALE_OFFSET,
+            )
+            .ok_or_else(|| PoolError::MathOverflow)?;
+
+            let leftover: u64 = leftover.try_into().map_err(|_| PoolError::TypeCastFailed)?;
 
             funding_amount.safe_add(leftover)?
         };
 
-        self.reward_rate = safe_shl_div_cast(
-            total_amount.into(),
-            self.reward_duration.into(),
+        let u192_rate = shl_div_u192(
+            U192::from(total_amount),
+            U192::from(self.reward_duration),
             SCALE_OFFSET,
             Rounding::Down,
-        )?;
+        )
+        .ok_or_else(|| PoolError::MathOverflow)?;
+
+        self.reward_rate = u192_rate.as_bytes();
         self.last_update_time = current_time;
         self.reward_duration_end = current_time.safe_add(self.reward_duration)?;
 
@@ -727,14 +738,16 @@ impl Pool {
     pub fn claim_ineligible_reward(&mut self, reward_index: usize) -> Result<u64> {
         // calculate ineligible reward
         let reward_info = &mut self.reward_infos[reward_index];
-        let ineligible_reward: u64 = safe_mul_shr_cast(
-            reward_info
-                .cumulative_seconds_with_empty_liquidity_reward
-                .into(),
-            reward_info.reward_rate,
-            SCALE_OFFSET,
-        )?;
 
+        let ineligible_reward = mul_shr_u192(
+            U192::from(reward_info.cumulative_seconds_with_empty_liquidity_reward),
+            U192::from_bytes(reward_info.reward_rate),
+            SCALE_OFFSET,
+        )
+        .ok_or_else(|| PoolError::MathOverflow)?;
+        let ineligible_reward = ineligible_reward
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?;
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 
         Ok(ineligible_reward)

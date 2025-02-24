@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use ruint::aliases::U192;
 use static_assertions::const_assert_eq;
 use std::{cell::RefMut, u64};
 
@@ -6,7 +7,8 @@ use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, SCALE_OFFSET},
     safe_math::SafeMath,
     state::Pool,
-    utils_math::safe_mul_shr_cast,
+    u192x192_math::mul_shr_u192,
+    utils_math::{safe_mul_shr_cast, U192Conversion},
     PoolError,
 };
 
@@ -14,26 +16,32 @@ use crate::{
 #[derive(Default, Debug, AnchorDeserialize, AnchorSerialize, InitSpace, PartialEq)]
 pub struct UserRewardInfo {
     /// The latest update reward checkpoint
-    pub reward_per_token_checkpoint: u128,
+    pub reward_per_token_checkpoint: [u8; 24],
     /// Current pending rewards
     pub reward_pendings: u64,
     /// Total claimed rewards
     pub total_claimed_rewards: u64,
 }
 
-const_assert_eq!(UserRewardInfo::INIT_SPACE, 32);
+const_assert_eq!(UserRewardInfo::INIT_SPACE, 40);
 
 impl UserRewardInfo {
     pub fn update_rewards(
         &mut self,
         total_liquidity: u128,
-        reward_per_token_stored: u128,
+        reward_per_token_stored: [u8; 24],
     ) -> Result<()> {
-        let new_reward: u64 = safe_mul_shr_cast(
-            total_liquidity,
-            reward_per_token_stored.safe_sub(self.reward_per_token_checkpoint)?,
-            SCALE_OFFSET * 2,
-        )?;
+        let reward_per_token_store = U192::from_bytes(reward_per_token_stored)
+            .safe_add(U192::from_bytes(self.reward_per_token_checkpoint))?;
+
+        let new_reward: u64 = mul_shr_u192(
+            U192::from(total_liquidity),
+            reward_per_token_store,
+            SCALE_OFFSET,
+        )
+        .ok_or_else(|| PoolError::MathOverflow)?
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?;
 
         self.reward_pendings = new_reward.safe_add(self.reward_pendings)?;
 
@@ -76,7 +84,7 @@ pub struct Position {
     // TODO implement locking here
 }
 
-const_assert_eq!(Position::INIT_SPACE, 368);
+const_assert_eq!(Position::INIT_SPACE, 384);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -200,7 +208,7 @@ impl Position {
         self.fee_b_pending = 0;
     }
 
-    pub fn update_rewards(&mut self, pool: &mut RefMut<'_, Pool>, current_time: u64) -> Result<()> {
+    pub fn update_rewards(&mut self, pool: &mut Pool, current_time: u64) -> Result<()> {
         // update if reward has been initialized
         if pool.pool_reward_initialized() {
             // update pool reward before any update about position reward

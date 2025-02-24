@@ -1,5 +1,5 @@
 use anchor_lang::solana_program::msg;
-use ruint::aliases::{U256, U512};
+use ruint::aliases::{U192, U256, U512};
 use std::panic::Location;
 
 use crate::PoolError;
@@ -113,6 +113,7 @@ checked_impl!(u128, u32);
 checked_impl!(i128, u32);
 checked_impl!(usize, u32);
 checked_impl!(U256, usize);
+checked_impl!(U192, usize);
 checked_impl!(U512, usize);
 
 #[cfg(test)]

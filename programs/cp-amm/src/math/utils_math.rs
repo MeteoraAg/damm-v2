@@ -1,5 +1,6 @@
 use anchor_lang::prelude::Result;
 use num_traits::cast::FromPrimitive;
+use ruint::aliases::U192;
 
 use crate::{
     safe_math::SafeMath,
@@ -32,4 +33,33 @@ pub fn safe_shl_div_cast<T: FromPrimitive>(
 ) -> Result<T> {
     T::from_u128(shl_div(x, y, offset, rounding).ok_or_else(|| PoolError::MathOverflow)?)
         .ok_or_else(|| PoolError::TypeCastFailed.into())
+}
+
+pub trait U192Conversion {
+    fn as_bytes(&self) -> [u8; 24];
+    fn from_bytes(bytes: [u8; 24]) -> Self;
+}
+
+impl U192Conversion for U192 {
+    fn as_bytes(&self) -> [u8; 24] {
+        self.to_le_bytes::<24>()
+    }
+
+    fn from_bytes(bytes: [u8; 24]) -> Self {
+        U192::from_le_bytes(bytes)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_convert() {
+        let u192 = U192::from(100);
+        let bytes = u192.as_bytes();
+        let result = U192::from_le_bytes(bytes);
+
+        assert_eq!(result, u192)
+    }
 }
