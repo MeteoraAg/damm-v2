@@ -324,12 +324,10 @@ impl RewardInfo {
             funding_amount
         } else {
             let remaining_seconds = reward_duration_end.safe_sub(current_time)?;
-            let mut leftover: u64 =
+            let leftover: u64 =
                 safe_mul_shr_cast(self.reward_rate, remaining_seconds.into(), SCALE_OFFSET)?;
 
-            leftover = leftover.safe_add(funding_amount)?;
-
-            leftover
+            funding_amount.safe_add(leftover)?
         };
 
         self.reward_rate = safe_shl_div_cast(
