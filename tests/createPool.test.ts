@@ -37,7 +37,8 @@ describe("Initialize pool", () => {
     context = await startTest();
     const prepareContext = await setupTestContext(
       context.banksClient,
-      context.payer
+      context.payer,
+      false
     );
 
     creator = prepareContext.poolCreator.publicKey;
@@ -52,7 +53,7 @@ describe("Initialize pool", () => {
           cliffFeeNumerator: new BN(2_500_000),
           numberOfPeriod: 0,
           deltaPerPeriod: new BN(0),
-          periodFrequency: new BN(0)
+          periodFrequency: new BN(0),
         },
         protocolFeePercent: 10,
         partnerFeePercent: 0,

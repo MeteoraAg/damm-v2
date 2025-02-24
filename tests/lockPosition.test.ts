@@ -52,7 +52,8 @@ describe("Lock position", () => {
 
     const prepareContext = await setupTestContext(
       context.banksClient,
-      context.payer
+      context.payer,
+      false
     );
     payer = prepareContext.payer;
     user = prepareContext.user;
@@ -68,7 +69,7 @@ describe("Lock position", () => {
           cliffFeeNumerator: new BN(10_000_000),
           numberOfPeriod: 0,
           deltaPerPeriod: new BN(0),
-          periodFrequency: new BN(0)
+          periodFrequency: new BN(0),
         },
         protocolFeePercent: 10,
         partnerFeePercent: 0,

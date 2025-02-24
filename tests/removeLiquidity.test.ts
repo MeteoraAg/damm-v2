@@ -44,7 +44,8 @@ describe("Remove liquidity", () => {
 
     const prepareContext = await setupTestContext(
       context.banksClient,
-      context.payer
+      context.payer,
+      false
     );
     payer = prepareContext.payer;
     user = prepareContext.user;
@@ -58,7 +59,7 @@ describe("Remove liquidity", () => {
           cliffFeeNumerator: new BN(2_500_000),
           numberOfPeriod: 0,
           deltaPerPeriod: new BN(0),
-          periodFrequency: new BN(0)
+          periodFrequency: new BN(0),
         },
         protocolFeePercent: 10,
         partnerFeePercent: 0,

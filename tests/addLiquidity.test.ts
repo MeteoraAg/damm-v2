@@ -1,10 +1,6 @@
 import { expect } from "chai";
 import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import {
-  randomID,
-  setupTestContext,
-  startTest,
-} from "./bankrun-utils/common";
+import { randomID, setupTestContext, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -16,7 +12,7 @@ import {
   InitializePoolParams,
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE
+  MIN_SQRT_PRICE,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -36,7 +32,8 @@ describe("Add liquidity", () => {
 
     const prepareContext = await setupTestContext(
       context.banksClient,
-      context.payer
+      context.payer,
+      false
     );
     payer = prepareContext.payer;
     user = prepareContext.user;
@@ -50,7 +47,7 @@ describe("Add liquidity", () => {
           cliffFeeNumerator: new BN(2_500_000),
           numberOfPeriod: 0,
           deltaPerPeriod: new BN(0),
-          periodFrequency: new BN(0)
+          periodFrequency: new BN(0),
         },
         protocolFeePercent: 10,
         partnerFeePercent: 0,
