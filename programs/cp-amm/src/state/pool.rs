@@ -305,10 +305,15 @@ impl RewardInfo {
     }
 
     pub fn accumulate_reward_per_token_stored(&mut self, delta: U256) -> Result<()> {
-        let reward_per_token_stored = U256::from_le_bytes(self.reward_per_token_stored);
-        let reward_per_token_stored = reward_per_token_stored.safe_add(delta)?;
-        self.reward_per_token_stored = reward_per_token_stored.to_le_bytes();
+        self.reward_per_token_stored = self
+            .reward_per_token_stored()
+            .safe_add(delta)?
+            .to_le_bytes();
         Ok(())
+    }
+
+    pub fn reward_per_token_stored(&self) -> U256 {
+        U256::from_le_bytes(self.reward_per_token_stored)
     }
 
     /// Farming rate after funding
@@ -562,8 +567,8 @@ impl Pool {
         if collect_fee_mode == CollectFeeMode::OnlyB || trade_direction == TradeDirection::AtoB {
             self.partner_b_fee = self.partner_b_fee.safe_add(partner_fee)?;
             self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
-            let fee_b_per_liquidity = U256::from_le_bytes(self.fee_b_per_liquidity);
-            self.fee_b_per_liquidity = fee_b_per_liquidity
+            self.fee_b_per_liquidity = self
+                .fee_b_per_liquidity()
                 .safe_add(fee_per_token_stored)?
                 .to_le_bytes();
             self.metrics
@@ -571,8 +576,8 @@ impl Pool {
         } else {
             self.partner_a_fee = self.partner_a_fee.safe_add(partner_fee)?;
             self.protocol_a_fee = self.protocol_a_fee.safe_add(protocol_fee)?;
-            let fee_a_per_liquidity = U256::from_le_bytes(self.fee_a_per_liquidity);
-            self.fee_a_per_liquidity = fee_a_per_liquidity
+            self.fee_a_per_liquidity = self
+                .fee_a_per_liquidity()
                 .safe_add(fee_per_token_stored)?
                 .to_le_bytes();
             self.metrics
@@ -611,9 +616,7 @@ impl Pool {
         liquidity_delta: u128,
     ) -> Result<()> {
         // update current fee for position
-        let fee_a_per_liquidity = U256::from_le_bytes(self.fee_a_per_liquidity);
-        let fee_b_per_liquidity = U256::from_le_bytes(self.fee_b_per_liquidity);
-        position.update_fee(fee_a_per_liquidity, fee_b_per_liquidity)?;
+        position.update_fee(self.fee_a_per_liquidity(), self.fee_b_per_liquidity())?;
 
         // add liquidity
         position.add_liquidity(liquidity_delta)?;
@@ -629,9 +632,7 @@ impl Pool {
         liquidity_delta: u128,
     ) -> Result<()> {
         // update current fee for position
-        let fee_a_per_liquidity = U256::from_le_bytes(self.fee_a_per_liquidity);
-        let fee_b_per_liquidity = U256::from_le_bytes(self.fee_b_per_liquidity);
-        position.update_fee(fee_a_per_liquidity, fee_b_per_liquidity)?;
+        position.update_fee(self.fee_a_per_liquidity(), self.fee_b_per_liquidity())?;
 
         // remove liquidity
         position.remove_unlocked_liquidity(liquidity_delta)?;

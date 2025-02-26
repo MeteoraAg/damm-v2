@@ -30,10 +30,9 @@ impl UserRewardInfo {
         position_liquidity: u128,
         reward_per_token_stored: U256,
     ) -> Result<()> {
-        let reward_per_token_checkpoint = U256::from_le_bytes(self.reward_per_token_checkpoint);
         let new_reward: u64 = safe_mul_shr_256_cast(
             U256::from(position_liquidity),
-            reward_per_token_stored.safe_sub(reward_per_token_checkpoint)?,
+            reward_per_token_stored.safe_sub(self.reward_per_token_checkpoint())?,
             TOTAL_REWARD_SCALE,
         )?;
 
@@ -42,6 +41,10 @@ impl UserRewardInfo {
         self.reward_per_token_checkpoint = reward_per_token_stored.to_le_bytes();
 
         Ok(())
+    }
+
+    pub fn reward_per_token_checkpoint(&self) -> U256 {
+        U256::from_le_bytes(self.reward_per_token_checkpoint)
     }
 }
 
@@ -160,19 +163,17 @@ impl Position {
     ) -> Result<()> {
         let liquidity = self.get_total_liquidity()?;
         if liquidity > 0 {
-            let fee_a_per_token_checkpoint = U256::from_le_bytes(self.fee_a_per_token_checkpoint);
             let new_fee_a: u64 = safe_mul_shr_256_cast(
                 U256::from(liquidity),
-                fee_a_per_token_stored.safe_sub(fee_a_per_token_checkpoint)?,
+                fee_a_per_token_stored.safe_sub(self.fee_a_per_token_checkpoint())?,
                 LIQUIDITY_SCALE,
             )?;
 
             self.fee_a_pending = new_fee_a.safe_add(self.fee_a_pending)?;
 
-            let fee_b_per_token_checkpoint = U256::from_le_bytes(self.fee_b_per_token_checkpoint);
             let new_fee_b: u64 = safe_mul_shr_256_cast(
                 U256::from(liquidity),
-                fee_b_per_token_stored.safe_sub(fee_b_per_token_checkpoint)?,
+                fee_b_per_token_stored.safe_sub(self.fee_b_per_token_checkpoint())?,
                 LIQUIDITY_SCALE,
             )?;
 
@@ -249,5 +250,12 @@ impl Position {
 
     pub fn reset_all_pending_reward(&mut self, reward_index: usize) {
         self.reward_infos[reward_index].reward_pendings = 0;
+    }
+
+    pub fn fee_a_per_token_checkpoint(&self) -> U256 {
+        U256::from_le_bytes(self.fee_a_per_token_checkpoint)
+    }
+    pub fn fee_b_per_token_checkpoint(&self) -> U256 {
+        U256::from_le_bytes(self.fee_b_per_token_checkpoint)
     }
 }
