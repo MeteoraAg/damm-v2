@@ -9,3 +9,5 @@ pub mod token_badge;
 pub use token_badge::*;
 pub mod vesting;
 pub use vesting::*;
+pub mod claim_fee_operator;
+pub use claim_fee_operator::*;

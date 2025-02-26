@@ -46,6 +46,14 @@ pub mod cp_amm {
         instructions::handle_create_token_badge(ctx)
     }
 
+    pub fn create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>) -> Result<()> {
+        instructions::handle_create_claim_fee_operator(ctx)
+    }
+
+    pub fn close_claim_fee_operator(ctx: Context<CloseClaimFeeOperatorCtx>) -> Result<()> {
+        instructions::handle_close_claim_fee_operator(ctx)
+    }
+
     pub fn close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {
         instructions::handle_close_config(ctx)
     }

@@ -2,8 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX, state::Pool, token::transfer_from_pool, treasury,
-    EvtClaimProtocolFee,
+    constants::seeds::POOL_AUTHORITY_PREFIX,
+    state::{ClaimFeeOperator, Pool},
+    token::transfer_from_pool,
+    treasury, EvtClaimProtocolFee,
 };
 
 /// Accounts for withdraw protocol fees
@@ -48,6 +50,13 @@ pub struct ClaimProtocolFeesCtx<'info> {
         associated_token::token_program = token_b_program,
     )]
     pub token_b_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// Claim fee operator
+    #[account(has_one = operator)]
+    pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
+
+    /// Operator
+    pub operator: Signer<'info>,
 
     /// Token a program
     pub token_a_program: Interface<'info, TokenInterface>,

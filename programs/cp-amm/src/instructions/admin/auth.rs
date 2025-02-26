@@ -3,9 +3,8 @@ use anchor_lang::prelude::*;
 pub mod admin {
     use anchor_lang::{prelude::Pubkey, solana_program::pubkey};
 
-    pub const ADMINS: [Pubkey; 3] = [
+    pub const ADMINS: [Pubkey; 2] = [
         pubkey!("5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"),
-        pubkey!("ChSAh3XXTxpp5n2EmgSCm6vVvVPoD1L9VrK3mcQkYz7m"),
         pubkey!("DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX"),
     ];
 }

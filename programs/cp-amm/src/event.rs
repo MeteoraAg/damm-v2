@@ -35,6 +35,19 @@ pub struct EvtCreateTokenBadge {
     pub token_mint: Pubkey,
 }
 
+/// Create claim fee operator
+#[event]
+pub struct EvtCreateClaimFeeOperator {
+    pub operator: Pubkey,
+}
+
+/// Close claim fee operator
+#[event]
+pub struct EvtCloseClaimFeeOperator {
+    pub claim_fee_operator: Pubkey,
+    pub operator: Pubkey,
+}
+
 #[event]
 pub struct EvtInitializePool {
     pub token_a_mint: Pubkey,
@@ -100,7 +113,7 @@ pub struct EvtSwap {
     pub is_referral: bool,
     pub params: SwapParameters,
     pub swap_result: SwapResult,
-    pub total_amount_in: u64,
+    pub transfer_fee_excluded_amount_in: u64,
     pub current_timestamp: u64,
 }
 
@@ -171,6 +184,8 @@ pub struct EvtFundReward {
     pub reward_index: u8,
     // Amount of farm reward funded
     pub amount: u64,
+    // Amount excluded transfer fee
+    pub transfer_fee_excluded_amount_in: u64,
 }
 
 #[event]

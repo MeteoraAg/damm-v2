@@ -7,7 +7,7 @@ use crate::{
     get_pool_access_validator,
     params::swap::TradeDirection,
     state::{CollectFeeMode, Pool},
-    token::{calculate_transfer_fee_included_amount, transfer_from_pool, transfer_from_user},
+    token::{calculate_transfer_fee_excluded_amount, transfer_from_pool, transfer_from_user},
     EvtSwap, PoolError,
 };
 
@@ -94,30 +94,8 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         amount_in,
         minimum_amount_out,
     } = params;
-    require!(amount_in > 0, PoolError::AmountIsZero);
 
     let trade_direction = ctx.accounts.get_trade_direction();
-    let is_referral = ctx.accounts.referral_token_account.is_some();
-
-    let mut pool = ctx.accounts.pool.load_mut()?;
-
-    // update for dynamic fee reference
-    let current_timestamp = Clock::get()?.unix_timestamp as u64;
-    pool.update_pre_swap(current_timestamp)?;
-
-    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
-
-    let swap_result =
-        pool.get_swap_result(amount_in, is_referral, trade_direction, current_point)?;
-
-    require!(
-        swap_result.output_amount >= minimum_amount_out,
-        PoolError::ExceededSlippage
-    );
-
-    pool.apply_swap_result(&swap_result, trade_direction, current_timestamp)?;
-
-    // send to reserve
     let (
         token_in_mint,
         token_out_mint,
@@ -143,15 +121,44 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
             &ctx.accounts.token_a_program,
         ),
     };
+
+    let transfer_fee_excluded_amount_in =
+        calculate_transfer_fee_excluded_amount(&token_in_mint, amount_in)?.amount;
+
+    require!(transfer_fee_excluded_amount_in > 0, PoolError::AmountIsZero);
+
+    let is_referral = ctx.accounts.referral_token_account.is_some();
+
+    let mut pool = ctx.accounts.pool.load_mut()?;
+
+    // update for dynamic fee reference
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
+    pool.update_pre_swap(current_timestamp)?;
+
+    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
+
+    let swap_result = pool.get_swap_result(
+        transfer_fee_excluded_amount_in,
+        is_referral,
+        trade_direction,
+        current_point,
+    )?;
+
+    require!(
+        swap_result.output_amount >= minimum_amount_out,
+        PoolError::ExceededSlippage
+    );
+
+    pool.apply_swap_result(&swap_result, trade_direction, current_timestamp)?;
+
     // send to reserve
-    let total_amount_in = calculate_transfer_fee_included_amount(&token_in_mint, amount_in)?.amount;
     transfer_from_user(
         &ctx.accounts.payer,
         token_in_mint,
         &ctx.accounts.input_token_account,
         &input_vault_account,
         input_program,
-        total_amount_in,
+        amount_in,
     )?;
     // send to user
     transfer_from_pool(
@@ -197,7 +204,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         params,
         swap_result,
         is_referral,
-        total_amount_in,
+        transfer_fee_excluded_amount_in,
         current_timestamp,
     });
 

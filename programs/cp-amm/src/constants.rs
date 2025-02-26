@@ -100,6 +100,7 @@ pub mod seeds {
     pub const POSITION_PREFIX: &[u8] = b"position";
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
     pub const REWARD_VAULT_PREFIX: &[u8] = b"reward_vault";
+    pub const CLAIM_FEE_OPERATOR_PREFIX: &[u8] = b"cf_operator";
 }
 
 pub mod treasury {
