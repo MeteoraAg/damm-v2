@@ -8,7 +8,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     assert_eq_admin,
-    constants::{LIQUIDITY_SCALE, NUM_REWARDS, SCALE_OFFSET},
+    constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_RATE_SCALE},
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
         get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
@@ -19,7 +19,7 @@ use crate::{
         fee::{DynamicFeeStruct, FeeOnAmountResult, PoolFeesStruct},
         Position,
     },
-    u128x128_math::Rounding,
+    u128x128_math::{shl_div_256, Rounding},
     utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
     PoolError,
 };
@@ -130,9 +130,9 @@ pub struct Pool {
     /// padding
     pub _padding_0: [u8; 2],
     /// cumulative
-    pub fee_a_per_liquidity: u128,
+    pub fee_a_per_liquidity: [u8; 32], // U256
     /// cumulative
-    pub fee_b_per_liquidity: u128,
+    pub fee_b_per_liquidity: [u8; 32], // U256
     // TODO: Is this large enough?
     pub permanent_lock_liquidity: u128,
     /// metrics
@@ -143,7 +143,7 @@ pub struct Pool {
     pub _padding_1: [u64; 10],
 }
 
-const_assert_eq!(Pool::INIT_SPACE, 1016);
+const_assert_eq!(Pool::INIT_SPACE, 1080);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -213,7 +213,7 @@ pub struct RewardInfo {
     /// reward rate
     pub reward_rate: u128,
     /// Reward per token stored
-    pub reward_per_token_stored: u128,
+    pub reward_per_token_stored: [u8; 32], // U256
     /// The last time reward states were updated.
     pub last_update_time: u64,
     /// Accumulated seconds when the farm distributed rewards but the bin was empty.
@@ -221,7 +221,7 @@ pub struct RewardInfo {
     pub cumulative_seconds_with_empty_liquidity_reward: u64,
 }
 
-const_assert_eq!(RewardInfo::INIT_SPACE, 168);
+const_assert_eq!(RewardInfo::INIT_SPACE, 184);
 
 impl RewardInfo {
     /// Returns true if this reward is initialized.
@@ -250,7 +250,7 @@ impl RewardInfo {
         self.reward_token_flag = reward_token_flag;
     }
 
-    pub fn update_rewards(&mut self, liquidity_supply: u64, current_time: u64) -> Result<()> {
+    pub fn update_rewards(&mut self, liquidity_supply: u128, current_time: u64) -> Result<()> {
         // Update reward if it initialized
         if self.initialized() {
             if liquidity_supply > 0 {
@@ -292,23 +292,22 @@ impl RewardInfo {
     pub fn calculate_reward_per_token_stored_since_last_update(
         &self,
         current_time: u64,
-        liquidity_supply: u64,
-    ) -> Result<u128> {
+        liquidity_supply: u128,
+    ) -> Result<U256> {
         let time_period: u128 = self
             .get_seconds_elapsed_since_last_update(current_time)?
             .into();
         let total_reward = time_period.safe_mul(self.reward_rate.into())?;
 
-        safe_shl_div_cast(
-            total_reward,
-            liquidity_supply.into(),
-            SCALE_OFFSET,
-            Rounding::Down,
-        )
+        let reward_per_token_stored = shl_div_256(total_reward, liquidity_supply, LIQUIDITY_SCALE)
+            .ok_or_else(|| PoolError::MathOverflow)?;
+        Ok(reward_per_token_stored)
     }
 
-    pub fn accumulate_reward_per_token_stored(&mut self, delta: u128) -> Result<()> {
-        self.reward_per_token_stored = self.reward_per_token_stored.safe_add(delta)?;
+    pub fn accumulate_reward_per_token_stored(&mut self, delta: U256) -> Result<()> {
+        let reward_per_token_stored = U256::from_le_bytes(self.reward_per_token_stored);
+        let reward_per_token_stored = reward_per_token_stored.safe_add(delta)?;
+        self.reward_per_token_stored = reward_per_token_stored.to_le_bytes();
         Ok(())
     }
 
@@ -324,8 +323,11 @@ impl RewardInfo {
             funding_amount
         } else {
             let remaining_seconds = reward_duration_end.safe_sub(current_time)?;
-            let leftover: u64 =
-                safe_mul_shr_cast(self.reward_rate, remaining_seconds.into(), SCALE_OFFSET)?;
+            let leftover: u64 = safe_mul_shr_cast(
+                self.reward_rate,
+                remaining_seconds.into(),
+                REWARD_RATE_SCALE,
+            )?;
 
             funding_amount.safe_add(leftover)?
         };
@@ -333,7 +335,7 @@ impl RewardInfo {
         self.reward_rate = safe_shl_div_cast(
             total_amount.into(),
             self.reward_duration.into(),
-            SCALE_OFFSET,
+            REWARD_RATE_SCALE,
             Rounding::Down,
         )?;
         self.last_update_time = current_time;
@@ -551,12 +553,8 @@ impl Pool {
 
         let old_sqrt_price = self.sqrt_price;
         self.sqrt_price = next_sqrt_price;
-        let fee_per_token_stored: u128 = safe_shl_div_cast(
-            lp_fee.into(),
-            self.liquidity,
-            LIQUIDITY_SCALE,
-            Rounding::Down,
-        )?;
+        let fee_per_token_stored = shl_div_256(lp_fee.into(), self.liquidity, LIQUIDITY_SCALE)
+            .ok_or_else(|| PoolError::MathOverflow)?;
 
         let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
@@ -564,13 +562,19 @@ impl Pool {
         if collect_fee_mode == CollectFeeMode::OnlyB || trade_direction == TradeDirection::AtoB {
             self.partner_b_fee = self.partner_b_fee.safe_add(partner_fee)?;
             self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
-            self.fee_b_per_liquidity = self.fee_b_per_liquidity.safe_add(fee_per_token_stored)?;
+            let fee_b_per_liquidity = U256::from_le_bytes(self.fee_b_per_liquidity);
+            self.fee_b_per_liquidity = fee_b_per_liquidity
+                .safe_add(fee_per_token_stored)?
+                .to_le_bytes();
             self.metrics
                 .accumulate_fee(lp_fee, protocol_fee, partner_fee, false)?;
         } else {
             self.partner_a_fee = self.partner_a_fee.safe_add(partner_fee)?;
             self.protocol_a_fee = self.protocol_a_fee.safe_add(protocol_fee)?;
-            self.fee_a_per_liquidity = self.fee_a_per_liquidity.safe_add(fee_per_token_stored)?;
+            let fee_a_per_liquidity = U256::from_le_bytes(self.fee_a_per_liquidity);
+            self.fee_a_per_liquidity = fee_a_per_liquidity
+                .safe_add(fee_per_token_stored)?
+                .to_le_bytes();
             self.metrics
                 .accumulate_fee(lp_fee, protocol_fee, partner_fee, true)?;
         }
@@ -607,7 +611,9 @@ impl Pool {
         liquidity_delta: u128,
     ) -> Result<()> {
         // update current fee for position
-        position.update_fee(self.fee_a_per_liquidity, self.fee_b_per_liquidity)?;
+        let fee_a_per_liquidity = U256::from_le_bytes(self.fee_a_per_liquidity);
+        let fee_b_per_liquidity = U256::from_le_bytes(self.fee_b_per_liquidity);
+        position.update_fee(fee_a_per_liquidity, fee_b_per_liquidity)?;
 
         // add liquidity
         position.add_liquidity(liquidity_delta)?;
@@ -623,7 +629,9 @@ impl Pool {
         liquidity_delta: u128,
     ) -> Result<()> {
         // update current fee for position
-        position.update_fee(self.fee_a_per_liquidity, self.fee_b_per_liquidity)?;
+        let fee_a_per_liquidity = U256::from_le_bytes(self.fee_a_per_liquidity);
+        let fee_b_per_liquidity = U256::from_le_bytes(self.fee_b_per_liquidity);
+        position.update_fee(fee_a_per_liquidity, fee_b_per_liquidity)?;
 
         // remove liquidity
         position.remove_unlocked_liquidity(liquidity_delta)?;
@@ -718,7 +726,7 @@ impl Pool {
     pub fn update_rewards(&mut self, current_time: u64) -> Result<()> {
         for reward_idx in 0..NUM_REWARDS {
             let reward_info = &mut self.reward_infos[reward_idx];
-            reward_info.update_rewards(self.liquidity as u64, current_time)?;
+            reward_info.update_rewards(self.liquidity, current_time)?;
         }
 
         Ok(())
@@ -732,12 +740,20 @@ impl Pool {
                 .cumulative_seconds_with_empty_liquidity_reward
                 .into(),
             reward_info.reward_rate,
-            SCALE_OFFSET,
+            REWARD_RATE_SCALE,
         )?;
 
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 
         Ok(ineligible_reward)
+    }
+
+    pub fn fee_a_per_liquidity(&self) -> U256 {
+        U256::from_le_bytes(self.fee_a_per_liquidity)
+    }
+
+    pub fn fee_b_per_liquidity(&self) -> U256 {
+        U256::from_le_bytes(self.fee_b_per_liquidity)
     }
 }
 

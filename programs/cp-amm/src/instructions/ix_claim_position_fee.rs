@@ -69,7 +69,7 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
     let mut position = ctx.accounts.position.load_mut()?;
 
     let pool = ctx.accounts.pool.load()?;
-    position.update_fee(pool.fee_a_per_liquidity, pool.fee_b_per_liquidity)?;
+    position.update_fee(pool.fee_a_per_liquidity(), pool.fee_b_per_liquidity())?;
     // update metrics
 
     let fee_a_pending = position.fee_a_pending;

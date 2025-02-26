@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    constants::{NUM_REWARDS, SCALE_OFFSET},
+    constants::{NUM_REWARDS, REWARD_RATE_SCALE},
     event::EvtFundReward,
     math::safe_math::SafeMath,
     state::Pool,
@@ -82,7 +82,7 @@ pub fn handle_fund_reward(
             reward_info
                 .cumulative_seconds_with_empty_liquidity_reward
                 .into(),
-            SCALE_OFFSET,
+            REWARD_RATE_SCALE,
         )?;
 
         // Reset cumulative seconds with empty liquidity reward

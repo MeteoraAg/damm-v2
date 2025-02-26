@@ -1,12 +1,13 @@
 use anchor_lang::prelude::*;
+use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 use std::{cell::RefMut, u64};
 
 use crate::{
-    constants::{LIQUIDITY_SCALE, NUM_REWARDS, SCALE_OFFSET},
+    constants::{LIQUIDITY_SCALE, NUM_REWARDS, TOTAL_REWARD_SCALE},
     safe_math::SafeMath,
     state::Pool,
-    utils_math::safe_mul_shr_cast,
+    utils_math::safe_mul_shr_256_cast,
     PoolError,
 };
 
@@ -14,30 +15,31 @@ use crate::{
 #[derive(Default, Debug, AnchorDeserialize, AnchorSerialize, InitSpace, PartialEq)]
 pub struct UserRewardInfo {
     /// The latest update reward checkpoint
-    pub reward_per_token_checkpoint: u128,
+    pub reward_per_token_checkpoint: [u8; 32], // U256
     /// Current pending rewards
     pub reward_pendings: u64,
     /// Total claimed rewards
     pub total_claimed_rewards: u64,
 }
 
-const_assert_eq!(UserRewardInfo::INIT_SPACE, 32);
+const_assert_eq!(UserRewardInfo::INIT_SPACE, 48);
 
 impl UserRewardInfo {
     pub fn update_rewards(
         &mut self,
-        total_liquidity: u128,
-        reward_per_token_stored: u128,
+        position_liquidity: u128,
+        reward_per_token_stored: U256,
     ) -> Result<()> {
-        let new_reward: u64 = safe_mul_shr_cast(
-            total_liquidity,
-            reward_per_token_stored.safe_sub(self.reward_per_token_checkpoint)?,
-            SCALE_OFFSET * 2,
+        let reward_per_token_checkpoint = U256::from_le_bytes(self.reward_per_token_checkpoint);
+        let new_reward: u64 = safe_mul_shr_256_cast(
+            U256::from(position_liquidity),
+            reward_per_token_stored.safe_sub(reward_per_token_checkpoint)?,
+            TOTAL_REWARD_SCALE,
         )?;
 
         self.reward_pendings = new_reward.safe_add(self.reward_pendings)?;
 
-        self.reward_per_token_checkpoint = reward_per_token_stored;
+        self.reward_per_token_checkpoint = reward_per_token_stored.to_le_bytes();
 
         Ok(())
     }
@@ -50,9 +52,9 @@ pub struct Position {
     /// Owner
     pub owner: Pubkey,
     /// fee a checkpoint
-    pub fee_a_per_token_checkpoint: u128,
+    pub fee_a_per_token_checkpoint: [u8; 32], // U256
     /// fee b checkpoint
-    pub fee_b_per_token_checkpoint: u128,
+    pub fee_b_per_token_checkpoint: [u8; 32], // U256
     /// fee a pending
     pub fee_a_pending: u64,
     /// fee b pending
@@ -76,7 +78,7 @@ pub struct Position {
     // TODO implement locking here
 }
 
-const_assert_eq!(Position::INIT_SPACE, 368);
+const_assert_eq!(Position::INIT_SPACE, 432);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -153,29 +155,31 @@ impl Position {
 
     pub fn update_fee(
         &mut self,
-        fee_a_per_token_stored: u128,
-        fee_b_per_token_stored: u128,
+        fee_a_per_token_stored: U256,
+        fee_b_per_token_stored: U256,
     ) -> Result<()> {
         let liquidity = self.get_total_liquidity()?;
         if liquidity > 0 {
-            let new_fee_a: u64 = safe_mul_shr_cast(
-                liquidity,
-                fee_a_per_token_stored.safe_sub(self.fee_a_per_token_checkpoint)?,
+            let fee_a_per_token_checkpoint = U256::from_le_bytes(self.fee_a_per_token_checkpoint);
+            let new_fee_a: u64 = safe_mul_shr_256_cast(
+                U256::from(liquidity),
+                fee_a_per_token_stored.safe_sub(fee_a_per_token_checkpoint)?,
                 LIQUIDITY_SCALE,
             )?;
 
             self.fee_a_pending = new_fee_a.safe_add(self.fee_a_pending)?;
 
-            let new_fee_b: u64 = safe_mul_shr_cast(
-                liquidity,
-                fee_b_per_token_stored.safe_sub(self.fee_b_per_token_checkpoint)?,
+            let fee_b_per_token_checkpoint = U256::from_le_bytes(self.fee_b_per_token_checkpoint);
+            let new_fee_b: u64 = safe_mul_shr_256_cast(
+                U256::from(liquidity),
+                fee_b_per_token_stored.safe_sub(fee_b_per_token_checkpoint)?,
                 LIQUIDITY_SCALE,
             )?;
 
             self.fee_b_pending = new_fee_b.safe_add(self.fee_b_pending)?;
         }
-        self.fee_a_per_token_checkpoint = fee_a_per_token_stored;
-        self.fee_b_per_token_checkpoint = fee_b_per_token_stored;
+        self.fee_a_per_token_checkpoint = fee_a_per_token_stored.to_le_bytes();
+        self.fee_b_per_token_checkpoint = fee_b_per_token_stored.to_le_bytes();
         Ok(())
     }
 
@@ -206,15 +210,16 @@ impl Position {
             // update pool reward before any update about position reward
             pool.update_rewards(current_time)?;
 
-            let total_liquidity = self.get_total_liquidity()?;
+            let position_liquidity = self.get_total_liquidity()?;
             let position_reward_infos = &mut self.reward_infos;
             for reward_idx in 0..NUM_REWARDS {
                 let pool_reward_info = pool.reward_infos[reward_idx];
 
                 if pool_reward_info.initialized() {
-                    let reward_per_token_stored = pool_reward_info.reward_per_token_stored;
+                    let reward_per_token_stored =
+                        U256::from_le_bytes(pool_reward_info.reward_per_token_stored);
                     position_reward_infos[reward_idx]
-                        .update_rewards(total_liquidity, reward_per_token_stored)?;
+                        .update_rewards(position_liquidity, reward_per_token_stored)?;
                 }
             }
         }

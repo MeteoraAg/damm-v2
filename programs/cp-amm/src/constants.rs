@@ -6,14 +6,19 @@ pub const MIN_SQRT_PRICE: u128 = 4295048016;
 /// refer raydium clmm
 pub const MAX_SQRT_PRICE: u128 = 79226673521066979257578248091;
 
-pub const LIQUIDITY_SCALE: u8 = 100;
+pub const LIQUIDITY_SCALE: u8 = 128;
+
+pub const REWARD_RATE_SCALE: u8 = 64;
+
+pub const TOTAL_REWARD_SCALE: u8 = 192;
+
+static_assertions::const_assert_eq!(LIQUIDITY_SCALE + REWARD_RATE_SCALE, TOTAL_REWARD_SCALE);
 
 pub const BASIS_POINT_MAX: u64 = 10_000;
 
 pub const U24_MAX: u32 = 0xffffff;
 
 // Number of bits to scale. This will decide the position of the radix point.
-pub const SCALE_OFFSET: u8 = 64;
 
 // Number of rewards supported by pool
 pub const NUM_REWARDS: usize = 2;
