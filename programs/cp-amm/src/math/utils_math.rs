@@ -1,6 +1,6 @@
 use anchor_lang::prelude::Result;
 use num_traits::cast::FromPrimitive;
-use ruint::aliases::U192;
+use ruint::aliases::U256;
 
 use crate::{
     safe_math::SafeMath,
@@ -35,18 +35,18 @@ pub fn safe_shl_div_cast<T: FromPrimitive>(
         .ok_or_else(|| PoolError::TypeCastFailed.into())
 }
 
-pub trait U192Conversion {
-    fn as_bytes(&self) -> [u8; 24];
-    fn from_bytes(bytes: [u8; 24]) -> Self;
+pub trait U256Conversion {
+    fn as_bytes(&self) -> [u8; 32];
+    fn from_bytes(bytes: [u8; 32]) -> Self;
 }
 
-impl U192Conversion for U192 {
-    fn as_bytes(&self) -> [u8; 24] {
-        self.to_le_bytes::<24>()
+impl U256Conversion for U256 {
+    fn as_bytes(&self) -> [u8; 32] {
+        self.to_le_bytes::<32>()
     }
 
-    fn from_bytes(bytes: [u8; 24]) -> Self {
-        U192::from_le_bytes(bytes)
+    fn from_bytes(bytes: [u8; 32]) -> Self {
+        U256::from_le_bytes(bytes)
     }
 }
 
@@ -56,10 +56,10 @@ mod test {
 
     #[test]
     fn test_convert() {
-        let u192 = U192::from(100);
-        let bytes = u192.as_bytes();
-        let result = U192::from_le_bytes(bytes);
+        let u256 = U256::from(100);
+        let bytes = u256.as_bytes();
+        let result = U256::from_le_bytes(bytes);
 
-        assert_eq!(result, u192)
+        assert_eq!(result, u256)
     }
 }

@@ -1,9 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use ruint::aliases::U192;
 
 use crate::{
-    constants::{NUM_REWARDS, SCALE_OFFSET},
+    constants::NUM_REWARDS,
     event::EvtFundReward,
     math::safe_math::SafeMath,
     state::Pool,
@@ -78,14 +77,15 @@ pub fn handle_fund_reward(
     let reward_info = &mut pool.reward_infos[index];
 
     let total_amount = if carry_forward {
-        let carry_forward_ineligible_reward: u64 = mul_shr_u192(
-            U192::from_bytes(reward_info.reward_rate),
-            U192::from(reward_info.cumulative_seconds_with_empty_liquidity_reward),
-            SCALE_OFFSET,
-        )
-        .ok_or_else(|| PoolError::MathOverflow)?
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?;
+        let carry_forward_ineligible_reward: u64 = reward_info
+            .reward_rate
+            .safe_mul(
+                reward_info
+                    .cumulative_seconds_with_empty_liquidity_reward
+                    .into(),
+            )?
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?;
 
         // Reset cumulative seconds with empty liquidity reward
         // because it will be brought forward to next reward window

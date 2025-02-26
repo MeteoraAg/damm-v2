@@ -1,14 +1,13 @@
 use anchor_lang::prelude::*;
-use ruint::aliases::U192;
+use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
-use std::{cell::RefMut, u64};
 
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, SCALE_OFFSET},
     safe_math::SafeMath,
     state::Pool,
-    u192x192_math::mul_shr_u192,
-    utils_math::{safe_mul_shr_cast, U192Conversion},
+    u256x256_math::mul_shr_u256,
+    utils_math::{safe_mul_shr_cast, U256Conversion},
     PoolError,
 };
 
@@ -16,28 +15,28 @@ use crate::{
 #[derive(Default, Debug, AnchorDeserialize, AnchorSerialize, InitSpace, PartialEq)]
 pub struct UserRewardInfo {
     /// The latest update reward checkpoint
-    pub reward_per_token_checkpoint: [u8; 24],
+    pub reward_per_token_checkpoint: [u8; 32],
     /// Current pending rewards
     pub reward_pendings: u64,
     /// Total claimed rewards
     pub total_claimed_rewards: u64,
 }
 
-const_assert_eq!(UserRewardInfo::INIT_SPACE, 40);
+const_assert_eq!(UserRewardInfo::INIT_SPACE, 48);
 
 impl UserRewardInfo {
     pub fn update_rewards(
         &mut self,
         total_liquidity: u128,
-        reward_per_token_stored: [u8; 24],
+        reward_per_token_stored: [u8; 32],
     ) -> Result<()> {
-        let reward_per_token_store = U192::from_bytes(reward_per_token_stored)
-            .safe_add(U192::from_bytes(self.reward_per_token_checkpoint))?;
+        let reward_per_token_store = U256::from_bytes(reward_per_token_stored)
+            .safe_sub(U256::from_bytes(self.reward_per_token_checkpoint))?;
 
-        let new_reward: u64 = mul_shr_u192(
-            U192::from(total_liquidity),
+        let new_reward: u64 = mul_shr_u256(
+            U256::from(total_liquidity),
             reward_per_token_store,
-            SCALE_OFFSET,
+            2 * SCALE_OFFSET,
         )
         .ok_or_else(|| PoolError::MathOverflow)?
         .try_into()
@@ -84,7 +83,7 @@ pub struct Position {
     // TODO implement locking here
 }
 
-const_assert_eq!(Position::INIT_SPACE, 384);
+const_assert_eq!(Position::INIT_SPACE, 400);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
