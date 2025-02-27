@@ -8,9 +8,8 @@ fn test_base_fee() {
         number_of_period: 50,
         period_frequency: 1,
         reduction_factor: 500, // 5% each second
-        start_point: 0,
         ..Default::default()
     };
-    let current_fee = base_fee.get_current_base_fee_numerator(100).unwrap();
+    let current_fee = base_fee.get_current_base_fee_numerator(100, 0).unwrap();
     println!("{}", current_fee)
 }

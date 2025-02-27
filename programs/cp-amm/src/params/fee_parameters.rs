@@ -73,14 +73,13 @@ impl BaseFeeParameters {
         );
         Ok(())
     }
-    fn to_base_fee_struct(&self, start_point: u64) -> BaseFeeStruct {
+    fn to_base_fee_struct(&self) -> BaseFeeStruct {
         BaseFeeStruct {
             cliff_fee_numerator: self.cliff_fee_numerator,
             number_of_period: self.number_of_period,
             period_frequency: self.period_frequency,
             reduction_factor: self.reduction_factor,
             fee_scheduler_mode: self.fee_scheduler_mode,
-            start_point,
             ..Default::default()
         }
     }
@@ -125,7 +124,7 @@ impl PoolFeeParamters {
             }
         }
     }
-    pub fn to_pool_fees_struct(&self, start_point: u64) -> PoolFeesStruct {
+    pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
         let &PoolFeeParamters {
             base_fee,
             protocol_fee_percent,
@@ -135,7 +134,7 @@ impl PoolFeeParamters {
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
             PoolFeesStruct {
-                base_fee: base_fee.to_base_fee_struct(start_point),
+                base_fee: base_fee.to_base_fee_struct(),
                 protocol_fee_percent,
                 partner_fee_percent,
                 referral_fee_percent,
@@ -144,7 +143,7 @@ impl PoolFeeParamters {
             }
         } else {
             PoolFeesStruct {
-                base_fee: base_fee.to_base_fee_struct(start_point),
+                base_fee: base_fee.to_base_fee_struct(),
                 protocol_fee_percent,
                 partner_fee_percent,
                 referral_fee_percent,

@@ -188,7 +188,9 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     };
     activation_params.validate()?;
 
-    let activation_point = activation_point.unwrap_or_default();
+    let activation_point = activation_point.unwrap_or(ActivationHandler::get_current_point(
+        config.activation_type,
+    )?);
 
     require!(
         sqrt_price >= config.sqrt_min_price && sqrt_price <= config.sqrt_max_price,
@@ -214,11 +216,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
 
     let alpha_vault = config.get_whitelisted_alpha_vault(ctx.accounts.pool.key());
     pool.initialize(
-        config
-            .pool_fees
-            .to_pool_fees_struct(ActivationHandler::get_current_point(
-                config.activation_type,
-            )?),
+        config.pool_fees.to_pool_fees_struct(activation_point),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),

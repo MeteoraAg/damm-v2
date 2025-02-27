@@ -85,11 +85,11 @@ const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
 pub struct BaseFeeStruct {
     pub cliff_fee_numerator: u64,
     pub fee_scheduler_mode: u8,
-    pub padding: [u8; 5],
+    pub padding_0: [u8; 5],
     pub number_of_period: u16,
     pub period_frequency: u64,
     pub reduction_factor: u64,
-    pub start_point: u64,
+    pub padding_1: u64,
 }
 
 const_assert_eq!(BaseFeeStruct::INIT_SPACE, 40);
@@ -99,16 +99,26 @@ impl BaseFeeStruct {
         self.cliff_fee_numerator
     }
     pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
-        self.get_current_base_fee_numerator(u64::MAX)
+        // trick to force current_point < activation_point
+        self.get_current_base_fee_numerator(0, 1)
     }
-    pub fn get_current_base_fee_numerator(&self, current_point: u64) -> Result<u64> {
+    pub fn get_current_base_fee_numerator(
+        &self,
+        current_point: u64,
+        activation_point: u64,
+    ) -> Result<u64> {
         if self.period_frequency == 0 {
             return Ok(self.cliff_fee_numerator);
         }
-        let period = current_point
-            .safe_sub(self.start_point)?
-            .safe_div(self.period_frequency)?;
-        let period = period.min(self.number_of_period.into());
+        // can trade before activation point, so it is alpha-vault, we use min fee
+        let period = if current_point < activation_point {
+            self.number_of_period.into()
+        } else {
+            let period = current_point
+                .safe_sub(activation_point)?
+                .safe_div(self.period_frequency)?;
+            period.min(self.number_of_period.into())
+        };
         let fee_scheduler_mode = FeeSchedulerMode::try_from(self.fee_scheduler_mode)
             .map_err(|_| PoolError::TypeCastFailed)?;
 
@@ -131,10 +141,10 @@ impl BaseFeeStruct {
 
 impl PoolFeesStruct {
     // in numerator
-    pub fn get_total_trading_fee(&self, current_point: u64) -> Result<u128> {
+    pub fn get_total_trading_fee(&self, current_point: u64, activation_point: u64) -> Result<u128> {
         let base_fee_numerator = self
             .base_fee
-            .get_current_base_fee_numerator(current_point)?;
+            .get_current_base_fee_numerator(current_point, activation_point)?;
         let total_fee_numerator = self
             .dynamic_fee
             .get_variable_fee()?
@@ -147,8 +157,9 @@ impl PoolFeesStruct {
         amount: u64,
         is_referral: bool,
         current_point: u64,
+        activation_point: u64,
     ) -> Result<FeeOnAmountResult> {
-        let trade_fee_numerator = self.get_total_trading_fee(current_point)?;
+        let trade_fee_numerator = self.get_total_trading_fee(current_point, activation_point)?;
         let trade_fee_numerator = if trade_fee_numerator > MAX_FEE_NUMERATOR.into() {
             MAX_FEE_NUMERATOR
         } else {

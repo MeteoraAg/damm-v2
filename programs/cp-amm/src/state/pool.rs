@@ -429,9 +429,12 @@ impl Pool {
                         protocol_fee,
                         partner_fee,
                         referral_fee,
-                    } = self
-                        .pool_fees
-                        .get_fee_on_amount(amount_in, is_referral, current_point)?;
+                    } = self.pool_fees.get_fee_on_amount(
+                        amount_in,
+                        is_referral,
+                        current_point,
+                        self.activation_point,
+                    )?;
                     // skip fee
                     let swap_result =
                         self.get_swap_result_from_b_to_a(amount, is_referral, true, current_point)?;
@@ -476,9 +479,12 @@ impl Pool {
             protocol_fee,
             partner_fee,
             referral_fee,
-        } = self
-            .pool_fees
-            .get_fee_on_amount(output_amount, is_referral, current_point)?;
+        } = self.pool_fees.get_fee_on_amount(
+            output_amount,
+            is_referral,
+            current_point,
+            self.activation_point,
+        )?;
         Ok(SwapResult {
             output_amount: amount,
             lp_fee,
@@ -527,9 +533,12 @@ impl Pool {
                 protocol_fee,
                 partner_fee,
                 referral_fee,
-            } = self
-                .pool_fees
-                .get_fee_on_amount(output_amount, is_referral, current_point)?;
+            } = self.pool_fees.get_fee_on_amount(
+                output_amount,
+                is_referral,
+                current_point,
+                self.activation_point,
+            )?;
             Ok(SwapResult {
                 output_amount: amount,
                 lp_fee,

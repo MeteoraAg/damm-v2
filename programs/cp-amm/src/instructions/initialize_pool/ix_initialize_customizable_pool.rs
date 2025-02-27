@@ -243,7 +243,8 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
 
     let token_a_flag: u8 = get_token_program_flags(&ctx.accounts.token_a_mint).into();
     let token_b_flag: u8 = get_token_program_flags(&ctx.accounts.token_b_mint).into();
-    let activation_point = activation_point.unwrap_or_default();
+    let activation_point =
+        activation_point.unwrap_or(ActivationHandler::get_current_point(activation_type)?);
     let alpha_vault = get_whitelisted_alpha_vault(
         ctx.accounts.payer.key(),
         ctx.accounts.pool.key(),
@@ -251,7 +252,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
     );
     let pool_type: u8 = PoolType::Customizable.into();
     pool.initialize(
-        pool_fees.to_pool_fees_struct(ActivationHandler::get_current_point(activation_type)?),
+        pool_fees.to_pool_fees_struct(),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),
