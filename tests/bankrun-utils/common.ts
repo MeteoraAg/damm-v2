@@ -125,14 +125,21 @@ export async function createUsersAndFund(
 export async function setupTestContext(
   banksClient: BanksClient,
   rootKeypair: Keypair,
-  token2022: boolean,
+  token2022: boolean
 ) {
-  const [admin, payer, poolCreator, user, funder] = Array(5)
-    .fill(5)
+  const [admin, payer, poolCreator, user, funder, operator, partner] = Array(7)
+    .fill(7)
     .map(() => Keypair.generate());
 
   await Promise.all(
-    [admin.publicKey, payer.publicKey, user.publicKey, funder.publicKey].map((publicKey) =>
+    [
+      admin.publicKey,
+      payer.publicKey,
+      user.publicKey,
+      funder.publicKey,
+      operator.publicKey,
+      partner.publicKey,
+    ].map((publicKey) =>
       transferSol(banksClient, rootKeypair, publicKey, new BN(LAMPORTS_PER_SOL))
     )
   );
@@ -172,7 +179,7 @@ export async function setupTestContext(
 
   // Mint token A to payer & user
   await Promise.all(
-    [payer.publicKey, user.publicKey].map((publicKey) =>
+    [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
       mintTo(
         banksClient,
         rootKeypair,
@@ -186,7 +193,7 @@ export async function setupTestContext(
 
   // Mint token B to payer & user
   await Promise.all(
-    [payer.publicKey, user.publicKey].map((publicKey) =>
+    [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
       mintTo(
         banksClient,
         rootKeypair,
@@ -198,8 +205,8 @@ export async function setupTestContext(
     )
   );
 
-   // mint reward to funder
-   await mintTo(
+  // mint reward to funder
+  await mintTo(
     banksClient,
     rootKeypair,
     rewardMintKeypair.publicKey,
@@ -226,6 +233,8 @@ export async function setupTestContext(
     rewardMint: rewardMintKeypair.publicKey,
     funder,
     user,
+    operator,
+    partner,
   };
 }
 

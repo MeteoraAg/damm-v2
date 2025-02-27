@@ -5,6 +5,10 @@ export const CP_AMM_PROGRAM_ID = new PublicKey(
   "9sh3gorJVsWgpdJo317PqnoWoTuDN2LkxiyYUUTu4sNJ"
 );
 
+export const TREASURY = new PublicKey(
+  "BJQbRiRWhJCyTYZcAuAL3ngDCx3AyFQGKDq8zhiZAKUw"
+);
+
 export const MIN_SQRT_PRICE = new BN("4295048016");
 export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 

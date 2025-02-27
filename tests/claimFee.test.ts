@@ -25,10 +25,16 @@ import {
   MIN_SQRT_PRICE,
   swap,
   SwapParams,
+  DECIMALS,
+  createClaimFeeOperator,
+  claimProtocolFee,
+  TREASURY,
+  claimPartnerFee,
+  closeClaimFeeOperator,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
-describe("Swap token", () => {
+describe("Claim fee", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let user: Keypair;
@@ -40,6 +46,8 @@ describe("Swap token", () => {
   let position: PublicKey;
   let inputTokenMint: PublicKey;
   let outputTokenMint: PublicKey;
+  let operator: Keypair;
+  let partner: Keypair;
 
   beforeEach(async () => {
     context = await startTest();
@@ -47,13 +55,15 @@ describe("Swap token", () => {
     const prepareContext = await setupTestContext(
       context.banksClient,
       context.payer,
-      false,
+      false
     );
     payer = prepareContext.payer;
     user = prepareContext.user;
     admin = prepareContext.admin;
     inputTokenMint = prepareContext.tokenAMint;
     outputTokenMint = prepareContext.tokenBMint;
+    operator = prepareContext.operator;
+    partner = prepareContext.partner;
 
     // create config
     const createConfigParams: CreateConfigParams = {
@@ -62,9 +72,8 @@ describe("Swap token", () => {
         baseFee: {
           cliffFeeNumerator: new BN(2_500_000),
           numberOfPeriod: 0,
-          reductionFactor: new BN(0),
+          deltaPerPeriod: new BN(0),
           periodFrequency: new BN(0),
-          feeSchedulerMode: 0,
         },
         protocolFeePercent: 10,
         partnerFeePercent: 0,
@@ -74,7 +83,7 @@ describe("Swap token", () => {
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
       sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
       vaultConfigKey: PublicKey.default,
-      poolCreatorAuthority: PublicKey.default,
+      poolCreatorAuthority: partner.publicKey,
       activationType: 0,
       collectFeeMode: 0,
     };
@@ -89,7 +98,7 @@ describe("Swap token", () => {
     sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
     const initPoolParams: InitializePoolParams = {
-      payer: payer,
+      payer: partner,
       creator: prepareContext.poolCreator.publicKey,
       config,
       tokenAMint: prepareContext.tokenAMint,
@@ -107,6 +116,12 @@ describe("Swap token", () => {
       user.publicKey,
       pool
     );
+
+    // create claim fee protocol operator
+    await createClaimFeeOperator(context.banksClient, {
+      admin,
+      operator: operator.publicKey,
+    });
   });
 
   it("User swap A->B", async () => {
@@ -114,9 +129,9 @@ describe("Swap token", () => {
       owner: user,
       pool,
       position,
-      liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
-      tokenAAmountThreshold: new BN(200),
-      tokenBAmountThreshold: new BN(200),
+      liquidityDelta: MIN_SQRT_PRICE,
+      tokenAAmountThreshold: new BN(2_000_000_000),
+      tokenBAmountThreshold: new BN(2_000_000_000),
     };
     await addLiquidity(context.banksClient, addLiquidityParams);
 
@@ -131,5 +146,29 @@ describe("Swap token", () => {
     };
 
     await swap(context.banksClient, swapParams);
+
+    // claim protocol fee
+    await claimProtocolFee(context.banksClient, {
+      operator,
+      pool,
+      treasury: TREASURY,
+    });
+
+    // claim partner fee
+
+    await claimPartnerFee(context.banksClient, {
+      partner,
+      pool,
+      maxAmountA: new BN(100000000000000),
+      maxAmountB: new BN(100000000000000),
+    });
+
+    // close claim fee operator
+
+    await closeClaimFeeOperator(context.banksClient, {
+      admin,
+      operator: operator.publicKey,
+      rentReceiver: operator.publicKey,
+    });
   });
 });

@@ -247,7 +247,7 @@ export type ClaimFeeOperatorParams = {
   admin: Keypair;
   operator: PublicKey;
 };
-export async function claimFeeOperator(
+export async function createClaimFeeOperator(
   banksClient: BanksClient,
   params: ClaimFeeOperatorParams
 ) {
@@ -317,12 +317,16 @@ export async function claimProtocolFee(
   const poolAuthority = derivePoolAuthority();
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
   const poolState = await getPool(banksClient, pool);
-  const tokenAAccount = getAssociatedTokenAddressSync(
+  const tokenAAccount = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    operator,
     poolState.tokenAMint,
     treasury
   );
 
-  const tokenBAccount = getAssociatedTokenAddressSync(
+  const tokenBAccount = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    operator,
     poolState.tokenBMint,
     treasury
   );
@@ -365,16 +369,19 @@ export async function claimPartnerFee(
   const { partner, pool, maxAmountA, maxAmountB } = params;
   const poolAuthority = derivePoolAuthority();
   const poolState = await getPool(banksClient, pool);
-  const tokenAAccount = getAssociatedTokenAddressSync(
+  const tokenAAccount = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    partner,
     poolState.tokenAMint,
     partner.publicKey
   );
 
-  const tokenBAccount = getAssociatedTokenAddressSync(
+  const tokenBAccount = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    partner,
     poolState.tokenBMint,
     partner.publicKey
   );
-
   const transaction = await program.methods
     .claimPartnerFee(maxAmountA, maxAmountB)
     .accounts({
