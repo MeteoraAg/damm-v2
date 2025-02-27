@@ -68,8 +68,9 @@ describe("Lock position", () => {
         baseFee: {
           cliffFeeNumerator: new BN(10_000_000),
           numberOfPeriod: 0,
-          deltaPerPeriod: new BN(0),
+          reductionFactor: new BN(0),
           periodFrequency: new BN(0),
+          feeSchedulerMode: 0,
         },
         protocolFeePercent: 10,
         partnerFeePercent: 0,

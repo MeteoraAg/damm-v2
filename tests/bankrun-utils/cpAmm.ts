@@ -96,7 +96,8 @@ export type BaseFee = {
   cliffFeeNumerator: BN;
   numberOfPeriod: number;
   periodFrequency: BN;
-  deltaPerPeriod: BN;
+  reductionFactor: BN;
+  feeSchedulerMode: number,
 };
 
 export type PoolFees = {
@@ -162,8 +163,11 @@ export async function createConfigIx(
   expect(configState.poolFees.baseFee.numberOfPeriod).eq(
     params.poolFees.baseFee.numberOfPeriod
   );
-  expect(configState.poolFees.baseFee.deltaPerPeriod.toNumber()).eq(
-    params.poolFees.baseFee.deltaPerPeriod.toNumber()
+  expect(configState.poolFees.baseFee.reductionFactor.toNumber()).eq(
+    params.poolFees.baseFee.reductionFactor.toNumber()
+  );
+  expect(configState.poolFees.baseFee.feeSchedulerMode).eq(
+    params.poolFees.baseFee.feeSchedulerMode
   );
   expect(configState.poolFees.baseFee.periodFrequency.toNumber()).eq(
     params.poolFees.baseFee.periodFrequency.toNumber()

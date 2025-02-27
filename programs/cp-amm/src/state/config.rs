@@ -32,10 +32,11 @@ const_assert_eq!(PoolFeesConfig::INIT_SPACE, 96);
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeConfig {
     pub cliff_fee_numerator: u64,
-    pub padding: [u8; 6],
+    pub fee_scheduler_mode: u8,
+    pub padding: [u8; 5],
     pub number_of_period: u16,
     pub period_frequency: u64,
-    pub delta_per_period: u64,
+    pub reduction_factor: u64,
 }
 
 const_assert_eq!(BaseFeeConfig::INIT_SPACE, 32);
@@ -46,7 +47,8 @@ impl BaseFeeConfig {
             cliff_fee_numerator: self.cliff_fee_numerator,
             number_of_period: self.number_of_period,
             period_frequency: self.period_frequency,
-            delta_per_period: self.delta_per_period,
+            reduction_factor: self.reduction_factor,
+            fee_scheduler_mode: self.fee_scheduler_mode,
         }
     }
 
@@ -55,7 +57,8 @@ impl BaseFeeConfig {
             cliff_fee_numerator: self.cliff_fee_numerator,
             number_of_period: self.number_of_period,
             period_frequency: self.period_frequency,
-            delta_per_period: self.delta_per_period,
+            reduction_factor: self.reduction_factor,
+            fee_scheduler_mode: self.fee_scheduler_mode,
             start_point,
             ..Default::default()
         }

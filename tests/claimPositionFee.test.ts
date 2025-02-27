@@ -63,8 +63,9 @@ describe("Claim position fee", () => {
         baseFee: {
           cliffFeeNumerator: new BN(2_500_000),
           numberOfPeriod: 0,
-          deltaPerPeriod: new BN(0),
+          reductionFactor: new BN(0),
           periodFrequency: new BN(0),
+          feeSchedulerMode: 0,
         },
         protocolFeePercent: 10,
         partnerFeePercent: 0,

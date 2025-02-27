@@ -21,3 +21,6 @@ mod price_math;
 
 #[cfg(test)]
 mod reward_tests;
+
+#[cfg(test)]
+mod fee_scheduler_tests;

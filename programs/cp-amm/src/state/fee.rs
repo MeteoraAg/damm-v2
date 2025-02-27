@@ -1,4 +1,7 @@
+use std::u64;
+
 use anchor_lang::prelude::*;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
@@ -6,8 +9,10 @@ use crate::{
         fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
         BASIS_POINT_MAX,
     },
+    fee_math::get_fee_in_period,
     safe_math::SafeMath,
     utils_math::safe_mul_div_cast_u64,
+    PoolError,
 };
 
 /// Encodes all results of swapping
@@ -18,6 +23,27 @@ pub struct FeeOnAmountResult {
     pub protocol_fee: u64,
     pub partner_fee: u64,
     pub referral_fee: u64,
+}
+
+/// collect fee mode
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+
+// https://www.desmos.com/calculator/oxdndn2xdx
+pub enum FeeSchedulerMode {
+    // fee = cliff_fee_numerator - passed_period * reduction_factor
+    Linear,
+    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
+    Exponential,
 }
 
 #[zero_copy]
@@ -58,10 +84,11 @@ const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeStruct {
     pub cliff_fee_numerator: u64,
-    pub padding: [u8; 6],
+    pub fee_scheduler_mode: u8,
+    pub padding: [u8; 5],
     pub number_of_period: u16,
     pub period_frequency: u64,
-    pub delta_per_period: u64,
+    pub reduction_factor: u64,
     pub start_point: u64,
 }
 
@@ -72,11 +99,7 @@ impl BaseFeeStruct {
         self.cliff_fee_numerator
     }
     pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
-        let fee_numerator = self.cliff_fee_numerator.safe_sub(
-            self.delta_per_period
-                .safe_mul(self.number_of_period.into())?,
-        )?;
-        Ok(fee_numerator)
+        self.get_current_base_fee_numerator(u64::MAX)
     }
     pub fn get_current_base_fee_numerator(&self, current_point: u64) -> Result<u64> {
         if self.period_frequency == 0 {
@@ -86,10 +109,23 @@ impl BaseFeeStruct {
             .safe_sub(self.start_point)?
             .safe_div(self.period_frequency)?;
         let period = period.min(self.number_of_period.into());
-        let fee_numerator = self
-            .cliff_fee_numerator
-            .safe_sub(period.safe_mul(self.delta_per_period.into())?)?;
-        Ok(fee_numerator)
+        let fee_scheduler_mode = FeeSchedulerMode::try_from(self.fee_scheduler_mode)
+            .map_err(|_| PoolError::TypeCastFailed)?;
+
+        match fee_scheduler_mode {
+            FeeSchedulerMode::Linear => {
+                let fee_numerator = self
+                    .cliff_fee_numerator
+                    .safe_sub(period.safe_mul(self.reduction_factor.into())?)?;
+                Ok(fee_numerator)
+            }
+            FeeSchedulerMode::Exponential => {
+                let period = u16::try_from(period).map_err(|_| PoolError::MathOverflow)?;
+                let fee_numerator =
+                    get_fee_in_period(self.cliff_fee_numerator, self.reduction_factor, period)?;
+                Ok(fee_numerator)
+            }
+        }
     }
 }
 

@@ -5,8 +5,9 @@ use crate::constants::fee::{
 };
 use crate::constants::{BASIS_POINT_MAX, U24_MAX};
 use crate::error::PoolError;
+use crate::fee_math::get_fee_in_period;
 use crate::safe_math::SafeMath;
-use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
+use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, FeeSchedulerMode, PoolFeesStruct};
 use crate::state::{BaseFeeConfig, DynamicFeeConfig, PoolFeesConfig};
 use anchor_lang::prelude::*;
 
@@ -32,7 +33,8 @@ pub struct BaseFeeParameters {
     pub cliff_fee_numerator: u64,
     pub number_of_period: u16,
     pub period_frequency: u64,
-    pub delta_per_period: u64,
+    pub reduction_factor: u64,
+    pub fee_scheduler_mode: u8,
 }
 
 impl BaseFeeParameters {
@@ -40,11 +42,24 @@ impl BaseFeeParameters {
         self.cliff_fee_numerator
     }
     pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
-        let fee_numerator = self.cliff_fee_numerator.safe_sub(
-            self.delta_per_period
-                .safe_mul(self.number_of_period.into())?,
-        )?;
-        Ok(fee_numerator)
+        let fee_scheduler_mode = FeeSchedulerMode::try_from(self.fee_scheduler_mode)
+            .map_err(|_| PoolError::TypeCastFailed)?;
+        match fee_scheduler_mode {
+            FeeSchedulerMode::Linear => {
+                let fee_numerator = self.cliff_fee_numerator.safe_sub(
+                    self.reduction_factor
+                        .safe_mul(self.number_of_period.into())?,
+                )?;
+                Ok(fee_numerator)
+            }
+            FeeSchedulerMode::Exponential => {
+                let period =
+                    u16::try_from(self.number_of_period).map_err(|_| PoolError::MathOverflow)?;
+                let fee_numerator =
+                    get_fee_in_period(self.cliff_fee_numerator, self.reduction_factor, period)?;
+                Ok(fee_numerator)
+            }
+        }
     }
 
     fn validate(&self) -> Result<()> {
@@ -63,7 +78,8 @@ impl BaseFeeParameters {
             cliff_fee_numerator: self.cliff_fee_numerator,
             number_of_period: self.number_of_period,
             period_frequency: self.period_frequency,
-            delta_per_period: self.delta_per_period,
+            reduction_factor: self.reduction_factor,
+            fee_scheduler_mode: self.fee_scheduler_mode,
             start_point,
             ..Default::default()
         }
@@ -74,7 +90,8 @@ impl BaseFeeParameters {
             cliff_fee_numerator: self.cliff_fee_numerator,
             number_of_period: self.number_of_period,
             period_frequency: self.period_frequency,
-            delta_per_period: self.delta_per_period,
+            reduction_factor: self.reduction_factor,
+            fee_scheduler_mode: self.fee_scheduler_mode,
             ..Default::default()
         }
     }
