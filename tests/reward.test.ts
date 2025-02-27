@@ -35,7 +35,6 @@ import BN from "bn.js";
 import { describe } from "mocha";
 
 describe("Reward unit-testing", () => {
-
   // SPL-Token
   describe("Reward with SPL-Token", () => {
     let context: ProgramTestContext;
@@ -182,7 +181,8 @@ describe("Reward unit-testing", () => {
       // // claim ineligible reward
       // const poolState = await getPool(context.banksClient, pool);
       // // set new timestamp to pass reward duration end
-      // const timestamp = poolState.rewardInfos[index].rewardDurationEnd.addn(5000);
+      // const timestamp =
+      //   poolState.rewardInfos[index].rewardDurationEnd.addn(5000);
       // const currentClock = await context.banksClient.getClock();
       // context.setClock(
       //   new Clock(
@@ -199,7 +199,7 @@ describe("Reward unit-testing", () => {
       //   pool,
       // });
     });
-  })
+  });
 
   // SPL-Token2022
 

@@ -19,6 +19,7 @@ import {
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  setPoolStatus,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -31,6 +32,8 @@ describe("Initialize pool", () => {
   let tokenBMint: PublicKey;
   let liquidity: BN;
   let sqrtPrice: BN;
+  let pool: PublicKey;
+  let admin: Keypair;
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
@@ -45,6 +48,7 @@ describe("Initialize pool", () => {
     payer = prepareContext.payer;
     tokenAMint = prepareContext.tokenAMint;
     tokenBMint = prepareContext.tokenBMint;
+    admin = prepareContext.admin;
     // create config
     const createConfigParams: CreateConfigParams = {
       index: new BN(configId),
@@ -76,7 +80,7 @@ describe("Initialize pool", () => {
     );
   });
 
-  it("Admin initialize pool", async () => {
+  it("Initialize pool & update status", async () => {
     liquidity = new BN(MIN_LP_AMOUNT);
     sqrtPrice = new BN(MIN_SQRT_PRICE);
 
@@ -91,15 +95,15 @@ describe("Initialize pool", () => {
       activationPoint: null,
     };
 
-    const { pool, position } = await initializePool(
-      context.banksClient,
-      initPoolParams
-    );
+    const { pool } = await initializePool(context.banksClient, initPoolParams);
 
-    // const poolState = await getPool(context.banksClient, pool);
-    // console.log("pool state: ", poolState);
-
-    // const positionState = await getPosition(context.banksClient, position);
-    // console.log("position state: ", positionState);
+    const newStatus = 1;
+    await setPoolStatus(context.banksClient, {
+      admin,
+      pool,
+      status: newStatus,
+    });
+    const poolState = await getPool(context.banksClient, pool);
+    expect(poolState.poolStatus).eq(newStatus);
   });
 });

@@ -13,8 +13,11 @@ import {
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  getPool,
+  U64_MAX,
 } from "./bankrun-utils";
 import BN from "bn.js";
+import { AccountLayout } from "@solana/spl-token";
 
 describe("Add liquidity", () => {
   let context: ProgramTestContext;
@@ -22,10 +25,11 @@ describe("Add liquidity", () => {
   let user: Keypair;
   let payer: Keypair;
   let config: PublicKey;
-  let liquidity: BN;
-  let sqrtPrice: BN;
   let pool: PublicKey;
   let position: PublicKey;
+  let poolCreator: PublicKey;
+  let tokenAMint: PublicKey;
+  let tokenBMint: PublicKey;
 
   beforeEach(async () => {
     context = await startTest();
@@ -38,6 +42,9 @@ describe("Add liquidity", () => {
     payer = prepareContext.payer;
     user = prepareContext.user;
     admin = prepareContext.admin;
+    poolCreator = prepareContext.poolCreator.publicKey;
+    tokenAMint = prepareContext.tokenAMint;
+    tokenBMint = prepareContext.tokenBMint;
 
     // create config
     const createConfigParams: CreateConfigParams = {
@@ -68,18 +75,17 @@ describe("Add liquidity", () => {
       admin,
       createConfigParams
     );
+  });
 
-    liquidity = new BN(MIN_LP_AMOUNT);
-    sqrtPrice = new BN(MIN_SQRT_PRICE);
-
+  it("Create pool with sqrtPrice equal sqrtMintPrice", async () => {
     const initPoolParams: InitializePoolParams = {
       payer: payer,
-      creator: prepareContext.poolCreator.publicKey,
+      creator: poolCreator,
       config,
-      tokenAMint: prepareContext.tokenAMint,
-      tokenBMint: prepareContext.tokenBMint,
-      liquidity,
-      sqrtPrice,
+      tokenAMint: tokenAMint,
+      tokenBMint: tokenBMint,
+      liquidity: MIN_LP_AMOUNT,
+      sqrtPrice: MIN_SQRT_PRICE,
       activationPoint: null,
     };
 
@@ -92,17 +98,116 @@ describe("Add liquidity", () => {
       user.publicKey,
       pool
     );
-  });
 
-  it("User add liquidity a position", async () => {
+    const poolState = await getPool(context.banksClient, pool);
+
+    const preTokenAVaultBalance = Number(
+      AccountLayout.decode(
+        (await context.banksClient.getAccount(poolState.tokenAVault)).data
+      ).amount
+    );
+
+    const preTokenBVaultBalance = Number(
+      AccountLayout.decode(
+        (await context.banksClient.getAccount(poolState.tokenBVault)).data
+      ).amount
+    );
+
     const addLiquidityParams: AddLiquidityParams = {
       owner: user,
       pool,
       position,
-      liquidityDelta: new BN(100),
-      tokenAAmountThreshold: new BN(200),
-      tokenBAmountThreshold: new BN(200),
+      liquidityDelta: MIN_LP_AMOUNT,
+      tokenAAmountThreshold: U64_MAX,
+      tokenBAmountThreshold: U64_MAX,
     };
     await addLiquidity(context.banksClient, addLiquidityParams);
+
+    const postTokenAVaultBalance = Number(
+      AccountLayout.decode(
+        (await context.banksClient.getAccount(poolState.tokenAVault)).data
+      ).amount
+    );
+
+    const postTokenBVaultBalance = Number(
+      AccountLayout.decode(
+        (await context.banksClient.getAccount(poolState.tokenBVault)).data
+      ).amount
+    );
+
+    expect(preTokenBVaultBalance).eq(postTokenBVaultBalance);
+
+    console.log({ preTokenAVaultBalance, postTokenAVaultBalance });
+    console.log({
+      preTokenBVaultBalance,
+      postTokenBVaultBalance,
+    });
+  });
+
+  it("Create pool with sqrtPrice equal sqrtMaxPrice", async () => {
+    const initPoolParams: InitializePoolParams = {
+      payer: payer,
+      creator: poolCreator,
+      config,
+      tokenAMint: tokenAMint,
+      tokenBMint: tokenBMint,
+      liquidity: MIN_LP_AMOUNT,
+      sqrtPrice: MAX_SQRT_PRICE,
+      activationPoint: null,
+    };
+
+    const result = await initializePool(context.banksClient, initPoolParams);
+
+    pool = result.pool;
+    position = await createPosition(
+      context.banksClient,
+      payer,
+      user.publicKey,
+      pool
+    );
+
+    const poolState = await getPool(context.banksClient, pool);
+
+    const preTokenAVaultBalance = Number(
+      AccountLayout.decode(
+        (await context.banksClient.getAccount(poolState.tokenAVault)).data
+      ).amount
+    );
+
+    const preTokenBVaultBalance = Number(
+      AccountLayout.decode(
+        (await context.banksClient.getAccount(poolState.tokenBVault)).data
+      ).amount
+    );
+
+    const addLiquidityParams: AddLiquidityParams = {
+      owner: user,
+      pool,
+      position,
+      liquidityDelta: MIN_LP_AMOUNT,
+      tokenAAmountThreshold: U64_MAX,
+      tokenBAmountThreshold: U64_MAX,
+    };
+    await addLiquidity(context.banksClient, addLiquidityParams);
+
+    const postTokenAVaultBalance = Number(
+      AccountLayout.decode(
+        (await context.banksClient.getAccount(poolState.tokenAVault)).data
+      ).amount
+    );
+
+    const postTokenBVaultBalance = Number(
+      AccountLayout.decode(
+        (await context.banksClient.getAccount(poolState.tokenBVault)).data
+      ).amount
+    );
+
+    console.log({ preTokenAVaultBalance, postTokenAVaultBalance });
+    console.log({
+      preTokenBVaultBalance,
+      postTokenBVaultBalance,
+    });
+
+    expect(preTokenAVaultBalance).eq(postTokenAVaultBalance);
   });
 });

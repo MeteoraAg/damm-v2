@@ -28,11 +28,14 @@ import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { CpAmm } from "../../target/types/cp_amm";
 import { getOrCreateAssociatedTokenAccount, getTokenAccount } from "./token";
 import {
+  deriveClaimFeeOperatorAddress,
   deriveConfigAddress,
+  deriveCustomizablePoolAddress,
   derivePoolAddress,
   derivePoolAuthority,
   derivePositionAddress,
   deriveRewardVaultAddress,
+  deriveTokenBadgeAddress,
   deriveTokenVaultAddress,
 } from "./accounts";
 import { processTransactionMaybeThrow } from "./common";
@@ -45,6 +48,7 @@ export type Position = IdlAccounts<CpAmm>["position"];
 export type Vesting = IdlAccounts<CpAmm>["vesting"];
 export type Config = IdlAccounts<CpAmm>["config"];
 export type LockPositionParams = IdlTypes<CpAmm>["VestingParameters"];
+export type TokenBadge = IdlAccounts<CpAmm>["tokenBadge"];
 
 export function getSecondKey(key1: PublicKey, key2: PublicKey) {
   const buf1 = key1.toBuffer();
@@ -208,6 +212,192 @@ export async function closeConfigIx(
   expect(configState).to.be.null;
 }
 
+export type CreateTokenBadgeParams = {
+  tokenMint: PublicKey;
+  admin: Keypair;
+};
+
+export async function createTokenBadge(
+  banksClient: BanksClient,
+  params: CreateTokenBadgeParams
+) {
+  const { tokenMint, admin } = params;
+  const program = createCpAmmProgram();
+  const tokenBadge = deriveTokenBadgeAddress(tokenMint);
+  const transaction = await program.methods
+    .createTokenBadge()
+    .accounts({
+      tokenBadge,
+      tokenMint,
+      admin: admin.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction();
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(admin);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+
+  const tokenBadgeState = await getTokenBadge(banksClient, tokenBadge);
+
+  expect(tokenBadgeState.tokenMint.toString()).eq(tokenMint.toString());
+}
+
+export type ClaimFeeOperatorParams = {
+  admin: Keypair;
+  operator: PublicKey;
+};
+export async function claimFeeOperator(
+  banksClient: BanksClient,
+  params: ClaimFeeOperatorParams
+) {
+  const program = createCpAmmProgram();
+  const { admin, operator } = params;
+
+  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
+  const transaction = await program.methods
+    .createClaimFeeOperator()
+    .accounts({
+      claimFeeOperator,
+      operator,
+      admin: admin.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(admin);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+export type CloseFeeOperatorParams = {
+  admin: Keypair;
+  operator: PublicKey;
+  rentReceiver: PublicKey;
+};
+export async function closeClaimFeeOperator(
+  banksClient: BanksClient,
+  params: CloseFeeOperatorParams
+) {
+  const program = createCpAmmProgram();
+  const { admin, operator, rentReceiver } = params;
+
+  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
+  const transaction = await program.methods
+    .closeClaimFeeOperator()
+    .accounts({
+      claimFeeOperator,
+      rentReceiver,
+      admin: admin.publicKey,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(admin);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+
+  const account = await banksClient.getAccount(claimFeeOperator);
+
+  expect(account).to.be.null;
+}
+
+export type ClaimProtocolFeeParams = {
+  operator: Keypair;
+  pool: PublicKey;
+  treasury: PublicKey;
+};
+export async function claimProtocolFee(
+  banksClient: BanksClient,
+  params: ClaimProtocolFeeParams
+) {
+  const program = createCpAmmProgram();
+  const { operator, pool, treasury } = params;
+  const poolAuthority = derivePoolAuthority();
+  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
+  const poolState = await getPool(banksClient, pool);
+  const tokenAAccount = getAssociatedTokenAddressSync(
+    poolState.tokenAMint,
+    treasury
+  );
+
+  const tokenBAccount = getAssociatedTokenAddressSync(
+    poolState.tokenBMint,
+    treasury
+  );
+
+  const transaction = await program.methods
+    .claimProtocolFee()
+    .accounts({
+      poolAuthority,
+      pool,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+      tokenAAccount,
+      tokenBAccount,
+      claimFeeOperator,
+      operator: operator.publicKey,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(operator);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+export type ClaimPartnerFeeParams = {
+  partner: Keypair;
+  pool: PublicKey;
+  maxAmountA: BN;
+  maxAmountB: BN;
+};
+export async function claimPartnerFee(
+  banksClient: BanksClient,
+  params: ClaimPartnerFeeParams
+) {
+  const program = createCpAmmProgram();
+  const { partner, pool, maxAmountA, maxAmountB } = params;
+  const poolAuthority = derivePoolAuthority();
+  const poolState = await getPool(banksClient, pool);
+  const tokenAAccount = getAssociatedTokenAddressSync(
+    poolState.tokenAMint,
+    partner.publicKey
+  );
+
+  const tokenBAccount = getAssociatedTokenAddressSync(
+    poolState.tokenBMint,
+    partner.publicKey
+  );
+
+  const transaction = await program.methods
+    .claimPartnerFee(maxAmountA, maxAmountB)
+    .accounts({
+      poolAuthority,
+      pool,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+      tokenAAccount,
+      tokenBAccount,
+      partner: partner.publicKey,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(partner);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
 export type InitializePoolParams = {
   payer: Keypair;
   creator: PublicKey;
@@ -262,6 +452,143 @@ export async function initializePool(
       creator,
       payer: payer.publicKey,
       config,
+      poolAuthority,
+      pool,
+      position,
+      tokenAMint,
+      tokenBMint,
+      tokenAVault,
+      tokenBVault,
+      payerTokenA,
+      payerTokenB,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction();
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(payer);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+
+  // validate pool data
+  const poolState = await getPool(banksClient, pool);
+  expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
+  expect(poolState.tokenBMint.toString()).eq(tokenBMint.toString());
+  expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
+  expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
+  expect(poolState.liquidity.toString()).eq(liquidity.toString());
+  expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
+
+  expect(poolState.rewardInfos[0].initialized).eq(0);
+  expect(poolState.rewardInfos[1].initialized).eq(0);
+
+  return { pool, position: position };
+}
+
+export type SetPoolStatusParams = {
+  admin: Keypair;
+  pool: PublicKey;
+  status: number;
+};
+
+export async function setPoolStatus(
+  banksClient: BanksClient,
+  params: SetPoolStatusParams
+) {
+  const { admin, pool, status } = params;
+  const program = createCpAmmProgram();
+  const transaction = await program.methods
+    .setPoolStatus(status)
+    .accounts({
+      pool,
+      admin: admin.publicKey,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(admin);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+export type PoolFeesParams = {
+  baseFee: BaseFee;
+  protocolFeePercent: number;
+  partnerFeePercent: number;
+  referralFeePercent: number;
+  dynamicFee: DynamicFee | null;
+};
+
+export type InitializeCustomizeablePoolParams = {
+  payer: Keypair;
+  creator: PublicKey;
+  tokenAMint: PublicKey;
+  tokenBMint: PublicKey;
+  poolFees: PoolFeesParams;
+  sqrtMinPrice: BN;
+  sqrtMaxPrice: BN;
+  hasAlphaVault: boolean;
+  liquidity: BN;
+  sqrtPrice: BN;
+  activationType: number;
+  collectFeeMode: number;
+  activationPoint: BN | null;
+};
+
+export async function initializeCustomizeablePool(
+  banksClient: BanksClient,
+  params: InitializeCustomizeablePoolParams
+): Promise<{ pool: PublicKey; position: PublicKey }> {
+  const {
+    tokenAMint,
+    tokenBMint,
+    payer,
+    creator,
+    poolFees,
+    hasAlphaVault,
+    liquidity,
+    sqrtMaxPrice,
+    sqrtMinPrice,
+    sqrtPrice,
+    collectFeeMode,
+    activationPoint,
+    activationType,
+  } = params;
+  const program = createCpAmmProgram();
+
+  const poolAuthority = derivePoolAuthority();
+  const pool = deriveCustomizablePoolAddress(tokenAMint, tokenBMint);
+
+  const position = derivePositionAddress(pool, creator);
+
+  const tokenAVault = deriveTokenVaultAddress(tokenAMint, pool);
+  const tokenBVault = deriveTokenVaultAddress(tokenBMint, pool);
+
+  const payerTokenA = getAssociatedTokenAddressSync(
+    tokenAMint,
+    payer.publicKey
+  );
+  const payerTokenB = getAssociatedTokenAddressSync(
+    tokenBMint,
+    payer.publicKey
+  );
+
+  const transaction = await program.methods
+    .initializeCustomizablePool({
+      poolFees,
+      sqrtMinPrice,
+      sqrtMaxPrice,
+      hasAlphaVault,
+      liquidity,
+      sqrtPrice,
+      activationType,
+      collectFeeMode,
+      activationPoint,
+    })
+    .accounts({
+      creator,
+      payer: payer.publicKey,
       poolAuthority,
       pool,
       position,
@@ -958,4 +1285,13 @@ export function getStakeProgramErrorCodeHexString(errorMessage: String) {
   }
 
   return "0x" + error.code.toString(16);
+}
+
+export async function getTokenBadge(
+  banksClient: BanksClient,
+  tokenBadge: PublicKey
+): Promise<TokenBadge> {
+  const program = createCpAmmProgram();
+  const account = await banksClient.getAccount(tokenBadge);
+  return program.coder.accounts.decode("TokenBadge", Buffer.from(account.data));
 }

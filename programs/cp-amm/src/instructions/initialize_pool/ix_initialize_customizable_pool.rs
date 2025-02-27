@@ -255,7 +255,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),
-        ctx.accounts.token_b_mint.key(),
+        ctx.accounts.token_b_vault.key(),
         alpha_vault,
         Pubkey::default(),
         sqrt_min_price,
