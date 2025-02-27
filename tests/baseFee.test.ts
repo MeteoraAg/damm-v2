@@ -70,8 +70,9 @@ describe("Base Fee", () => {
       // Fee schedular params
       const cliffFeeNumerator = new BN(2_500_000);
       const numberOfPeriod = 5;
-      const deltaPerPeriod = new BN(1);
+      const reductionFactor = new BN(1);
       const periodFrequency = new BN(0);
+      const feeSchedulerMode = 0;
 
       const createConfigParams: CreateConfigParams = {
         index: new BN(randomID()),
@@ -79,8 +80,9 @@ describe("Base Fee", () => {
           baseFee: {
             cliffFeeNumerator,
             numberOfPeriod,
-            deltaPerPeriod,
+            reductionFactor,
             periodFrequency,
+            feeSchedulerMode,
           },
           protocolFeePercent: 10,
           partnerFeePercent: 0,
@@ -153,11 +155,11 @@ describe("Base Fee", () => {
       //   console.log(poolState);
     });
 
-    it.skip("Base fee with customizable pool", async () => {});
+    it.skip("Base fee with customizable pool", async () => { });
   });
 
   describe.skip("Token 2022", () => {
-    it("Base fee with config", async () => {});
-    it("Base fee with customizable pool", async () => {});
+    it("Base fee with config", async () => { });
+    it("Base fee with customizable pool", async () => { });
   });
 });
