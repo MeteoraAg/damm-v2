@@ -112,7 +112,7 @@ impl PoolFeesConfig {
         }
     }
 
-    pub fn to_pool_fees_struct(&self, start_point: u64) -> PoolFeesStruct {
+    pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
         let &PoolFeesConfig {
             base_fee,
             protocol_fee_percent,

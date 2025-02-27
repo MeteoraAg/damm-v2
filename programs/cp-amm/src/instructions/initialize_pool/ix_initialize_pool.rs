@@ -216,7 +216,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
 
     let alpha_vault = config.get_whitelisted_alpha_vault(ctx.accounts.pool.key());
     pool.initialize(
-        config.pool_fees.to_pool_fees_struct(activation_point),
+        config.pool_fees.to_pool_fees_struct(),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),
