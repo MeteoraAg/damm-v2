@@ -1,40 +1,22 @@
-import { BN } from "bn.js";
-import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import {
-  LOCAL_ADMIN_KEYPAIR,
-  createUsersAndFund,
-  randomID,
-  setupTestContext,
-  startTest,
-  transferSol,
-} from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { wrapSOL } from "./bankrun-utils/token";
-import {
-  BASIS_POINT_MAX,
-  closeConfigIx,
-  createConfigIx,
-  CreateConfigParams,
-  createTokenBadge,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  OFFSET,
-} from "./bankrun-utils";
-import { shlDiv } from "./bankrun-utils/math";
+import { ProgramTestContext } from "solana-bankrun";
+import { setupTestContext, startTest } from "./bankrun-utils/common";
+import { Keypair, PublicKey } from "@solana/web3.js";
+import { createTokenBadge } from "./bankrun-utils";
+import { ExtensionType } from "@solana/spl-token";
 
-describe("Admin function: Create config", () => {
+describe("Admin function: Create token badge", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let tokenMint: PublicKey;
 
   beforeEach(async () => {
     context = await startTest();
-    context = await startTest();
+    const extensions = [ExtensionType.TransferFeeConfig];
     const prepareContext = await setupTestContext(
       context.banksClient,
       context.payer,
-      false
+      true,
+      extensions
     );
     admin = prepareContext.admin;
     tokenMint = prepareContext.tokenAMint;

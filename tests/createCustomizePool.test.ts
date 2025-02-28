@@ -9,6 +9,7 @@ import {
   MIN_SQRT_PRICE,
 } from "./bankrun-utils";
 import BN from "bn.js";
+import { ExtensionType } from "@solana/spl-token";
 
 describe("Initialize customizable pool", () => {
   describe("SPL-Token", () => {
@@ -48,8 +49,9 @@ describe("Initialize customizable pool", () => {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
             numberOfPeriod: 0,
-            deltaPerPeriod: new BN(0),
+            reductionFactor: new BN(0),
             periodFrequency: new BN(0),
+            feeSchedulerMode: 0,
           },
           protocolFeePercent: 20,
           partnerFeePercent: 0,
@@ -64,7 +66,7 @@ describe("Initialize customizable pool", () => {
     });
   });
 
-  describe.skip("Token 2022", () => {
+  describe("Token 2022", () => {
     let context: ProgramTestContext;
     let payer: Keypair;
     let creator: PublicKey;
@@ -73,10 +75,16 @@ describe("Initialize customizable pool", () => {
 
     beforeEach(async () => {
       context = await startTest();
+      const extensions = [
+        ExtensionType.TransferFeeConfig,
+        // ExtensionType.TokenMetadata,
+        // ExtensionType.MetadataPointer,
+      ];
       const prepareContext = await setupTestContext(
         context.banksClient,
         context.payer,
-        true
+        true,
+        extensions
       );
 
       creator = prepareContext.poolCreator.publicKey;
@@ -101,8 +109,9 @@ describe("Initialize customizable pool", () => {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
             numberOfPeriod: 0,
-            deltaPerPeriod: new BN(0),
+            reductionFactor: new BN(0),
             periodFrequency: new BN(0),
+            feeSchedulerMode: 0,
           },
           protocolFeePercent: 20,
           partnerFeePercent: 0,

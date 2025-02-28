@@ -8,7 +8,6 @@ import {
   transferSol,
 } from "./bankrun-utils/common";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { createMint, wrapSOL } from "./bankrun-utils/token";
 import {
   addLiquidity,
   AddLiquidityParams,

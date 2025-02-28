@@ -13,9 +13,20 @@ import {
 } from "solana-bankrun";
 import { CP_AMM_PROGRAM_ID, DECIMALS } from "./constants";
 import BN, { min } from "bn.js";
-import { createMint, getMint, getTokenAccount, mintTo, wrapSOL } from "./token";
-import { getAssociatedTokenAddressSync, NATIVE_MINT } from "@solana/spl-token";
+import {
+  createToken,
+  getMint,
+  getTokenAccount,
+  mintTo,
+  wrapSOL,
+} from "./token";
+import {
+  ExtensionType,
+  getAssociatedTokenAddressSync,
+  NATIVE_MINT,
+} from "@solana/spl-token";
 import { publicKey } from "@coral-xyz/anchor/dist/cjs/utils";
+import { createToken2022, mintToToken2022 } from "./token2022";
 
 // bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1
 export const LOCAL_ADMIN_KEYPAIR = Keypair.fromSecretKey(
@@ -125,7 +136,8 @@ export async function createUsersAndFund(
 export async function setupTestContext(
   banksClient: BanksClient,
   rootKeypair: Keypair,
-  token2022: boolean
+  token2022: boolean,
+  extensions?: ExtensionType[]
 ) {
   const [admin, payer, poolCreator, user, funder, operator, partner] = Array(7)
     .fill(7)
@@ -144,85 +156,136 @@ export async function setupTestContext(
     )
   );
 
+  //
+  const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
+
   const tokenAMintKeypair = Keypair.generate();
   const tokenBMintKeypair = Keypair.generate();
   const rewardMintKeypair = Keypair.generate();
 
-  await Promise.all([
-    createMint(
-      banksClient,
-      rootKeypair,
-      tokenAMintKeypair,
-      rootKeypair.publicKey,
-      DECIMALS,
-      token2022
-    ),
-    createMint(
-      banksClient,
-      rootKeypair,
-      tokenBMintKeypair,
-      rootKeypair.publicKey,
-      DECIMALS,
-      token2022
-    ),
-    createMint(
-      banksClient,
-      rootKeypair,
-      rewardMintKeypair,
-      rootKeypair.publicKey,
-      DECIMALS,
-      token2022
-    ),
-  ]);
-  //
-  const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
+  if (token2022) {
+    await Promise.all([
+      createToken2022(banksClient, rootKeypair, tokenAMintKeypair, extensions),
+      createToken2022(banksClient, rootKeypair, tokenBMintKeypair, extensions),
+      createToken2022(banksClient, rootKeypair, rewardMintKeypair, extensions),
+    ]);
 
-  // Mint token A to payer & user
-  await Promise.all(
-    [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
-      mintTo(
+    console.log("create token");
+    // Mint token A to payer & user
+    await Promise.all(
+      [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
+        mintToToken2022(
+          banksClient,
+          rootKeypair,
+          rootKeypair,
+          tokenAMintKeypair.publicKey,
+          publicKey,
+          BigInt(rawAmount)
+        )
+      )
+    );
+
+    // Mint token B to payer & user
+    await Promise.all(
+      [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
+        mintToToken2022(
+          banksClient,
+          rootKeypair,
+          rootKeypair,
+          tokenBMintKeypair.publicKey,
+          publicKey,
+          BigInt(rawAmount)
+        )
+      )
+    );
+
+    // mint reward to funder
+    await mintToToken2022(
+      banksClient,
+      rootKeypair,
+      rootKeypair,
+      rewardMintKeypair.publicKey,
+      funder.publicKey,
+      BigInt(rawAmount)
+    );
+
+    await mintToToken2022(
+      banksClient,
+      rootKeypair,
+      rootKeypair,
+      rewardMintKeypair.publicKey,
+      user.publicKey,
+      BigInt(rawAmount)
+    );
+  } else {
+    await Promise.all([
+      createToken(
         banksClient,
         rootKeypair,
-        tokenAMintKeypair.publicKey,
-        rootKeypair,
-        publicKey,
-        BigInt(rawAmount)
-      )
-    )
-  );
-
-  // Mint token B to payer & user
-  await Promise.all(
-    [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
-      mintTo(
+        tokenAMintKeypair,
+        rootKeypair.publicKey
+      ),
+      createToken(
         banksClient,
         rootKeypair,
-        tokenBMintKeypair.publicKey,
+        tokenBMintKeypair,
+        rootKeypair.publicKey
+      ),
+      createToken(
+        banksClient,
         rootKeypair,
-        publicKey,
-        BigInt(rawAmount)
+        rewardMintKeypair,
+        rootKeypair.publicKey
+      ),
+    ]);
+
+    // Mint token A to payer & user
+    await Promise.all(
+      [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
+        mintTo(
+          banksClient,
+          rootKeypair,
+          tokenAMintKeypair.publicKey,
+          rootKeypair,
+          publicKey,
+          BigInt(rawAmount)
+        )
       )
-    )
-  );
+    );
 
-  // mint reward to funder
-  await mintTo(
-    banksClient,
-    rootKeypair,
-    rewardMintKeypair.publicKey,
-    rootKeypair,
-    funder.publicKey,
-    BigInt(rawAmount)
-  );
+    // Mint token B to payer & user
+    await Promise.all(
+      [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
+        mintTo(
+          banksClient,
+          rootKeypair,
+          tokenBMintKeypair.publicKey,
+          rootKeypair,
+          publicKey,
+          BigInt(rawAmount)
+        )
+      )
+    );
 
-  await mintTo(
-    banksClient,
-    rootKeypair,
-    rewardMintKeypair.publicKey,
-    rootKeypair,
-    user.publicKey,
-    BigInt(rawAmount)
-  );
+    // mint reward to funder
+    await mintTo(
+      banksClient,
+      rootKeypair,
+      rewardMintKeypair.publicKey,
+      rootKeypair,
+      funder.publicKey,
+      BigInt(rawAmount)
+    );
+
+    await mintTo(
+      banksClient,
+      rootKeypair,
+      rewardMintKeypair.publicKey,
+      rootKeypair,
+      user.publicKey,
+      BigInt(rawAmount)
+    );
+  }
 
   return {
     admin,

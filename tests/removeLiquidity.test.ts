@@ -9,7 +9,6 @@ import {
   transferSol,
 } from "./bankrun-utils/common";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { createMint, wrapSOL } from "./bankrun-utils/token";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -28,109 +27,217 @@ import {
   U64_MAX,
 } from "./bankrun-utils";
 import BN from "bn.js";
+import { ExtensionType } from "@solana/spl-token";
 
 describe("Remove liquidity", () => {
-  let context: ProgramTestContext;
-  let admin: Keypair;
-  let user: Keypair;
-  let payer: Keypair;
-  let config: PublicKey;
-  let liquidity: BN;
-  let sqrtPrice: BN;
-  let pool: PublicKey;
+  describe("SPL Token", () => {
+    let context: ProgramTestContext;
+    let admin: Keypair;
+    let user: Keypair;
+    let payer: Keypair;
+    let config: PublicKey;
+    let liquidity: BN;
+    let sqrtPrice: BN;
+    let pool: PublicKey;
 
-  beforeEach(async () => {
-    context = await startTest();
+    beforeEach(async () => {
+      context = await startTest();
 
-    const prepareContext = await setupTestContext(
-      context.banksClient,
-      context.payer,
-      false
-    );
-    payer = prepareContext.payer;
-    user = prepareContext.user;
-    admin = prepareContext.admin;
+      const prepareContext = await setupTestContext(
+        context.banksClient,
+        context.payer,
+        false
+      );
+      payer = prepareContext.payer;
+      user = prepareContext.user;
+      admin = prepareContext.admin;
 
-    // create config
-    const createConfigParams = {
-      index: new BN(randomID()),
-      poolFees: {
-        baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          numberOfPeriod: 0,
-          reductionFactor: new BN(0),
-          periodFrequency: new BN(0),
-          feeSchedulerMode: 0,
+      // create config
+      const createConfigParams = {
+        index: new BN(randomID()),
+        poolFees: {
+          baseFee: {
+            cliffFeeNumerator: new BN(2_500_000),
+            numberOfPeriod: 0,
+            reductionFactor: new BN(0),
+            periodFrequency: new BN(0),
+            feeSchedulerMode: 0,
+          },
+          protocolFeePercent: 10,
+          partnerFeePercent: 0,
+          referralFeePercent: 0,
+          dynamicFee: null,
         },
-        protocolFeePercent: 10,
-        partnerFeePercent: 0,
-        referralFeePercent: 0,
-        dynamicFee: null,
-      },
-      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-      vaultConfigKey: PublicKey.default,
-      poolCreatorAuthority: PublicKey.default,
-      activationType: 0,
-      collectFeeMode: 0,
-    };
+        sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+        sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+        vaultConfigKey: PublicKey.default,
+        poolCreatorAuthority: PublicKey.default,
+        activationType: 0,
+        collectFeeMode: 0,
+      };
 
-    config = await createConfigIx(
-      context.banksClient,
-      admin,
-      createConfigParams
-    );
+      config = await createConfigIx(
+        context.banksClient,
+        admin,
+        createConfigParams
+      );
 
-    liquidity = new BN(MIN_LP_AMOUNT);
-    sqrtPrice = new BN(MIN_SQRT_PRICE);
+      liquidity = new BN(MIN_LP_AMOUNT);
+      sqrtPrice = new BN(MIN_SQRT_PRICE);
 
-    const initPoolParams = {
-      payer: payer,
-      creator: prepareContext.poolCreator.publicKey,
-      config,
-      tokenAMint: prepareContext.tokenAMint,
-      tokenBMint: prepareContext.tokenBMint,
-      liquidity,
-      sqrtPrice,
-      activationPoint: null,
-    };
+      const initPoolParams = {
+        payer: payer,
+        creator: prepareContext.poolCreator.publicKey,
+        config,
+        tokenAMint: prepareContext.tokenAMint,
+        tokenBMint: prepareContext.tokenBMint,
+        liquidity,
+        sqrtPrice,
+        activationPoint: null,
+      };
 
-    const result = await initializePool(context.banksClient, initPoolParams);
-    pool = result.pool;
+      const result = await initializePool(context.banksClient, initPoolParams);
+      pool = result.pool;
+    });
+
+    it("User remove liquidity", async () => {
+      // create a position
+      const position = await createPosition(
+        context.banksClient,
+        payer,
+        user.publicKey,
+        pool
+      );
+
+      // add liquidity
+      let liquidity = new BN("100000000000");
+      const addLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: liquidity,
+        tokenAAmountThreshold: U64_MAX,
+        tokenBAmountThreshold: U64_MAX,
+      };
+      await addLiquidity(context.banksClient, addLiquidityParams);
+      // return
+
+      // remove liquidity
+
+      const removeLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: liquidity,
+        tokenAAmountThreshold: new BN(0),
+        tokenBAmountThreshold: new BN(0),
+      };
+      await removeLiquidity(context.banksClient, removeLiquidityParams);
+    });
   });
 
-  it("User remove liquidity", async () => {
-    // create a position
-    const position = await createPosition(
-      context.banksClient,
-      payer,
-      user.publicKey,
-      pool
-    );
+  describe("Token 2022", () => {
+    let context: ProgramTestContext;
+    let admin: Keypair;
+    let user: Keypair;
+    let payer: Keypair;
+    let config: PublicKey;
+    let liquidity: BN;
+    let sqrtPrice: BN;
+    let pool: PublicKey;
 
-    // add liquidity
-    let liquidity = new BN("100000000000");
-    const addLiquidityParams = {
-      owner: user,
-      pool,
-      position,
-      liquidityDelta: liquidity,
-      tokenAAmountThreshold: U64_MAX,
-      tokenBAmountThreshold: U64_MAX,
-    };
-    await addLiquidity(context.banksClient, addLiquidityParams);
-    // return
+    beforeEach(async () => {
+      context = await startTest();
+      const extensions = [ExtensionType.TransferFeeConfig];
+      const prepareContext = await setupTestContext(
+        context.banksClient,
+        context.payer,
+        true,
+        extensions
+      );
+      payer = prepareContext.payer;
+      user = prepareContext.user;
+      admin = prepareContext.admin;
 
-    // remove liquidity
+      // create config
+      const createConfigParams = {
+        index: new BN(randomID()),
+        poolFees: {
+          baseFee: {
+            cliffFeeNumerator: new BN(2_500_000),
+            numberOfPeriod: 0,
+            reductionFactor: new BN(0),
+            periodFrequency: new BN(0),
+            feeSchedulerMode: 0,
+          },
+          protocolFeePercent: 10,
+          partnerFeePercent: 0,
+          referralFeePercent: 0,
+          dynamicFee: null,
+        },
+        sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+        sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+        vaultConfigKey: PublicKey.default,
+        poolCreatorAuthority: PublicKey.default,
+        activationType: 0,
+        collectFeeMode: 0,
+      };
 
-    const removeLiquidityParams = {
-      owner: user,
-      pool,
-      position,
-      liquidityDelta: liquidity,
-      tokenAAmountThreshold: new BN(0),
-      tokenBAmountThreshold: new BN(0),
-    };
-    await removeLiquidity(context.banksClient, removeLiquidityParams);
+      config = await createConfigIx(
+        context.banksClient,
+        admin,
+        createConfigParams
+      );
+
+      liquidity = new BN(MIN_LP_AMOUNT);
+      sqrtPrice = new BN(MIN_SQRT_PRICE);
+
+      const initPoolParams = {
+        payer: payer,
+        creator: prepareContext.poolCreator.publicKey,
+        config,
+        tokenAMint: prepareContext.tokenAMint,
+        tokenBMint: prepareContext.tokenBMint,
+        liquidity,
+        sqrtPrice,
+        activationPoint: null,
+      };
+
+      const result = await initializePool(context.banksClient, initPoolParams);
+      pool = result.pool;
+    });
+
+    it("User remove liquidity", async () => {
+      // create a position
+      const position = await createPosition(
+        context.banksClient,
+        payer,
+        user.publicKey,
+        pool
+      );
+
+      // add liquidity
+      let liquidity = new BN("100000000000");
+      const addLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: liquidity,
+        tokenAAmountThreshold: U64_MAX,
+        tokenBAmountThreshold: U64_MAX,
+      };
+      await addLiquidity(context.banksClient, addLiquidityParams);
+      // return
+
+      const removeLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: liquidity,
+        tokenAAmountThreshold: new BN(0),
+        tokenBAmountThreshold: new BN(0),
+      };
+      await removeLiquidity(context.banksClient, removeLiquidityParams);
+    });
   });
 });

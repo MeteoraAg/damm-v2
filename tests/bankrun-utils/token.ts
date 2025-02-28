@@ -2,9 +2,12 @@ import {
   AccountLayout,
   createAssociatedTokenAccountInstruction,
   createInitializeMint2Instruction,
+  createInitializeMintInstruction,
   createMintToInstruction,
   createSyncNativeInstruction,
+  ExtensionType,
   getAssociatedTokenAddressSync,
+  getMintLen,
   MINT_SIZE,
   MintLayout,
   NATIVE_MINT,
@@ -19,14 +22,16 @@ import {
 } from "@solana/web3.js";
 import BN from "bn.js";
 import { BanksClient } from "solana-bankrun";
+import { DECIMALS } from "./constants";
 
 export async function getOrCreateAssociatedTokenAccount(
   banksClient: BanksClient,
   payer: Keypair,
   mint: PublicKey,
-  owner: PublicKey
+  owner: PublicKey,
+  tokenProgram = TOKEN_PROGRAM_ID
 ) {
-  const ataKey = getAssociatedTokenAddressSync(mint, owner, true);
+  const ataKey = getAssociatedTokenAddressSync(mint, owner, true, tokenProgram);
 
   const account = await banksClient.getAccount(ataKey);
   if (account === null) {
@@ -34,7 +39,8 @@ export async function getOrCreateAssociatedTokenAccount(
       payer.publicKey,
       ataKey,
       owner,
-      mint
+      mint,
+      tokenProgram
     );
     let transaction = new Transaction();
     const [recentBlockhash] = await banksClient.getLatestBlockhash();
@@ -47,15 +53,12 @@ export async function getOrCreateAssociatedTokenAccount(
   return ataKey;
 }
 
-export async function createMint(
+export async function createToken(
   banksClient: BanksClient,
   payer: Keypair,
   mintKeypair: Keypair,
-  mintAuthority: PublicKey,
-  decimals: number,
-  token2022: boolean
+  mintAuthority: PublicKey
 ) {
-  let tokenProgram = token2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
   const rent = await banksClient.getRent();
   const lamports = rent.minimumBalance(BigInt(MINT_SIZE));
 
@@ -64,12 +67,12 @@ export async function createMint(
     newAccountPubkey: mintKeypair.publicKey,
     space: MINT_SIZE,
     lamports: Number(lamports.toString()),
-    programId: tokenProgram,
+    programId: TOKEN_PROGRAM_ID,
   });
 
   const initializeMintIx = createInitializeMint2Instruction(
     mintKeypair.publicKey,
-    decimals,
+    DECIMALS,
     mintAuthority,
     null
   );
