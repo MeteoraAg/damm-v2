@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use ruint::aliases::{U256, U512};
+use ruint::aliases::U256;
 
 use crate::{
     safe_math::SafeMath,
@@ -89,20 +89,21 @@ pub fn get_delta_amount_b_unsigned_unchecked(
     liquidity: u128,
     round: Rounding,
 ) -> Result<U256> {
-    let liquidity = U512::from(liquidity);
-    let delta_sqrt_price = U512::from(upper_sqrt_price - lower_sqrt_price);
+    let liquidity = U256::from(liquidity);
+    let delta_sqrt_price = U256::from(upper_sqrt_price - lower_sqrt_price);
     let prod = liquidity.safe_mul(delta_sqrt_price)?;
 
-    let denominator = U512::from(U256::from(1).safe_shl((RESOLUTION as usize) * 2)?);
-    let result = match round {
-        Rounding::Up => prod.div_ceil(denominator),
-        Rounding::Down => {
-            let (quotient, _) = prod.div_rem(denominator);
-            quotient
+    match round {
+        Rounding::Up => {
+            let denominator = U256::from(1).safe_shl((RESOLUTION as usize) * 2)?;
+            let result = prod.div_ceil(denominator);
+            Ok(result)
         }
-    };
-
-    return Ok(U256::from(result));
+        Rounding::Down => {
+            let (result, _) = prod.overflowing_shr((RESOLUTION as usize) * 2);
+            Ok(result)
+        }
+    }
 }
 
 /// Gets the next sqrt price given an input amount of token_a or token_b
@@ -186,10 +187,10 @@ pub fn get_next_sqrt_price_from_amount_b_rounding_down(
     liquidity: u128,
     amount: u64,
 ) -> Result<u128> {
-    let quotient = U512::from(amount)
+    let quotient = U256::from(amount)
         .safe_shl((RESOLUTION * 2) as usize)?
-        .safe_div(U512::from(liquidity))?;
+        .safe_div(U256::from(liquidity))?;
 
-    let result = U512::from(sqrt_price).safe_add(quotient)?;
+    let result = U256::from(sqrt_price).safe_add(quotient)?;
     Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
