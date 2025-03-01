@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::{create, AssociatedToken, Create},
-    token_2022::{self, Token2022},
+    token_2022::{self, SetAuthority, Token2022},
 };
 
 use crate::{
@@ -130,20 +130,21 @@ pub fn create_position_nft<'info>(
     )?;
 
     // create user position nft account
-    create(CpiContext::new(
+    let seeds = pool_authority_seeds!(bump);
+    create(CpiContext::new_with_signer(
         associated_token_program.clone(),
         Create {
             payer: payer.to_account_info(),
             associated_token: position_nft_account.clone(),
-            authority: owner.clone(),
+            authority: pool_authority.clone(),
             mint: position_nft_mint.clone(),
             system_program: system_program.clone(),
             token_program: token_program.to_account_info(),
         },
+        &[&seeds[..]],
     ))?;
 
     // Mint the NFT
-    let seeds = pool_authority_seeds!(bump);
     token_2022::mint_to(
         CpiContext::new_with_signer(
             token_program.to_account_info(),
@@ -155,6 +156,20 @@ pub fn create_position_nft<'info>(
             &[&seeds[..]],
         ),
         1,
+    )?;
+
+    // transfer ownership to owner
+    token_2022::set_authority(
+        CpiContext::new_with_signer(
+            token_program.to_account_info(),
+            SetAuthority {
+                current_authority: pool_authority.to_account_info(),
+                account_or_mint: position_nft_account.to_account_info(),
+            },
+            &[&seeds[..]],
+        ),
+        token_2022::spl_token_2022::instruction::AuthorityType::AccountOwner,
+        Some(owner.key()),
     )?;
 
     Ok(())
