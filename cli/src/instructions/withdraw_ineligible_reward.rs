@@ -2,16 +2,16 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{ solana_sdk::signer::Signer, Program };
+use anchor_client::{solana_sdk::signer::Signer, Program};
 use anchor_lang::prelude::Pubkey;
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token;
 use anyhow::*;
-use cp_amm::instruction;
 use cp_amm::accounts;
+use cp_amm::instruction;
 use cp_amm::state::Pool;
 
-use crate::common::pda::{ derive_event_authority_pda, derive_pool_authority };
+use crate::common::pda::{derive_event_authority_pda, derive_pool_authority};
 
 pub struct WithdrawIneligibleRewardParams {
     pub pool: Pubkey,
@@ -22,7 +22,7 @@ pub fn withdraw_ineligible_reward<C: Deref<Target = impl Signer> + Clone>(
     params: WithdrawIneligibleRewardParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
     let WithdrawIneligibleRewardParams { pool, reward_index } = params;
 
@@ -48,9 +48,7 @@ pub fn withdraw_ineligible_reward<C: Deref<Target = impl Signer> + Clone>(
         program: cp_amm::ID,
     };
 
-    let ix = instruction::WithdrawIneligibleReward {
-        reward_index,
-    };
+    let ix = instruction::WithdrawIneligibleReward { reward_index };
 
     let mut request_builder = program.request();
 

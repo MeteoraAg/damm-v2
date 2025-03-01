@@ -93,7 +93,8 @@ pub struct EvtClaimPositionFee {
 pub struct EvtCreatePosition {
     pub pool: Pubkey,
     pub owner: Pubkey,
-    pub liquidity: u128,
+    pub position: Pubkey,
+    pub position_nft_mint: Pubkey,
 }
 
 #[event]

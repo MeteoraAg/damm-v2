@@ -2,11 +2,11 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{ solana_sdk::signer::Signer, Program };
+use anchor_client::{solana_sdk::signer::Signer, Program};
 use anchor_lang::prelude::Pubkey;
 use anyhow::*;
-use cp_amm::instruction;
 use cp_amm::accounts;
+use cp_amm::instruction;
 
 use crate::common::pda::derive_event_authority_pda;
 
@@ -20,9 +20,13 @@ pub fn update_reward_funder<C: Deref<Target = impl Signer> + Clone>(
     params: UpdateRewardFunderParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
-    let UpdateRewardFunderParams { pool, reward_index, new_funder } = params;
+    let UpdateRewardFunderParams {
+        pool,
+        reward_index,
+        new_funder,
+    } = params;
     let event_authority = derive_event_authority_pda();
 
     let accounts = accounts::UpdateRewardFunderCtx {

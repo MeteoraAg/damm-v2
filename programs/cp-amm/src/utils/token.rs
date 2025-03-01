@@ -1,5 +1,9 @@
 use anchor_lang::prelude::*;
+use anchor_lang::system_program::{create_account, transfer, CreateAccount, Transfer};
 use anchor_lang::{prelude::InterfaceAccount, solana_program::program::invoke_signed};
+use anchor_spl::token::{initialize_mint2, InitializeMint2};
+use anchor_spl::token_2022::spl_token_2022::extension::metadata_pointer;
+use anchor_spl::token_2022::Token2022;
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -288,4 +292,177 @@ pub fn is_token_badge_initialized<'c: 'info, 'info>(
     let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
     let token_badge = token_badge.load()?;
     Ok(token_badge.token_mint == mint)
+}
+
+pub fn create_position_nft_mint_with_extensions<'info>(
+    payer: &Signer<'info>,
+    position_nft_mint: &AccountInfo<'info>,
+    mint_authority: &AccountInfo<'info>,
+    mint_close_authority: &AccountInfo<'info>,
+    system_program: &AccountInfo<'info>,
+    token_2022_program: &Program<'info, Token2022>,
+    position: &AccountInfo<'info>,
+    bump: u8,
+) -> Result<()> {
+    let extensions = [
+        ExtensionType::MintCloseAuthority,
+        ExtensionType::MetadataPointer,
+    ]
+    .to_vec();
+    let space =
+        ExtensionType::try_calculate_account_len::<spl_token_2022::state::Mint>(&extensions)?;
+
+    let lamports = Rent::get()?.minimum_balance(space);
+
+    // create mint account
+    create_account(
+        CpiContext::new(
+            system_program.to_account_info(),
+            CreateAccount {
+                from: payer.to_account_info(),
+                to: position_nft_mint.to_account_info(),
+            },
+        ),
+        lamports,
+        space as u64,
+        token_2022_program.key,
+    )?;
+
+    // initialize token extensions
+    for e in extensions {
+        match e {
+            ExtensionType::MetadataPointer => {
+                let ix = metadata_pointer::instruction::initialize(
+                    token_2022_program.key,
+                    position_nft_mint.key,
+                    None,
+                    Some(position_nft_mint.key()),
+                )?;
+                solana_program::program::invoke(
+                    &ix,
+                    &[
+                        token_2022_program.to_account_info(),
+                        position_nft_mint.to_account_info(),
+                    ],
+                )?;
+            }
+            ExtensionType::MintCloseAuthority => {
+                let ix = spl_token_2022::instruction::initialize_mint_close_authority(
+                    token_2022_program.key,
+                    position_nft_mint.key,
+                    Some(mint_close_authority.key),
+                )?;
+                solana_program::program::invoke(
+                    &ix,
+                    &[
+                        token_2022_program.to_account_info(),
+                        position_nft_mint.to_account_info(),
+                    ],
+                )?;
+            }
+            _ => {
+                return err!(PoolError::InvalidExtension);
+            }
+        }
+    }
+
+    // initialize mint account
+    initialize_mint2(
+        CpiContext::new(
+            token_2022_program.to_account_info(),
+            InitializeMint2 {
+                mint: position_nft_mint.to_account_info(),
+            },
+        ),
+        0,
+        &mint_authority.key(),
+        None,
+    )?;
+
+    // initialize token metadata
+    let (name, symbol, uri) = get_metadata_data(position.key());
+    let seeds = pool_authority_seeds!(bump);
+    initialize_token_metadata_extension(
+        payer,
+        position_nft_mint,
+        mint_authority,
+        &position.to_account_info(),
+        token_2022_program,
+        name,
+        symbol,
+        uri,
+        &[&seeds[..]],
+    )?;
+    Ok(())
+}
+
+fn get_metadata_data(position: Pubkey) -> (String, String, String) {
+    return (
+        String::from("Meteora Dynamic Amm"),
+        String::from("MDA"),
+        format!(
+            "https://dynamic-ipfs.meteora.ag/mda/position?id={}",
+            position.to_string()
+        ),
+    );
+}
+
+pub fn initialize_token_metadata_extension<'info>(
+    payer: &Signer<'info>,
+    position_nft_mint: &AccountInfo<'info>,
+    mint_authority: &AccountInfo<'info>,
+    metadata_update_authority: &AccountInfo<'info>,
+    token_2022_program: &Program<'info, Token2022>,
+    name: String,
+    symbol: String,
+    uri: String,
+    signers_seeds: &[&[&[u8]]],
+) -> Result<()> {
+    let metadata = spl_token_metadata_interface::state::TokenMetadata {
+        name,
+        symbol,
+        uri,
+        ..Default::default()
+    };
+
+    let mint_data = position_nft_mint.try_borrow_data()?;
+    let mint_state_unpacked =
+        StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
+    let new_account_len = mint_state_unpacked
+        .try_get_new_account_len::<spl_token_metadata_interface::state::TokenMetadata>(&metadata)?;
+    let new_rent_exempt_lamports = Rent::get()?.minimum_balance(new_account_len);
+    let additional_lamports = new_rent_exempt_lamports.saturating_sub(position_nft_mint.lamports());
+    // CPI call will borrow the account data
+    drop(mint_data);
+
+    let cpi_context = CpiContext::new(
+        token_2022_program.to_account_info(),
+        Transfer {
+            from: payer.to_account_info(),
+            to: position_nft_mint.to_account_info(),
+        },
+    );
+    transfer(cpi_context, additional_lamports)?;
+
+    solana_program::program::invoke_signed(
+        &spl_token_metadata_interface::instruction::initialize(
+            token_2022_program.key,
+            position_nft_mint.key,
+            metadata_update_authority.key,
+            position_nft_mint.key,
+            &mint_authority.key(),
+            metadata.name,
+            metadata.symbol,
+            metadata.uri,
+        ),
+        &[
+            position_nft_mint.to_account_info(),
+            mint_authority.to_account_info(),
+            metadata_update_authority.to_account_info(),
+            token_2022_program.to_account_info(),
+        ],
+        signers_seeds,
+    )?;
+
+    Ok(())
 }

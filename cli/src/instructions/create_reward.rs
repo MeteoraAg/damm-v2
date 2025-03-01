@@ -2,18 +2,16 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{ solana_sdk::signer::Signer, Program };
+use anchor_client::{solana_sdk::signer::Signer, Program};
 use anchor_lang::prelude::Pubkey;
 use anchor_spl::token;
 use anyhow::*;
+use cp_amm::accounts;
 use cp_amm::instruction;
 use cp_amm::state::Pool;
-use cp_amm::accounts;
 
 use crate::common::pda::{
-    derive_event_authority_pda,
-    derive_pool_authority,
-    derive_reward_vault_pda,
+    derive_event_authority_pda, derive_pool_authority, derive_reward_vault_pda,
 };
 
 pub struct InitializeRewardParams {
@@ -26,9 +24,13 @@ pub fn create_reward<C: Deref<Target = impl Signer> + Clone>(
     params: InitializeRewardParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
-    let InitializeRewardParams { pool, reward_mint, reward_duration } = params;
+    let InitializeRewardParams {
+        pool,
+        reward_mint,
+        reward_duration,
+    } = params;
     let pool_authority = derive_pool_authority();
     let pool_state = program.account::<Pool>(pool).unwrap();
     let reward_infos = pool_state.reward_infos;

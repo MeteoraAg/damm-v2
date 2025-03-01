@@ -301,4 +301,7 @@ pub enum PoolError {
 
     #[msg("Reward not ended")]
     RewardNotEnded,
+
+    #[msg("Invalid extension")]
+    InvalidExtension,
 }

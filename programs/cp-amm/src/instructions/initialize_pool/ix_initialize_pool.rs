@@ -1,10 +1,15 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token_2022::Token2022,
+    token_interface::{Mint, TokenAccount, TokenInterface},
+};
 use std::cmp::{max, min};
 
 use crate::{
     activation_handler::ActivationHandler,
     constants::seeds::{POOL_AUTHORITY_PREFIX, POOL_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX},
+    create_position_nft,
     curve::get_initialize_amounts,
     params::activation::ActivationParams,
     state::{Config, Pool, PoolType, Position},
@@ -12,7 +17,7 @@ use crate::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
-    {EvtCreatePosition, EvtInitializePool, PoolError},
+    EvtCreatePosition, EvtInitializePool, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -30,6 +35,14 @@ pub struct InitializePoolParameters {
 pub struct InitializePoolCtx<'info> {
     /// CHECK: Pool creator
     pub creator: UncheckedAccount<'info>,
+
+    /// Unique token mint address, initialize in contract
+    #[account(mut)]
+    pub position_nft_mint: Signer<'info>,
+
+    /// CHECK: ATA address where position NFT will be minted, initialize in contract
+    #[account(mut)]
+    pub position_nft_account: UncheckedAccount<'info>,
 
     /// Address paying to create the pool. Can be anyone
     #[account(mut)]
@@ -66,8 +79,7 @@ pub struct InitializePoolCtx<'info> {
         init,
         seeds = [
             POSITION_PREFIX.as_ref(),
-            pool.key().as_ref(),
-            creator.key().as_ref(),
+            position_nft_mint.key().as_ref()
         ],
         bump,
         payer = payer,
@@ -132,6 +144,12 @@ pub struct InitializePoolCtx<'info> {
     pub token_a_program: Interface<'info, TokenInterface>,
     /// Program to create mint account and mint tokens
     pub token_b_program: Interface<'info, TokenInterface>,
+
+    /// Program to create NFT mint/token account and transfer for token22 account
+    pub token_2022_program: Program<'info, Token2022>,
+    /// Associated token program
+    pub associated_token_program: Program<'info, AssociatedToken>,
+
     // Sysvar for program account
     pub system_program: Program<'info, System>,
 }
@@ -247,6 +265,28 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         liquidity,
     )?;
 
+    // create position nft
+    create_position_nft(
+        &ctx.accounts.payer,
+        &ctx.accounts.position_nft_mint.to_account_info(),
+        &ctx.accounts.pool_authority.to_account_info(),
+        &ctx.accounts.pool.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        &ctx.accounts.token_2022_program,
+        &ctx.accounts.position.to_account_info(),
+        &ctx.accounts.associated_token_program.to_account_info(),
+        &ctx.accounts.position_nft_account.to_account_info(),
+        &ctx.accounts.creator.to_account_info(),
+        ctx.bumps.pool_authority,
+    )?;
+
+    emit_cpi!(EvtCreatePosition {
+        pool: ctx.accounts.pool.key(),
+        owner: ctx.accounts.creator.key(),
+        position: ctx.accounts.position.key(),
+        position_nft_mint: ctx.accounts.position_nft_mint.key(),
+    });
+
     // transfer token
     let total_amount_a =
         calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
@@ -269,12 +309,6 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         &ctx.accounts.token_b_program,
         total_amount_b,
     )?;
-
-    emit_cpi!(EvtCreatePosition {
-        pool: ctx.accounts.pool.key(),
-        owner: ctx.accounts.creator.key(),
-        liquidity,
-    });
 
     emit_cpi!(EvtInitializePool {
         token_a_mint: ctx.accounts.token_a_mint.key(),

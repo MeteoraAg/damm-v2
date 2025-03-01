@@ -1163,6 +1163,7 @@ dependencies = [
  "proptest",
  "ruint",
  "solana-program",
+ "spl-token-metadata-interface",
  "static_assertions",
 ]
 

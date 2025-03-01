@@ -1,5 +1,6 @@
 use crate::{
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    curve::{get_delta_amount_a_unsigned, get_delta_amount_b_unsigned, get_initialize_amounts},
     state::{Pool, Position},
     tests::LIQUIDITY_MAX,
     u128x128_math::Rounding,
@@ -44,17 +45,3 @@ proptest! {
         assert!(result_0.amount_b >= result_1.amount_b);
     }
 }
-
-// #[test]
-// fn test_get_lock_lp_amount() {
-//     // let liquidity = 304199598865180043725616184414008671396;
-//     // let bin_step = 80;
-//     // let active_id = 200;
-//     // let sqrt_price = get_price_from_id(active_id / 2, bin_step).unwrap();
-//     // let (token_a_amount, token_b_amount) =
-//     //     get_initialize_amounts(MIN_SQRT_PRICE, MAX_SQRT_PRICE, sqrt_price, liquidity).unwrap();
-//     // println!("{} {}", token_a_amount, token_b_amount);
-//     let LIQUIDITY_MAX = LIQUIDITY_MAX;
-//     let precision = 1.safe_shl(88).unwrap();
-//     println!("{}", LIQUIDITY_MAX / precision);
-// }

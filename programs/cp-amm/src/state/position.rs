@@ -52,8 +52,8 @@ impl UserRewardInfo {
 #[derive(InitSpace, Debug, Default)]
 pub struct Position {
     pub pool: Pubkey,
-    /// Owner
-    pub owner: Pubkey,
+    /// nft mint
+    pub nft_mint: Pubkey,
     /// fee a checkpoint
     pub fee_a_per_token_checkpoint: [u8; 32], // U256
     /// fee b checkpoint
@@ -72,16 +72,13 @@ pub struct Position {
     pub metrics: PositionMetrics,
     /// Farming reward information
     pub reward_infos: [UserRewardInfo; NUM_REWARDS],
-    /// Operator of position
-    pub operator: Pubkey,
     /// Fee claimer for this position
     pub fee_claimer: Pubkey,
     /// padding for future usage
     pub padding: [u128; 4],
-    // TODO implement locking here
 }
 
-const_assert_eq!(Position::INIT_SPACE, 432);
+const_assert_eq!(Position::INIT_SPACE, 400);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -109,12 +106,12 @@ impl Position {
         &mut self,
         pool_state: &mut Pool,
         pool: Pubkey,
-        owner: Pubkey,
+        nft_mint: Pubkey,
         liquidity: u128,
     ) -> Result<()> {
         pool_state.metrics.inc_position()?;
         self.pool = pool;
-        self.owner = owner;
+        self.nft_mint = nft_mint;
         self.unlocked_liquidity = liquidity;
         Ok(())
     }

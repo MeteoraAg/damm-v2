@@ -2,14 +2,14 @@ use std::ops::Deref;
 
 use anchor_client::solana_client::rpc_config::RpcSendTransactionConfig;
 use anchor_client::solana_sdk::instruction::Instruction;
-use anchor_client::{ solana_sdk::signer::Signer, Program };
+use anchor_client::{solana_sdk::signer::Signer, Program};
 use anchor_lang::prelude::Pubkey;
 use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token;
 use anyhow::*;
+use cp_amm::accounts;
 use cp_amm::instruction;
 use cp_amm::state::Pool;
-use cp_amm::accounts;
 
 use crate::common::pda::derive_event_authority_pda;
 
@@ -24,9 +24,14 @@ pub fn funding_reward<C: Deref<Target = impl Signer> + Clone>(
     params: FundRewardParams,
     program: &Program<C>,
     transaction_config: RpcSendTransactionConfig,
-    compute_unit_price: Option<Instruction>
+    compute_unit_price: Option<Instruction>,
 ) -> Result<()> {
-    let FundRewardParams { pool, reward_index, funding_amount, carry_forward } = params;
+    let FundRewardParams {
+        pool,
+        reward_index,
+        funding_amount,
+        carry_forward,
+    } = params;
     let pool_state = program.account::<Pool>(pool).unwrap();
     let reward_mint = pool_state.reward_infos[reward_index as usize].mint;
     let reward_vault = pool_state.reward_infos[reward_index as usize].vault;

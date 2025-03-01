@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::TokenAccount;
 use std::cell::RefMut;
 use std::collections::BTreeSet;
 
@@ -15,11 +16,18 @@ pub struct RefreshVesting<'info> {
     #[account(
         mut,
         has_one = pool,
-        has_one = owner,
     )]
     pub position: AccountLoader<'info, Position>,
 
-    /// CHECK: Permissionless
+    /// The token account for nft
+    #[account(
+            constraint = position_nft_account.mint == position.load()?.nft_mint,
+            constraint = position_nft_account.amount == 1,
+            token::authority = owner
+    )]
+    pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// CHECK: owner of position
     pub owner: UncheckedAccount<'info>,
 }
 

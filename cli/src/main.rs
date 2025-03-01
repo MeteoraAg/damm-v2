@@ -5,21 +5,23 @@ use anchor_client::solana_sdk::instruction::Instruction;
 use anchor_client::Client;
 use anchor_client::{
     solana_client::rpc_config::RpcSendTransactionConfig,
-    solana_sdk::{ commitment_config::CommitmentConfig, signer::{ keypair::*, Signer } },
+    solana_sdk::{
+        commitment_config::CommitmentConfig,
+        signer::{keypair::*, Signer},
+    },
 };
 use anyhow::*;
 use clap::*;
 
 use cp_amm::params::fee_parameters::{BaseFeeParameters, PoolFeeParamters};
 use instructions::create_config::CreateConfigParams;
-use instructions::update_config::{ update_config, UpdateConfigParams };
-use instructions::create_reward::{ create_reward, InitializeRewardParams };
-use instructions::fund_reward::{ funding_reward, FundRewardParams };
-use instructions::update_reward_duration::{ update_reward_duration, UpdateRewardDurationParams };
-use instructions::update_reward_funder::{ update_reward_funder, UpdateRewardFunderParams };
+use instructions::create_reward::{create_reward, InitializeRewardParams};
+use instructions::fund_reward::{funding_reward, FundRewardParams};
+use instructions::update_config::{update_config, UpdateConfigParams};
+use instructions::update_reward_duration::{update_reward_duration, UpdateRewardDurationParams};
+use instructions::update_reward_funder::{update_reward_funder, UpdateRewardFunderParams};
 use instructions::withdraw_ineligible_reward::{
-    withdraw_ineligible_reward,
-    WithdrawIneligibleRewardParams,
+    withdraw_ineligible_reward, WithdrawIneligibleRewardParams,
 };
 
 mod cmd;
@@ -27,17 +29,18 @@ mod common;
 mod instructions;
 
 use crate::{
-    cmd::{ Cli, Command },
+    cmd::{Cli, Command},
     instructions::{
-        close_config::close_config,
-        create_config::create_config,
+        close_config::close_config, create_config::create_config,
         create_token_badge::create_token_badge,
     },
 };
 
 fn get_set_compute_unit_price_ix(micro_lamports: u64) -> Option<Instruction> {
     if micro_lamports > 0 {
-        Some(ComputeBudgetInstruction::set_compute_unit_price(micro_lamports))
+        Some(ComputeBudgetInstruction::set_compute_unit_price(
+            micro_lamports,
+        ))
     } else {
         None
     }
@@ -46,9 +49,8 @@ fn get_set_compute_unit_price_ix(micro_lamports: u64) -> Option<Instruction> {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let payer = read_keypair_file(cli.config_override.wallet).expect(
-        "Wallet keypair file not found"
-    );
+    let payer =
+        read_keypair_file(cli.config_override.wallet).expect("Wallet keypair file not found");
 
     println!("Wallet {:#?}", payer.pubkey());
 
@@ -56,7 +58,7 @@ fn main() -> Result<()> {
     let client = Client::new_with_options(
         cli.config_override.cluster,
         Rc::new(Keypair::from_bytes(&payer.to_bytes())?),
-        commitment_config
+        commitment_config,
     );
 
     let program = client.program(cp_amm::ID).unwrap();
@@ -129,9 +131,18 @@ fn main() -> Result<()> {
             close_config(config, &program, transaction_config, compute_unit_price_ix)?;
         }
         Command::CreateTokenBadge { token_mint } => {
-            create_token_badge(token_mint, &program, transaction_config, compute_unit_price_ix)?;
+            create_token_badge(
+                token_mint,
+                &program,
+                transaction_config,
+                compute_unit_price_ix,
+            )?;
         }
-        Command::CreateReward { pool, reward_mint, reward_duration } => {
+        Command::CreateReward {
+            pool,
+            reward_mint,
+            reward_duration,
+        } => {
             let params = InitializeRewardParams {
                 pool,
                 reward_mint,
@@ -139,7 +150,12 @@ fn main() -> Result<()> {
             };
             create_reward(params, &program, transaction_config, compute_unit_price_ix)?;
         }
-        Command::FundReward { pool, reward_index, carry_forward, funding_amount } => {
+        Command::FundReward {
+            pool,
+            reward_index,
+            carry_forward,
+            funding_amount,
+        } => {
             let params = FundRewardParams {
                 pool,
                 reward_index,
@@ -148,7 +164,11 @@ fn main() -> Result<()> {
             };
             funding_reward(params, &program, transaction_config, compute_unit_price_ix)?;
         }
-        Command::UpdateRewardDuration { pool, reward_index, new_duration } => {
+        Command::UpdateRewardDuration {
+            pool,
+            reward_index,
+            new_duration,
+        } => {
             let params = UpdateRewardDurationParams {
                 pool,
                 reward_index,
@@ -156,7 +176,11 @@ fn main() -> Result<()> {
             };
             update_reward_duration(params, &program, transaction_config, compute_unit_price_ix)?;
         }
-        Command::UpdateRewardFunder { pool, reward_index, new_funder } => {
+        Command::UpdateRewardFunder {
+            pool,
+            reward_index,
+            new_funder,
+        } => {
             let params = UpdateRewardFunderParams {
                 pool,
                 reward_index,
@@ -166,12 +190,14 @@ fn main() -> Result<()> {
         }
 
         Command::WithdrawIneligibleReward { pool, reward_index } => {
-            let params = WithdrawIneligibleRewardParams {
-                pool,
-                reward_index,
-            };
+            let params = WithdrawIneligibleRewardParams { pool, reward_index };
 
-            withdraw_ineligible_reward(params, &program, transaction_config, compute_unit_price_ix)?;
+            withdraw_ineligible_reward(
+                params,
+                &program,
+                transaction_config,
+                compute_unit_price_ix,
+            )?;
         }
     }
 

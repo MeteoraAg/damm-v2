@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::TokenAccount;
 
 use crate::{
     activation_handler::ActivationHandler,
@@ -69,7 +70,7 @@ impl VestingParameters {
 pub struct LockPositionCtx<'info> {
     pub pool: AccountLoader<'info, Pool>,
 
-    #[account(mut, has_one = pool, has_one = owner)]
+    #[account(mut, has_one = pool)]
     pub position: AccountLoader<'info, Position>,
 
     #[account(
@@ -79,6 +80,15 @@ pub struct LockPositionCtx<'info> {
     )]
     pub vesting: AccountLoader<'info, Vesting>,
 
+    /// The token account for nft
+    #[account(
+            constraint = position_nft_account.mint == position.load()?.nft_mint,
+            constraint = position_nft_account.amount == 1,
+            token::authority = owner
+    )]
+    pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// owner of position
     pub owner: Signer<'info>,
 
     #[account(mut)]

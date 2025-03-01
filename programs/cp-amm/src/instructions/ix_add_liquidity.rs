@@ -28,7 +28,6 @@ pub struct AddLiquidityCtx<'info> {
     #[account(
       mut,
       has_one = pool,
-      has_one = owner,
     )]
     pub position: AccountLoader<'info, Position>,
 
@@ -53,6 +52,14 @@ pub struct AddLiquidityCtx<'info> {
 
     /// The mint of token b
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// The token account for nft
+    #[account(
+            constraint = position_nft_account.mint == position.load()?.nft_mint,
+            constraint = position_nft_account.amount == 1,
+            token::authority = owner
+    )]
+    pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// owner of position
     pub owner: Signer<'info>,

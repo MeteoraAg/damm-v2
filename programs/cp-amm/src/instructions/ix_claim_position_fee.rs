@@ -29,7 +29,7 @@ pub struct ClaimPositionFeeCtx<'info> {
     pub pool: AccountLoader<'info, Pool>,
 
     #[account(
-        mut, has_one = pool, has_one = owner
+        mut, has_one = pool
     )]
     pub position: AccountLoader<'info, Position>,
 
@@ -55,7 +55,15 @@ pub struct ClaimPositionFeeCtx<'info> {
     /// The mint of token b
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    /// position owner
+    /// The token account for nft
+    #[account(
+            constraint = position_nft_account.mint == position.load()?.nft_mint,
+            constraint = position_nft_account.amount == 1,
+            token::authority = owner
+    )]
+    pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// owner of position
     pub owner: Signer<'info>,
 
     /// Token a program
