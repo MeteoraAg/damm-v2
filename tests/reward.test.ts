@@ -1,15 +1,9 @@
-import { expect } from "chai";
-import { BanksClient, Clock, ProgramTestContext } from "solana-bankrun";
+import { ProgramTestContext } from "solana-bankrun";
 import {
-  LOCAL_ADMIN_KEYPAIR,
-  createUsersAndFund,
-  randomID,
   setupTestContext,
   startTest,
-  transferSol,
 } from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { createMint, wrapSOL } from "./bankrun-utils/token";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -19,7 +13,6 @@ import {
   createPosition,
   fundReward,
   getPool,
-  getPosition,
   initializePool,
   InitializePoolParams,
   initializeReward,
@@ -29,7 +22,6 @@ import {
   MIN_SQRT_PRICE,
   updateRewardDuration,
   updateRewardFunder,
-  withdrawIneligibleReward,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { describe } from "mocha";
@@ -173,6 +165,7 @@ describe("Reward unit-testing", () => {
         index,
         user,
         pool,
+        position,
       });
 
       const poolState = await getPool(context.banksClient, pool);

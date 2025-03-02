@@ -10,6 +10,7 @@ import {
   AccountLayout,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
@@ -34,6 +35,7 @@ import {
   derivePoolAddress,
   derivePoolAuthority,
   derivePositionAddress,
+  derivePositionNftAccount,
   deriveRewardVaultAddress,
   deriveTokenBadgeAddress,
   deriveTokenVaultAddress,
@@ -435,7 +437,9 @@ export async function initializePool(
   const poolAuthority = derivePoolAuthority();
   const pool = derivePoolAddress(config, tokenAMint, tokenBMint);
 
-  const position = derivePositionAddress(pool, creator);
+  const positionNftKP = Keypair.generate();
+  const position = derivePositionAddress(positionNftKP.publicKey);
+  const positionNftAccount = derivePositionNftAccount(positionNftKP.publicKey);
 
   const tokenAVault = deriveTokenVaultAddress(tokenAMint, pool);
   const tokenBVault = deriveTokenVaultAddress(tokenBMint, pool);
@@ -457,6 +461,8 @@ export async function initializePool(
     })
     .accounts({
       creator,
+      positionNftAccount,
+      positionNftMint: positionNftKP.publicKey,
       payer: payer.publicKey,
       config,
       poolAuthority,
@@ -470,11 +476,12 @@ export async function initializePool(
       payerTokenB,
       tokenAProgram: TOKEN_PROGRAM_ID,
       tokenBProgram: TOKEN_PROGRAM_ID,
+      token2022Program: TOKEN_2022_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
+  transaction.sign(payer, positionNftKP);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -567,7 +574,9 @@ export async function initializeCustomizeablePool(
   const poolAuthority = derivePoolAuthority();
   const pool = deriveCustomizablePoolAddress(tokenAMint, tokenBMint);
 
-  const position = derivePositionAddress(pool, creator);
+  const positionNftKP = Keypair.generate();
+  const position = derivePositionAddress(positionNftKP.publicKey);
+  const positionNftAccount = derivePositionNftAccount(positionNftKP.publicKey);
 
   const tokenAVault = deriveTokenVaultAddress(tokenAMint, pool);
   const tokenBVault = deriveTokenVaultAddress(tokenBMint, pool);
@@ -595,6 +604,8 @@ export async function initializeCustomizeablePool(
     })
     .accounts({
       creator,
+      positionNftAccount,
+      positionNftMint: positionNftKP.publicKey,
       payer: payer.publicKey,
       poolAuthority,
       pool,
@@ -607,11 +618,12 @@ export async function initializeCustomizeablePool(
       payerTokenB,
       tokenAProgram: TOKEN_PROGRAM_ID,
       tokenBProgram: TOKEN_PROGRAM_ID,
+      token2022Program: TOKEN_2022_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
+  transaction.sign(payer, positionNftKP);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -804,6 +816,7 @@ export async function fundReward(
 export type ClaimRewardParams = {
   index: number;
   user: Keypair;
+  position: PublicKey,
   pool: PublicKey;
 };
 
@@ -811,12 +824,13 @@ export async function claimReward(
   banksClient: BanksClient,
   params: ClaimRewardParams
 ): Promise<void> {
-  const { index, pool, user } = params;
+  const { index, pool, user, position } = params;
   const program = createCpAmmProgram();
 
   const poolState = await getPool(banksClient, pool);
-  const position = derivePositionAddress(pool, user.publicKey);
+  const positionState = await getPosition(banksClient, position);
   const poolAuthority = derivePoolAuthority();
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
   const userTokenAccount = getAssociatedTokenAddressSync(
     poolState.rewardInfos[index].mint,
     user.publicKey
@@ -826,6 +840,7 @@ export async function claimReward(
     .claimReward(index)
     .accounts({
       pool,
+      positionNftAccount,
       rewardVault: poolState.rewardInfos[index].vault,
       rewardMint: poolState.rewardInfos[index].mint,
       poolAuthority,
@@ -890,11 +905,13 @@ export async function refreshVestings(
   vestings: PublicKey[]
 ) {
   const program = createCpAmmProgram();
-
+  const positionState = await getPosition(banksClient, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
   const transaction = await program.methods
     .refreshVesting()
     .accounts({
       position,
+      positionNftAccount,
       pool,
       owner,
     })
@@ -924,11 +941,13 @@ export async function permanentLockPosition(
   const program = createCpAmmProgram();
 
   const positionState = await getPosition(banksClient, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
   const transaction = await program.methods
     .permanentLockPosition(positionState.unlockedLiquidity)
     .accounts({
       position,
+      positionNftAccount,
       pool: positionState.pool,
       owner: owner.publicKey,
     })
@@ -949,6 +968,7 @@ export async function lockPosition(
 ) {
   const program = createCpAmmProgram();
   const positionState = await getPosition(banksClient, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
   const vestingKP = Keypair.generate();
 
@@ -956,6 +976,7 @@ export async function lockPosition(
     .lockPosition(params)
     .accounts({
       position,
+      positionNftAccount,
       vesting: vestingKP.publicKey,
       owner: owner.publicKey,
       pool: positionState.pool,
@@ -981,21 +1002,28 @@ export async function createPosition(
 ): Promise<PublicKey> {
   const program = createCpAmmProgram();
 
-  const position = derivePositionAddress(pool, owner);
+  const positionNftKP = Keypair.generate();
+  const position = derivePositionAddress(positionNftKP.publicKey);
+  const poolAuthority = derivePoolAuthority();
+  const positionNftAccount = derivePositionNftAccount(positionNftKP.publicKey);
 
   const transaction = await program.methods
     .createPosition()
     .accounts({
       owner,
+      positionNftMint: positionNftKP.publicKey,
+      poolAuthority,
+      positionNftAccount,
       payer: payer.publicKey,
       pool,
       position,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
+  transaction.sign(payer, positionNftKP);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -1026,6 +1054,8 @@ export async function addLiquidity(
 
   const program = createCpAmmProgram();
   const poolState = await getPool(banksClient, pool);
+  const positionState = await getPosition(banksClient, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
   const tokenAAccount = getAssociatedTokenAddressSync(
     poolState.tokenAMint,
     owner.publicKey
@@ -1048,6 +1078,7 @@ export async function addLiquidity(
     .accounts({
       pool,
       position,
+      positionNftAccount,
       owner: owner.publicKey,
       tokenAAccount,
       tokenBAccount,
@@ -1083,6 +1114,8 @@ export async function removeLiquidity(
 
   const program = createCpAmmProgram();
   const poolState = await getPool(banksClient, pool);
+  const positionState = await getPosition(banksClient, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
   const poolAuthority = derivePoolAuthority();
   const tokenAAccount = getAssociatedTokenAddressSync(
@@ -1108,6 +1141,7 @@ export async function removeLiquidity(
       poolAuthority,
       pool,
       position,
+      positionNftAccount,
       owner: owner.publicKey,
       tokenAAccount,
       tokenBAccount,
@@ -1205,6 +1239,8 @@ export async function claimPositionFee(
 
   const program = createCpAmmProgram();
   const poolState = await getPool(banksClient, pool);
+  const positionState = await getPosition(banksClient, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
   const poolAuthority = derivePoolAuthority();
   const tokenAAccount = getAssociatedTokenAddressSync(
@@ -1227,6 +1263,7 @@ export async function claimPositionFee(
       owner: owner.publicKey,
       pool,
       position,
+      positionNftAccount,
       tokenAAccount,
       tokenBAccount,
       tokenAVault,
@@ -1261,6 +1298,10 @@ export async function getPosition(
   const account = await banksClient.getAccount(position);
   return program.coder.accounts.decode("Position", Buffer.from(account.data));
 }
+
+
+
+
 
 export async function getVesting(
   banksClient: BanksClient,

@@ -1,11 +1,14 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{
+    prelude::*,
+    system_program::{create_account, CreateAccount},
+};
 use anchor_spl::{
-    associated_token::{create, AssociatedToken, Create},
-    token_2022::{self, SetAuthority, Token2022},
+    token::TokenAccount,
+    token_2022::{self, initialize_account3, InitializeAccount3, Token2022},
 };
 
 use crate::{
-    constants::seeds::{POOL_AUTHORITY_PREFIX, POSITION_PREFIX},
+    constants::seeds::{POOL_AUTHORITY_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX},
     get_pool_access_validator,
     state::{Pool, Position},
     token::create_position_nft_mint_with_extensions,
@@ -22,8 +25,12 @@ pub struct CreatePositionCtx<'info> {
     #[account(mut)]
     pub position_nft_mint: Signer<'info>,
 
-    /// CHECK: ATA address where position NFT will be minted, initialize in contract
-    #[account(mut)]
+    /// CHECK: position nft account
+    #[account(
+        mut,
+        seeds = [POSITION_NFT_ACCOUNT_PREFIX.as_ref(), position_nft_mint.key().as_ref()],
+        bump
+    )]
     pub position_nft_account: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -52,8 +59,6 @@ pub struct CreatePositionCtx<'info> {
     /// Program to create NFT mint/token account and transfer for token22 account
     pub token_program: Program<'info, Token2022>,
 
-    pub associated_token_program: Program<'info, AssociatedToken>,
-
     pub system_program: Program<'info, System>,
 }
 
@@ -80,18 +85,19 @@ pub fn handle_create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
         liquidity,
     )?;
 
+    drop(position);
     create_position_nft(
-        &ctx.accounts.payer,
-        &ctx.accounts.position_nft_mint.to_account_info(),
-        &ctx.accounts.pool_authority.to_account_info(),
-        &ctx.accounts.pool.to_account_info(),
-        &ctx.accounts.system_program.to_account_info(),
-        &ctx.accounts.token_program,
-        &ctx.accounts.position.to_account_info(),
-        &ctx.accounts.associated_token_program.to_account_info(),
-        &ctx.accounts.position_nft_account.to_account_info(),
-        &ctx.accounts.owner.to_account_info(),
+        ctx.accounts.payer.to_account_info(),
+        ctx.accounts.position_nft_mint.to_account_info(),
+        ctx.accounts.pool_authority.to_account_info(),
+        ctx.accounts.pool.to_account_info(),
+        ctx.accounts.system_program.to_account_info(),
+        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.position.to_account_info(),
+        ctx.accounts.position_nft_account.to_account_info(),
+        ctx.accounts.owner.to_account_info(),
         ctx.bumps.pool_authority,
+        ctx.bumps.position_nft_account,
     )?;
 
     emit_cpi!(EvtCreatePosition {
@@ -105,71 +111,73 @@ pub fn handle_create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
 }
 
 pub fn create_position_nft<'info>(
-    payer: &Signer<'info>,
-    position_nft_mint: &AccountInfo<'info>,
-    pool_authority: &AccountInfo<'info>,
-    pool: &AccountInfo<'info>,
-    system_program: &AccountInfo<'info>,
-    token_program: &Program<'info, Token2022>,
-    position: &AccountInfo<'info>,
-    associated_token_program: &AccountInfo<'info>,
-    position_nft_account: &AccountInfo<'info>,
-    owner: &AccountInfo<'info>,
-    bump: u8,
+    payer: AccountInfo<'info>,
+    position_nft_mint: AccountInfo<'info>,
+    pool_authority: AccountInfo<'info>,
+    pool: AccountInfo<'info>,
+    system_program: AccountInfo<'info>,
+    token_program: AccountInfo<'info>,
+    position: AccountInfo<'info>,
+    position_nft_account: AccountInfo<'info>,
+    owner: AccountInfo<'info>,
+    pool_authority_bump: u8,
+    position_nft_account_bump: u8,
 ) -> Result<()> {
     // create mint
     create_position_nft_mint_with_extensions(
-        payer,
-        position_nft_mint,
-        pool_authority,
-        pool, // use pool as mint close authority allow to filter all positions based on pool address
-        system_program,
-        token_program,
-        position,
-        bump,
+        payer.clone(),
+        position_nft_mint.clone(),
+        pool_authority.clone(),
+        pool.clone(), // use pool as mint close authority allow to filter all positions based on pool address
+        system_program.clone(),
+        token_program.clone(),
+        position.clone(),
+        pool_authority_bump,
+    )?;
+
+    // create token account
+    let position_nft_account_seeds =
+        position_nft_account_seeds!(position_nft_mint.key, position_nft_account_bump);
+    let space = TokenAccount::LEN;
+    let lamports = Rent::get()?.minimum_balance(space);
+    create_account(
+        CpiContext::new_with_signer(
+            system_program.clone(),
+            CreateAccount {
+                from: payer.clone(),
+                to: position_nft_account.clone(),
+            },
+            &[&position_nft_account_seeds[..]],
+        ),
+        lamports,
+        space as u64,
+        token_program.key,
     )?;
 
     // create user position nft account
-    let seeds = pool_authority_seeds!(bump);
-    create(CpiContext::new_with_signer(
-        associated_token_program.clone(),
-        Create {
-            payer: payer.to_account_info(),
-            associated_token: position_nft_account.clone(),
-            authority: pool_authority.clone(),
+    initialize_account3(CpiContext::new_with_signer(
+        token_program.clone(),
+        InitializeAccount3 {
+            account: position_nft_account.clone(),
             mint: position_nft_mint.clone(),
-            system_program: system_program.clone(),
-            token_program: token_program.to_account_info(),
+            authority: owner.clone(),
         },
-        &[&seeds[..]],
+        &[&position_nft_account_seeds[..]],
     ))?;
 
     // Mint the NFT
+    let pool_authority_seeds = pool_authority_seeds!(pool_authority_bump);
     token_2022::mint_to(
         CpiContext::new_with_signer(
-            token_program.to_account_info(),
+            token_program.clone(),
             token_2022::MintTo {
-                mint: position_nft_mint.to_account_info(),
-                to: position_nft_account.to_account_info(),
-                authority: pool_authority.to_account_info(),
+                mint: position_nft_mint.clone(),
+                to: position_nft_account.clone(),
+                authority: pool_authority.clone(),
             },
-            &[&seeds[..]],
+            &[&pool_authority_seeds[..]],
         ),
         1,
-    )?;
-
-    // transfer ownership to owner
-    token_2022::set_authority(
-        CpiContext::new_with_signer(
-            token_program.to_account_info(),
-            SetAuthority {
-                current_authority: pool_authority.to_account_info(),
-                account_or_mint: position_nft_account.to_account_info(),
-            },
-            &[&seeds[..]],
-        ),
-        token_2022::spl_token_2022::instruction::AuthorityType::AccountOwner,
-        Some(owner.key()),
     )?;
 
     Ok(())

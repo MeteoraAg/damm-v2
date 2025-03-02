@@ -1,9 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{create_account, transfer, CreateAccount, Transfer};
 use anchor_lang::{prelude::InterfaceAccount, solana_program::program::invoke_signed};
-use anchor_spl::token::{initialize_mint2, InitializeMint2};
 use anchor_spl::token_2022::spl_token_2022::extension::metadata_pointer;
-use anchor_spl::token_2022::Token2022;
+use anchor_spl::token_2022::{initialize_mint2, InitializeMint2};
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -295,13 +294,13 @@ pub fn is_token_badge_initialized<'c: 'info, 'info>(
 }
 
 pub fn create_position_nft_mint_with_extensions<'info>(
-    payer: &Signer<'info>,
-    position_nft_mint: &AccountInfo<'info>,
-    mint_authority: &AccountInfo<'info>,
-    mint_close_authority: &AccountInfo<'info>,
-    system_program: &AccountInfo<'info>,
-    token_2022_program: &Program<'info, Token2022>,
-    position: &AccountInfo<'info>,
+    payer: AccountInfo<'info>,
+    position_nft_mint: AccountInfo<'info>,
+    mint_authority: AccountInfo<'info>,
+    mint_close_authority: AccountInfo<'info>,
+    system_program: AccountInfo<'info>,
+    token_2022_program: AccountInfo<'info>,
+    position: AccountInfo<'info>,
     bump: u8,
 ) -> Result<()> {
     let extensions = [
@@ -317,10 +316,10 @@ pub fn create_position_nft_mint_with_extensions<'info>(
     // create mint account
     create_account(
         CpiContext::new(
-            system_program.to_account_info(),
+            system_program.clone(),
             CreateAccount {
-                from: payer.to_account_info(),
-                to: position_nft_mint.to_account_info(),
+                from: payer.clone(),
+                to: position_nft_mint.clone(),
             },
         ),
         lamports,
@@ -340,10 +339,7 @@ pub fn create_position_nft_mint_with_extensions<'info>(
                 )?;
                 solana_program::program::invoke(
                     &ix,
-                    &[
-                        token_2022_program.to_account_info(),
-                        position_nft_mint.to_account_info(),
-                    ],
+                    &[token_2022_program.clone(), position_nft_mint.clone()],
                 )?;
             }
             ExtensionType::MintCloseAuthority => {
@@ -354,10 +350,7 @@ pub fn create_position_nft_mint_with_extensions<'info>(
                 )?;
                 solana_program::program::invoke(
                     &ix,
-                    &[
-                        token_2022_program.to_account_info(),
-                        position_nft_mint.to_account_info(),
-                    ],
+                    &[token_2022_program.clone(), position_nft_mint.clone()],
                 )?;
             }
             _ => {
@@ -369,34 +362,29 @@ pub fn create_position_nft_mint_with_extensions<'info>(
     // initialize mint account
     initialize_mint2(
         CpiContext::new(
-            token_2022_program.to_account_info(),
+            token_2022_program.clone(),
             InitializeMint2 {
-                mint: position_nft_mint.to_account_info(),
+                mint: position_nft_mint.clone(),
             },
         ),
         0,
-        &mint_authority.key(),
+        mint_authority.key,
         None,
     )?;
 
     // initialize token metadata
-    let (name, symbol, uri) = get_metadata_data(position.key());
-    let seeds = pool_authority_seeds!(bump);
     initialize_token_metadata_extension(
         payer,
         position_nft_mint,
         mint_authority,
-        &position.to_account_info(),
+        position,
         token_2022_program,
-        name,
-        symbol,
-        uri,
-        &[&seeds[..]],
+        bump,
     )?;
     Ok(())
 }
 
-fn get_metadata_data(position: Pubkey) -> (String, String, String) {
+fn get_metadata_data(position: &Pubkey) -> (String, String, String) {
     return (
         String::from("Meteora Dynamic Amm"),
         String::from("MDA"),
@@ -408,60 +396,64 @@ fn get_metadata_data(position: Pubkey) -> (String, String, String) {
 }
 
 pub fn initialize_token_metadata_extension<'info>(
-    payer: &Signer<'info>,
-    position_nft_mint: &AccountInfo<'info>,
-    mint_authority: &AccountInfo<'info>,
-    metadata_update_authority: &AccountInfo<'info>,
-    token_2022_program: &Program<'info, Token2022>,
-    name: String,
-    symbol: String,
-    uri: String,
-    signers_seeds: &[&[&[u8]]],
+    payer: AccountInfo<'info>,
+    position_nft_mint: AccountInfo<'info>,
+    mint_authority: AccountInfo<'info>,
+    position: AccountInfo<'info>,
+    token_2022_program: AccountInfo<'info>,
+    bump: u8,
 ) -> Result<()> {
-    let metadata = spl_token_metadata_interface::state::TokenMetadata {
-        name,
-        symbol,
-        uri,
-        ..Default::default()
+    let (name, symbol, uri) = get_metadata_data(position.key);
+
+    let additional_lamports = {
+        let metadata = spl_token_metadata_interface::state::TokenMetadata {
+            name: name.clone(),
+            symbol: symbol.clone(),
+            uri: uri.clone(),
+            ..Default::default()
+        };
+        let mint_data = position_nft_mint.try_borrow_data()?;
+        let mint_state_unpacked =
+            StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
+        let new_account_len = mint_state_unpacked
+            .try_get_new_account_len::<spl_token_metadata_interface::state::TokenMetadata>(
+            &metadata,
+        )?;
+        let new_rent_exempt_lamports = Rent::get()?.minimum_balance(new_account_len);
+        let additional_lamports =
+            new_rent_exempt_lamports.saturating_sub(position_nft_mint.lamports());
+        additional_lamports
     };
-
-    let mint_data = position_nft_mint.try_borrow_data()?;
-    let mint_state_unpacked =
-        StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
-    let new_account_len = mint_state_unpacked
-        .try_get_new_account_len::<spl_token_metadata_interface::state::TokenMetadata>(&metadata)?;
-    let new_rent_exempt_lamports = Rent::get()?.minimum_balance(new_account_len);
-    let additional_lamports = new_rent_exempt_lamports.saturating_sub(position_nft_mint.lamports());
-    // CPI call will borrow the account data
-    drop(mint_data);
-
-    let cpi_context = CpiContext::new(
-        token_2022_program.to_account_info(),
-        Transfer {
-            from: payer.to_account_info(),
-            to: position_nft_mint.to_account_info(),
-        },
-    );
-    transfer(cpi_context, additional_lamports)?;
-
+    if additional_lamports > 0 {
+        let cpi_context = CpiContext::new(
+            token_2022_program.clone(),
+            Transfer {
+                from: payer.clone(),
+                to: position_nft_mint.clone(),
+            },
+        );
+        transfer(cpi_context, additional_lamports)?;
+    }
+    let seeds = pool_authority_seeds!(bump);
+    let signer_seeds = &[&seeds[..]];
     solana_program::program::invoke_signed(
         &spl_token_metadata_interface::instruction::initialize(
             token_2022_program.key,
             position_nft_mint.key,
-            metadata_update_authority.key,
+            position.key,
             position_nft_mint.key,
-            &mint_authority.key(),
-            metadata.name,
-            metadata.symbol,
-            metadata.uri,
+            mint_authority.key,
+            name,
+            symbol,
+            uri,
         ),
         &[
-            position_nft_mint.to_account_info(),
-            mint_authority.to_account_info(),
-            metadata_update_authority.to_account_info(),
-            token_2022_program.to_account_info(),
+            position_nft_mint.clone(),
+            mint_authority.clone(),
+            position.clone(),
+            token_2022_program.clone(),
         ],
-        signers_seeds,
+        signer_seeds,
     )?;
 
     Ok(())
