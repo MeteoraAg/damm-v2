@@ -379,6 +379,7 @@ pub fn create_position_nft_mint_with_extensions<'info>(
         mint_authority,
         position,
         token_2022_program,
+        system_program,
         bump,
     )?;
     Ok(())
@@ -401,6 +402,7 @@ pub fn initialize_token_metadata_extension<'info>(
     mint_authority: AccountInfo<'info>,
     position: AccountInfo<'info>,
     token_2022_program: AccountInfo<'info>,
+    system_program: AccountInfo<'info>,
     bump: u8,
 ) -> Result<()> {
     let (name, symbol, uri) = get_metadata_data(position.key);
@@ -426,7 +428,7 @@ pub fn initialize_token_metadata_extension<'info>(
     };
     if additional_lamports > 0 {
         let cpi_context = CpiContext::new(
-            token_2022_program.clone(),
+            system_program.clone(),
             Transfer {
                 from: payer.clone(),
                 to: position_nft_mint.clone(),
@@ -440,7 +442,7 @@ pub fn initialize_token_metadata_extension<'info>(
         &spl_token_metadata_interface::instruction::initialize(
             token_2022_program.key,
             position_nft_mint.key,
-            position.key,
+            mint_authority.key,
             position_nft_mint.key,
             mint_authority.key,
             name,
@@ -450,7 +452,6 @@ pub fn initialize_token_metadata_extension<'info>(
         &[
             position_nft_mint.clone(),
             mint_authority.clone(),
-            position.clone(),
             token_2022_program.clone(),
         ],
         signer_seeds,
