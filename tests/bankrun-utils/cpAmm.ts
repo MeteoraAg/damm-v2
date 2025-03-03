@@ -25,6 +25,7 @@ import {
 import { unpack } from "@solana/spl-token-metadata";
 import {
   clusterApiUrl,
+  ComputeBudgetProgram,
   Connection,
   Keypair,
   PublicKey,
@@ -480,7 +481,7 @@ export async function initializePool(
     tokenBProgram
   );
 
-  const transaction = await program.methods
+  let transaction = await program.methods
     .initializePool({
       liquidity: liquidity,
       sqrtPrice: sqrtPrice,
@@ -507,6 +508,12 @@ export async function initializePool(
       systemProgram: SystemProgram.programId,
     })
     .transaction();
+  // requires more compute budget than usual
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: 350_000,
+    })
+  );
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(payer, positionNftKP);
 
@@ -656,6 +663,12 @@ export async function initializeCustomizeablePool(
       systemProgram: SystemProgram.programId,
     })
     .transaction();
+  // requires more compute budget than usual
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: 350_000,
+    })
+  );
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(payer, positionNftKP);
 

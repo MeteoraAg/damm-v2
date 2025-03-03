@@ -1,4 +1,4 @@
-import { ProgramTestContext } from "solana-bankrun";
+import { Clock, ProgramTestContext } from "solana-bankrun";
 import {
   setupTestContext,
   startTest,
@@ -22,6 +22,7 @@ import {
   MIN_SQRT_PRICE,
   updateRewardDuration,
   updateRewardFunder,
+  withdrawIneligibleReward,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { describe } from "mocha";
@@ -340,6 +341,7 @@ describe("Reward unit-testing", () => {
         index,
         user,
         pool,
+        position,
       });
 
       // claim ineligible reward
