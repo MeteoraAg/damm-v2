@@ -23,6 +23,7 @@ import {
   MIN_SQRT_PRICE,
 } from "./bankrun-utils";
 import BN from "bn.js";
+import { getAccount } from "@solana/spl-token";
 
 describe("Create position", () => {
   let context: ProgramTestContext;

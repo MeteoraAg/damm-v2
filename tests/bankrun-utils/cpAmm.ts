@@ -12,7 +12,18 @@ import {
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  getTokenMetadata,
+  MintLayout,
+  unpackMint,
+  ACCOUNT_SIZE,
+  ACCOUNT_TYPE_SIZE,
+  getExtensionData,
+  ExtensionType,
+  getMintCloseAuthority,
+  MintCloseAuthorityLayout,
+  MetadataPointerLayout,
 } from "@solana/spl-token";
+import { unpack } from "@solana/spl-token-metadata";
 import {
   clusterApiUrl,
   ComputeBudgetProgram,
@@ -103,7 +114,7 @@ export type BaseFee = {
   numberOfPeriod: number;
   periodFrequency: BN;
   reductionFactor: BN;
-  feeSchedulerMode: number,
+  feeSchedulerMode: number;
 };
 
 export type PoolFees = {
@@ -816,7 +827,7 @@ export async function fundReward(
 export type ClaimRewardParams = {
   index: number;
   user: Keypair;
-  position: PublicKey,
+  position: PublicKey;
   pool: PublicKey;
 };
 
@@ -1026,6 +1037,46 @@ export async function createPosition(
   transaction.sign(payer, positionNftKP);
 
   await processTransactionMaybeThrow(banksClient, transaction);
+
+  const positionState = await getPosition(banksClient, position);
+
+  expect(positionState.nftMint.toString()).eq(
+    positionNftKP.publicKey.toString()
+  );
+
+  const positionNftData = AccountLayout.decode(
+    (await banksClient.getAccount(positionNftAccount)).data
+  );
+
+  // validate metadata
+  const tlvData = (
+    await banksClient.getAccount(positionState.nftMint)
+  ).data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
+  const metadata = unpack(
+    getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+  );
+  expect(metadata.name).eq("Meteora Dynamic Amm");
+  expect(metadata.symbol).eq("MDA");
+
+  // validate mint close authority is pool account
+  const mintCloseAuthority = MintCloseAuthorityLayout.decode(
+    getExtensionData(ExtensionType.MintCloseAuthority, Buffer.from(tlvData))
+  ).closeAuthority;
+
+  expect(mintCloseAuthority.toString()).eq(pool.toString());
+
+  // validate metadata pointer
+  const metadataAddress = MetadataPointerLayout.decode(
+    getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
+  ).metadataAddress;
+  expect(metadataAddress.toString()).eq(positionState.nftMint.toString());
+
+  // validate owner
+  expect(positionNftData.owner.toString()).eq(owner.toString());
+  expect(Number(positionNftData.amount)).eq(1);
+  expect(positionNftData.mint.toString()).eq(
+    positionNftKP.publicKey.toString()
+  );
 
   return position;
 }
@@ -1298,10 +1349,6 @@ export async function getPosition(
   const account = await banksClient.getAccount(position);
   return program.coder.accounts.decode("Position", Buffer.from(account.data));
 }
-
-
-
-
 
 export async function getVesting(
   banksClient: BanksClient,
