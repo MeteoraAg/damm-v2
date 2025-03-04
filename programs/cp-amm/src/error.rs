@@ -304,4 +304,7 @@ pub enum PoolError {
 
     #[msg("Invalid extension")]
     InvalidExtension,
+
+    #[msg("Fee inverse is incorrect")]
+    FeeInverseIsIncorrect,
 }

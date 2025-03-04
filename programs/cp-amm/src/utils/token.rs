@@ -97,25 +97,23 @@ pub fn calculate_transfer_fee_included_amount<'info>(
                 // if transfer_fee_excluded_amount + maximum_fee > u64 max, the following checked_add should fail.
                 u64::from(epoch_transfer_fee.maximum_fee)
             } else {
-                calculate_inverse_fee(&epoch_transfer_fee, transfer_fee_excluded_amount)
+                epoch_transfer_fee
+                    .calculate_inverse_fee(transfer_fee_excluded_amount)
                     .ok_or(PoolError::MathOverflow)?
-                // epoch_transfer_fee
-                //     .calculate_inverse_fee(transfer_fee_excluded_amount)
-                //     .ok_or(LBError::MathOverflow)?
             };
 
         let transfer_fee_included_amount = transfer_fee_excluded_amount
             .checked_add(transfer_fee)
             .ok_or(PoolError::MathOverflow)?;
 
-        // // verify transfer fee calculation for safety
-        // let transfer_fee_verification = epoch_transfer_fee
-        //     .calculate_fee(transfer_fee_included_amount)
-        //     .unwrap();
-        // if transfer_fee != transfer_fee_verification {
-        //     // We believe this should never happen
-        //     return Err(LBError::MathOverflow.into());
-        // }
+        // verify transfer fee calculation for safety
+        let transfer_fee_verification = epoch_transfer_fee
+            .calculate_fee(transfer_fee_included_amount)
+            .unwrap();
+        if transfer_fee != transfer_fee_verification {
+            // We believe this should never happen
+            return Err(PoolError::FeeInverseIsIncorrect.into());
+        }
 
         return Ok(TransferFeeIncludedAmount {
             amount: transfer_fee_included_amount,
@@ -148,49 +146,6 @@ pub fn get_epoch_transfer_fee<'info>(
     }
 
     Ok(None)
-}
-
-// fn ceil_div(numerator: u128, denominator: u128) -> Option<u128> {
-//     numerator
-//         .checked_add(denominator)?
-//         .checked_sub(1)?
-//         .checked_div(denominator)
-// }
-
-const ONE_IN_BASIS_POINTS: u128 = MAX_FEE_BASIS_POINTS as u128;
-
-pub fn calculate_pre_fee_amount(transfer_fee: &TransferFee, post_fee_amount: u64) -> Option<u64> {
-    if post_fee_amount == 0 {
-        return Some(0);
-    }
-    let maximum_fee = u64::from(transfer_fee.maximum_fee);
-    let transfer_fee_basis_points = u16::from(transfer_fee.transfer_fee_basis_points) as u128;
-    if transfer_fee_basis_points == 0 {
-        Some(post_fee_amount)
-    } else if transfer_fee_basis_points == ONE_IN_BASIS_POINTS {
-        Some(maximum_fee.checked_add(post_fee_amount)?)
-    } else {
-        let numerator = (post_fee_amount as u128).checked_mul(ONE_IN_BASIS_POINTS)?;
-        let denominator = ONE_IN_BASIS_POINTS.checked_sub(transfer_fee_basis_points)?;
-        // let raw_pre_fee_amount = ceil_div(numerator, denominator)?;
-        let raw_pre_fee_amount = numerator
-            .checked_add(ONE_IN_BASIS_POINTS)?
-            .checked_sub(1)?
-            .checked_div(denominator)?;
-
-        if raw_pre_fee_amount.checked_sub(post_fee_amount as u128)? >= maximum_fee as u128 {
-            post_fee_amount.checked_add(maximum_fee)
-        } else {
-            // should return `None` if `pre_fee_amount` overflows
-            u64::try_from(raw_pre_fee_amount).ok()
-        }
-    }
-}
-
-/// Calculate the fee that would produce the given output
-pub fn calculate_inverse_fee(transfer_fee: &TransferFee, post_fee_amount: u64) -> Option<u64> {
-    let pre_fee_amount = calculate_pre_fee_amount(&transfer_fee, post_fee_amount)?;
-    transfer_fee.calculate_fee(pre_fee_amount)
 }
 
 pub fn transfer_from_user<'a, 'c: 'info, 'info>(
