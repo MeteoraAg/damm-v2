@@ -125,6 +125,23 @@ pub fn get_next_sqrt_price_from_input(
     }
 }
 
+pub fn get_next_sqrt_price_from_output(
+    sqrt_price: u128,
+    liquidity: u128,
+    amount_out: u64,
+    a_for_b: bool,
+) -> Result<u128> {
+    assert!(sqrt_price > 0);
+    assert!(liquidity > 0);
+
+    // round to make sure that we don't pass the target price
+    if a_for_b {
+        get_next_sqrt_price_from_amount_b_rounding_down(sqrt_price, liquidity, amount_out)
+    } else {
+        get_next_sqrt_price_from_amount_a_rounding_up(sqrt_price, liquidity, amount_out)
+    }
+}
+
 /// Gets the next sqrt price √P' given a delta of token_a
 ///
 /// Always round up because

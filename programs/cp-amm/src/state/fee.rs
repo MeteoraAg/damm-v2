@@ -158,6 +158,7 @@ impl PoolFeesStruct {
         is_referral: bool,
         current_point: u64,
         activation_point: u64,
+        is_exact_out: bool,
     ) -> Result<FeeOnAmountResult> {
         let trade_fee_numerator = self.get_total_trading_fee(current_point, activation_point)?;
         let trade_fee_numerator = if trade_fee_numerator > MAX_FEE_NUMERATOR.into() {
@@ -165,9 +166,25 @@ impl PoolFeesStruct {
         } else {
             trade_fee_numerator.try_into().unwrap()
         };
-        let lp_fee: u64 = safe_mul_div_cast_u64(amount, trade_fee_numerator, FEE_DENOMINATOR)?;
-        // update amount
-        let amount = amount.safe_sub(lp_fee)?;
+        let (amount, lp_fee) = if is_exact_out {
+            let amount_included_lp_fee = safe_mul_div_cast_u64(
+                amount,
+                FEE_DENOMINATOR,
+                FEE_DENOMINATOR.safe_sub(trade_fee_numerator)?,
+            )?;
+
+            let lp_fee: u64 = safe_mul_div_cast_u64(
+                amount_included_lp_fee,
+                trade_fee_numerator,
+                FEE_DENOMINATOR,
+            )?;
+            (amount_included_lp_fee, lp_fee)
+        } else {
+            let lp_fee: u64 = safe_mul_div_cast_u64(amount, trade_fee_numerator, FEE_DENOMINATOR)?;
+            // update amount
+            let amount = amount.safe_sub(lp_fee)?;
+            (amount, lp_fee)
+        };
 
         let protocol_fee = safe_mul_div_cast_u64(lp_fee, self.protocol_fee_percent.into(), 100)?;
         // update lp fee

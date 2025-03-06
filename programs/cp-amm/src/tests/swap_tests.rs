@@ -33,14 +33,14 @@ proptest! {
         let max_amount_in = pool.get_max_amount_in(trade_direction).unwrap();
         if amount_in <= max_amount_in {
             let swap_result_0 = pool
-            .get_swap_result(amount_in, false, trade_direction, 0)
+            .get_swap_result(amount_in, false, trade_direction, 0, false)
             .unwrap();
 
             pool.apply_swap_result(&swap_result_0, trade_direction, 0).unwrap();
             // swap back
 
             let swap_result_1 = pool
-            .get_swap_result(swap_result_0.output_amount, false, TradeDirection::BtoA, 0)
+            .get_swap_result(swap_result_0.output_amount, false, TradeDirection::BtoA, 0, false)
             .unwrap();
 
             assert!(swap_result_1.output_amount < amount_in);
@@ -68,14 +68,14 @@ proptest! {
         let max_amount_in = pool.get_max_amount_in(trade_direction).unwrap();
         if amount_in <= max_amount_in {
             let swap_result_0 = pool
-            .get_swap_result(amount_in, false, trade_direction, 0)
+            .get_swap_result(amount_in, false, trade_direction, 0, false)
             .unwrap();
 
             pool.apply_swap_result(&swap_result_0, trade_direction, 0).unwrap();
             // swap back
 
             let swap_result_1 = pool
-            .get_swap_result(swap_result_0.output_amount, false, TradeDirection::AtoB, 0)
+            .get_swap_result(swap_result_0.output_amount, false, TradeDirection::AtoB, 0, false)
             .unwrap();
 
             assert!(swap_result_1.output_amount < amount_in);
@@ -131,7 +131,7 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
     };
 
     let swap_result_0 = pool
-        .get_swap_result(amount_in, false, trade_direction, 0)
+        .get_swap_result(amount_in, false, trade_direction, 0, false)
         .unwrap();
 
     println!("{:?}", swap_result_0);
@@ -140,7 +140,13 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
         .unwrap();
 
     let swap_result_1 = pool
-        .get_swap_result(swap_result_0.output_amount, false, TradeDirection::AtoB, 0)
+        .get_swap_result(
+            swap_result_0.output_amount,
+            false,
+            TradeDirection::AtoB,
+            0,
+            false,
+        )
         .unwrap();
 
     println!("{:?}", swap_result_1);
@@ -189,7 +195,7 @@ fn test_swap_basic() {
     let is_referral = false;
     let trade_direction = TradeDirection::AtoB;
     let swap_result = pool
-        .get_swap_result(amount_in, is_referral, trade_direction, 0)
+        .get_swap_result(amount_in, is_referral, trade_direction, 0, false)
         .unwrap();
 
     println!("result {:?}", swap_result);
@@ -205,6 +211,7 @@ fn test_swap_basic() {
             is_referral,
             TradeDirection::BtoA,
             0,
+            false,
         )
         .unwrap();
 
