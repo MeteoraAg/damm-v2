@@ -112,7 +112,7 @@ pub fn handle_fund_reward(
         &ctx.accounts.funder_token_account,
         &ctx.accounts.reward_vault,
         &ctx.accounts.token_program,
-        amount,
+        total_amount,
     )?;
 
     emit_cpi!(EvtFundReward {
