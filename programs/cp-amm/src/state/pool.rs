@@ -507,7 +507,7 @@ impl Pool {
                 true,
             )?;
 
-            if next_sqrt_price < self.sqrt_min_price {
+            if next_sqrt_price > self.sqrt_max_price {
                 return Err(PoolError::PriceRangeViolation.into());
             }
 
@@ -618,7 +618,7 @@ impl Pool {
                 false,
             )?;
 
-            if next_sqrt_price > self.sqrt_max_price {
+            if next_sqrt_price < self.sqrt_min_price {
                 return Err(PoolError::PriceRangeViolation.into());
             }
 

@@ -166,7 +166,7 @@ impl PoolFeesStruct {
         } else {
             trade_fee_numerator.try_into().unwrap()
         };
-        let (amount, lp_fee) = if is_exact_out {
+        let (amount_caculated_fee, lp_fee) = if is_exact_out {
             let amount_included_lp_fee = safe_mul_div_cast_u64(
                 amount,
                 FEE_DENOMINATOR,
@@ -206,7 +206,7 @@ impl PoolFeesStruct {
         let protocol_fee = protocol_fee_after_referral_fee.safe_sub(partner_fee)?;
 
         Ok(FeeOnAmountResult {
-            amount,
+            amount: amount_caculated_fee,
             lp_fee,
             protocol_fee,
             partner_fee,
