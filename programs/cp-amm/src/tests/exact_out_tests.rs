@@ -30,14 +30,15 @@ fn test_swap_exact_out_a_to_b_fee_on_both() {
         .unwrap();
 
     println!("result a to b {:?}", swap_result);
+    assert!(swap_result.output_amount == amount_exact_out);
 
     // return;
 
     pool.apply_swap_result(&swap_result, a_to_b, 0).unwrap();
 
-    let swap_result_referse = pool
+    let swap_result_reverse = pool
         .get_swap_result(
-            swap_result.output_amount,
+            swap_result.input_amount,
             is_referral,
             TradeDirection::BtoA,
             0,
@@ -45,9 +46,8 @@ fn test_swap_exact_out_a_to_b_fee_on_both() {
         )
         .unwrap();
 
-    println!("reverse {:?}", swap_result_referse);
-    // exact out amount in result equal amount_exact_out
-    assert!(swap_result_referse.output_amount == amount_exact_out);
+    println!("reverse {:?}", swap_result_reverse);
+    assert!(swap_result_reverse.input_amount <= amount_exact_out);
 }
 
 #[test]
@@ -75,14 +75,15 @@ fn test_swap_exact_out_a_to_b_fee_on_b() {
         .unwrap();
 
     println!("result a to b {:?}", swap_result);
+    assert!(swap_result.output_amount == amount_exact_out);
 
     // return;
 
     pool.apply_swap_result(&swap_result, a_to_b, 0).unwrap();
 
-    let swap_result_referse = pool
+    let swap_result_reverse = pool
         .get_swap_result(
-            swap_result.output_amount,
+            swap_result.input_amount,
             is_referral,
             TradeDirection::BtoA,
             0,
@@ -90,9 +91,8 @@ fn test_swap_exact_out_a_to_b_fee_on_b() {
         )
         .unwrap();
 
-    println!("reverse {:?}", swap_result_referse);
-    // exact out amount in result equal amount_exact_out
-    assert!(swap_result_referse.output_amount == amount_exact_out);
+    println!("reverse {:?}", swap_result_reverse);
+    assert!(swap_result_reverse.input_amount <= amount_exact_out);
 }
 
 #[test]
@@ -119,24 +119,25 @@ fn test_swap_exact_out_b_to_a_fee_on_both() {
         .unwrap();
 
     println!("result a to b {:?}", swap_result);
+    assert!(swap_result.output_amount == amount_exact_out);
 
     // return;
 
     pool.apply_swap_result(&swap_result, b_to_a, 0).unwrap();
 
-    let swap_result_referse = pool
+    let swap_result_reverse = pool
         .get_swap_result(
-            swap_result.output_amount,
+            swap_result.input_amount,
             is_referral,
-            TradeDirection::BtoA,
+            TradeDirection::AtoB,
             0,
             true,
         )
         .unwrap();
 
-    println!("reverse {:?}", swap_result_referse);
+    println!("reverse {:?}", swap_result_reverse);
     // exact out amount in result equal amount_exact_out
-    assert!(swap_result_referse.output_amount == amount_exact_out);
+    assert!(swap_result_reverse.input_amount <= amount_exact_out);
 }
 
 #[test]
@@ -165,21 +166,22 @@ fn test_swap_exact_out_b_to_a_fee_on_b() {
 
     println!("result a to b {:?}", swap_result);
 
+    assert!(swap_result.output_amount == amount_exact_out);
+
     // return;
 
     pool.apply_swap_result(&swap_result, b_to_a, 0).unwrap();
 
-    let swap_result_referse = pool
+    let swap_result_reverse = pool
         .get_swap_result(
-            swap_result.output_amount,
+            swap_result.input_amount,
             is_referral,
-            TradeDirection::BtoA,
+            TradeDirection::AtoB,
             0,
             true,
         )
         .unwrap();
 
-    println!("reverse {:?}", swap_result_referse);
-    // exact out amount in result equal amount_exact_out
-    assert!(swap_result_referse.output_amount == amount_exact_out);
+    println!("reverse {:?}", swap_result_reverse);
+    assert!(swap_result_reverse.input_amount <= amount_exact_out);
 }

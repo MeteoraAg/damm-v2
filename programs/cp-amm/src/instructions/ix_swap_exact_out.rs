@@ -60,8 +60,12 @@ pub fn handle_swap_exact_out(ctx: Context<SwapCtx>, params: SwapExactOutParamete
     pool.apply_swap_result(&swap_result, trade_direction, current_timestamp)?;
 
     //
+
     let transfer_fee_included_amount_in =
         calculate_transfer_fee_included_amount(&token_in_mint, swap_result.input_amount)?.amount;
+    let transfer_fee_included_amount_out =
+        calculate_transfer_fee_included_amount(&token_out_mint, swap_result.output_amount)?.amount;
+
     // send to reserve
     transfer_from_user(
         &ctx.accounts.payer,
@@ -78,7 +82,7 @@ pub fn handle_swap_exact_out(ctx: Context<SwapCtx>, params: SwapExactOutParamete
         &output_vault_account,
         &ctx.accounts.output_token_account,
         output_program,
-        swap_result.output_amount,
+        transfer_fee_included_amount_out,
         ctx.bumps.pool_authority,
     )?;
     // send to referral

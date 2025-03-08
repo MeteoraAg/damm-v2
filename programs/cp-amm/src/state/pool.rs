@@ -499,6 +499,7 @@ impl Pool {
                 self.activation_point,
                 true, // exact_out
             )?;
+
             let next_sqrt_price = get_next_sqrt_price_from_output(
                 self.sqrt_price,
                 self.liquidity,
@@ -587,20 +588,13 @@ impl Pool {
         current_point: u64,
         is_exact_out: bool,
     ) -> Result<SwapResult> {
-        let (
-            next_sqrt_price,
-            input_amount,
-            output_amount,
-            lp_fee,
-            protocol_fee,
-            partner_fee,
-            referral_fee,
-        ) = if is_exact_out {
-            let mut lp_fee: u64 = 0;
-            let mut protocol_fee: u64 = 0;
-            let mut partner_fee: u64 = 0;
-            let mut referral_fee: u64 = 0;
-            let mut x_amount: u64 = amount;
+        let mut lp_fee: u64 = 0;
+        let mut protocol_fee: u64 = 0;
+        let mut partner_fee: u64 = 0;
+        let mut referral_fee: u64 = 0;
+
+        let (next_sqrt_price, input_amount, output_amount) = if is_exact_out {
+            let mut amount_out: u64 = amount;
             if !is_skip_fee {
                 let fee_on_amount_result: FeeOnAmountResult = self.pool_fees.get_fee_on_amount(
                     amount,
@@ -614,11 +608,15 @@ impl Pool {
                 protocol_fee = fee_on_amount_result.protocol_fee;
                 partner_fee = fee_on_amount_result.partner_fee;
                 referral_fee = fee_on_amount_result.referral_fee;
-                x_amount = fee_on_amount_result.amount;
+                // add lp fee before calculate nex sqrt price
+                amount_out = fee_on_amount_result.amount;
             }
-
-            let next_sqrt_price =
-                get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, x_amount, false)?;
+            let next_sqrt_price = get_next_sqrt_price_from_output(
+                self.sqrt_price,
+                self.liquidity,
+                amount_out,
+                false,
+            )?;
 
             if next_sqrt_price > self.sqrt_max_price {
                 return Err(PoolError::PriceRangeViolation.into());
@@ -628,18 +626,10 @@ impl Pool {
                 next_sqrt_price,
                 self.sqrt_price,
                 self.liquidity,
-                Rounding::Up,
+                Rounding::Down,
             )?;
 
-            (
-                next_sqrt_price,
-                input_amount,
-                x_amount,
-                lp_fee,
-                protocol_fee,
-                partner_fee,
-                referral_fee,
-            )
+            (next_sqrt_price, input_amount, amount)
         } else {
             // finding new target price
             let next_sqrt_price =
@@ -656,11 +646,7 @@ impl Pool {
                 Rounding::Down,
             )?;
 
-            let mut lp_fee: u64 = 0;
-            let mut protocol_fee: u64 = 0;
-            let mut partner_fee: u64 = 0;
-            let mut referral_fee: u64 = 0;
-            let mut x_amount = amount;
+            let mut actual_amount_out = output_amount;
             if !is_skip_fee {
                 let fee_on_amount_result: FeeOnAmountResult = self.pool_fees.get_fee_on_amount(
                     output_amount,
@@ -674,18 +660,10 @@ impl Pool {
                 protocol_fee = fee_on_amount_result.protocol_fee;
                 partner_fee = fee_on_amount_result.partner_fee;
                 referral_fee = fee_on_amount_result.referral_fee;
-                x_amount = fee_on_amount_result.amount;
+                actual_amount_out = fee_on_amount_result.amount;
             };
 
-            (
-                next_sqrt_price,
-                amount,
-                x_amount,
-                lp_fee,
-                protocol_fee,
-                partner_fee,
-                referral_fee,
-            )
+            (next_sqrt_price, amount, actual_amount_out)
         };
 
         Ok(SwapResult {
