@@ -801,6 +801,28 @@ impl Pool {
         }
     }
 
+    pub fn get_max_amount_out(&self, trade_direction: TradeDirection) -> Result<u64> {
+        let amount = match trade_direction {
+            TradeDirection::BtoA => get_delta_amount_a_unsigned_unchecked(
+                self.sqrt_min_price,
+                self.sqrt_price,
+                self.liquidity,
+                Rounding::Down,
+            )?,
+            TradeDirection::AtoB => get_delta_amount_a_unsigned_unchecked(
+                self.sqrt_price,
+                self.sqrt_max_price,
+                self.liquidity,
+                Rounding::Down,
+            )?,
+        };
+        if amount > U256::from(u64::MAX) {
+            Ok(u64::MAX)
+        } else {
+            Ok(amount.try_into().unwrap())
+        }
+    }
+
     pub fn update_pre_swap(&mut self, current_timestamp: u64) -> Result<()> {
         if self.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
             self.pool_fees

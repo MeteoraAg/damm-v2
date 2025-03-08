@@ -6,6 +6,82 @@ use crate::{
     state::Pool,
     tests::LIQUIDITY_MAX,
 };
+use proptest::prelude::*;
+
+proptest! {
+    #![proptest_config(ProptestConfig {
+        cases: 10000, .. ProptestConfig::default()
+    })]
+    #[test]
+    fn test_reserve_wont_lost_when_swap_from_a_to_b(
+        sqrt_price in MIN_SQRT_PRICE..=MAX_SQRT_PRICE,
+        amount_out in 1..=u64::MAX,
+        liquidity in 1..=LIQUIDITY_MAX,
+    ) {
+        let mut pool = Pool {
+            liquidity,
+            sqrt_price,
+            sqrt_min_price: MIN_SQRT_PRICE,
+            sqrt_max_price: MAX_SQRT_PRICE,
+            ..Default::default()
+        };
+
+        let trade_direction = TradeDirection::AtoB;
+
+        let max_amount_out = pool.get_max_amount_out(trade_direction).unwrap();
+        if amount_out <= max_amount_out {
+            let swap_result_0 = pool
+            .get_swap_result(amount_out, false, trade_direction, 0, true)
+            .unwrap();
+
+            pool.apply_swap_result(&swap_result_0, trade_direction, 0).unwrap();
+            // swap back
+
+            let swap_result_1 = pool
+            .get_swap_result(swap_result_0.input_amount, false, TradeDirection::BtoA, 0, true)
+            .unwrap();
+
+            assert!(swap_result_1.input_amount <= amount_out);
+        }
+
+    }
+
+
+    #[test]
+    fn test_reserve_wont_lost_when_swap_from_b_to_a(
+        sqrt_price in MIN_SQRT_PRICE..=MAX_SQRT_PRICE,
+        amount_out in 1..=u64::MAX,
+        liquidity in 1..=LIQUIDITY_MAX,
+    ) {
+        let mut pool = Pool {
+            liquidity,
+            sqrt_price,
+            sqrt_min_price: MIN_SQRT_PRICE,
+            sqrt_max_price: MAX_SQRT_PRICE,
+            ..Default::default()
+        };
+
+        let trade_direction = TradeDirection::BtoA;
+
+        let max_amount_in = pool.get_max_amount_out(trade_direction).unwrap();
+        if amount_out <= max_amount_in {
+            let swap_result_0 = pool
+            .get_swap_result(amount_out, false, trade_direction, 0, true)
+            .unwrap();
+
+            pool.apply_swap_result(&swap_result_0, trade_direction, 0).unwrap();
+            // swap back
+
+            let swap_result_1 = pool
+            .get_swap_result(swap_result_0.input_amount, false, TradeDirection::AtoB, 0, true)
+            .unwrap();
+
+            assert!(swap_result_1.input_amount < amount_out);
+        }
+    }
+
+}
+
 #[test]
 fn test_swap_exact_out_a_to_b_fee_on_both() {
     let sqrt_min_price = MIN_SQRT_PRICE;
