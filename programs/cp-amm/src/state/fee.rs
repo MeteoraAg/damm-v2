@@ -11,6 +11,7 @@ use crate::{
     },
     fee_math::get_fee_in_period,
     safe_math::SafeMath,
+    u128x128_math::Rounding,
     utils_math::safe_mul_div_cast_u64,
     PoolError,
 };
@@ -171,27 +172,44 @@ impl PoolFeesStruct {
                 amount,
                 FEE_DENOMINATOR,
                 FEE_DENOMINATOR.safe_sub(trade_fee_numerator)?,
+                Rounding::Up,
             )?;
 
             let lp_fee: u64 = safe_mul_div_cast_u64(
                 amount_included_lp_fee,
                 trade_fee_numerator,
                 FEE_DENOMINATOR,
+                Rounding::Down,
             )?;
             (amount_included_lp_fee, lp_fee)
         } else {
-            let lp_fee: u64 = safe_mul_div_cast_u64(amount, trade_fee_numerator, FEE_DENOMINATOR)?;
+            let lp_fee: u64 = safe_mul_div_cast_u64(
+                amount,
+                trade_fee_numerator,
+                FEE_DENOMINATOR,
+                Rounding::Down,
+            )?;
             // update amount
             let amount = amount.safe_sub(lp_fee)?;
             (amount, lp_fee)
         };
 
-        let protocol_fee = safe_mul_div_cast_u64(lp_fee, self.protocol_fee_percent.into(), 100)?;
+        let protocol_fee = safe_mul_div_cast_u64(
+            lp_fee,
+            self.protocol_fee_percent.into(),
+            100,
+            Rounding::Down,
+        )?;
         // update lp fee
         let lp_fee = lp_fee.safe_sub(protocol_fee)?;
 
         let referral_fee = if is_referral {
-            safe_mul_div_cast_u64(protocol_fee, self.referral_fee_percent.into(), 100)?
+            safe_mul_div_cast_u64(
+                protocol_fee,
+                self.referral_fee_percent.into(),
+                100,
+                Rounding::Down,
+            )?
         } else {
             0
         };
@@ -201,6 +219,7 @@ impl PoolFeesStruct {
             protocol_fee_after_referral_fee,
             self.partner_fee_percent.into(),
             100,
+            Rounding::Down,
         )?;
 
         let protocol_fee = protocol_fee_after_referral_fee.safe_sub(partner_fee)?;

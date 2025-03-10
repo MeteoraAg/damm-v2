@@ -56,14 +56,15 @@ pub fn handle_swap_exact_out(ctx: Context<SwapCtx>, params: SwapExactOutParamete
         true,
     )?;
 
-    require!(
-        swap_result.input_amount <= maximum_amount_in,
-        PoolError::ExceededSlippage
-    );
     pool.apply_swap_result(&swap_result, trade_direction, current_timestamp)?;
 
     let transfer_fee_included_amount_in =
         calculate_transfer_fee_included_amount(&token_in_mint, swap_result.input_amount)?.amount;
+
+    require!(
+        transfer_fee_included_amount_in <= maximum_amount_in,
+        PoolError::ExceededSlippage
+    );
 
     // send to reserve
     transfer_from_user(
