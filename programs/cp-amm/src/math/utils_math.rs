@@ -33,7 +33,12 @@ pub fn safe_mul_div_cast_u64<T: FromPrimitive>(
     let prod = u128::from(x).safe_mul(y.into())?;
 
     let result = match rounding {
-        Rounding::Up => prod.div_ceil(denominator.into()),
+        // ceil(prod/denominator) is `(prod + denominator - 1) / denominator`
+        Rounding::Up => {
+            let ceil_prod: u128 = prod.safe_add(denominator.into())?.safe_sub(1u128)?;
+            let result: u128 = ceil_prod.safe_div(denominator.into())?;
+            result
+        }
         Rounding::Down => prod.safe_div(denominator.into())?,
     };
 
