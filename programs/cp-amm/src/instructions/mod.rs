@@ -22,5 +22,3 @@ pub mod ix_claim_reward;
 pub use ix_claim_reward::*;
 pub mod partner;
 pub use partner::*;
-pub mod ix_swap_exact_out;
-pub use ix_swap_exact_out::*;

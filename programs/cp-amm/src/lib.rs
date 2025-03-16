@@ -153,10 +153,6 @@ pub mod cp_amm {
         instructions::handle_swap(ctx, params)
     }
 
-    pub fn swap_exact_out(ctx: Context<SwapCtx>, params: SwapExactOutParameters) -> Result<()> {
-        instructions::handle_swap_exact_out(ctx, params)
-    }
-
     pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
         instructions::handle_claim_position_fee(ctx)
     }

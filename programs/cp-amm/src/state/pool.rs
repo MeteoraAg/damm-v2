@@ -399,39 +399,31 @@ impl Pool {
         self.reward_infos[0].initialized() || self.reward_infos[1].initialized()
     }
 
-    pub fn get_swap_result(
+    pub fn get_swap_result_exact_in(
         &self,
         amount: u64,
         is_referral: bool,
         trade_direction: TradeDirection,
         current_point: u64,
-        is_exact_out: bool,
     ) -> Result<SwapResult> {
         let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
         match collect_fee_mode {
             CollectFeeMode::BothToken => match trade_direction {
-                TradeDirection::AtoB => self.get_swap_result_from_a_to_b(
-                    amount,
-                    is_referral,
-                    current_point,
-                    is_exact_out,
-                ),
-                TradeDirection::BtoA => self.get_swap_result_from_b_to_a(
+                TradeDirection::AtoB => {
+                    self.get_swap_result_exact_in_from_a_to_b(amount, is_referral, current_point)
+                }
+                TradeDirection::BtoA => self.get_swap_result_exact_in_from_b_to_a(
                     amount,
                     is_referral,
                     false,
                     current_point,
-                    is_exact_out,
                 ),
             },
             CollectFeeMode::OnlyB => match trade_direction {
-                TradeDirection::AtoB => self.get_swap_result_from_a_to_b(
-                    amount,
-                    is_referral,
-                    current_point,
-                    is_exact_out,
-                ), // this is fine since we still collect fee in token out
+                TradeDirection::AtoB => {
+                    self.get_swap_result_exact_in_from_a_to_b(amount, is_referral, current_point)
+                } // this is fine since we still collect fee in token out
                 TradeDirection::BtoA => {
                     // fee will be in token b
                     let FeeOnAmountResult {
@@ -445,15 +437,14 @@ impl Pool {
                         is_referral,
                         current_point,
                         self.activation_point,
-                        is_exact_out,
+                        false,
                     )?;
                     // skip fee
-                    let swap_result = self.get_swap_result_from_b_to_a(
+                    let swap_result = self.get_swap_result_exact_in_from_b_to_a(
                         amount,
                         is_referral,
                         true,
                         current_point,
-                        is_exact_out,
                     )?;
 
                     Ok(SwapResult {
@@ -470,82 +461,149 @@ impl Pool {
         }
     }
 
-    fn get_swap_result_from_a_to_b(
+    pub fn get_swap_result_exact_out(
         &self,
         amount: u64,
         is_referral: bool,
+        trade_direction: TradeDirection,
         current_point: u64,
-        is_exact_out: bool,
     ) -> Result<SwapResult> {
-        let (
+        let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
+            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+        match collect_fee_mode {
+            CollectFeeMode::BothToken => match trade_direction {
+                TradeDirection::AtoB => {
+                    self.get_swap_result_exact_out_from_a_to_b(amount, is_referral, current_point)
+                }
+                TradeDirection::BtoA => self.get_swap_result_exact_out_from_b_to_a(
+                    amount,
+                    is_referral,
+                    false,
+                    current_point,
+                ),
+            },
+            CollectFeeMode::OnlyB => match trade_direction {
+                TradeDirection::AtoB => {
+                    self.get_swap_result_exact_out_from_a_to_b(amount, is_referral, current_point)
+                } // this is fine since we still collect fee in token out
+                TradeDirection::BtoA => {
+                    // fee will be in token b
+                    let FeeOnAmountResult {
+                        amount,
+                        lp_fee,
+                        protocol_fee,
+                        partner_fee,
+                        referral_fee,
+                    } = self.pool_fees.get_fee_on_amount(
+                        amount,
+                        is_referral,
+                        current_point,
+                        self.activation_point,
+                        true,
+                    )?;
+                    // skip fee
+                    let swap_result = self.get_swap_result_exact_out_from_b_to_a(
+                        amount,
+                        is_referral,
+                        true,
+                        current_point,
+                    )?;
+
+                    Ok(SwapResult {
+                        input_amount: swap_result.input_amount,
+                        output_amount: swap_result.output_amount,
+                        next_sqrt_price: swap_result.next_sqrt_price,
+                        lp_fee,
+                        protocol_fee,
+                        partner_fee,
+                        referral_fee,
+                    })
+                }
+            },
+        }
+    }
+
+    fn get_swap_result_exact_in_from_a_to_b(
+        &self,
+        amount_in: u64,
+        is_referral: bool,
+        current_point: u64,
+    ) -> Result<SwapResult> {
+        // finding new target price
+        let next_sqrt_price =
+            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, true)?;
+
+        if next_sqrt_price < self.sqrt_min_price {
+            return Err(PoolError::PriceRangeViolation.into());
+        }
+
+        // finding output amount
+        let output_amount = get_delta_amount_b_unsigned(
             next_sqrt_price,
-            input_amount,
-            output_amount,
+            self.sqrt_price,
+            self.liquidity,
+            Rounding::Down,
+        )?;
+
+        let FeeOnAmountResult {
+            amount,
             lp_fee,
             protocol_fee,
             partner_fee,
             referral_fee,
-        ) = if is_exact_out {
-            let FeeOnAmountResult {
-                amount: amount_out_included_lp_fee,
-                lp_fee,
-                protocol_fee,
-                partner_fee,
-                referral_fee,
-            } = self.pool_fees.get_fee_on_amount(
-                amount,
-                is_referral,
-                current_point,
-                self.activation_point,
-                true, // exact_out
-            )?;
+        } = self.pool_fees.get_fee_on_amount(
+            output_amount,
+            is_referral,
+            current_point,
+            self.activation_point,
+            false,
+        )?;
+        Ok(SwapResult {
+            input_amount: amount_in,
+            output_amount: amount,
+            lp_fee,
+            protocol_fee,
+            partner_fee,
+            referral_fee,
+            next_sqrt_price,
+        })
+    }
 
-            let next_sqrt_price = get_next_sqrt_price_from_output(
-                self.sqrt_price,
-                self.liquidity,
-                amount_out_included_lp_fee,
-                true,
-            )?;
+    fn get_swap_result_exact_in_from_b_to_a(
+        &self,
+        amount_in: u64,
+        is_referral: bool,
+        is_skip_fee: bool,
+        current_point: u64,
+    ) -> Result<SwapResult> {
+        // finding new target price
+        let next_sqrt_price =
+            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, false)?;
 
-            if next_sqrt_price > self.sqrt_max_price {
-                return Err(PoolError::PriceRangeViolation.into());
-            }
+        if next_sqrt_price > self.sqrt_max_price {
+            return Err(PoolError::PriceRangeViolation.into());
+        }
+        // finding output amount
+        let output_amount = get_delta_amount_a_unsigned(
+            self.sqrt_price,
+            next_sqrt_price,
+            self.liquidity,
+            Rounding::Down,
+        )?;
 
-            let input_amount = get_delta_amount_a_unsigned(
-                self.sqrt_price,
+        if is_skip_fee {
+            Ok(SwapResult {
+                input_amount: amount_in,
+                output_amount,
+                lp_fee: 0,
+                protocol_fee: 0,
+                partner_fee: 0,
+                referral_fee: 0,
                 next_sqrt_price,
-                self.liquidity,
-                Rounding::Up,
-            )?;
-
-            (
-                next_sqrt_price,
-                input_amount,
-                amount,
-                lp_fee,
-                protocol_fee,
-                partner_fee,
-                referral_fee,
-            )
+            })
         } else {
-            // finding new target price
-            let next_sqrt_price =
-                get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount, true)?;
-
-            if next_sqrt_price < self.sqrt_min_price {
-                return Err(PoolError::PriceRangeViolation.into());
-            }
-
-            // finding output amount
-            let output_amount = get_delta_amount_b_unsigned(
-                next_sqrt_price,
-                self.sqrt_price,
-                self.liquidity,
-                Rounding::Down,
-            )?;
-
             let FeeOnAmountResult {
-                amount: amount_excluded_lp_fee,
+                amount,
                 lp_fee,
                 protocol_fee,
                 partner_fee,
@@ -557,21 +615,60 @@ impl Pool {
                 self.activation_point,
                 false,
             )?;
-
-            (
-                next_sqrt_price,
-                amount,
-                amount_excluded_lp_fee,
+            Ok(SwapResult {
+                input_amount: amount_in,
+                output_amount: amount,
                 lp_fee,
                 protocol_fee,
                 partner_fee,
                 referral_fee,
-            )
-        };
+                next_sqrt_price,
+            })
+        }
+    }
+
+    fn get_swap_result_exact_out_from_a_to_b(
+        &self,
+        amount: u64,
+        is_referral: bool,
+        current_point: u64,
+    ) -> Result<SwapResult> {
+        let FeeOnAmountResult {
+            amount: amount_out_included_lp_fee,
+            lp_fee,
+            protocol_fee,
+            partner_fee,
+            referral_fee,
+        } = self.pool_fees.get_fee_on_amount(
+            amount,
+            is_referral,
+            current_point,
+            self.activation_point,
+            true, // exact_out
+        )?;
+
+        // price down
+        let next_sqrt_price = get_next_sqrt_price_from_output(
+            self.sqrt_price,
+            self.liquidity,
+            amount_out_included_lp_fee,
+            true,
+        )?;
+
+        if next_sqrt_price < self.sqrt_min_price {
+            return Err(PoolError::PriceRangeViolation.into());
+        }
+
+        let input_amount = get_delta_amount_a_unsigned(
+            next_sqrt_price,
+            self.sqrt_price,
+            self.liquidity,
+            Rounding::Down, // TODO check round down or up
+        )?;
 
         Ok(SwapResult {
             input_amount,
-            output_amount,
+            output_amount: amount,
             lp_fee,
             protocol_fee,
             partner_fee,
@@ -580,95 +677,53 @@ impl Pool {
         })
     }
 
-    fn get_swap_result_from_b_to_a(
+    fn get_swap_result_exact_out_from_b_to_a(
         &self,
         amount: u64,
         is_referral: bool,
         is_skip_fee: bool,
         current_point: u64,
-        is_exact_out: bool,
     ) -> Result<SwapResult> {
         let mut lp_fee: u64 = 0;
         let mut protocol_fee: u64 = 0;
         let mut partner_fee: u64 = 0;
         let mut referral_fee: u64 = 0;
 
-        let (next_sqrt_price, input_amount, output_amount) = if is_exact_out {
-            let mut amount_out: u64 = amount;
-            if !is_skip_fee {
-                let fee_on_amount_result: FeeOnAmountResult = self.pool_fees.get_fee_on_amount(
-                    amount,
-                    is_referral,
-                    current_point,
-                    self.activation_point,
-                    true,
-                )?;
-
-                lp_fee = fee_on_amount_result.lp_fee;
-                protocol_fee = fee_on_amount_result.protocol_fee;
-                partner_fee = fee_on_amount_result.partner_fee;
-                referral_fee = fee_on_amount_result.referral_fee;
-                // add lp fee before calculate nex sqrt price
-                amount_out = fee_on_amount_result.amount;
-            }
-            let next_sqrt_price = get_next_sqrt_price_from_output(
-                self.sqrt_price,
-                self.liquidity,
-                amount_out,
-                false,
+        let mut amount_out: u64 = amount;
+        if !is_skip_fee {
+            let fee_on_amount_result: FeeOnAmountResult = self.pool_fees.get_fee_on_amount(
+                amount,
+                is_referral,
+                current_point,
+                self.activation_point,
+                true,
             )?;
 
-            if next_sqrt_price < self.sqrt_min_price {
-                return Err(PoolError::PriceRangeViolation.into());
-            }
+            lp_fee = fee_on_amount_result.lp_fee;
+            protocol_fee = fee_on_amount_result.protocol_fee;
+            partner_fee = fee_on_amount_result.partner_fee;
+            referral_fee = fee_on_amount_result.referral_fee;
+            // add lp fee before calculate nex sqrt price
+            amount_out = fee_on_amount_result.amount;
+        }
+        // price up
+        let next_sqrt_price: u128 =
+            get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount_out, false)?;
 
-            let input_amount = get_delta_amount_b_unsigned(
-                next_sqrt_price,
-                self.sqrt_price,
-                self.liquidity,
-                Rounding::Down,
-            )?;
+        if next_sqrt_price > self.sqrt_max_price {
+            return Err(PoolError::PriceRangeViolation.into());
+        }
 
-            (next_sqrt_price, input_amount, amount)
-        } else {
-            // finding new target price
-            let next_sqrt_price =
-                get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount, false)?;
-
-            if next_sqrt_price > self.sqrt_max_price {
-                return Err(PoolError::PriceRangeViolation.into());
-            }
-            // finding output amount
-            let output_amount = get_delta_amount_a_unsigned(
-                self.sqrt_price,
-                next_sqrt_price,
-                self.liquidity,
-                Rounding::Down,
-            )?;
-
-            let mut actual_amount_out = output_amount;
-            if !is_skip_fee {
-                let fee_on_amount_result: FeeOnAmountResult = self.pool_fees.get_fee_on_amount(
-                    output_amount,
-                    is_referral,
-                    current_point,
-                    self.activation_point,
-                    false,
-                )?;
-
-                lp_fee = fee_on_amount_result.lp_fee;
-                protocol_fee = fee_on_amount_result.protocol_fee;
-                partner_fee = fee_on_amount_result.partner_fee;
-                referral_fee = fee_on_amount_result.referral_fee;
-                actual_amount_out = fee_on_amount_result.amount;
-            };
-
-            (next_sqrt_price, amount, actual_amount_out)
-        };
+        let input_amount = get_delta_amount_b_unsigned(
+            self.sqrt_price,
+            next_sqrt_price,
+            self.liquidity,
+            Rounding::Down, // TODO check round down or up
+        )?;
 
         Ok(SwapResult {
             input_amount,
-            output_amount,
+            output_amount: amount,
             lp_fee,
             protocol_fee,
             partner_fee,
