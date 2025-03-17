@@ -891,10 +891,11 @@ export async function claimReward(
     await banksClient.getAccount(poolState.rewardInfos[index].mint)
   ).owner;
 
-  const userTokenAccount = getAssociatedTokenAddressSync(
+  const userTokenAccount = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    user,
     poolState.rewardInfos[index].mint,
     user.publicKey,
-    true,
     tokenProgram
   );
 

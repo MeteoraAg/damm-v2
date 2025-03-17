@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import { randomID, setupTestContext, startTest } from "./bankrun-utils/common";
+import { generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -15,37 +15,75 @@ import {
   MIN_SQRT_PRICE,
   getPool,
   U64_MAX,
+  createToken,
+  mintSplTokenTo,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { AccountLayout, ExtensionType } from "@solana/spl-token";
+import { createToken2022, mintToToken2022 } from "./bankrun-utils/token2022";
 
 describe("Add liquidity", () => {
   describe("SPL Token", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
+    let creator: Keypair;
     let config: PublicKey;
     let pool: PublicKey;
     let position: PublicKey;
-    let poolCreator: PublicKey;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      context = await startTest();
+      const root = Keypair.generate();
+      context = await startTest(root);
 
-      const prepareContext = await setupTestContext(
+      user = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+
+      tokenAMint = await createToken(
         context.banksClient,
         context.payer,
-        false
+        context.payer.publicKey
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      poolCreator = prepareContext.poolCreator.publicKey;
-      tokenAMint = prepareContext.tokenAMint;
-      tokenBMint = prepareContext.tokenBMint;
+      tokenBMint = await createToken(
+        context.banksClient,
+        context.payer,
+        context.payer.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        creator.publicKey
+      );
 
       // create config
       const createConfigParams: CreateConfigParams = {
@@ -80,8 +118,8 @@ describe("Add liquidity", () => {
 
     it("Create pool with sqrtPrice equal sqrtMintPrice", async () => {
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: poolCreator,
+        payer: creator,
+        creator: creator.publicKey,
         config,
         tokenAMint: tokenAMint,
         tokenBMint: tokenBMint,
@@ -95,7 +133,7 @@ describe("Add liquidity", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        user,
         user.publicKey,
         pool
       );
@@ -147,8 +185,8 @@ describe("Add liquidity", () => {
 
     it("Create pool with sqrtPrice equal sqrtMaxPrice", async () => {
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: poolCreator,
+        payer: creator,
+        creator: creator.publicKey,
         config,
         tokenAMint: tokenAMint,
         tokenBMint: tokenBMint,
@@ -162,7 +200,7 @@ describe("Add liquidity", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        creator,
         user.publicKey,
         pool
       );
@@ -217,29 +255,63 @@ describe("Add liquidity", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
     let config: PublicKey;
     let pool: PublicKey;
     let position: PublicKey;
-    let poolCreator: PublicKey;
+    let creator: Keypair;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      context = await startTest();
+      const root = Keypair.generate();
+      context = await startTest(root);
       const extensions = [ExtensionType.TransferFeeConfig];
-      const prepareContext = await setupTestContext(
+      user = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+
+      tokenAMint = await createToken2022(
         context.banksClient,
         context.payer,
-        true,
         extensions
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      poolCreator = prepareContext.poolCreator.publicKey;
-      tokenAMint = prepareContext.tokenAMint;
-      tokenBMint = prepareContext.tokenBMint;
+      tokenBMint = await createToken2022(
+        context.banksClient,
+        context.payer,
+        extensions
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        creator.publicKey
+      );
 
       // create config
       const createConfigParams: CreateConfigParams = {
@@ -274,8 +346,8 @@ describe("Add liquidity", () => {
 
     it("Create pool with sqrtPrice equal sqrtMintPrice", async () => {
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: poolCreator,
+        payer: creator,
+        creator: creator.publicKey,
         config,
         tokenAMint: tokenAMint,
         tokenBMint: tokenBMint,
@@ -289,7 +361,7 @@ describe("Add liquidity", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        user,
         user.publicKey,
         pool
       );
@@ -331,18 +403,12 @@ describe("Add liquidity", () => {
       );
 
       expect(preTokenBVaultBalance).eq(postTokenBVaultBalance);
-
-      console.log({ preTokenAVaultBalance, postTokenAVaultBalance });
-      console.log({
-        preTokenBVaultBalance,
-        postTokenBVaultBalance,
-      });
     });
 
     it("Create pool with sqrtPrice equal sqrtMaxPrice", async () => {
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: poolCreator,
+        payer: creator,
+        creator: creator.publicKey,
         config,
         tokenAMint: tokenAMint,
         tokenBMint: tokenBMint,
@@ -356,7 +422,7 @@ describe("Add liquidity", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        user,
         user.publicKey,
         pool
       );

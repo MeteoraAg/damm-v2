@@ -16,13 +16,14 @@ import {
 import { BanksClient } from "solana-bankrun";
 import { DECIMALS } from "./constants";
 import { getOrCreateAssociatedTokenAccount } from "./token";
+const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
 
 export async function createToken2022(
   banksClient: BanksClient,
   payer: Keypair,
-  mintKeypair: Keypair,
   extensions: ExtensionType[]
-) {
+): Promise<PublicKey> {
+  const mintKeypair = Keypair.generate();
   const maxFee = BigInt(9 * Math.pow(10, DECIMALS));
   const feeBasisPoints = 100;
   const transferFeeConfigAuthority = Keypair.generate();
@@ -62,15 +63,16 @@ export async function createToken2022(
   transaction.sign(payer, mintKeypair);
 
   await banksClient.processTransaction(transaction);
+
+  return mintKeypair.publicKey;
 }
 
 export async function mintToToken2022(
   banksClient: BanksClient,
   payer: Keypair,
-  mintAuthority: Keypair,
   mint: PublicKey,
-  toWallet: PublicKey,
-  amount: bigint
+  mintAuthority: Keypair,
+  toWallet: PublicKey
 ) {
   const destination = await getOrCreateAssociatedTokenAccount(
     banksClient,
@@ -83,7 +85,7 @@ export async function mintToToken2022(
     mint,
     destination,
     mintAuthority.publicKey,
-    amount,
+    rawAmount,
     [],
     TOKEN_2022_PROGRAM_ID
   );

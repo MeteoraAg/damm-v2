@@ -5,40 +5,11 @@ import {
   SystemProgram,
   Transaction,
 } from "@solana/web3.js";
-import {
-  BanksClient,
-  Clock,
-  ProgramTestContext,
-  startAnchor,
-} from "solana-bankrun";
-import { CP_AMM_PROGRAM_ID, DECIMALS } from "./constants";
-import BN, { min } from "bn.js";
-import {
-  createToken,
-  getMint,
-  getTokenAccount,
-  mintTo,
-  wrapSOL,
-} from "./token";
-import {
-  ExtensionType,
-  getAssociatedTokenAddressSync,
-  NATIVE_MINT,
-} from "@solana/spl-token";
-import { publicKey } from "@coral-xyz/anchor/dist/cjs/utils";
-import { createToken2022, mintToToken2022 } from "./token2022";
+import { BanksClient, ProgramTestContext, startAnchor } from "solana-bankrun";
+import { CP_AMM_PROGRAM_ID } from "./constants";
+import BN from "bn.js";
 
-// bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1
-export const LOCAL_ADMIN_KEYPAIR = Keypair.fromSecretKey(
-  Uint8Array.from([
-    230, 207, 238, 109, 95, 154, 47, 93, 183, 250, 147, 189, 87, 15, 117, 184,
-    44, 91, 94, 231, 126, 140, 238, 134, 29, 58, 8, 182, 88, 22, 113, 234, 8,
-    234, 192, 109, 87, 125, 190, 55, 129, 173, 227, 8, 104, 201, 104, 13, 31,
-    178, 74, 80, 54, 14, 77, 78, 226, 57, 47, 122, 166, 165, 57, 144,
-  ])
-);
-
-export async function startTest() {
+export async function startTest(root: Keypair) {
   // Program name need to match fixtures program name
   return startAnchor(
     "./",
@@ -50,7 +21,7 @@ export async function startTest() {
     ],
     [
       {
-        address: LOCAL_ADMIN_KEYPAIR.publicKey,
+        address: root.publicKey,
         info: {
           executable: false,
           owner: SystemProgram.programId,
@@ -114,192 +85,202 @@ export async function expectThrowsAsync(
   throw new Error("Expected an error but didn't get one");
 }
 
-export async function createUsersAndFund(
+export async function generateKpAndFund(
   banksClient: BanksClient,
-  payer: Keypair,
-  user?: Keypair
+  rootKeypair: Keypair
 ): Promise<Keypair> {
-  if (!user) {
-    user = Keypair.generate();
-  }
-
+  const kp = Keypair.generate();
   await transferSol(
     banksClient,
-    payer,
-    user.publicKey,
+    rootKeypair,
+    kp.publicKey,
     new BN(LAMPORTS_PER_SOL)
   );
-
-  return user;
+  return kp;
 }
 
-export async function setupTestContext(
-  banksClient: BanksClient,
-  rootKeypair: Keypair,
-  token2022: boolean,
-  extensions?: ExtensionType[]
-) {
-  const [admin, payer, poolCreator, user, funder, operator, partner] = Array(7)
-    .fill(7)
-    .map(() => Keypair.generate());
+// async function createAndFundToken2022(
+//   banksClient: BanksClient,
+//   rootKeypair: Keypair,
+//   extensions: ExtensionType[],
+//   accounts: PublicKey[]
+// ) {
+//   const tokenAMintKeypair = Keypair.generate();
+//   const tokenBMintKeypair = Keypair.generate();
+//   const rewardMintKeypair = Keypair.generate();
+//   await createToken2022(
+//     banksClient,
+//     rootKeypair,
+//     tokenAMintKeypair,
+//     extensions
+//   );
+//   await createToken2022(
+//     banksClient,
+//     rootKeypair,
+//     tokenBMintKeypair,
+//     extensions
+//   );
+//   await createToken2022(
+//     banksClient,
+//     rootKeypair,
+//     rewardMintKeypair,
+//     extensions
+//   );
+//   // Mint token A to payer & user
+//   for (const account of accounts) {
+//     await mintToToken2022(
+//       banksClient,
+//       rootKeypair,
+//       rootKeypair,
+//       tokenAMintKeypair.publicKey,
+//       account,
+//       BigInt(rawAmount)
+//     );
 
-  await Promise.all(
-    [
-      admin.publicKey,
-      payer.publicKey,
-      user.publicKey,
-      funder.publicKey,
-      operator.publicKey,
-      partner.publicKey,
-    ].map((publicKey) =>
-      transferSol(banksClient, rootKeypair, publicKey, new BN(LAMPORTS_PER_SOL))
-    )
-  );
+//     await mintToToken2022(
+//       banksClient,
+//       rootKeypair,
+//       rootKeypair,
+//       tokenBMintKeypair.publicKey,
+//       account,
+//       BigInt(rawAmount)
+//     );
 
-  //
-  const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
+//     await mintToToken2022(
+//       banksClient,
+//       rootKeypair,
+//       rootKeypair,
+//       rewardMintKeypair.publicKey,
+//       account,
+//       BigInt(rawAmount)
+//     );
 
-  const tokenAMintKeypair = Keypair.generate();
-  const tokenBMintKeypair = Keypair.generate();
-  const rewardMintKeypair = Keypair.generate();
+//     await mintToToken2022(
+//       banksClient,
+//       rootKeypair,
+//       rootKeypair,
+//       rewardMintKeypair.publicKey,
+//       account,
+//       BigInt(rawAmount)
+//     );
+//   }
+//   return {
+//     tokenAMint: tokenAMintKeypair.publicKey,
+//     tokenBMint: tokenBMintKeypair,
+//     rewardMint: rewardMintKeypair.publicKey,
+//   };
+// }
 
-  if (token2022) {
-    await Promise.all([
-      createToken2022(banksClient, rootKeypair, tokenAMintKeypair, extensions),
-      createToken2022(banksClient, rootKeypair, tokenBMintKeypair, extensions),
-      createToken2022(banksClient, rootKeypair, rewardMintKeypair, extensions),
-    ]);
+// async function createAndFundSplToken(
+//   banksClient: BanksClient,
+//   rootKeypair: Keypair,
+//   accounts: PublicKey[]
+// ) {
+//   const tokenAMintKeypair = Keypair.generate();
+//   const tokenBMintKeypair = Keypair.generate();
+//   const rewardMintKeypair = Keypair.generate();
+//   await createToken(
+//     banksClient,
+//     rootKeypair,
+//     tokenAMintKeypair,
+//     rootKeypair.publicKey
+//   );
+//   await createToken(
+//     banksClient,
+//     rootKeypair,
+//     tokenBMintKeypair,
+//     rootKeypair.publicKey
+//   );
+//   await createToken(
+//     banksClient,
+//     rootKeypair,
+//     rewardMintKeypair,
+//     rootKeypair.publicKey
+//   );
+//   // Mint token A to payer & user
+//   for (const account of accounts) {
+//     mintTo(
+//       banksClient,
+//       rootKeypair,
+//       tokenAMintKeypair.publicKey,
+//       rootKeypair,
+//       account,
+//       BigInt(rawAmount)
+//     );
 
-    console.log("create token");
-    // Mint token A to payer & user
-    await Promise.all(
-      [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
-        mintToToken2022(
-          banksClient,
-          rootKeypair,
-          rootKeypair,
-          tokenAMintKeypair.publicKey,
-          publicKey,
-          BigInt(rawAmount)
-        )
-      )
-    );
+//     mintTo(
+//       banksClient,
+//       rootKeypair,
+//       tokenBMintKeypair.publicKey,
+//       rootKeypair,
+//       account,
+//       BigInt(rawAmount)
+//     );
 
-    // Mint token B to payer & user
-    await Promise.all(
-      [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
-        mintToToken2022(
-          banksClient,
-          rootKeypair,
-          rootKeypair,
-          tokenBMintKeypair.publicKey,
-          publicKey,
-          BigInt(rawAmount)
-        )
-      )
-    );
+//     await mintTo(
+//       banksClient,
+//       rootKeypair,
+//       rewardMintKeypair.publicKey,
+//       rootKeypair,
+//       account,
+//       BigInt(rawAmount)
+//     );
 
-    // mint reward to funder
-    await mintToToken2022(
-      banksClient,
-      rootKeypair,
-      rootKeypair,
-      rewardMintKeypair.publicKey,
-      funder.publicKey,
-      BigInt(rawAmount)
-    );
+//     await mintTo(
+//       banksClient,
+//       rootKeypair,
+//       rewardMintKeypair.publicKey,
+//       rootKeypair,
+//       account,
+//       BigInt(rawAmount)
+//     );
+//   }
 
-    await mintToToken2022(
-      banksClient,
-      rootKeypair,
-      rootKeypair,
-      rewardMintKeypair.publicKey,
-      user.publicKey,
-      BigInt(rawAmount)
-    );
-  } else {
-    await Promise.all([
-      createToken(
-        banksClient,
-        rootKeypair,
-        tokenAMintKeypair,
-        rootKeypair.publicKey
-      ),
-      createToken(
-        banksClient,
-        rootKeypair,
-        tokenBMintKeypair,
-        rootKeypair.publicKey
-      ),
-      createToken(
-        banksClient,
-        rootKeypair,
-        rewardMintKeypair,
-        rootKeypair.publicKey
-      ),
-    ]);
+//   return {
+//     tokenAMint: tokenAMintKeypair.publicKey,
+//     tokenBMint: tokenBMintKeypair,
+//     rewardMint: rewardMintKeypair.publicKey,
+//   };
+// }
 
-    // Mint token A to payer & user
-    await Promise.all(
-      [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
-        mintTo(
-          banksClient,
-          rootKeypair,
-          tokenAMintKeypair.publicKey,
-          rootKeypair,
-          publicKey,
-          BigInt(rawAmount)
-        )
-      )
-    );
+// export async function setupTestContext(
+//   banksClient: BanksClient,
+//   rootKeypair: Keypair,
+//   token2022: boolean,
+//   extensions?: ExtensionType[]
+// ) {
+//   const accounts = await generateKpAndFund(banksClient, rootKeypair, 7);
+//   const accountPubkeys = accounts.map((item) => item.publicKey);
+//   //
+//   let tokens;
+//   if (token2022) {
+//     tokens = await createAndFundToken2022(
+//       banksClient,
+//       rootKeypair,
+//       extensions,
+//       accountPubkeys
+//     );
+//   } else {
+//     tokens = await createAndFundSplToken(
+//       banksClient,
+//       rootKeypair,
+//       accountPubkeys
+//     );
+//   }
 
-    // Mint token B to payer & user
-    await Promise.all(
-      [payer.publicKey, user.publicKey, partner.publicKey].map((publicKey) =>
-        mintTo(
-          banksClient,
-          rootKeypair,
-          tokenBMintKeypair.publicKey,
-          rootKeypair,
-          publicKey,
-          BigInt(rawAmount)
-        )
-      )
-    );
-
-    // mint reward to funder
-    await mintTo(
-      banksClient,
-      rootKeypair,
-      rewardMintKeypair.publicKey,
-      rootKeypair,
-      funder.publicKey,
-      BigInt(rawAmount)
-    );
-
-    await mintTo(
-      banksClient,
-      rootKeypair,
-      rewardMintKeypair.publicKey,
-      rootKeypair,
-      user.publicKey,
-      BigInt(rawAmount)
-    );
-  }
-
-  return {
-    admin,
-    payer,
-    poolCreator,
-    tokenAMint: tokenAMintKeypair.publicKey,
-    tokenBMint: tokenBMintKeypair.publicKey,
-    rewardMint: rewardMintKeypair.publicKey,
-    funder,
-    user,
-    operator,
-    partner,
-  };
-}
+//   return {
+//     admin: accounts[0],
+//     payer: accounts[1],
+//     poolCreator: accounts[2],
+//     funder: accounts[3],
+//     user: accounts[4],
+//     operator: accounts[5],
+//     partner: accounts[6],
+//     tokenAMint: tokens.tokenAMint,
+//     tokenBMint: tokens.tokenBMint,
+//     rewardMint: tokens.rewardMint,
+//   };
+// }
 
 export function randomID(min = 0, max = 10000) {
   return Math.floor(Math.random() * (max - min) + min);

@@ -1,13 +1,6 @@
-import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import {
-  LOCAL_ADMIN_KEYPAIR,
-  createUsersAndFund,
-  setupTestContext,
-  startTest,
-  transferSol,
-} from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { ProgramTestContext } from "solana-bankrun";
+import { generateKpAndFund, startTest } from "./bankrun-utils/common";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -15,8 +8,6 @@ import {
   createConfigIx,
   CreateConfigParams,
   createPosition,
-  getPool,
-  getPosition,
   initializePool,
   InitializePoolParams,
   MIN_LP_AMOUNT,
@@ -24,6 +15,8 @@ import {
   MIN_SQRT_PRICE,
   swap,
   SwapParams,
+  createToken,
+  mintSplTokenTo,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -31,29 +24,64 @@ describe("Claim position fee", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let user: Keypair;
-  let payer: Keypair;
+  let creator: Keypair;
   let config: PublicKey;
-  let liquidity: BN;
-  let sqrtPrice: BN;
   let pool: PublicKey;
   let position: PublicKey;
-  let inputTokenMint: PublicKey;
-  let outputTokenMint: PublicKey;
+  let tokenAMint: PublicKey;
+  let tokenBMint: PublicKey;
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
-    context = await startTest();
+    const root = Keypair.generate();
+    context = await startTest(root);
 
-    const prepareContext = await setupTestContext(
+    user = await generateKpAndFund(context.banksClient, context.payer);
+    admin = await generateKpAndFund(context.banksClient, context.payer);
+    creator = await generateKpAndFund(context.banksClient, context.payer);
+
+    tokenAMint = await createToken(
       context.banksClient,
       context.payer,
-      false
+      context.payer.publicKey
     );
-    payer = prepareContext.payer;
-    user = prepareContext.user;
-    admin = prepareContext.admin;
-    inputTokenMint = prepareContext.tokenAMint;
-    outputTokenMint = prepareContext.tokenBMint;
+    tokenBMint = await createToken(
+      context.banksClient,
+      context.payer,
+      context.payer.publicKey
+    );
+
+    await mintSplTokenTo(
+      context.banksClient,
+      context.payer,
+      tokenAMint,
+      context.payer,
+      user.publicKey
+    );
+
+    await mintSplTokenTo(
+      context.banksClient,
+      context.payer,
+      tokenBMint,
+      context.payer,
+      user.publicKey
+    );
+
+    await mintSplTokenTo(
+      context.banksClient,
+      context.payer,
+      tokenAMint,
+      context.payer,
+      creator.publicKey
+    );
+
+    await mintSplTokenTo(
+      context.banksClient,
+      context.payer,
+      tokenBMint,
+      context.payer,
+      creator.publicKey
+    );
 
     // create config
     const createConfigParams: CreateConfigParams = {
@@ -85,17 +113,14 @@ describe("Claim position fee", () => {
       createConfigParams
     );
 
-    liquidity = new BN(MIN_LP_AMOUNT);
-    sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
-
     const initPoolParams: InitializePoolParams = {
-      payer: payer,
-      creator: prepareContext.poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       config,
-      tokenAMint: prepareContext.tokenAMint,
-      tokenBMint: prepareContext.tokenBMint,
-      liquidity,
-      sqrtPrice,
+      tokenAMint,
+      tokenBMint,
+      liquidity: new BN(MIN_LP_AMOUNT),
+      sqrtPrice: new BN(MIN_SQRT_PRICE.muln(2)),
       activationPoint: null,
     };
 
@@ -103,7 +128,7 @@ describe("Claim position fee", () => {
     pool = result.pool;
     position = await createPosition(
       context.banksClient,
-      payer,
+      user,
       user.publicKey,
       pool
     );
@@ -123,8 +148,8 @@ describe("Claim position fee", () => {
     const swapParams: SwapParams = {
       payer: user,
       pool,
-      inputTokenMint,
-      outputTokenMint,
+      inputTokenMint: tokenAMint,
+      outputTokenMint: tokenBMint,
       amountIn: new BN(10),
       minimumAmountOut: new BN(0),
       referralTokenAccount: null,

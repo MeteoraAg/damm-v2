@@ -23,46 +23,85 @@ import {
   refreshVestings,
   swap,
   SwapParams,
+  mintSplTokenTo,
+  createToken,
 } from "./bankrun-utils";
 import {
-  setupTestContext,
+  generateKpAndFund,
   startTest,
   warpSlotBy,
 } from "./bankrun-utils/common";
 import { ExtensionType } from "@solana/spl-token";
+import { createToken2022, mintToToken2022 } from "./bankrun-utils/token2022";
 
 describe("Lock position", () => {
   describe("SPL Token", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
+    let creator: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
     let pool: PublicKey;
     let position: PublicKey;
-    let inputTokenMint: PublicKey;
-    let outputTokenMint: PublicKey;
+    let tokenAMint: PublicKey;
+    let tokenBMint: PublicKey;
     let liquidityDelta: BN;
 
     const configId = Math.floor(Math.random() * 1000);
     const vestings: PublicKey[] = [];
 
     before(async () => {
-      context = await startTest();
+      const root = Keypair.generate();
+      context = await startTest(root);
 
-      const prepareContext = await setupTestContext(
+      user = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+
+      tokenAMint = await createToken(
         context.banksClient,
         context.payer,
-        false
+        context.payer.publicKey
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      inputTokenMint = prepareContext.tokenAMint;
-      outputTokenMint = prepareContext.tokenBMint;
+      tokenBMint = await createToken(
+        context.banksClient,
+        context.payer,
+        context.payer.publicKey
+      );
 
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        creator.publicKey
+      );
       // create config
       const createConfigParams: CreateConfigParams = {
         index: new BN(configId),
@@ -98,11 +137,11 @@ describe("Lock position", () => {
       liquidityDelta = new BN(sqrtPrice.mul(new BN(1_000)));
 
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: prepareContext.poolCreator.publicKey,
+        payer: creator,
+        creator: creator.publicKey,
         config,
-        tokenAMint: prepareContext.tokenAMint,
-        tokenBMint: prepareContext.tokenBMint,
+        tokenAMint,
+        tokenBMint,
         liquidity,
         sqrtPrice,
         activationPoint: null,
@@ -112,7 +151,7 @@ describe("Lock position", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        user,
         user.publicKey,
         pool
       );
@@ -193,8 +232,8 @@ describe("Lock position", () => {
         const swapParams: SwapParams = {
           payer: user,
           pool,
-          inputTokenMint,
-          outputTokenMint,
+          inputTokenMint: tokenAMint,
+          outputTokenMint: tokenBMint,
           amountIn: new BN(100),
           minimumAmountOut: new BN(0),
           referralTokenAccount: null,
@@ -316,33 +355,69 @@ describe("Lock position", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
+    let creator: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
     let pool: PublicKey;
     let position: PublicKey;
-    let inputTokenMint: PublicKey;
-    let outputTokenMint: PublicKey;
+    let tokenAMint: PublicKey;
+    let tokenBMint: PublicKey;
     let liquidityDelta: BN;
 
     const configId = Math.floor(Math.random() * 1000);
     const vestings: PublicKey[] = [];
 
     before(async () => {
-      context = await startTest();
-      const extenstions = [ExtensionType.TransferFeeConfig];
-      const prepareContext = await setupTestContext(
+      const root = Keypair.generate();
+      context = await startTest(root);
+      const extensions = [ExtensionType.TransferFeeConfig];
+      user = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+
+      tokenAMint = await createToken2022(
         context.banksClient,
         context.payer,
-        true,
-        extenstions
+        extensions
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      inputTokenMint = prepareContext.tokenAMint;
-      outputTokenMint = prepareContext.tokenBMint;
+      tokenBMint = await createToken2022(
+        context.banksClient,
+        context.payer,
+        extensions
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        creator.publicKey
+      );
 
       // create config
       const createConfigParams: CreateConfigParams = {
@@ -379,11 +454,11 @@ describe("Lock position", () => {
       liquidityDelta = new BN(sqrtPrice.mul(new BN(1_000)));
 
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: prepareContext.poolCreator.publicKey,
+        payer: creator,
+        creator: creator.publicKey,
         config,
-        tokenAMint: prepareContext.tokenAMint,
-        tokenBMint: prepareContext.tokenBMint,
+        tokenAMint,
+        tokenBMint,
         liquidity,
         sqrtPrice,
         activationPoint: null,
@@ -393,7 +468,7 @@ describe("Lock position", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        user,
         user.publicKey,
         pool
       );
@@ -474,8 +549,8 @@ describe("Lock position", () => {
         const swapParams: SwapParams = {
           payer: user,
           pool,
-          inputTokenMint,
-          outputTokenMint,
+          inputTokenMint: tokenAMint,
+          outputTokenMint: tokenBMint,
           amountIn: new BN(100),
           minimumAmountOut: new BN(0),
           referralTokenAccount: null,

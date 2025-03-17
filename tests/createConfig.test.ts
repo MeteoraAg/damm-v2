@@ -1,15 +1,8 @@
 import { BN } from "bn.js";
-import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import {
-  LOCAL_ADMIN_KEYPAIR,
-  createUsersAndFund,
-  randomID,
-  startTest,
-  transferSol,
-} from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { wrapSOL } from "./bankrun-utils/token";
+
+import { ProgramTestContext } from "solana-bankrun";
+import { generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   BASIS_POINT_MAX,
   closeConfigIx,
@@ -27,8 +20,9 @@ describe("Admin function: Create config", () => {
   let createConfigParams: CreateConfigParams;
 
   beforeEach(async () => {
-    context = await startTest();
-    admin = await createUsersAndFund(context.banksClient, context.payer);
+    const root = Keypair.generate();
+    context = await startTest(root);
+    admin = await generateKpAndFund(context.banksClient, context.payer);
 
     createConfigParams = {
       index: new BN(randomID()),

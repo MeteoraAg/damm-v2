@@ -1,22 +1,12 @@
-import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import {
-  LOCAL_ADMIN_KEYPAIR,
-  createUsersAndFund,
-  randomID,
-  setupTestContext,
-  startTest,
-  transferSol,
-} from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { ProgramTestContext } from "solana-bankrun";
+import { generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
   AddLiquidityParams,
   createConfigIx,
   CreateConfigParams,
   createPosition,
-  getPool,
-  getPosition,
   initializePool,
   InitializePoolParams,
   MIN_LP_AMOUNT,
@@ -24,22 +14,23 @@ import {
   MIN_SQRT_PRICE,
   swap,
   SwapParams,
-  DECIMALS,
   createClaimFeeOperator,
   claimProtocolFee,
   TREASURY,
   claimPartnerFee,
   closeClaimFeeOperator,
+  mintSplTokenTo,
+  createToken,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { ExtensionType } from "@solana/spl-token";
+import { createToken2022, mintToToken2022 } from "./bankrun-utils/token2022";
 
 describe("Claim fee", () => {
   describe("SPL Token", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -51,20 +42,56 @@ describe("Claim fee", () => {
     let partner: Keypair;
 
     beforeEach(async () => {
-      context = await startTest();
+      const root = Keypair.generate();
+      context = await startTest(root);
 
-      const prepareContext = await setupTestContext(
+      user = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+      partner = await generateKpAndFund(context.banksClient, context.payer);
+      operator = await generateKpAndFund(context.banksClient, context.payer);
+
+      inputTokenMint = await createToken(
         context.banksClient,
         context.payer,
-        false
+        context.payer.publicKey
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      inputTokenMint = prepareContext.tokenAMint;
-      outputTokenMint = prepareContext.tokenBMint;
-      operator = prepareContext.operator;
-      partner = prepareContext.partner;
+      outputTokenMint = await createToken(
+        context.banksClient,
+        context.payer,
+        context.payer.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        inputTokenMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        outputTokenMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        inputTokenMint,
+        context.payer,
+        partner.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        outputTokenMint,
+        context.payer,
+        partner.publicKey
+      );
 
       // create config
       const createConfigParams: CreateConfigParams = {
@@ -101,10 +128,10 @@ describe("Claim fee", () => {
 
       const initPoolParams: InitializePoolParams = {
         payer: partner,
-        creator: prepareContext.poolCreator.publicKey,
+        creator: partner.publicKey,
         config,
-        tokenAMint: prepareContext.tokenAMint,
-        tokenBMint: prepareContext.tokenBMint,
+        tokenAMint: inputTokenMint,
+        tokenBMint: outputTokenMint,
         liquidity,
         sqrtPrice,
         activationPoint: null,
@@ -114,7 +141,7 @@ describe("Claim fee", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        user,
         user.publicKey,
         pool
       );
@@ -179,7 +206,6 @@ describe("Claim fee", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -191,21 +217,56 @@ describe("Claim fee", () => {
     let partner: Keypair;
 
     beforeEach(async () => {
-      context = await startTest();
-      const extenstions = [ExtensionType.TransferFeeConfig];
-      const prepareContext = await setupTestContext(
+      const root = Keypair.generate();
+      context = await startTest(root);
+      const extensions = [ExtensionType.TransferFeeConfig];
+      user = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+      partner = await generateKpAndFund(context.banksClient, context.payer);
+      operator = await generateKpAndFund(context.banksClient, context.payer);
+
+      inputTokenMint = await createToken2022(
         context.banksClient,
         context.payer,
-        true,
-        extenstions
+        extensions
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      inputTokenMint = prepareContext.tokenAMint;
-      outputTokenMint = prepareContext.tokenBMint;
-      operator = prepareContext.operator;
-      partner = prepareContext.partner;
+      outputTokenMint = await createToken2022(
+        context.banksClient,
+        context.payer,
+        extensions
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        inputTokenMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        outputTokenMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        inputTokenMint,
+        context.payer,
+        partner.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        outputTokenMint,
+        context.payer,
+        partner.publicKey
+      );
 
       // create config
       const createConfigParams: CreateConfigParams = {
@@ -242,10 +303,10 @@ describe("Claim fee", () => {
 
       const initPoolParams: InitializePoolParams = {
         payer: partner,
-        creator: prepareContext.poolCreator.publicKey,
+        creator: partner.publicKey,
         config,
-        tokenAMint: prepareContext.tokenAMint,
-        tokenBMint: prepareContext.tokenBMint,
+        tokenAMint: inputTokenMint,
+        tokenBMint: outputTokenMint,
         liquidity,
         sqrtPrice,
         activationPoint: null,
@@ -255,7 +316,7 @@ describe("Claim fee", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        user,
         user.publicKey,
         pool
       );

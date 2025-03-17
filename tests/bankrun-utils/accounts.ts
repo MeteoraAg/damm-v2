@@ -3,7 +3,6 @@ import BN from "bn.js";
 
 import { getFirstKey, getSecondKey } from "./cpAmm";
 import { CP_AMM_PROGRAM_ID } from "./constants";
-import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
 export function derivePoolAuthority(): PublicKey {
   return PublicKey.findProgramAddressSync(
@@ -34,9 +33,7 @@ export function derivePoolAddress(
   )[0];
 }
 
-export function derivePositionAddress(
-  positionNft: PublicKey,
-): PublicKey {
+export function derivePositionAddress(positionNft: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("position"), positionNft.toBuffer()],
     CP_AMM_PROGRAM_ID
@@ -91,7 +88,9 @@ export function deriveClaimFeeOperatorAddress(operator: PublicKey): PublicKey {
   )[0];
 }
 
-export function derivePositionNftAccount(positionNftMint: PublicKey): PublicKey {
+export function derivePositionNftAccount(
+  positionNftMint: PublicKey
+): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("position_nft_account"), positionNftMint.toBuffer()],
     CP_AMM_PROGRAM_ID

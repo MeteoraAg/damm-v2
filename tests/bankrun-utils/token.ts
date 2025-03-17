@@ -23,6 +23,7 @@ import {
 import BN from "bn.js";
 import { BanksClient } from "solana-bankrun";
 import { DECIMALS } from "./constants";
+const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
 
 export async function getOrCreateAssociatedTokenAccount(
   banksClient: BanksClient,
@@ -56,9 +57,9 @@ export async function getOrCreateAssociatedTokenAccount(
 export async function createToken(
   banksClient: BanksClient,
   payer: Keypair,
-  mintKeypair: Keypair,
   mintAuthority: PublicKey
-) {
+): Promise<PublicKey> {
+  const mintKeypair = Keypair.generate();
   const rent = await banksClient.getRent();
   const lamports = rent.minimumBalance(BigInt(MINT_SIZE));
 
@@ -84,6 +85,8 @@ export async function createToken(
   transaction.sign(payer, mintKeypair);
 
   await banksClient.processTransaction(transaction);
+
+  return mintKeypair.publicKey;
 }
 
 export async function wrapSOL(
@@ -115,13 +118,12 @@ export async function wrapSOL(
   await banksClient.processTransaction(transaction);
 }
 
-export async function mintTo(
+export async function mintSplTokenTo(
   banksClient: BanksClient,
   payer: Keypair,
   mint: PublicKey,
   mintAuthority: Keypair,
-  toWallet: PublicKey,
-  amount: bigint
+  toWallet: PublicKey
 ) {
   const destination = await getOrCreateAssociatedTokenAccount(
     banksClient,
@@ -134,7 +136,7 @@ export async function mintTo(
     mint,
     destination,
     mintAuthority.publicKey,
-    amount
+    rawAmount
   );
 
   let transaction = new Transaction();

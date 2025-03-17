@@ -1,56 +1,67 @@
-import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import {
-  LOCAL_ADMIN_KEYPAIR,
-  createUsersAndFund,
-  randomID,
-  setupTestContext,
-  startTest,
-  transferSol,
-} from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { ProgramTestContext } from "solana-bankrun";
+import { generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createConfigIx,
   CreateConfigParams,
   createPosition,
-  getPool,
-  getPosition,
   initializePool,
   InitializePoolParams,
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  createToken,
+  mintSplTokenTo,
 } from "./bankrun-utils";
 import BN from "bn.js";
-import { getAccount } from "@solana/spl-token";
 import { ExtensionType } from "@solana/spl-token";
+import { createToken2022, mintToToken2022 } from "./bankrun-utils/token2022";
 
 describe("Create position", () => {
   describe("SPL token", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
+    let creator: Keypair;
     let liquidity: BN;
     let sqrtPrice: BN;
-    let poolCreator: PublicKey;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      context = await startTest();
+      const root = Keypair.generate();
+      context = await startTest(root);
 
-      const prepareContext = await setupTestContext(
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+
+      tokenAMint = await createToken(
         context.banksClient,
         context.payer,
-        false
+        context.payer.publicKey
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      tokenAMint = prepareContext.tokenAMint;
-      tokenBMint = prepareContext.tokenBMint;
-      poolCreator = prepareContext.poolCreator.publicKey;
+      tokenBMint = await createToken(
+        context.banksClient,
+        context.payer,
+        context.payer.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        creator.publicKey
+      );
     });
 
     it("User create a position", async () => {
@@ -88,8 +99,8 @@ describe("Create position", () => {
       sqrtPrice = new BN(MIN_SQRT_PRICE);
 
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: poolCreator,
+        payer: creator,
+        creator: creator.publicKey,
         config,
         tokenAMint: tokenAMint,
         tokenBMint: tokenBMint,
@@ -102,12 +113,7 @@ describe("Create position", () => {
         context.banksClient,
         initPoolParams
       );
-      const position = await createPosition(
-        context.banksClient,
-        payer,
-        user.publicKey,
-        pool
-      );
+      await createPosition(context.banksClient, user, user.publicKey, pool);
     });
   });
 
@@ -115,32 +121,46 @@ describe("Create position", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
+    let creator: Keypair;
     let liquidity: BN;
     let sqrtPrice: BN;
-    let poolCreator: PublicKey;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      context = await startTest();
-      const extensions = [
-        ExtensionType.TransferFeeConfig,
-        // ExtensionType.TokenMetadata,
-        // ExtensionType.MetadataPointer,
-      ];
-      const prepareContext = await setupTestContext(
+      const root = Keypair.generate();
+      context = await startTest(root);
+      const extensions = [ExtensionType.TransferFeeConfig];
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+      user = await generateKpAndFund(context.banksClient, context.payer);
+
+      tokenAMint = await createToken2022(
         context.banksClient,
         context.payer,
-        true,
         extensions
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      tokenAMint = prepareContext.tokenAMint;
-      tokenBMint = prepareContext.tokenBMint;
-      poolCreator = prepareContext.poolCreator.publicKey;
+      tokenBMint = await createToken2022(
+        context.banksClient,
+        context.payer,
+        extensions
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        creator.publicKey
+      );
     });
 
     it("User create a position", async () => {
@@ -180,8 +200,8 @@ describe("Create position", () => {
       sqrtPrice = new BN(MIN_SQRT_PRICE);
 
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: poolCreator,
+        payer: creator,
+        creator: creator.publicKey,
         config,
         tokenAMint: tokenAMint,
         tokenBMint: tokenBMint,
@@ -194,12 +214,7 @@ describe("Create position", () => {
         context.banksClient,
         initPoolParams
       );
-      const position = await createPosition(
-        context.banksClient,
-        payer,
-        user.publicKey,
-        pool
-      );
+      await createPosition(context.banksClient, user, user.publicKey, pool);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { setupTestContext, startTest } from "./bankrun-utils/common";
+import { generateKpAndFund, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   InitializeCustomizeablePoolParams,
@@ -7,36 +7,57 @@ import {
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
+  mintSplTokenTo,
+  createToken,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { ExtensionType } from "@solana/spl-token";
+import { createToken2022, mintToToken2022 } from "./bankrun-utils/token2022";
 
 describe("Initialize customizable pool", () => {
   describe("SPL-Token", () => {
     let context: ProgramTestContext;
-    let payer: Keypair;
-    let creator: PublicKey;
+    let creator: Keypair;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      context = await startTest();
-      const prepareContext = await setupTestContext(
+      const root = Keypair.generate();
+      context = await startTest(root);
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+
+      tokenAMint = await createToken(
         context.banksClient,
         context.payer,
-        false
+        context.payer.publicKey
+      );
+      tokenBMint = await createToken(
+        context.banksClient,
+        context.payer,
+        context.payer.publicKey
       );
 
-      creator = prepareContext.poolCreator.publicKey;
-      payer = prepareContext.payer;
-      tokenAMint = prepareContext.tokenAMint;
-      tokenBMint = prepareContext.tokenBMint;
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        creator.publicKey
+      );
     });
 
     it("Initialize customizeable pool with spl token", async () => {
       const params: InitializeCustomizeablePoolParams = {
-        payer: payer,
-        creator: creator,
+        payer: creator,
+        creator: creator.publicKey,
         tokenAMint,
         tokenBMint,
         liquidity: MIN_LP_AMOUNT,
@@ -68,35 +89,48 @@ describe("Initialize customizable pool", () => {
 
   describe("Token 2022", () => {
     let context: ProgramTestContext;
-    let payer: Keypair;
-    let creator: PublicKey;
+    let creator: Keypair;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      context = await startTest();
-      const extensions = [
-        ExtensionType.TransferFeeConfig,
-        // ExtensionType.TokenMetadata,
-        // ExtensionType.MetadataPointer,
-      ];
-      const prepareContext = await setupTestContext(
+      const root = Keypair.generate();
+      context = await startTest(root);
+      const extensions = [ExtensionType.TransferFeeConfig];
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+
+      tokenAMint = await createToken2022(
         context.banksClient,
         context.payer,
-        true,
+        extensions
+      );
+      tokenBMint = await createToken2022(
+        context.banksClient,
+        context.payer,
         extensions
       );
 
-      creator = prepareContext.poolCreator.publicKey;
-      payer = prepareContext.payer;
-      tokenAMint = prepareContext.tokenAMint;
-      tokenBMint = prepareContext.tokenBMint;
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenAMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        creator.publicKey
+      );
     });
 
     it("Initialize customizeable pool with spl token", async () => {
       const params: InitializeCustomizeablePoolParams = {
-        payer: payer,
-        creator: creator,
+        payer: creator,
+        creator: creator.publicKey,
         tokenAMint,
         tokenBMint,
         liquidity: MIN_LP_AMOUNT,
