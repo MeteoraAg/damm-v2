@@ -1336,8 +1336,9 @@ export async function swap(banksClient: BanksClient, params: SwapParams) {
 
   const transaction = await program.methods
     .swap({
-      amountIn,
-      minimumAmountOut,
+      amount: amountIn,
+      thresholdAmount: minimumAmountOut,
+      isSwapExactIn: true,
     })
     .accounts({
       poolAuthority,
@@ -1418,9 +1419,10 @@ export async function swapExactOut(
   const tokenBMint = poolState.tokenBMint;
 
   const transaction = await program.methods
-    .swapExactOut({
-      amountOut,
-      maximumAmountIn,
+    .swap({
+      amount: amountOut,
+      thresholdAmount: maximumAmountIn,
+      isSwapExactIn: false,
     })
     .accounts({
       poolAuthority,

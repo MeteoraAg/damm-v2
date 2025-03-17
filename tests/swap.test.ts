@@ -117,7 +117,7 @@ describe("Swap token", () => {
       );
 
       liquidity = new BN(MIN_LP_AMOUNT);
-      sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
+      sqrtPrice = new BN(MIN_SQRT_PRICE.add(MAX_SQRT_PRICE).divn(2));
 
       const initPoolParams: InitializePoolParams = {
         payer: creator,
@@ -260,7 +260,7 @@ describe("Swap token", () => {
       );
 
       liquidity = new BN(MIN_LP_AMOUNT);
-      sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
+      sqrtPrice = new BN(MIN_SQRT_PRICE.add(MAX_SQRT_PRICE).divn(2));
 
       const initPoolParams: InitializePoolParams = {
         payer: creator,
