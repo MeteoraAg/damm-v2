@@ -373,7 +373,7 @@ pub fn initialize_token_metadata_extension<'info>(
         let mint_state_unpacked =
             StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
         let new_account_len = mint_state_unpacked
-            .try_get_new_account_len::<spl_token_metadata_interface::state::TokenMetadata>(
+            .try_get_new_account_len_for_variable_len_extension::<spl_token_metadata_interface::state::TokenMetadata>(
             &metadata,
         )?;
         let new_rent_exempt_lamports = Rent::get()?.minimum_balance(new_account_len);

@@ -5,7 +5,7 @@
     "test": "anchor build -- --features local && yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/*.test.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.29.0"
+    "@coral-xyz/anchor": "^0.31.0"
   },
   "devDependencies": {
     "chai": "^4.3.4",
