@@ -983,7 +983,7 @@ impl Pool {
 }
 
 /// Encodes all results of swapping
-#[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize)]
+#[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize, Clone, Copy)]
 pub struct SwapResult {
     pub input_amount: u64,
     pub output_amount: u64,
