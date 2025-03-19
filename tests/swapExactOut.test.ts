@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { BanksClient, ProgramTestContext } from "solana-bankrun";
-import { randomID, setupTestContext, startTest } from "./bankrun-utils/common";
+import { generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -21,6 +21,8 @@ import {
   swapExactOut,
   U64_MAX,
   DECIMALS,
+  createToken,
+  mintSplTokenTo,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { ExtensionType } from "@solana/spl-token";
@@ -28,13 +30,14 @@ import {
   getLiquidityDeltaFromAmountA,
   getLiquidityDeltaFromAmountB,
 } from "./bankrun-utils/utils";
+import { createToken2022, mintToToken2022 } from "./bankrun-utils/token2022";
 
 describe("Swap Exact Out token", () => {
   describe("SPL Token", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
+    let creator: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -44,18 +47,55 @@ describe("Swap Exact Out token", () => {
     let outputTokenMint: PublicKey;
 
     beforeEach(async () => {
-      context = await startTest();
+      const root = Keypair.generate();
+      context = await startTest(root);
 
-      const prepareContext = await setupTestContext(
+      user = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+
+      inputTokenMint = await createToken(
         context.banksClient,
         context.payer,
-        false
+        context.payer.publicKey
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      inputTokenMint = prepareContext.tokenAMint;
-      outputTokenMint = prepareContext.tokenBMint;
+      outputTokenMint = await createToken(
+        context.banksClient,
+        context.payer,
+        context.payer.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        inputTokenMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        outputTokenMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        inputTokenMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        outputTokenMint,
+        context.payer,
+        creator.publicKey
+      );
 
       // create config
       const createConfigParams: CreateConfigParams = {
@@ -91,11 +131,11 @@ describe("Swap Exact Out token", () => {
       sqrtPrice = new BN(MIN_SQRT_PRICE.add(MAX_SQRT_PRICE).divn(2));
 
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: prepareContext.poolCreator.publicKey,
+        payer: creator,
+        creator: creator.publicKey,
         config,
-        tokenAMint: prepareContext.tokenAMint,
-        tokenBMint: prepareContext.tokenBMint,
+        tokenAMint: inputTokenMint,
+        tokenBMint: outputTokenMint,
         liquidity,
         sqrtPrice,
         activationPoint: null,
@@ -105,7 +145,7 @@ describe("Swap Exact Out token", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        user,
         user.publicKey,
         pool
       );
@@ -181,7 +221,7 @@ describe("Swap Exact Out token", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
-    let payer: Keypair;
+    let creator: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -191,19 +231,55 @@ describe("Swap Exact Out token", () => {
     let outputTokenMint: PublicKey;
 
     beforeEach(async () => {
-      context = await startTest();
-      const extenstions = [ExtensionType.TransferFeeConfig];
-      const prepareContext = await setupTestContext(
+      const root = Keypair.generate();
+      context = await startTest(root);
+      const extensions = [ExtensionType.TransferFeeConfig];
+      user = await generateKpAndFund(context.banksClient, context.payer);
+      admin = await generateKpAndFund(context.banksClient, context.payer);
+      creator = await generateKpAndFund(context.banksClient, context.payer);
+
+      inputTokenMint = await createToken2022(
         context.banksClient,
         context.payer,
-        true,
-        extenstions
+        extensions
       );
-      payer = prepareContext.payer;
-      user = prepareContext.user;
-      admin = prepareContext.admin;
-      inputTokenMint = prepareContext.tokenAMint;
-      outputTokenMint = prepareContext.tokenBMint;
+      outputTokenMint = await createToken2022(
+        context.banksClient,
+        context.payer,
+        extensions
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        inputTokenMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        outputTokenMint,
+        context.payer,
+        user.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        inputTokenMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintToToken2022(
+        context.banksClient,
+        context.payer,
+        outputTokenMint,
+        context.payer,
+        creator.publicKey
+      );
 
       // create config
       const createConfigParams: CreateConfigParams = {
@@ -239,11 +315,11 @@ describe("Swap Exact Out token", () => {
       sqrtPrice = new BN(MIN_SQRT_PRICE.add(MAX_SQRT_PRICE).divn(2));
 
       const initPoolParams: InitializePoolParams = {
-        payer: payer,
-        creator: prepareContext.poolCreator.publicKey,
+        payer: creator,
+        creator: creator.publicKey,
         config,
-        tokenAMint: prepareContext.tokenAMint,
-        tokenBMint: prepareContext.tokenBMint,
+        tokenAMint: inputTokenMint,
+        tokenBMint: outputTokenMint,
         liquidity,
         sqrtPrice,
         activationPoint: null,
@@ -253,7 +329,7 @@ describe("Swap Exact Out token", () => {
       pool = result.pool;
       position = await createPosition(
         context.banksClient,
-        payer,
+        user,
         user.publicKey,
         pool
       );
@@ -284,17 +360,17 @@ describe("Swap Exact Out token", () => {
       await swapExactOut(context.banksClient, swapParams);
 
       // BtoA
-      // const swapParams2: SwapExactOutParams = {
-      //   payer: user,
-      //   pool,
-      //   inputTokenMint: outputTokenMint,
-      //   outputTokenMint: inputTokenMint,
-      //   amountOut: new BN(1),
-      //   maximumAmountIn: new BN(U64_MAX),
-      //   referralTokenAccount: null,
-      // };
+      const swapParams2: SwapExactOutParams = {
+        payer: user,
+        pool,
+        inputTokenMint: outputTokenMint,
+        outputTokenMint: inputTokenMint,
+        amountOut: new BN(1),
+        maximumAmountIn: new BN(U64_MAX),
+        referralTokenAccount: null,
+      };
 
-      // await swapExactOut(context.banksClient, swapParams2);
+      await swapExactOut(context.banksClient, swapParams2);
     });
   });
 });
