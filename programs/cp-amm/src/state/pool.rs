@@ -663,7 +663,7 @@ impl Pool {
             next_sqrt_price,
             self.sqrt_price,
             self.liquidity,
-            Rounding::Down, // TODO check round down or up
+            Rounding::Up, // Round Up to ensure user provide enough token a
         )?;
 
         Ok(SwapResult {
@@ -718,7 +718,7 @@ impl Pool {
             self.sqrt_price,
             next_sqrt_price,
             self.liquidity,
-            Rounding::Down, // TODO check round down or up
+            Rounding::Up, // Round Up to ensure user provide enough token b
         )?;
 
         Ok(SwapResult {
