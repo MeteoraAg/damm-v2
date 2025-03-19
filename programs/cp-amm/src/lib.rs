@@ -24,7 +24,7 @@ pub use pool_action_access::*;
 pub mod params;
 
 #[cfg(feature = "local")]
-declare_id!("9sh3gorJVsWgpdJo317PqnoWoTuDN2LkxiyYUUTu4sNJ");
+declare_id!("9ojbmyTUust8JLmbtx6khokQpd8ezMJmpcmKbbuDp4iT");
 
 #[cfg(not(feature = "local"))]
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");

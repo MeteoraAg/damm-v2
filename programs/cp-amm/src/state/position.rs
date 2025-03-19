@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[zero_copy]
-#[derive(Default, Debug, AnchorDeserialize, AnchorSerialize, InitSpace, PartialEq)]
+#[derive(Default, Debug, InitSpace, PartialEq)]
 pub struct UserRewardInfo {
     /// The latest update reward checkpoint
     pub reward_per_token_checkpoint: [u8; 32], // U256

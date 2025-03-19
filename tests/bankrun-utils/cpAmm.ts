@@ -50,13 +50,12 @@ import {
 import { processTransactionMaybeThrow } from "./common";
 import { CP_AMM_PROGRAM_ID } from "./constants";
 import { assert, expect } from "chai";
-import { IdlType } from "@coral-xyz/anchor/dist/cjs/idl";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
 export type Position = IdlAccounts<CpAmm>["position"];
 export type Vesting = IdlAccounts<CpAmm>["vesting"];
 export type Config = IdlAccounts<CpAmm>["config"];
-export type LockPositionParams = IdlTypes<CpAmm>["VestingParameters"];
+export type LockPositionParams = IdlTypes<CpAmm>["vestingParameters"];
 export type TokenBadge = IdlAccounts<CpAmm>["tokenBadge"];
 
 export function getSecondKey(key1: PublicKey, key2: PublicKey) {
@@ -87,11 +86,7 @@ export function createCpAmmProgram() {
     wallet,
     {}
   );
-  const program = new Program<CpAmm>(
-    CpAmmIDL as CpAmm,
-    CP_AMM_PROGRAM_ID,
-    provider
-  );
+  const program = new Program<CpAmm>(CpAmmIDL as CpAmm, provider);
   return program;
 }
 
@@ -1432,7 +1427,7 @@ export async function getPool(
 ): Promise<Pool> {
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(pool);
-  return program.coder.accounts.decode("Pool", Buffer.from(account.data));
+  return program.coder.accounts.decode("pool", Buffer.from(account.data));
 }
 
 export async function getPosition(
@@ -1441,7 +1436,7 @@ export async function getPosition(
 ): Promise<Position> {
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(position);
-  return program.coder.accounts.decode("Position", Buffer.from(account.data));
+  return program.coder.accounts.decode("position", Buffer.from(account.data));
 }
 
 export async function getVesting(
@@ -1450,7 +1445,7 @@ export async function getVesting(
 ): Promise<Vesting> {
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(vesting);
-  return program.coder.accounts.decode("Vesting", Buffer.from(account.data));
+  return program.coder.accounts.decode("vesting", Buffer.from(account.data));
 }
 
 export async function getConfig(
@@ -1459,7 +1454,7 @@ export async function getConfig(
 ): Promise<Config> {
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(config);
-  return program.coder.accounts.decode("Config", Buffer.from(account.data));
+  return program.coder.accounts.decode("config", Buffer.from(account.data));
 }
 
 export function getStakeProgramErrorCodeHexString(errorMessage: String) {
@@ -1482,5 +1477,5 @@ export async function getTokenBadge(
 ): Promise<TokenBadge> {
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(tokenBadge);
-  return program.coder.accounts.decode("TokenBadge", Buffer.from(account.data));
+  return program.coder.accounts.decode("tokenBadge", Buffer.from(account.data));
 }

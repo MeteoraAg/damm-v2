@@ -3,7 +3,6 @@ use anchor_spl::{
     token_2022::Token2022,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use std::cmp::{max, min};
 
 use crate::{
     activation_handler::ActivationHandler,
@@ -25,6 +24,8 @@ use crate::{
     },
     EvtCreatePosition, EvtInitializePool, PoolError,
 };
+
+use super::{max_key, min_key};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeCustomizablePoolParameters {
@@ -121,8 +122,8 @@ pub struct InitializeCustomizablePoolCtx<'info> {
         init,
         seeds = [
             CUSTOMIZABLE_POOL_PREFIX.as_ref(),
-            max(token_a_mint.key(), token_b_mint.key()).as_ref(),
-            min(token_a_mint.key(), token_b_mint.key()).as_ref(),
+            &max_key(&token_a_mint.key(), &token_b_mint.key()),
+            &min_key(&token_a_mint.key(), &token_b_mint.key()),
         ],
         bump,
         payer = payer,

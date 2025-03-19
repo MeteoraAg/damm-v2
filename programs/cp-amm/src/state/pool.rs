@@ -143,7 +143,7 @@ pub struct Pool {
     pub _padding_1: [u64; 10],
 }
 
-const_assert_eq!(Pool::INIT_SPACE, 1080);
+const_assert_eq!(Pool::INIT_SPACE, 1104);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -155,9 +155,10 @@ pub struct PoolMetrics {
     pub total_partner_a_fee: u64,
     pub total_partner_b_fee: u64,
     pub total_position: u64,
+    pub padding: u64,
 }
 
-const_assert_eq!(PoolMetrics::INIT_SPACE, 72);
+const_assert_eq!(PoolMetrics::INIT_SPACE, 80);
 
 impl PoolMetrics {
     pub fn inc_position(&mut self) -> Result<()> {
@@ -210,6 +211,8 @@ pub struct RewardInfo {
     pub reward_duration: u64,
     /// reward duration end
     pub reward_duration_end: u64,
+    /// Padding to ensure `reward_rate: u128` is 16-byte aligned
+    pub _padding_1: [u8; 8], // 8 bytes
     /// reward rate
     pub reward_rate: u128,
     /// Reward per token stored
@@ -221,7 +224,7 @@ pub struct RewardInfo {
     pub cumulative_seconds_with_empty_liquidity_reward: u64,
 }
 
-const_assert_eq!(RewardInfo::INIT_SPACE, 184);
+const_assert_eq!(RewardInfo::INIT_SPACE, 192);
 
 impl RewardInfo {
     /// Returns true if this reward is initialized.

@@ -1,6 +1,6 @@
-use anchor_lang::prelude::*;
 use anchor_lang::system_program::{create_account, transfer, CreateAccount, Transfer};
 use anchor_lang::{prelude::InterfaceAccount, solana_program::program::invoke_signed};
+use anchor_lang::{prelude::*, solana_program};
 use anchor_spl::token_2022::spl_token_2022::extension::metadata_pointer;
 use anchor_spl::token_2022::{initialize_mint2, InitializeMint2};
 use anchor_spl::{

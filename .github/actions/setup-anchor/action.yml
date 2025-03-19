@@ -6,5 +6,5 @@ runs:
     - uses: actions/setup-node@v2
       with:
         node-version: ${{ env.NODE_VERSION }}
-    - run: npm install -g @coral-xyz/anchor-cli@${{ env.ANCHOR_CLI_VERSION }} yarn
+    - run: cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_CLI_VERSION }} anchor-cli --locked
       shell: bash

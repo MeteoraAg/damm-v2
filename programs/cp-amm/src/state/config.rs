@@ -17,16 +17,15 @@ use crate::{
 #[derive(Debug, InitSpace, Default)]
 pub struct PoolFeesConfig {
     pub base_fee: BaseFeeConfig,
+    pub dynamic_fee: DynamicFeeConfig,
     pub protocol_fee_percent: u8,
     pub partner_fee_percent: u8,
     pub referral_fee_percent: u8,
     pub padding_0: [u8; 5],
-    /// dynamic fee
-    pub dynamic_fee: DynamicFeeConfig,
-    pub padding_1: [u64; 2],
+    pub padding_1: [u64; 5],
 }
 
-const_assert_eq!(PoolFeesConfig::INIT_SPACE, 96);
+const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
@@ -143,10 +142,11 @@ pub struct DynamicFeeConfig {
     pub filter_period: u16,
     pub decay_period: u16,
     pub reduction_factor: u16,
+    pub padding_1: [u8; 8], // Align to 16 bytes for `u128`
     pub bin_step_u128: u128,
 }
 
-const_assert_eq!(DynamicFeeConfig::INIT_SPACE, 40);
+const_assert_eq!(DynamicFeeConfig::INIT_SPACE, 48);
 
 impl DynamicFeeConfig {
     fn to_dynamic_fee_struct(&self) -> DynamicFeeStruct {
@@ -194,7 +194,7 @@ pub struct Config {
     pub _padding_1: [u64; 10],
 }
 
-const_assert_eq!(Config::INIT_SPACE, 288);
+const_assert_eq!(Config::INIT_SPACE, 320);
 
 pub struct BootstrappingConfig {
     pub activation_point: u64,

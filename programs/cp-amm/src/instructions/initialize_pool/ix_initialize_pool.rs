@@ -22,6 +22,15 @@ use crate::{
     EvtCreatePosition, EvtInitializePool, PoolError,
 };
 
+// To fix IDL generation: https://github.com/coral-xyz/anchor/issues/3209
+pub fn max_key(left: &Pubkey, right: &Pubkey) -> [u8; 32] {
+    max(left, right).to_bytes()
+}
+
+pub fn min_key(left: &Pubkey, right: &Pubkey) -> [u8; 32] {
+    min(left, right).to_bytes()
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializePoolParameters {
     /// initialize liquidity
@@ -72,8 +81,8 @@ pub struct InitializePoolCtx<'info> {
         seeds = [
             POOL_PREFIX.as_ref(),
             config.key().as_ref(),
-            max(token_a_mint.key(), token_b_mint.key()).as_ref(),
-            min(token_a_mint.key(), token_b_mint.key()).as_ref(),
+            &max_key(&token_a_mint.key(), &token_b_mint.key()),
+            &min_key(&token_a_mint.key(), &token_b_mint.key()),
         ],
         bump,
         payer = payer,

@@ -1189,7 +1189,6 @@ dependencies = [
  "num_enum 0.7.3",
  "proptest",
  "ruint",
- "solana-program 2.2.1",
  "spl-token-metadata-interface",
  "static_assertions",
 ]
