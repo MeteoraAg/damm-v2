@@ -267,7 +267,7 @@ pub fn get_next_sqrt_price_from_exact_out_amount_b_rounding_up(
 }
 
 /// In case swap token A to token B. the relation between token B and sqrt_price is linear
-/// Reserve of token decreases then the price will decrease. From formula: `Δb = L (√P_upper - √P_lower)`
+/// Reserve of token B decreases then the price will decrease. From formula: `Δb = L (√P_upper - √P_lower)`
 /// Then if price move to 0 (√P_lower = 0) then `max_Δb = L * √P_upper``
 /// Formula:
 /// max_amount_out = (liquidity * sqrt_price) >> (RESOLUTION * 2)

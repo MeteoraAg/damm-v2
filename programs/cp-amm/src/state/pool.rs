@@ -489,7 +489,7 @@ impl Pool {
                 TradeDirection::BtoA => {
                     // fee will be in token b
                     let FeeOnAmountResult {
-                        amount,
+                        amount: amount_out_included_lp_fee,
                         lp_fee,
                         protocol_fee,
                         partner_fee,
@@ -503,7 +503,7 @@ impl Pool {
                     )?;
                     // skip fee
                     let swap_result = self.get_swap_result_exact_out_from_b_to_a(
-                        amount,
+                        amount_out_included_lp_fee,
                         is_referral,
                         true,
                         current_point,
@@ -659,11 +659,17 @@ impl Pool {
             return Err(PoolError::PriceRangeViolation.into());
         }
 
+        // TODO Checking Round Up to ensure user provide enough token b
+        // but could overestimate the input amount,
+        // leading to users paying slightly more than necessary
+        // ANCHOR Rounding::Down for intermediate price calculations next_sqrt_price (currently always round up)
+        // ANCHOR Rounding::Up only for the final input amount.
+        // same to swap `b to a``
         let input_amount = get_delta_amount_a_unsigned(
             next_sqrt_price,
             self.sqrt_price,
             self.liquidity,
-            Rounding::Up, // Round Up to ensure user provide enough token a
+            Rounding::Up,
         )?;
 
         Ok(SwapResult {
@@ -684,14 +690,16 @@ impl Pool {
         is_skip_fee: bool,
         current_point: u64,
     ) -> Result<SwapResult> {
-        let mut lp_fee: u64 = 0;
-        let mut protocol_fee: u64 = 0;
-        let mut partner_fee: u64 = 0;
-        let mut referral_fee: u64 = 0;
-
-        let mut amount_out: u64 = amount;
-        if !is_skip_fee {
-            let fee_on_amount_result: FeeOnAmountResult = self.pool_fees.get_fee_on_amount(
+        let (amount_out, lp_fee, protocol_fee, partner_fee, referral_fee) = if is_skip_fee {
+            (amount, 0, 0, 0, 0)
+        } else {
+            let FeeOnAmountResult {
+                lp_fee,
+                protocol_fee,
+                partner_fee,
+                referral_fee,
+                amount: amount_out_included_lp_fee,
+            } = self.pool_fees.get_fee_on_amount(
                 amount,
                 is_referral,
                 current_point,
@@ -699,13 +707,15 @@ impl Pool {
                 true,
             )?;
 
-            lp_fee = fee_on_amount_result.lp_fee;
-            protocol_fee = fee_on_amount_result.protocol_fee;
-            partner_fee = fee_on_amount_result.partner_fee;
-            referral_fee = fee_on_amount_result.referral_fee;
-            // add lp fee before calculate nex sqrt price
-            amount_out = fee_on_amount_result.amount;
-        }
+            // add lp fee before calculate next sqrt price
+            (
+                amount_out_included_lp_fee,
+                lp_fee,
+                protocol_fee,
+                partner_fee,
+                referral_fee,
+            )
+        };
         // price up
         let next_sqrt_price: u128 =
             get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount_out, false)?;
@@ -718,7 +728,7 @@ impl Pool {
             self.sqrt_price,
             next_sqrt_price,
             self.liquidity,
-            Rounding::Up, // Round Up to ensure user provide enough token b
+            Rounding::Up,
         )?;
 
         Ok(SwapResult {

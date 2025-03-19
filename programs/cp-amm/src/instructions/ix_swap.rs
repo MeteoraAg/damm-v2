@@ -145,42 +145,43 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
     let swap_result = if is_swap_exact_in {
-        let swap_exact_in_result = pool.get_swap_result_exact_in(
+        pool.get_swap_result_exact_in(
             amount_specified,
             is_referral,
             trade_direction,
             current_point,
-        )?;
-
-        require!(
-            swap_exact_in_result.output_amount >= threshold_amount,
-            PoolError::ExceededSlippage
-        );
-
-        swap_exact_in_result
+        )?
     } else {
-        let swap_exact_out_result = pool.get_swap_result_exact_out(
+        pool.get_swap_result_exact_out(
             amount_specified,
             is_referral,
             trade_direction,
             current_point,
-        )?;
+        )?
+    };
+
+    // include transfer fee if input_amount is exact out and validate slippage
+    let input_amount_specified = if is_swap_exact_in {
+        // validate slippgae
         require!(
-            swap_exact_out_result.input_amount <= threshold_amount,
+            swap_result.output_amount >= threshold_amount,
+            PoolError::ExceededSlippage
+        );
+        swap_result.input_amount
+    } else {
+        let input_amount_included_fee =
+            calculate_transfer_fee_included_amount(&token_in_mint, swap_result.input_amount)?
+                .amount;
+        // validate slippgae
+        require!(
+            input_amount_included_fee <= threshold_amount,
             PoolError::ExceededSlippage
         );
 
-        swap_exact_out_result
+        input_amount_included_fee
     };
 
     pool.apply_swap_result(&swap_result, trade_direction, current_timestamp)?;
-
-    // include transfer fee if input_amount is exact out
-    let input_amount_specified = if is_swap_exact_in {
-        swap_result.input_amount
-    } else {
-        calculate_transfer_fee_included_amount(&token_in_mint, swap_result.input_amount)?.amount
-    };
 
     // send to reserve
     transfer_from_user(
