@@ -29,7 +29,7 @@ import {
   getLiquidityDeltaFromAmountB,
 } from "./bankrun-utils/utils";
 
-describe.only("Swap Exact Out token", () => {
+describe("Swap Exact Out token", () => {
   describe("SPL Token", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
