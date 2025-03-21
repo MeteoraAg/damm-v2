@@ -13,7 +13,7 @@ use anchor_client::{
 use anyhow::*;
 use clap::*;
 
-use cp_amm::params::fee_parameters::{BaseFeeParameters, PoolFeeParamters};
+use cp_amm::params::fee_parameters::{BaseFeeParameters, PoolFeeParameters};
 use instructions::create_config::CreateConfigParams;
 use instructions::create_reward::{create_reward, InitializeRewardParams};
 use instructions::fund_reward::{funding_reward, FundRewardParams};
@@ -86,7 +86,7 @@ fn main() -> Result<()> {
             partner_fee_percent,
             referral_fee_percent,
         } => {
-            let pool_fee = PoolFeeParamters {
+            let pool_fee = PoolFeeParameters {
                 base_fee: BaseFeeParameters {
                     cliff_fee_numerator: trade_fee_numerator,
                     ..Default::default() // TODO implement for base fee schedule

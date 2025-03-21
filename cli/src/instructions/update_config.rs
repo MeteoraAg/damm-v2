@@ -8,7 +8,7 @@ use anchor_lang::ToAccountMetas;
 use anyhow::*;
 
 use cp_amm::instruction;
-use cp_amm::params::fee_parameters::{BaseFeeParameters, PoolFeeParamters};
+use cp_amm::params::fee_parameters::{BaseFeeParameters, PoolFeeParameters};
 use cp_amm::state::Config;
 use cp_amm::{accounts, ConfigParameters};
 
@@ -59,7 +59,7 @@ pub fn update_config<C: Deref<Target = impl Signer> + Clone>(
     };
 
     // 2. create config
-    let pool_fees = PoolFeeParamters {
+    let pool_fees = PoolFeeParameters {
         base_fee,
         protocol_fee_percent,
         partner_fee_percent,

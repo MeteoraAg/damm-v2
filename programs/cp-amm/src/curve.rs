@@ -143,12 +143,15 @@ pub fn get_next_sqrt_price_from_input(
 ///
 /// # Proof
 ///
-/// For constant y,
-/// √P * L = y
-/// √P' * L' = √P * L
-/// √P' = √P * L / L'
-/// √P' = √P * L / L'
-/// √P' = √P * L / (L + Δx*√P)
+/// For constant L,
+///
+///  L = x * √P
+///  x' = x + Δx
+///  x' * √P' = x * √P
+///  (x + Δx) * √P' = x * √P
+///  √P' = (x * √P) / (x + Δx)
+///  x = L/√P
+///  √P' = √P * L / (L + Δx * √P)
 ///
 pub fn get_next_sqrt_price_from_amount_a_rounding_up(
     sqrt_price: u128,

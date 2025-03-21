@@ -144,8 +144,10 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         current_point,
     )?;
 
+    let transfer_fee_excluded_amount_out =
+        calculate_transfer_fee_excluded_amount(&token_out_mint, swap_result.output_amount)?.amount;
     require!(
-        swap_result.output_amount >= minimum_amount_out,
+        transfer_fee_excluded_amount_out >= minimum_amount_out,
         PoolError::ExceededSlippage
     );
 

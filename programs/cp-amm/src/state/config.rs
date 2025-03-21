@@ -7,7 +7,7 @@ use crate::{
     constants::activation::*,
     error::PoolError,
     params::fee_parameters::{
-        BaseFeeParameters, DynamicFeeParameters, PartnerInfo, PoolFeeParamters,
+        BaseFeeParameters, DynamicFeeParameters, PartnerInfo, PoolFeeParameters,
     },
     safe_math::SafeMath,
     state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
@@ -65,7 +65,7 @@ impl BaseFeeConfig {
 }
 
 impl PoolFeesConfig {
-    pub fn to_pool_fee_parameters(&self) -> PoolFeeParamters {
+    pub fn to_pool_fee_parameters(&self) -> PoolFeeParameters {
         let &PoolFeesConfig {
             base_fee,
             protocol_fee_percent,
@@ -86,7 +86,7 @@ impl PoolFeesConfig {
             ..
         } = self;
         if initialized == 1 {
-            PoolFeeParamters {
+            PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters(),
                 protocol_fee_percent,
                 partner_fee_percent,
@@ -102,7 +102,7 @@ impl PoolFeesConfig {
                 }),
             }
         } else {
-            PoolFeeParamters {
+            PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters(),
                 protocol_fee_percent,
                 partner_fee_percent,
@@ -248,7 +248,7 @@ impl Config {
     pub fn init(
         &mut self,
         index: u64,
-        pool_fees: &PoolFeeParamters,
+        pool_fees: &PoolFeeParameters,
         vault_config_key: Pubkey,
         pool_creator_authority: Pubkey,
         activation_type: u8,

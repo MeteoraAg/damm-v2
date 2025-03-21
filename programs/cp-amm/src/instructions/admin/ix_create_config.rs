@@ -7,7 +7,7 @@ use crate::{
     event,
     params::{
         activation::ActivationParams,
-        fee_parameters::{PartnerInfo, PoolFeeParamters},
+        fee_parameters::{PartnerInfo, PoolFeeParameters},
     },
     state::{CollectFeeMode, Config},
     PoolError,
@@ -15,7 +15,7 @@ use crate::{
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug)]
 pub struct ConfigParameters {
-    pub pool_fees: PoolFeeParamters,
+    pub pool_fees: PoolFeeParameters,
     pub sqrt_min_price: u128,
     pub sqrt_max_price: u128,
     pub vault_config_key: Pubkey,

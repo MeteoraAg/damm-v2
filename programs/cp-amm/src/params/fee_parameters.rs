@@ -15,7 +15,7 @@ use super::swap::TradeDirection;
 
 /// Information regarding fee charges
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
-pub struct PoolFeeParamters {
+pub struct PoolFeeParameters {
     /// Base fee
     pub base_fee: BaseFeeParameters,
     /// Protocol trade fee percent
@@ -53,10 +53,11 @@ impl BaseFeeParameters {
                 Ok(fee_numerator)
             }
             FeeSchedulerMode::Exponential => {
-                let period =
-                    u16::try_from(self.number_of_period).map_err(|_| PoolError::MathOverflow)?;
-                let fee_numerator =
-                    get_fee_in_period(self.cliff_fee_numerator, self.reduction_factor, period)?;
+                let fee_numerator = get_fee_in_period(
+                    self.cliff_fee_numerator,
+                    self.reduction_factor,
+                    self.number_of_period,
+                )?;
                 Ok(fee_numerator)
             }
         }
@@ -96,9 +97,9 @@ impl BaseFeeParameters {
     }
 }
 
-impl PoolFeeParamters {
+impl PoolFeeParameters {
     pub fn to_pool_fees_config(&self) -> PoolFeesConfig {
-        let &PoolFeeParamters {
+        let &PoolFeeParameters {
             base_fee,
             protocol_fee_percent,
             partner_fee_percent,
@@ -125,7 +126,7 @@ impl PoolFeeParamters {
         }
     }
     pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
-        let &PoolFeeParamters {
+        let &PoolFeeParameters {
             base_fee,
             protocol_fee_percent,
             partner_fee_percent,
@@ -264,7 +265,7 @@ pub fn to_bps(numerator: u128, denominator: u128) -> Option<u64> {
     bps.try_into().ok()
 }
 
-impl PoolFeeParamters {
+impl PoolFeeParameters {
     /// Validate that the fees are reasonable
     pub fn validate(&self) -> Result<()> {
         self.base_fee.validate()?;
@@ -306,13 +307,11 @@ impl PartnerInfo {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.have_partner() {
-            require!(self.fee_percent <= 100, PoolError::InvalidFee);
-        } else {
+        if !self.have_partner() {
             require!(self.fee_percent == 0, PoolError::InvalidFee);
         }
 
-        validate_fee_fraction(self.fee_percent.into(), 100)
+        Ok(())
     }
 
     pub fn accrue_partner_fees(

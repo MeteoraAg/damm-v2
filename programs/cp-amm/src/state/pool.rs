@@ -43,7 +43,7 @@ pub enum CollectFeeMode {
     OnlyB,
 }
 
-/// collect fee mode
+/// pool status
 #[repr(u8)]
 #[derive(
     Clone,

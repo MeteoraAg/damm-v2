@@ -6,13 +6,13 @@ use anchor_client::{solana_sdk::signer::Signer, Program};
 use anchor_lang::prelude::Pubkey;
 use anyhow::*;
 use cp_amm::instruction;
-use cp_amm::params::fee_parameters::PoolFeeParamters;
+use cp_amm::params::fee_parameters::PoolFeeParameters;
 use cp_amm::{accounts, ConfigParameters};
 
 use crate::common::pda::{derive_config_pda, derive_event_authority_pda};
 
 pub struct CreateConfigParams {
-    pub pool_fees: PoolFeeParamters,
+    pub pool_fees: PoolFeeParameters,
     pub sqrt_min_price: u128,
     pub sqrt_max_price: u128,
     pub vault_config_key: Pubkey,

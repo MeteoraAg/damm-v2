@@ -13,11 +13,13 @@ pub fn get_fee_in_period(
     reduction_factor: u64,
     passed_period: u16,
 ) -> Result<u64> {
+    if reduction_factor == 0 {
+        return Ok(cliff_fee_numerator);
+    }
     // Make bin_step into Q64x64, and divided by BASIS_POINT_MAX. If bin_step = 1, we get 0.0001 in Q64x64
     let bps = u128::from(reduction_factor)
         .safe_shl(SCALE_OFFSET.into())?
         .safe_div(BASIS_POINT_MAX.into())?;
-    // Add 1 to bps, we get 1.0001 in Q64.64
     let base = ONE.safe_sub(bps)?;
     let result = pow(base, passed_period.into()).ok_or_else(|| PoolError::MathOverflow)?;
 

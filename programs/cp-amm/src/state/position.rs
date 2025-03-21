@@ -72,10 +72,8 @@ pub struct Position {
     pub metrics: PositionMetrics,
     /// Farming reward information
     pub reward_infos: [UserRewardInfo; NUM_REWARDS],
-    /// Fee claimer for this position
-    pub fee_claimer: Pubkey,
     /// padding for future usage
-    pub padding: [u128; 4],
+    pub padding: [u128; 6],
 }
 
 const_assert_eq!(Position::INIT_SPACE, 400);

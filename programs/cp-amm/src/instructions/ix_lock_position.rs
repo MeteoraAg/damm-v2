@@ -17,7 +17,6 @@ pub struct VestingParameters {
     pub cliff_unlock_liquidity: u128,
     pub liquidity_per_period: u128,
     pub number_of_period: u16,
-    pub index: u16,
 }
 
 impl VestingParameters {

@@ -2,7 +2,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    params::fee_parameters::PoolFeeParamters, state::SwapResult, AddLiquidityParameters,
+    params::fee_parameters::PoolFeeParameters, state::SwapResult, AddLiquidityParameters,
     RemoveLiquidityParameters, SwapParameters,
 };
 
@@ -18,7 +18,7 @@ pub struct EvtCloseConfig {
 /// Create config
 #[event]
 pub struct EvtCreateConfig {
-    pub pool_fees: PoolFeeParamters,
+    pub pool_fees: PoolFeeParameters,
     pub vault_config_key: Pubkey,
     pub pool_creator_authority: Pubkey,
     pub activation_type: u8,
@@ -55,7 +55,7 @@ pub struct EvtInitializePool {
     pub creator: Pubkey,
     pub payer: Pubkey,
     pub alpha_vault: Pubkey,
-    pub pool_fees: PoolFeeParamters,
+    pub pool_fees: PoolFeeParameters,
     pub sqrt_min_price: u128,
     pub sqrt_max_price: u128,
     pub activation_type: u8,

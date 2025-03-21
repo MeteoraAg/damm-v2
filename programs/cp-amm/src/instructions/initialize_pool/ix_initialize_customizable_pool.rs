@@ -17,7 +17,7 @@ use crate::{
     },
     create_position_nft,
     curve::get_initialize_amounts,
-    params::{activation::ActivationParams, fee_parameters::PoolFeeParamters},
+    params::{activation::ActivationParams, fee_parameters::PoolFeeParameters},
     state::{CollectFeeMode, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
@@ -29,7 +29,7 @@ use crate::{
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeCustomizablePoolParameters {
     /// pool fees
-    pub pool_fees: PoolFeeParamters,
+    pub pool_fees: PoolFeeParameters,
     /// sqrt min price
     pub sqrt_min_price: u128,
     /// sqrt max price
