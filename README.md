@@ -1,11 +1,11 @@
-# Meteora Constant product AMM (damm v2)
+# Meteora Constant Product AMM (DAMM v2)
 
-MCPA is a branch new AMM program of Meteora, that includes almost features from dynamic-amm v1 with new features:
-- Fix hot account issue from dynamic-amm v1, each pool include a set of unique accounts for swap instruction (no shared accounts between 2 pools)
-- Support token2022. All token2022 with metadata pointer and transfer fee extensions are supported permissionless. Token mints with other extensions can be whitelisted by Meteora's admin
-- Fee is not compound on LP, that allows us to implement many cool fetaures like: collect fee only in one token (aka SOL), position NFT, create permanent lock for position but still can claim fee.
-- Support base fee scheduler and dynamic fee. In fee scheduler we support 2 modes: linear or exponential, while dyanamic fee based on volatity when user trade with the pool.
-- Support a minimal version of concentrated liquidity, while the pool is constant-product, but it has a price range, that allows liquidity is more ceoncetrated, hence bringing more volume to pool. 
+MCPA is a brand new AMM program of Meteora that includes almost all features from dynamic-amm v1 with new features:
+- Fixed hot account issue from dynamic-amm v1, each pool includes a set of unique accounts for swap instruction (no shared accounts between 2 pools)
+- Support for token2022. All token2022 with metadata pointer and transfer fee extensions are supported permissionlessly. Token mints with other extensions can be whitelisted by Meteora's admin
+- Fee is not compounded on LP, which allows us to implement many cool features like: collecting fee only in one token (aka SOL), position NFT, creating permanent lock for position but still being able to claim fee
+- Support for base fee scheduler and dynamic fee. In fee scheduler we support 2 modes: linear or exponential, while dynamic fee is based on volatility when users trade with the pool
+- Support for a minimal version of concentrated liquidity, where the pool is constant-product but has a price range, allowing liquidity to be more concentrated, hence bringing more volume to pool
 
 ## Endpoints
 ### Admin
@@ -49,13 +49,13 @@ MCPA is a branch new AMM program of Meteora, that includes almost features from 
 
 
 ## Config key state
-- vault_config_key: alpha-vault address, that is able to buy pool before activation_point
+- vault_config_key: alpha-vault address that is able to buy pool before activation_point
 - pool_creator_authority: if this address is non-default, then only this address can create pool with that config key (for launchpad)
-- pool_fees: includes base fee scheduler, dynamic-fee, protocol fee percent, partner fee percent and referral fee percent configuration
-- activation_type: determined whether pools are run in slot or timestamp 
-- collect_fee_mode: determined whether pool should collect fees in both tokens or only one token
+- pool_fees: includes base fee scheduler, dynamic-fee, protocol fee percent, partner fee percent, and referral fee percent configuration
+- activation_type: determines whether pools are run in slot or timestamp 
+- collect_fee_mode: determines whether pool should collect fees in both tokens or only one token
 - sqrt_min_price: square root of min price for pools
-- sqrt_min_price: square root of max price for pools
+- sqrt_max_price: square root of max price for pools
 
 ## Development
 
