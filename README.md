@@ -1,14 +1,69 @@
-# Constant product AMM
+# Meteora Constant product AMM (damm v2)
 
-Work in progress
+MCPA is a branch new AMM program of Meteora, that includes almost features from dynamic-amm v1 with new features:
+- Fix hot account issue from dynamic-amm v1, each pool include a set of unique accounts for swap instruction (no shared accounts between 2 pools)
+- Support token2022. All token2022 with metadata pointer and transfer fee extensions are supported permissionless. Token mints with other extensions can be whitelisted by Meteora's admin
+- Fee is not compound on LP, that allows us to implement many cool fetaures like: collect fee only in one token (aka SOL), position NFT, create permanent lock for position but still can claim fee.
+- Support base fee scheduler and dynamic fee. In fee scheduler we support 2 modes: linear or exponential, while dyanamic fee based on volatity when user trade with the pool.
+- Support a minimal version of concentrated liquidity, while the pool is constant-product, but it has a price range, that allows liquidity is more ceoncetrated, hence bringing more volume to pool. 
+
+## Endpoints
+### Admin
+- create_config: create a config key that includes all pre-defined parameters when user create pools with that config key.
+- create_token_badge: whitelist token mint, that has non-permissionless extensions (token2022)
+- create_claim_fee_operator: whitelist an address to claim protocol fee
+- close_claim_fee_operato: unwhitelist the address to claim protocol fee
+- close_config: close a config key
+- initialize_reward: initialize an on-chain liquidity mining for a pool
+- update_reward_funder: update a whitelisted address to fund rewards for on-chain liquidity mining 
+- update_reward_duration: update reward duration for liquidity mining
+- set_pool_status: enable or disable pools. If pool is disabled, user can only be able to withdraw, can't add liquidity or swap
+
+### Keeper to claim protocol fee
+- claim_protocol_fee: claim protocol fee to Meteora's treasury address
+
+### Token team (who run on-chain liquidity mining)
+- fund_reward: fund reward for on-chain liquidity mining
+- withdraw_ineligible_reward: withdraw ineligible reward 
+
+### Partner (aka Launchpad)
+- claim_partner_fee: claim partner fee
+
+### Token deployer 
+- initialize_pool: create a new pool from a config key 
+- initialize_customizable_pool: create a new pool with customizable parameters, should be only used by token deployer, that token can't be leaked.
+
+### Liquidity provider
+- create_position: create a new position nft, that holds liquidity that owner will deposit later
+- add_liquidity: add liquidity to a pool 
+- remove_liquidity: remove liquidity from a pool
+- remove_all_liquidity: remove all liquidity from a pool
+- claim_position_fee: claim position fee 
+- lock_position: lock position with a vesting schedule
+- refresh_vesting: refresh vesting schedule
+- permanent_lock_position: lock position permanently 
+- claim_reward: claim rewards from on-chain liquidity mining
+
+### Trading bot/ user swap with pools
+- swap: swap with the pool
+
+
+## Config key state
+- vault_config_key: alpha-vault address, that is able to buy pool before activation_point
+- pool_creator_authority: if this address is non-default, then only this address can create pool with that config key (for launchpad)
+- pool_fees: includes base fee scheduler, dynamic-fee, protocol fee percent, partner fee percent and referral fee percent configuration
+- activation_type: determined whether pools are run in slot or timestamp 
+- collect_fee_mode: determined whether pool should collect fees in both tokens or only one token
+- sqrt_min_price: square root of min price for pools
+- sqrt_min_price: square root of max price for pools
 
 ## Development
 
 ### Dependencies
 
-- anchor 0.29.0
-- solana 1.16.12
-- rust 1.76.0
+- anchor 0.31.0
+- solana 2.1.0
+- rust 1.85.0
 
 ### Build
 
