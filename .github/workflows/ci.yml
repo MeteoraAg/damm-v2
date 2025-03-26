@@ -63,7 +63,7 @@ jobs:
           components: clippy
       # Cache rust, cargo
       - uses: Swatinem/rust-cache@v1
-      - run: cargo build -p cli
+      - run: cargo +1.85.0 build -p cli
         shell: bash
 
   cargo_test:
