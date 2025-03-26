@@ -487,9 +487,17 @@ impl Pool {
                     self.get_swap_result_exact_out_from_a_to_b(amount, is_referral, current_point)
                 } // this is fine since we still collect fee in token out
                 TradeDirection::BtoA => {
+                    // skip fee
+                    let swap_result = self.get_swap_result_exact_out_from_b_to_a(
+                        amount,
+                        is_referral,
+                        true,
+                        current_point,
+                    )?;
+
                     // fee will be in token b
                     let FeeOnAmountResult {
-                        amount: amount_out_included_lp_fee,
+                        amount,
                         lp_fee,
                         protocol_fee,
                         partner_fee,
@@ -501,16 +509,9 @@ impl Pool {
                         self.activation_point,
                         true,
                     )?;
-                    // skip fee
-                    let swap_result = self.get_swap_result_exact_out_from_b_to_a(
-                        amount_out_included_lp_fee,
-                        is_referral,
-                        true,
-                        current_point,
-                    )?;
 
                     Ok(SwapResult {
-                        input_amount: swap_result.input_amount,
+                        input_amount: amount,
                         output_amount: swap_result.output_amount,
                         next_sqrt_price: swap_result.next_sqrt_price,
                         lp_fee,
@@ -985,19 +986,8 @@ impl Pool {
 /// Encodes all results of swapping
 #[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize, Clone, Copy)]
 pub struct SwapResult {
-    pub input_amount: u64,
-    pub output_amount: u64,
-    pub next_sqrt_price: u128,
-    pub lp_fee: u64,
-    pub protocol_fee: u64,
-    pub partner_fee: u64,
-    pub referral_fee: u64,
-}
-
-/// Encodes all results of swapping
-#[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize)]
-pub struct SwapResultExactOut {
-    pub input_amount: u64,
+    pub input_amount: u64,  // amount already charged fee
+    pub output_amount: u64, // amount already charged fee
     pub next_sqrt_price: u128,
     pub lp_fee: u64,
     pub protocol_fee: u64,
