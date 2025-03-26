@@ -130,6 +130,7 @@ describe("Add liquidity", () => {
 
       const result = await initializePool(context.banksClient, initPoolParams);
 
+
       pool = result.pool;
       position = await createPosition(
         context.banksClient,

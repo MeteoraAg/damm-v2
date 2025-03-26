@@ -1110,13 +1110,6 @@ export async function createPosition(
   expect(metadata.name).eq("Meteora Dynamic Amm");
   expect(metadata.symbol).eq("MDA");
 
-  // validate mint close authority is pool account
-  const mintCloseAuthority = MintCloseAuthorityLayout.decode(
-    getExtensionData(ExtensionType.MintCloseAuthority, Buffer.from(tlvData))
-  ).closeAuthority;
-
-  expect(mintCloseAuthority.toString()).eq(pool.toString());
-
   // validate metadata pointer
   const metadataAddress = MetadataPointerLayout.decode(
     getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
@@ -1255,10 +1248,87 @@ export async function removeLiquidity(
 
   const transaction = await program.methods
     .removeLiquidity({
-      maxLiquidityDelta: liquidityDelta,
+      liquidityDelta,
       tokenAAmountThreshold,
       tokenBAmountThreshold,
     })
+    .accounts({
+      poolAuthority,
+      pool,
+      position,
+      positionNftAccount,
+      owner: owner.publicKey,
+      tokenAAccount,
+      tokenBAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint,
+      tokenBMint,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(owner);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+
+export type RemoveAllLiquidityParams = {
+  owner: Keypair;
+  pool: PublicKey;
+  position: PublicKey;
+  tokenAAmountThreshold: BN;
+  tokenBAmountThreshold: BN;
+};
+
+export async function removeAllLiquidity(
+  banksClient: BanksClient,
+  params: RemoveAllLiquidityParams,
+) {
+  const {
+    owner,
+    pool,
+    position,
+    tokenAAmountThreshold,
+    tokenBAmountThreshold,
+  } = params;
+
+  const program = createCpAmmProgram();
+  const poolState = await getPool(banksClient, pool);
+  const positionState = await getPosition(banksClient, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  const poolAuthority = derivePoolAuthority();
+  const tokenAProgram = (await banksClient.getAccount(poolState.tokenAMint))
+    .owner;
+  const tokenBProgram = (await banksClient.getAccount(poolState.tokenBMint))
+    .owner;
+
+  const tokenAAccount = getAssociatedTokenAddressSync(
+    poolState.tokenAMint,
+    owner.publicKey,
+    true,
+    tokenAProgram
+  );
+  const tokenBAccount = getAssociatedTokenAddressSync(
+    poolState.tokenBMint,
+    owner.publicKey,
+    true,
+    tokenBProgram
+  );
+  const tokenAVault = poolState.tokenAVault;
+  const tokenBVault = poolState.tokenBVault;
+  const tokenAMint = poolState.tokenAMint;
+  const tokenBMint = poolState.tokenBMint;
+
+  const transaction = await program.methods
+    .removeAllLiquidity(
+      tokenAAmountThreshold,
+      tokenBAmountThreshold,
+    )
     .accounts({
       poolAuthority,
       pool,

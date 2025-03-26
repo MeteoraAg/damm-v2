@@ -1,3 +1,5 @@
+use std::u128;
+
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
@@ -13,7 +15,7 @@ use crate::{
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct RemoveLiquidityParameters {
     /// delta liquidity
-    pub max_liquidity_delta: u128,
+    pub liquidity_delta: u128,
     /// minimum token a amount
     pub token_a_amount_threshold: u64,
     /// minimum token b amount
@@ -78,7 +80,9 @@ pub struct RemoveLiquidityCtx<'info> {
 
 pub fn handle_remove_liquidity(
     ctx: Context<RemoveLiquidityCtx>,
-    params: RemoveLiquidityParameters,
+    liquidity_delta: Option<u128>,
+    token_a_amount_threshold: u64,
+    token_b_amount_threshold: u64,
 ) -> Result<()> {
     {
         let pool = ctx.accounts.pool.load()?;
@@ -89,22 +93,18 @@ pub fn handle_remove_liquidity(
         );
     }
 
-    let RemoveLiquidityParameters {
-        max_liquidity_delta,
-        token_a_amount_threshold,
-        token_b_amount_threshold,
-    } = params;
-
-    require!(max_liquidity_delta > 0, PoolError::InvalidParameters);
-
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
+
+    let liquidity_delta = liquidity_delta.unwrap_or(position.unlocked_liquidity);
+    require!(
+        liquidity_delta <= position.unlocked_liquidity && liquidity_delta > 0,
+        PoolError::InsufficientLiquidity
+    );
 
     // update current pool reward & postion reward before any logic
     let current_time = Clock::get()?.unix_timestamp as u64;
     position.update_rewards(&mut pool, current_time)?;
-
-    let liquidity_delta = position.unlocked_liquidity.min(max_liquidity_delta);
 
     let ModifyLiquidityResult { amount_a, amount_b } =
         pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Down)?;
@@ -151,7 +151,11 @@ pub fn handle_remove_liquidity(
         pool: ctx.accounts.pool.key(),
         owner: ctx.accounts.owner.key(),
         position: ctx.accounts.position.key(),
-        params,
+        params: RemoveLiquidityParameters {
+            liquidity_delta,
+            token_a_amount_threshold,
+            token_b_amount_threshold
+        },
         amount_a,
         amount_b,
     });

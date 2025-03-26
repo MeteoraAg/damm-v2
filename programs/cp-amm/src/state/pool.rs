@@ -137,10 +137,10 @@ pub struct Pool {
     pub permanent_lock_liquidity: u128,
     /// metrics
     pub metrics: PoolMetrics,
-    /// Farming reward information
-    pub reward_infos: [RewardInfo; NUM_REWARDS],
     /// Padding for further use
     pub _padding_1: [u64; 10],
+    /// Farming reward information
+    pub reward_infos: [RewardInfo; NUM_REWARDS],
 }
 
 const_assert_eq!(Pool::INIT_SPACE, 1104);
@@ -201,6 +201,8 @@ pub struct RewardInfo {
     pub reward_token_flag: u8,
     /// padding
     pub _padding_0: [u8; 6],
+    /// Padding to ensure `reward_rate: u128` is 16-byte aligned
+    pub _padding_1: [u8; 8], // 8 bytes
     /// Reward token mint.
     pub mint: Pubkey,
     /// Reward vault token account.
@@ -211,8 +213,6 @@ pub struct RewardInfo {
     pub reward_duration: u64,
     /// reward duration end
     pub reward_duration_end: u64,
-    /// Padding to ensure `reward_rate: u128` is 16-byte aligned
-    pub _padding_1: [u8; 8], // 8 bytes
     /// reward rate
     pub reward_rate: u128,
     /// Reward per token stored

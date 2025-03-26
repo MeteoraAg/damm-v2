@@ -15,11 +15,6 @@ pub mod treasury {
     pub const ID: Pubkey = pubkey!("BJQbRiRWhJCyTYZcAuAL3ngDCx3AyFQGKDq8zhiZAKUw");
 }
 
-pub mod fee_update_authority {
-    use anchor_lang::{prelude::Pubkey, solana_program::pubkey};
-    pub const ID: Pubkey = pubkey!("fee3qJNFpqUEYLCaCntRNqNdqrX2yCeYnpxUj2TJP9P");
-}
-
 #[cfg(feature = "local")]
 pub fn assert_eq_admin(_admin: Pubkey) -> bool {
     true

@@ -24,7 +24,7 @@ pub use pool_action_access::*;
 pub mod params;
 
 #[cfg(feature = "local")]
-declare_id!("9ojbmyTUust8JLmbtx6khokQpd8ezMJmpcmKbbuDp4iT");
+declare_id!("9sh3gorJVsWgpdJo317PqnoWoTuDN2LkxiyYUUTu4sNJ");
 
 #[cfg(not(feature = "local"))]
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
@@ -146,7 +146,25 @@ pub mod cp_amm {
         ctx: Context<RemoveLiquidityCtx>,
         params: RemoveLiquidityParameters,
     ) -> Result<()> {
-        instructions::handle_remove_liquidity(ctx, params)
+        instructions::handle_remove_liquidity(
+            ctx,
+            Some(params.liquidity_delta),
+            params.token_a_amount_threshold,
+            params.token_b_amount_threshold,
+        )
+    }
+
+    pub fn remove_all_liquidity(
+        ctx: Context<RemoveLiquidityCtx>,
+        token_a_amount_threshold: u64,
+        token_b_amount_threshold: u64,
+    ) -> Result<()> {
+        instructions::handle_remove_liquidity(
+            ctx,
+            None,
+            token_a_amount_threshold,
+            token_b_amount_threshold,
+        )
     }
 
     pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {

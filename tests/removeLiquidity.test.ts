@@ -13,6 +13,7 @@ import {
   U64_MAX,
   mintSplTokenTo,
   createToken,
+  removeAllLiquidity,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { ExtensionType } from "@solana/spl-token";
@@ -146,19 +147,27 @@ describe("Remove liquidity", () => {
         tokenBAmountThreshold: U64_MAX,
       };
       await addLiquidity(context.banksClient, addLiquidityParams);
-      // return
 
       // remove liquidity
-
       const removeLiquidityParams = {
         owner: user,
         pool,
         position,
-        liquidityDelta: liquidity,
+        liquidityDelta: liquidity.div(new BN(2)),
         tokenAAmountThreshold: new BN(0),
         tokenBAmountThreshold: new BN(0),
       };
       await removeLiquidity(context.banksClient, removeLiquidityParams);
+
+      // remove all liquidity
+      const removeAllLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        tokenAAmountThreshold: new BN(0),
+        tokenBAmountThreshold: new BN(0),
+      };
+      await removeAllLiquidity(context.banksClient, removeAllLiquidityParams);
     });
   });
 
