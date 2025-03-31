@@ -7,11 +7,12 @@ use static_assertions::const_assert_eq;
 use crate::{
     constants::{
         fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
-        BASIS_POINT_MAX,
+        BASIS_POINT_MAX, ONE_Q64,
     },
     fee_math::get_fee_in_period,
     safe_math::SafeMath,
-    utils_math::safe_mul_div_cast_u64,
+    u128x128_math::Rounding,
+    utils_math::{safe_mul_div_cast_u64, safe_shl_div_cast},
     PoolError,
 };
 
@@ -219,22 +220,25 @@ pub struct DynamicFeeStruct {
 const_assert_eq!(DynamicFeeStruct::INIT_SPACE, 96);
 
 impl DynamicFeeStruct {
-    // we approximate (1+bin_step)^bin_id = 1 + bin_step * bin_id
+    // we approximate Px / Py = (1 + b) ^ delta_bin  = 1 + b * delta_bin (if b is too small)
+    // Ex: (1+1/10000)^ 5000 / (1+5000 * 1/10000) = 1.1 (10% diff if sqrt_price diff is (1+1/10000)^ 5000 = 1.64 times)
     pub fn get_delta_bin_id(
         bin_step_u128: u128,
         sqrt_price_a: u128,
         sqrt_price_b: u128,
     ) -> Result<u128> {
-        let delta_id = if sqrt_price_a > sqrt_price_b {
-            sqrt_price_a
-                .safe_sub(sqrt_price_b)?
-                .safe_div(bin_step_u128)?
+        let (upper_sqrt_price, lower_sqrt_price) = if sqrt_price_a > sqrt_price_b {
+            (sqrt_price_a, sqrt_price_b)
         } else {
-            sqrt_price_b
-                .safe_sub(sqrt_price_a)?
-                .safe_div(bin_step_u128)?
+            (sqrt_price_b, sqrt_price_a)
         };
-        Ok(delta_id.safe_mul(2)?) // mul 2 because we are using sqrt price
+
+        let price_ratio: u128 =
+            safe_shl_div_cast(upper_sqrt_price, lower_sqrt_price, 64, Rounding::Down)?;
+
+        let delta_bin_id = price_ratio.safe_sub(ONE_Q64)?.safe_div(bin_step_u128)?;
+
+        Ok(delta_bin_id.safe_mul(2)?)
     }
     pub fn update_volatility_accumulator(&mut self, sqrt_price: u128) -> Result<()> {
         let delta_price =

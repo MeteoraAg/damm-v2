@@ -12,6 +12,13 @@ pub const REWARD_RATE_SCALE: u8 = 64;
 
 pub const TOTAL_REWARD_SCALE: u8 = 192;
 
+pub const ONE_Q64: u128 = 1u128 << 64;
+
+pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
+
+//  bin_step << 64 / BASIS_POINT_MAX
+pub const BIN_STEP_BPS_U128_DEFAULT: u128 = 1844674407370955;
+
 static_assertions::const_assert_eq!(LIQUIDITY_SCALE + REWARD_RATE_SCALE, TOTAL_REWARD_SCALE);
 
 pub const BASIS_POINT_MAX: u64 = 10_000;

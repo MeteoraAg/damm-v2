@@ -24,3 +24,6 @@ mod reward_tests;
 
 #[cfg(test)]
 mod fee_scheduler_tests;
+
+#[cfg(test)]
+mod test_volitility_accumulate;

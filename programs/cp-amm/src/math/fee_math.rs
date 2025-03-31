@@ -1,11 +1,13 @@
 use anchor_lang::prelude::*;
 
-use crate::{constants::BASIS_POINT_MAX, PoolError};
+use crate::{
+    constants::{BASIS_POINT_MAX, ONE_Q64},
+    PoolError,
+};
 
 use super::safe_math::SafeMath;
 const MAX_EXPONENTIAL: u32 = 0x80000; // 1048576
 const SCALE_OFFSET: u32 = 64;
-pub const ONE: u128 = 1u128 << SCALE_OFFSET;
 
 // cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
 pub fn get_fee_in_period(
@@ -20,7 +22,7 @@ pub fn get_fee_in_period(
     let bps = u128::from(reduction_factor)
         .safe_shl(SCALE_OFFSET.into())?
         .safe_div(BASIS_POINT_MAX.into())?;
-    let base = ONE.safe_sub(bps)?;
+    let base = ONE_Q64.safe_sub(bps)?;
     let result = pow(base, passed_period.into()).ok_or_else(|| PoolError::MathOverflow)?;
 
     let (fee, _) = result
@@ -49,7 +51,7 @@ pub fn pow(base: u128, exp: i32) -> Option<u128> {
     }
 
     let mut squared_base = base;
-    let mut result = ONE;
+    let mut result = ONE_Q64;
 
     // When multiply the base twice, the number of bits double from 128 -> 256, which overflow.
     // The trick here is to inverse the calculation, which make the upper 64 bits (number bits) to be 0s.
