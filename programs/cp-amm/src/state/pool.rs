@@ -24,6 +24,8 @@ use crate::{
     PoolError,
 };
 
+use super::fee::FeeMode;
+
 /// collect fee mode
 #[repr(u8)]
 #[derive(
@@ -404,62 +406,79 @@ impl Pool {
     pub fn get_swap_result(
         &self,
         amount_in: u64,
-        is_referral: bool,
+        fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
     ) -> Result<SwapResult> {
-        let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
-            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+        let mut actual_protocol_fee = 0;
+        let mut actual_lp_fee = 0;
+        let mut actual_referral_fee = 0;
+        let mut actual_partner_fee = 0;
 
-        match collect_fee_mode {
-            CollectFeeMode::BothToken => match trade_direction {
-                TradeDirection::AtoB => {
-                    self.get_swap_result_from_a_to_b(amount_in, is_referral, current_point)
-                }
-                TradeDirection::BtoA => {
-                    self.get_swap_result_from_b_to_a(amount_in, is_referral, false, current_point)
-                }
-            },
-            CollectFeeMode::OnlyB => match trade_direction {
-                TradeDirection::AtoB => {
-                    self.get_swap_result_from_a_to_b(amount_in, is_referral, current_point)
-                } // this is fine since we still collect fee in token out
-                TradeDirection::BtoA => {
-                    // fee will be in token b
-                    let FeeOnAmountResult {
-                        amount,
-                        lp_fee,
-                        protocol_fee,
-                        partner_fee,
-                        referral_fee,
-                    } = self.pool_fees.get_fee_on_amount(
-                        amount_in,
-                        is_referral,
-                        current_point,
-                        self.activation_point,
-                    )?;
-                    // skip fee
-                    let swap_result =
-                        self.get_swap_result_from_b_to_a(amount, is_referral, true, current_point)?;
+        let actual_amount_in = if fee_mode.fees_on_input {
+            let FeeOnAmountResult {
+                amount,
+                lp_fee,
+                protocol_fee,
+                partner_fee,
+                referral_fee,
+            } = self.pool_fees.get_fee_on_amount(
+                amount_in,
+                fee_mode.has_referral,
+                current_point,
+                self.activation_point,
+            )?;
 
-                    Ok(SwapResult {
-                        output_amount: swap_result.output_amount,
-                        next_sqrt_price: swap_result.next_sqrt_price,
-                        lp_fee,
-                        protocol_fee,
-                        partner_fee,
-                        referral_fee,
-                    })
-                }
-            },
-        }
+            actual_protocol_fee = protocol_fee;
+            actual_lp_fee = lp_fee;
+            actual_referral_fee = referral_fee;
+            actual_partner_fee = partner_fee;
+
+            amount
+        } else {
+            amount_in
+        };
+
+        let SwapAmount {
+            output_amount,
+            next_sqrt_price,
+        } = match trade_direction {
+            TradeDirection::AtoB => self.get_swap_result_from_a_to_b(actual_amount_in),
+            TradeDirection::BtoA => self.get_swap_result_from_b_to_a(actual_amount_in),
+        }?;
+
+        let actual_amount_out = if fee_mode.fees_on_input {
+            output_amount
+        } else {
+            let FeeOnAmountResult {
+                amount,
+                lp_fee,
+                protocol_fee,
+                partner_fee,
+                referral_fee,
+            } = self.pool_fees.get_fee_on_amount(
+                output_amount,
+                fee_mode.has_referral,
+                current_point,
+                self.activation_point,
+            )?;
+            actual_protocol_fee = protocol_fee;
+            actual_lp_fee = lp_fee;
+            actual_referral_fee = referral_fee;
+            actual_partner_fee = partner_fee;
+            amount
+        };
+
+        Ok(SwapResult {
+            output_amount: actual_amount_out,
+            next_sqrt_price,
+            lp_fee: actual_lp_fee,
+            protocol_fee: actual_protocol_fee,
+            partner_fee: actual_partner_fee,
+            referral_fee: actual_referral_fee,
+        })
     }
-    fn get_swap_result_from_a_to_b(
-        &self,
-        amount_in: u64,
-        is_referral: bool,
-        current_point: u64,
-    ) -> Result<SwapResult> {
+    fn get_swap_result_from_a_to_b(&self, amount_in: u64) -> Result<SwapAmount> {
         // finding new target price
         let next_sqrt_price =
             get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, true)?;
@@ -476,35 +495,13 @@ impl Pool {
             Rounding::Down,
         )?;
 
-        let FeeOnAmountResult {
-            amount,
-            lp_fee,
-            protocol_fee,
-            partner_fee,
-            referral_fee,
-        } = self.pool_fees.get_fee_on_amount(
+        Ok(SwapAmount {
             output_amount,
-            is_referral,
-            current_point,
-            self.activation_point,
-        )?;
-        Ok(SwapResult {
-            output_amount: amount,
-            lp_fee,
-            protocol_fee,
-            partner_fee,
-            referral_fee,
             next_sqrt_price,
         })
     }
 
-    fn get_swap_result_from_b_to_a(
-        &self,
-        amount_in: u64,
-        is_referral: bool,
-        is_skip_fee: bool,
-        current_point: u64,
-    ) -> Result<SwapResult> {
+    fn get_swap_result_from_b_to_a(&self, amount_in: u64) -> Result<SwapAmount> {
         // finding new target price
         let next_sqrt_price =
             get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, false)?;
@@ -520,43 +517,16 @@ impl Pool {
             Rounding::Down,
         )?;
 
-        if is_skip_fee {
-            Ok(SwapResult {
-                output_amount,
-                lp_fee: 0,
-                protocol_fee: 0,
-                partner_fee: 0,
-                referral_fee: 0,
-                next_sqrt_price,
-            })
-        } else {
-            let FeeOnAmountResult {
-                amount,
-                lp_fee,
-                protocol_fee,
-                partner_fee,
-                referral_fee,
-            } = self.pool_fees.get_fee_on_amount(
-                output_amount,
-                is_referral,
-                current_point,
-                self.activation_point,
-            )?;
-            Ok(SwapResult {
-                output_amount: amount,
-                lp_fee,
-                protocol_fee,
-                partner_fee,
-                referral_fee,
-                next_sqrt_price,
-            })
-        }
+        Ok(SwapAmount {
+            output_amount,
+            next_sqrt_price,
+        })
     }
 
     pub fn apply_swap_result(
         &mut self,
         swap_result: &SwapResult,
-        trade_direction: TradeDirection,
+        fee_mode: &FeeMode,
         current_timestamp: u64,
     ) -> Result<()> {
         let &SwapResult {
@@ -570,22 +540,11 @@ impl Pool {
 
         let old_sqrt_price = self.sqrt_price;
         self.sqrt_price = next_sqrt_price;
+
         let fee_per_token_stored = shl_div_256(lp_fee.into(), self.liquidity, LIQUIDITY_SCALE)
             .ok_or_else(|| PoolError::MathOverflow)?;
 
-        let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
-            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-
-        if collect_fee_mode == CollectFeeMode::OnlyB || trade_direction == TradeDirection::AtoB {
-            self.partner_b_fee = self.partner_b_fee.safe_add(partner_fee)?;
-            self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
-            self.fee_b_per_liquidity = self
-                .fee_b_per_liquidity()
-                .safe_add(fee_per_token_stored)?
-                .to_le_bytes();
-            self.metrics
-                .accumulate_fee(lp_fee, protocol_fee, partner_fee, false)?;
-        } else {
+        if fee_mode.fees_on_token_a {
             self.partner_a_fee = self.partner_a_fee.safe_add(partner_fee)?;
             self.protocol_a_fee = self.protocol_a_fee.safe_add(protocol_fee)?;
             self.fee_a_per_liquidity = self
@@ -594,8 +553,19 @@ impl Pool {
                 .to_le_bytes();
             self.metrics
                 .accumulate_fee(lp_fee, protocol_fee, partner_fee, true)?;
+        } else {
+            self.partner_b_fee = self.partner_b_fee.safe_add(partner_fee)?;
+            self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
+            self.fee_b_per_liquidity = self
+                .fee_b_per_liquidity()
+                .safe_add(fee_per_token_stored)?
+                .to_le_bytes();
+            self.metrics
+                .accumulate_fee(lp_fee, protocol_fee, partner_fee, false)?;
         }
+
         self.update_post_swap(old_sqrt_price, current_timestamp)?;
+
         Ok(())
     }
 
@@ -779,6 +749,11 @@ pub struct SwapResult {
     pub protocol_fee: u64,
     pub partner_fee: u64,
     pub referral_fee: u64,
+}
+
+pub struct SwapAmount {
+    output_amount: u64,
+    next_sqrt_price: u128,
 }
 
 #[derive(Debug, PartialEq)]

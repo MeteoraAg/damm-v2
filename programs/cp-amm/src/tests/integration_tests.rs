@@ -2,7 +2,7 @@ use crate::{
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::swap::TradeDirection,
     state::{
-        fee::{BaseFeeStruct, PoolFeesStruct},
+        fee::{BaseFeeStruct, FeeMode, PoolFeesStruct},
         Pool, Position,
     },
     tests::LIQUIDITY_MAX,
@@ -18,7 +18,7 @@ proptest! {
     fn test_reserve_wont_loss(
         sqrt_price in MIN_SQRT_PRICE..=MAX_SQRT_PRICE,
         liquidity_delta in 1..=LIQUIDITY_MAX / 1000,
-        is_referral in ANY,
+        has_referral in ANY,
         amount_in_a in 1..=u32::MAX as u64,
         amount_in_b in 1..=u32::MAX as u64,
     ) {
@@ -51,11 +51,11 @@ proptest! {
             //random action
             execute_add_liquidity(&mut reserve, &mut pool, &mut position, liquidity_delta);
 
-            if execute_swap_liquidity(&mut reserve, &mut pool, amount_in_a, is_referral, TradeDirection::AtoB){
+            if execute_swap_liquidity(&mut reserve, &mut pool, amount_in_a, has_referral, TradeDirection::AtoB){
                 swap_count += 1;
             }
 
-            if execute_swap_liquidity(&mut reserve, &mut pool, amount_in_b, is_referral, TradeDirection::BtoA) {
+            if execute_swap_liquidity(&mut reserve, &mut pool, amount_in_b, has_referral, TradeDirection::BtoA) {
                 swap_count += 1;
             }
 
@@ -82,7 +82,7 @@ proptest! {
 fn test_reserve_wont_lost_single() {
     let sqrt_price = 4295048016;
     let liquidity_delta = 256772808979395951;
-    let is_referral = false;
+    let has_referral = false;
     let trade_direction = false;
     let amount_in = 1;
 
@@ -119,7 +119,7 @@ fn test_reserve_wont_lost_single() {
                 &mut reserve,
                 &mut pool,
                 amount_in,
-                is_referral,
+                has_referral,
                 TradeDirection::AtoB,
             ) {
                 swap_count += 1;
@@ -129,7 +129,7 @@ fn test_reserve_wont_lost_single() {
                 &mut reserve,
                 &mut pool,
                 amount_in,
-                is_referral,
+                has_referral,
                 TradeDirection::BtoA,
             ) {
                 swap_count += 1;
@@ -200,19 +200,20 @@ fn execute_swap_liquidity(
     reserve: &mut PoolReserve,
     pool: &mut Pool,
     amount_in: u64,
-    is_referral: bool,
+    has_referral: bool,
     trade_direction: TradeDirection,
 ) -> bool {
     let max_amount_in = pool.get_max_amount_in(trade_direction).unwrap();
     if amount_in > max_amount_in {
         return false;
     }
+    let fee_mode =
+        &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral).unwrap();
     let swap_result = pool
-        .get_swap_result(amount_in, is_referral, trade_direction, 0)
+        .get_swap_result(amount_in, fee_mode, trade_direction, 0)
         .unwrap();
 
-    pool.apply_swap_result(&swap_result, trade_direction, 0)
-        .unwrap();
+    pool.apply_swap_result(&swap_result, fee_mode, 0).unwrap();
 
     match trade_direction {
         TradeDirection::AtoB => {
