@@ -1,7 +1,7 @@
 //! Fees module includes information about fee charges
 use crate::constants::fee::{
     CUSTOMIZABLE_HOST_FEE_PERCENT, CUSTOMIZABLE_PROTOCOL_FEE_PERCENT, FEE_DENOMINATOR,
-    MAX_BASIS_POINT, MAX_FEE_BPS_DEFAULT, MIN_FEE_NUMERATOR,
+    MAX_BASIS_POINT, MAX_FEE_BPS_DEFAULT, MIN_FEE_BPS, MIN_FEE_NUMERATOR,
 };
 use crate::constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
 use crate::error::PoolError;
@@ -290,7 +290,7 @@ impl PoolFeeParameters {
     /// Validate that the fees are reasonable
     pub fn validate(&self) -> Result<()> {
         require!(
-            self.max_fee_bps > MIN_FEE_NUMERATOR && self.max_fee_bps <= MAX_FEE_BPS_DEFAULT,
+            self.max_fee_bps > MIN_FEE_BPS && self.max_fee_bps <= MAX_FEE_BPS_DEFAULT,
             PoolError::InvalidFee
         );
 
