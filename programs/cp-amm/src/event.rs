@@ -50,6 +50,7 @@ pub struct EvtCloseClaimFeeOperator {
 
 #[event]
 pub struct EvtInitializePool {
+    pub pool: Pubkey,
     pub token_a_mint: Pubkey,
     pub token_b_mint: Pubkey,
     pub creator: Pubkey,

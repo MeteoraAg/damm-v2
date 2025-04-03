@@ -360,6 +360,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
     )?;
 
     emit_cpi!(EvtInitializePool {
+        pool: ctx.accounts.pool.key(),
         token_a_mint: ctx.accounts.token_a_mint.key(),
         token_b_mint: ctx.accounts.token_b_mint.key(),
         pool_fees,
