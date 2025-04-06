@@ -99,17 +99,22 @@ pub fn handle_add_liquidity(
     let current_time = Clock::get()?.unix_timestamp as u64;
     position.update_rewards(&mut pool, current_time)?;
 
-    let ModifyLiquidityResult { amount_a, amount_b } =
-        pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)?;
+    let ModifyLiquidityResult {
+        token_a_amount,
+        token_b_amount,
+    } = pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)?;
 
-    require!(amount_a > 0 || amount_b > 0, PoolError::AmountIsZero);
+    require!(
+        token_a_amount > 0 || token_b_amount > 0,
+        PoolError::AmountIsZero
+    );
 
     pool.apply_add_liquidity(&mut position, liquidity_delta)?;
 
     let total_amount_a =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, amount_a)?.amount;
+        calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
     let total_amount_b =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_b_mint, amount_b)?.amount;
+        calculate_transfer_fee_included_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
 
     require!(
         total_amount_a <= token_a_amount_threshold,
@@ -143,8 +148,8 @@ pub fn handle_add_liquidity(
         position: ctx.accounts.position.key(),
         owner: ctx.accounts.owner.key(),
         params,
-        total_amount_a,
-        total_amount_b,
+        token_a_amount,
+        token_b_amount,
     });
 
     Ok(())

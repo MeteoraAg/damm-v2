@@ -351,8 +351,8 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         sqrt_max_price: config.sqrt_max_price,
         alpha_vault,
         collect_fee_mode: config.collect_fee_mode,
-        total_amount_a,
-        total_amount_b,
+        token_a_amount,
+        token_b_amount,
         pool_type,
     });
 

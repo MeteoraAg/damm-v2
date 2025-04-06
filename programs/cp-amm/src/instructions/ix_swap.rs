@@ -204,7 +204,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         params,
         swap_result,
         has_referral,
-        transfer_fee_excluded_amount_in,
+        actual_amount_in: transfer_fee_excluded_amount_in,
         current_timestamp,
     });
 

@@ -50,8 +50,8 @@ pub fn handle_permanent_lock_position(
     emit_cpi!(EvtPermanentLockPosition {
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
-        liquidity: permanent_lock_liquidity,
-        pool_new_permanent_locked_liquidity: pool.permanent_lock_liquidity
+        lock_liquidity_amount: permanent_lock_liquidity,
+        total_permanent_locked_liquidity: pool.permanent_lock_liquidity
     });
 
     Ok(())

@@ -66,8 +66,8 @@ pub struct EvtInitializePool {
     pub activation_point: u64,
     pub token_a_flag: u8,
     pub token_b_flag: u8,
-    pub total_amount_a: u64,
-    pub total_amount_b: u64,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
     pub pool_type: u8,
 }
 
@@ -77,8 +77,8 @@ pub struct EvtAddLiquidity {
     pub position: Pubkey,
     pub owner: Pubkey,
     pub params: AddLiquidityParameters,
-    pub total_amount_a: u64,
-    pub total_amount_b: u64,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
 }
 
 #[event]
@@ -104,8 +104,8 @@ pub struct EvtRemoveLiquidity {
     pub position: Pubkey,
     pub owner: Pubkey,
     pub params: RemoveLiquidityParameters,
-    pub amount_a: u64,
-    pub amount_b: u64,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
 }
 
 #[event]
@@ -115,7 +115,7 @@ pub struct EvtSwap {
     pub has_referral: bool,
     pub params: SwapParameters,
     pub swap_result: SwapResult,
-    pub transfer_fee_excluded_amount_in: u64,
+    pub actual_amount_in: u64,
     pub current_timestamp: u64,
 }
 
@@ -135,8 +135,8 @@ pub struct EvtLockPosition {
 pub struct EvtPermanentLockPosition {
     pub pool: Pubkey,
     pub position: Pubkey,
-    pub liquidity: u128,
-    pub pool_new_permanent_locked_liquidity: u128,
+    pub lock_liquidity_amount: u128,
+    pub total_permanent_locked_liquidity: u128,
 }
 
 #[event]

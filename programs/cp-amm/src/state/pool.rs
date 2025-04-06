@@ -575,21 +575,24 @@ impl Pool {
         round: Rounding,
     ) -> Result<ModifyLiquidityResult> {
         // finding output amount
-        let amount_a = get_delta_amount_a_unsigned(
+        let token_a_amount = get_delta_amount_a_unsigned(
             self.sqrt_price,
             self.sqrt_max_price,
             liquidity_delta,
             round,
         )?;
 
-        let amount_b = get_delta_amount_b_unsigned(
+        let token_b_amount = get_delta_amount_b_unsigned(
             self.sqrt_min_price,
             self.sqrt_price,
             liquidity_delta,
             round,
         )?;
 
-        Ok(ModifyLiquidityResult { amount_a, amount_b })
+        Ok(ModifyLiquidityResult {
+            token_a_amount,
+            token_b_amount,
+        })
     }
 
     pub fn apply_add_liquidity(
@@ -758,6 +761,6 @@ pub struct SwapAmount {
 
 #[derive(Debug, PartialEq)]
 pub struct ModifyLiquidityResult {
-    pub amount_a: u64,
-    pub amount_b: u64,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
 }

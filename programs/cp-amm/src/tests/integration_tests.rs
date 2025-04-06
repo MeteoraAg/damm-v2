@@ -175,8 +175,8 @@ fn execute_add_liquidity(
 
     pool.apply_add_liquidity(position, liquidity_delta).unwrap();
 
-    reserve.amount_a = reserve.amount_a.checked_add(result.amount_a).unwrap();
-    reserve.amount_b = reserve.amount_b.checked_add(result.amount_b).unwrap();
+    reserve.amount_a = reserve.amount_a.checked_add(result.token_a_amount).unwrap();
+    reserve.amount_b = reserve.amount_b.checked_add(result.token_b_amount).unwrap();
 }
 
 fn execute_remove_liquidity(
@@ -192,8 +192,8 @@ fn execute_remove_liquidity(
     pool.apply_remove_liquidity(position, liquidity_delta)
         .unwrap();
 
-    reserve.amount_a = reserve.amount_a.checked_sub(result.amount_a).unwrap();
-    reserve.amount_b = reserve.amount_b.checked_sub(result.amount_b).unwrap();
+    reserve.amount_a = reserve.amount_a.checked_sub(result.token_a_amount).unwrap();
+    reserve.amount_b = reserve.amount_b.checked_sub(result.token_b_amount).unwrap();
 }
 
 fn execute_swap_liquidity(
