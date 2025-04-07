@@ -35,7 +35,7 @@ declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
 pub mod cp_amm {
     use super::*;
 
-    /// ADMIN FUNCTIONS ////
+    /// ADMIN FUNCTIONS /////
 
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,

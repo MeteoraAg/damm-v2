@@ -59,10 +59,10 @@ jobs:
       # Install rust + toolchain
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.85.0
+          toolchain: stable
           components: clippy
       # Cache rust, cargo
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - run: cargo +1.85.0 build -p cli
         shell: bash
 
