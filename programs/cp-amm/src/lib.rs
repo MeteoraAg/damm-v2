@@ -23,6 +23,7 @@ pub mod tests;
 pub mod pool_action_access;
 pub use pool_action_access::*;
 
+pub mod manager;
 pub mod params;
 
 #[cfg(feature = "local")]

@@ -130,7 +130,7 @@ pub fn create_position_nft<'info>(
     let seeds = pool_authority_seeds!(pool_authority_bump);
     let signer_seeds = &[&seeds[..]];
     let cpi_accounts = TokenMetadataInitialize {
-        program_id: token_program.clone(),
+        token_program_id: token_program.clone(),
         mint: position_nft_mint.clone(),
         metadata: position_nft_mint.clone(),
         mint_authority: pool_authority.clone(),

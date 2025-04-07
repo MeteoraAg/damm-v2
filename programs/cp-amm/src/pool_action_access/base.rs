@@ -24,3 +24,13 @@ pub fn get_pool_access_validator<'a>(pool: &'a Pool) -> Result<Box<dyn PoolActio
     let access_validator = PermissionlessActionAccess::new(pool)?;
     Ok(Box::new(access_validator))
 }
+
+pub fn get_pool_access_validator_without_clock(
+    pool: &Pool,
+    current_slot: u64,
+    current_timestamp: i64,
+) -> Result<Box<dyn PoolActionAccess>> {
+    let access_validator =
+        PermissionlessActionAccess::new_without_clock(pool, current_slot, current_timestamp)?;
+    Ok(Box::new(access_validator))
+}
