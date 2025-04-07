@@ -1,0 +1,10 @@
+[package]
+name = "rust-sdk"
+version = "0.1.0"
+edition = "2024"
+description = "cp-amm sdk"
+authors = ["minh <minh@raccoons.dev>"]
+
+[dependencies]
+anyhow = "1.0.71"
+cp-amm = { path = "../programs/cp-amm" }

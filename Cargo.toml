@@ -1,5 +1,5 @@
 [workspace]
-members = [ "cli","programs/*"]
+members = [ "cli","programs/*", "rust-sdk"]
 resolver = "2"
 
 [profile.release]
