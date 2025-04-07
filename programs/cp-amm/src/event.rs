@@ -68,6 +68,8 @@ pub struct EvtInitializePool {
     pub token_b_flag: u8,
     pub token_a_amount: u64,
     pub token_b_amount: u64,
+    pub total_amount_a: u64,
+    pub total_amount_b: u64,
     pub pool_type: u8,
 }
 
@@ -79,6 +81,8 @@ pub struct EvtAddLiquidity {
     pub params: AddLiquidityParameters,
     pub token_a_amount: u64,
     pub token_b_amount: u64,
+    pub total_amount_a: u64,
+    pub total_amount_b: u64,
 }
 
 #[event]

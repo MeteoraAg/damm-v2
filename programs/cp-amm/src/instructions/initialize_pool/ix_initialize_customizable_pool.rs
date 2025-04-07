@@ -378,6 +378,8 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         collect_fee_mode,
         token_a_amount,
         token_b_amount,
+        total_amount_a,
+        total_amount_b,
         pool_type,
     });
 

@@ -150,6 +150,8 @@ pub fn handle_add_liquidity(
         params,
         token_a_amount,
         token_b_amount,
+        total_amount_a,
+        total_amount_b,
     });
 
     Ok(())

@@ -1,3 +1,5 @@
+> The program is still in the process of being audited.
+
 # Meteora Constant Product AMM (DAMM v2)
 
 MCPA is a brand new AMM program of Meteora that includes almost all features from dynamic-amm v1 with new features:
