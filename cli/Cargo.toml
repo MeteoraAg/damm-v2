@@ -20,3 +20,4 @@ anyhow = "1.0.71"
 cp-amm = { path = "../programs/cp-amm", features = ["cpi"] }
 shellexpand = "3.1.0"
 spl-associated-token-account = "1"
+rustls-webpki = "0.102"
