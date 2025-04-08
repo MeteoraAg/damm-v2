@@ -437,7 +437,12 @@ export type InitializePoolParams = {
 export async function initializePool(
   banksClient: BanksClient,
   params: InitializePoolParams
-): Promise<{ pool: PublicKey; position: PublicKey }> {
+): Promise<{
+  pool: PublicKey;
+  position: PublicKey;
+  positionNftKP: PublicKey;
+  positionNftAccount: PublicKey;
+}> {
   const {
     config,
     tokenAMint,
@@ -526,7 +531,12 @@ export async function initializePool(
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
 
-  return { pool, position: position };
+  return {
+    pool,
+    position: position,
+    positionNftKP: positionNftKP.publicKey,
+    positionNftAccount,
+  };
 }
 
 export type SetPoolStatusParams = {
@@ -1275,7 +1285,6 @@ export async function removeLiquidity(
   await processTransactionMaybeThrow(banksClient, transaction);
 }
 
-
 export type RemoveAllLiquidityParams = {
   owner: Keypair;
   pool: PublicKey;
@@ -1286,7 +1295,7 @@ export type RemoveAllLiquidityParams = {
 
 export async function removeAllLiquidity(
   banksClient: BanksClient,
-  params: RemoveAllLiquidityParams,
+  params: RemoveAllLiquidityParams
 ) {
   const {
     owner,
@@ -1325,10 +1334,7 @@ export async function removeAllLiquidity(
   const tokenBMint = poolState.tokenBMint;
 
   const transaction = await program.methods
-    .removeAllLiquidity(
-      tokenAAmountThreshold,
-      tokenBAmountThreshold,
-    )
+    .removeAllLiquidity(tokenAAmountThreshold, tokenBAmountThreshold)
     .accounts({
       poolAuthority,
       pool,

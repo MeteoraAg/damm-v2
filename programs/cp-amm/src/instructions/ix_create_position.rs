@@ -29,6 +29,7 @@ pub struct CreatePositionCtx<'info> {
         mint::freeze_authority = pool_authority,
         extensions::metadata_pointer::authority = pool_authority,
         extensions::metadata_pointer::metadata_address = position_nft_mint,
+        extensions::close_authority::authority = pool
     )]
     pub position_nft_mint: Box<InterfaceAccount<'info, Mint>>,
 
