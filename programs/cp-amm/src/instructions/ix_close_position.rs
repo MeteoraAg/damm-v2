@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     token_2022::{self, Token2022},
-    token_interface::Mint,
+    token_interface::{Mint, TokenAccount},
 };
 
 use crate::{
@@ -16,6 +16,15 @@ pub struct ClosePositionCtx<'info> {
     /// position_nft_mint
     #[account(mut, address = position.load()?.nft_mint,)]
     pub position_nft_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// The token account for nft
+    #[account(
+        mut,
+        constraint = position_nft_account.mint == position.load()?.nft_mint,
+        constraint = position_nft_account.amount == 1,
+        token::authority = owner
+    )]
+    pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
@@ -45,6 +54,30 @@ pub struct ClosePositionCtx<'info> {
 pub fn handle_close_position(ctx: Context<ClosePositionCtx>) -> Result<()> {
     let position = ctx.accounts.position.load()?;
     require!(position.is_empty()?, PoolError::PositionIsNotEmpty);
+
+    // burn
+    token_2022::burn(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            token_2022::Burn {
+                mint: ctx.accounts.position_nft_mint.to_account_info(),
+                from: ctx.accounts.position_nft_account.to_account_info(),
+                authority: ctx.accounts.owner.to_account_info(),
+            },
+        ),
+        1,
+    )?;
+
+    // close position_nft_account
+    token_2022::close_account(CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        token_2022::CloseAccount {
+            account: ctx.accounts.position_nft_account.to_account_info(),
+            destination: ctx.accounts.rent_receiver.to_account_info(),
+            authority: ctx.accounts.owner.to_account_info(),
+        },
+    ))?;
+
     // close position_nft_mint
     let signer_seeds = pool_authority_seeds!(ctx.bumps.pool_authority);
     token_2022::close_account(CpiContext::new_with_signer(

@@ -142,7 +142,7 @@ pub fn create_position_nft<'info>(
         cpi_ctx,
         String::from("Meteora Dynamic Amm"), // TODO do we need to allow user to input custom name?
         String::from("MDA"),
-        String::from("https://dynamic-ipfs.meteora.ag/mda/position"), // TODO update image
+        String::from("https://raw.githubusercontent.com/MeteoraAg/token-metadata/main/meteora_permission_lp.png"), // TODO update image
     )?;
 
     // transfer minimum rent to mint account

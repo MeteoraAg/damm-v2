@@ -21,8 +21,6 @@ import {
   getMintCloseAuthority,
   MintCloseAuthorityLayout,
   MetadataPointerLayout,
-  createBurnCheckedInstruction,
-  createBurnInstruction,
 } from "@solana/spl-token";
 import { unpack } from "@solana/spl-token-metadata";
 import {
@@ -1373,14 +1371,12 @@ export async function closePosition(
   const poolAuthority = derivePoolAuthority();
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
-  // burn 
-  let preIx = createBurnInstruction(positionNftAccount, positionState.nftMint, owner.publicKey, 1, [], TOKEN_2022_PROGRAM_ID);
-
   const transaction = await program.methods
     .closePosition(
   )
     .accountsPartial({
       positionNftMint: positionState.nftMint,
+      positionNftAccount,
       pool,
       position,
       poolAuthority,
@@ -1388,7 +1384,6 @@ export async function closePosition(
       owner: owner.publicKey,
 
     })
-    .preInstructions([preIx])
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
