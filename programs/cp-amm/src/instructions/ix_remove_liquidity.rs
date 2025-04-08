@@ -11,7 +11,7 @@ use crate::{
     EvtLiquidityChange, EvtRemoveLiquidity, PoolError,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone, Debug)]
 pub struct RemoveLiquidityParameters {
     /// delta liquidity
     pub liquidity_delta: u128,

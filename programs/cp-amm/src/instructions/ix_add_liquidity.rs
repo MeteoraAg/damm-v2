@@ -9,7 +9,7 @@ use crate::{
     EvtAddLiquidity, EvtLiquidityChange, PoolError,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone, Debug)]
 pub struct AddLiquidityParameters {
     /// delta liquidity
     pub liquidity_delta: u128,
