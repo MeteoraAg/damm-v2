@@ -19,7 +19,7 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 devnet = []
 
 [dependencies]
-anchor-lang = { workspace = true, features = ["event-cpi"] }
+anchor-lang = { workspace = true, features = ["event-cpi", "init-if-needed"] }
 anchor-spl = { workspace = true, features = [] }
 bytemuck = { workspace = true, features = ["derive", "min_const_generics"] }
 static_assertions = "1.1.0"

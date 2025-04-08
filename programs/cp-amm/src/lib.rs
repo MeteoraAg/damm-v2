@@ -25,6 +25,7 @@ pub mod tests;
 pub mod pool_action_access;
 pub use pool_action_access::*;
 
+pub mod manager;
 pub mod params;
 
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");

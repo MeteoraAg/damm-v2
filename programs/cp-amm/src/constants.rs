@@ -1,5 +1,5 @@
 use anchor_lang::prelude::Pubkey;
-use anchor_lang::solana_program::pubkey;
+use five8_const::decode_32_const;
 
 /// refer raydium clmm
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
@@ -165,6 +165,10 @@ pub mod treasury {
 }
 
 // Supported quote mints
-const SOL: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
-const USDC: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+const SOL: Pubkey = Pubkey::new_from_array(decode_32_const(
+    "So11111111111111111111111111111111111111112",
+));
+const USDC: Pubkey = Pubkey::new_from_array(decode_32_const(
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+));
 pub const DEFAULT_QUOTE_MINTS: [Pubkey; 2] = [SOL, USDC];
