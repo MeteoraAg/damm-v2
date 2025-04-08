@@ -103,6 +103,14 @@ pub struct EvtCreatePosition {
 }
 
 #[event]
+pub struct EvtClosePosition {
+    pub pool: Pubkey,
+    pub owner: Pubkey,
+    pub position: Pubkey,
+    pub position_nft_mint: Pubkey,
+}
+
+#[event]
 pub struct EvtRemoveLiquidity {
     pub pool: Pubkey,
     pub position: Pubkey,

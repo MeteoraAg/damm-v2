@@ -55,9 +55,10 @@ pub struct InitializePoolCtx<'info> {
         mint::token_program = token_2022_program,
         mint::decimals = 0,
         mint::authority = pool_authority,
-        mint::freeze_authority = pool_authority,
+        mint::freeze_authority = pool, // use pool, so we can filter all position_nft_mint given pool address
         extensions::metadata_pointer::authority = pool_authority,
         extensions::metadata_pointer::metadata_address = position_nft_mint,
+        extensions::close_authority::authority = pool_authority,
     )]
     pub position_nft_mint: Box<InterfaceAccount<'info, Mint>>,
 

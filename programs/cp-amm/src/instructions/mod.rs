@@ -26,3 +26,5 @@ pub mod ix_fund_reward;
 pub use ix_fund_reward::*;
 pub mod ix_withdraw_ineligible_reward;
 pub use ix_withdraw_ineligible_reward::*;
+pub mod ix_close_position;
+pub use ix_close_position::*;

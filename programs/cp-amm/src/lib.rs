@@ -169,6 +169,10 @@ pub mod cp_amm {
         )
     }
 
+    pub fn close_position(ctx: Context<ClosePositionCtx>) -> Result<()> {
+        instructions::handle_close_position(ctx)
+    }
+
     pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
         instructions::handle_swap(ctx, params)
     }

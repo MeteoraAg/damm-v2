@@ -14,6 +14,7 @@ import {
   mintSplTokenTo,
   createToken,
   removeAllLiquidity,
+  closePosition,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { ExtensionType } from "@solana/spl-token";
@@ -168,6 +169,9 @@ describe("Remove liquidity", () => {
         tokenBAmountThreshold: new BN(0),
       };
       await removeAllLiquidity(context.banksClient, removeAllLiquidityParams);
+
+      // close position
+      await closePosition(context.banksClient, { owner: user, pool, position });
     });
   });
 

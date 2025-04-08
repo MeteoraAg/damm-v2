@@ -121,4 +121,7 @@ pub enum PoolError {
 
     #[msg("Fee inverse is incorrect")]
     FeeInverseIsIncorrect,
+
+    #[msg("Position is not empty")]
+    PositionIsNotEmpty,
 }

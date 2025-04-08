@@ -21,6 +21,8 @@ import {
   getMintCloseAuthority,
   MintCloseAuthorityLayout,
   MetadataPointerLayout,
+  createBurnCheckedInstruction,
+  createBurnInstruction,
 } from "@solana/spl-token";
 import { unpack } from "@solana/spl-token-metadata";
 import {
@@ -1344,6 +1346,49 @@ export async function removeAllLiquidity(
       tokenAMint,
       tokenBMint,
     })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(owner);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+
+export async function closePosition(
+  banksClient: BanksClient,
+  params: {
+    owner: Keypair;
+    pool: PublicKey;
+    position: PublicKey;
+  },
+) {
+  const {
+    owner,
+    pool,
+    position,
+  } = params;
+  const program = createCpAmmProgram();
+  const positionState = await getPosition(banksClient, position);
+  const poolAuthority = derivePoolAuthority();
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  // burn 
+  let preIx = createBurnInstruction(positionNftAccount, positionState.nftMint, owner.publicKey, 1, [], TOKEN_2022_PROGRAM_ID);
+
+  const transaction = await program.methods
+    .closePosition(
+  )
+    .accountsPartial({
+      positionNftMint: positionState.nftMint,
+      pool,
+      position,
+      poolAuthority,
+      rentReceiver: owner.publicKey,
+      owner: owner.publicKey,
+
+    })
+    .preInstructions([preIx])
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];

@@ -1,8 +1,8 @@
-use anyhow::{Context, Ok, Result, ensure};
+use anyhow::{ensure, Context, Ok, Result};
 use cp_amm::{
-    ActivationType,
     params::swap::TradeDirection,
-    state::{Pool, SwapResult, fee::FeeMode},
+    state::{fee::FeeMode, Pool, SwapResult},
+    ActivationType,
 };
 
 pub fn get_quote(

@@ -118,7 +118,7 @@ impl Position {
         self.unlocked_liquidity >= liquidity
     }
 
-    fn get_total_liquidity(&self) -> Result<u128> {
+    pub fn get_total_liquidity(&self) -> Result<u128> {
         Ok(self
             .unlocked_liquidity
             .safe_add(self.vested_liquidity)?
@@ -252,5 +252,16 @@ impl Position {
     }
     pub fn fee_b_per_token_checkpoint(&self) -> U256 {
         U256::from_le_bytes(self.fee_b_per_token_checkpoint)
+    }
+
+    pub fn is_empty(&self) -> Result<bool> {
+        // check reward
+        for i in 0..NUM_REWARDS {
+            if self.get_total_reward(i)? != 0 {
+                return Ok(false);
+            }
+        }
+        // check liquidity and fee
+        Ok(self.get_total_liquidity()? == 0 && self.fee_a_pending == 0 && self.fee_b_pending == 0)
     }
 }
