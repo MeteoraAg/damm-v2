@@ -273,10 +273,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
 
     let (token_a_amount, token_b_amount) =
         get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity)?;
-    require!(
-        token_a_amount > 0 || token_b_amount > 0,
-        PoolError::AmountIsZero
-    );
+    require!(token_a_amount > 0, PoolError::AmountIsZero);
     let mut pool = ctx.accounts.pool.load_init()?;
 
     let token_a_flag: u8 = get_token_program_flags(&ctx.accounts.token_a_mint).into();
