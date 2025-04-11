@@ -97,10 +97,8 @@ pub struct Pool {
     pub partner: Pubkey,
     /// liquidity share
     pub liquidity: u128,
-    /// token a reserve
-    pub token_a_reserve: u64,
-    /// token b reserve
-    pub token_b_reserve: u64,
+    /// padding, previous reserve amount, be careful to use that field
+    pub _padding: u128,
     /// protocol a fee
     pub protocol_a_fee: u64,
     /// protocol b fee
@@ -372,8 +370,6 @@ impl Pool {
         activation_type: u8,
         token_a_flag: u8,
         token_b_flag: u8,
-        token_a_reserve: u64,
-        token_b_reserve: u64,
         liquidity: u128,
         collect_fee_mode: u8,
         pool_type: u8,
@@ -391,8 +387,6 @@ impl Pool {
         self.activation_type = activation_type;
         self.token_a_flag = token_a_flag;
         self.token_b_flag = token_b_flag;
-        self.token_a_reserve = token_a_reserve;
-        self.token_b_reserve = token_b_reserve;
         self.liquidity = liquidity;
         self.sqrt_price = sqrt_price;
         self.collect_fee_mode = collect_fee_mode;

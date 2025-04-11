@@ -301,8 +301,6 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         activation_type,
         token_a_flag,
         token_b_flag,
-        token_a_amount,
-        token_b_amount,
         liquidity,
         collect_fee_mode,
         pool_type,

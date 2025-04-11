@@ -276,8 +276,6 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         config.activation_type,
         token_a_flag,
         token_b_flag,
-        token_a_amount,
-        token_b_amount,
         liquidity,
         config.collect_fee_mode,
         pool_type,
