@@ -2,10 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX,
+    constants::{seeds::POOL_AUTHORITY_PREFIX, treasury},
     state::{ClaimFeeOperator, Pool},
     token::transfer_from_pool,
-    treasury, EvtClaimProtocolFee,
+    EvtClaimProtocolFee,
 };
 
 /// Accounts for withdraw protocol fees

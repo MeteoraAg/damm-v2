@@ -273,7 +273,14 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
 
     let (token_a_amount, token_b_amount) =
         get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity)?;
-    require!(token_a_amount > 0, PoolError::AmountIsZero);
+    require!(
+        token_a_amount > 0 || token_b_amount > 0,
+        PoolError::AmountIsZero
+    );
+
+    let token_a_amount = token_a_amount.min(1);
+    let token_b_amount = token_b_amount.min(1);
+
     let mut pool = ctx.accounts.pool.load_init()?;
 
     let token_a_flag: u8 = get_token_program_flags(&ctx.accounts.token_a_mint).into();
@@ -334,10 +341,15 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
     });
 
     // transfer token
-    let total_amount_a =
+    let mut total_amount_a =
         calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
-    let total_amount_b =
+    let mut total_amount_b =
         calculate_transfer_fee_included_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
+
+    // require at least 1 lamport to prove onwership of token mints
+    total_amount_a = total_amount_a.max(1);
+    total_amount_b = total_amount_b.max(1);
+
     transfer_from_user(
         &ctx.accounts.payer,
         &ctx.accounts.token_a_mint,
