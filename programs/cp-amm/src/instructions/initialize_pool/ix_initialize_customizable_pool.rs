@@ -278,9 +278,6 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         PoolError::AmountIsZero
     );
 
-    let token_a_amount = token_a_amount.min(1);
-    let token_b_amount = token_b_amount.min(1);
-
     let mut pool = ctx.accounts.pool.load_init()?;
 
     let token_a_flag: u8 = get_token_program_flags(&ctx.accounts.token_a_mint).into();
