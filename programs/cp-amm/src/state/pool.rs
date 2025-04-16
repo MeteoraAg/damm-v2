@@ -415,7 +415,7 @@ impl Pool {
                 amount
             } else {
                 let FeeOnAmountResult {
-                    amount: amout_calculated_fee,
+                    amount: amount_calculated_fee,
                     lp_fee,
                     protocol_fee,
                     partner_fee,
@@ -433,14 +433,14 @@ impl Pool {
                 actual_referral_fee = referral_fee;
                 actual_partner_fee = partner_fee;
 
-                amout_calculated_fee
+                amount_calculated_fee
             };
 
             actual_amount_in
         } else {
             let actual_amount_in = if fee_mode.fees_on_input {
                 let FeeOnAmountResult {
-                    amount: amout_calculated_fee,
+                    amount: amount_calculated_fee,
                     lp_fee,
                     protocol_fee,
                     partner_fee,
@@ -458,7 +458,7 @@ impl Pool {
                 actual_referral_fee = referral_fee;
                 actual_partner_fee = partner_fee;
 
-                amout_calculated_fee
+                amount_calculated_fee
             } else {
                 amount
             };

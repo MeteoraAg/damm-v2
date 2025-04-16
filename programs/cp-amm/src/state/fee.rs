@@ -172,15 +172,15 @@ impl PoolFeesStruct {
         };
 
         let (amount_calculated_fee, lp_fee) = if is_swap_exact_out {
-            let amount_included_lp_fee = safe_mul_div_cast_u64(
+            let amount_included_lp_fee: u64 = safe_mul_div_cast_u64(
                 amount,
                 FEE_DENOMINATOR,
                 FEE_DENOMINATOR.safe_sub(trade_fee_numerator)?,
                 Rounding::Up,
             )?;
 
-            let lp_fee: u64 =
-                safe_mul_div_cast_u64(amount, trade_fee_numerator, FEE_DENOMINATOR, Rounding::Up)?;
+            let lp_fee = amount_included_lp_fee.safe_sub(amount)?;
+
             (amount_included_lp_fee, lp_fee)
         } else {
             let lp_fee: u64 =

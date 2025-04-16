@@ -153,7 +153,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         is_swap_exact_out,
     )?;
 
-    let input_amount_specified = if is_swap_exact_out {
+    let (input_amount_specified, output_amount_specified) = if is_swap_exact_out {
         let input_amount_included_transfer_fee =
             calculate_transfer_fee_included_amount(&token_in_mint, swap_result.input_amount)?
                 .amount;
@@ -164,7 +164,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
             PoolError::ExceededSlippage
         );
 
-        input_amount_included_transfer_fee
+        (input_amount_included_transfer_fee, amount_specified)
     } else {
         let output_amount_excluded_fee =
             calculate_transfer_fee_excluded_amount(&token_out_mint, swap_result.output_amount)?
@@ -176,7 +176,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
             PoolError::ExceededSlippage
         );
 
-        amount_specified
+        (amount, swap_result.output_amount)
     };
 
     pool.apply_swap_result(&swap_result, fee_mode, current_timestamp)?;
@@ -197,7 +197,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         &output_vault_account,
         &ctx.accounts.output_token_account,
         output_program,
-        swap_result.output_amount,
+        output_amount_specified,
         ctx.bumps.pool_authority,
     )?;
     // send to referral
