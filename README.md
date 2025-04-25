@@ -1,4 +1,4 @@
-> The program is still in the process of being audited.
+> The program has been audited. You can find the audit report [here](https://docs.meteora.ag/resources/audits#id-2.-damm-v2).
 
 # Meteora Constant Product AMM (DAMM v2)
 
