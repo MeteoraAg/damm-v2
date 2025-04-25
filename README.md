@@ -1,4 +1,3 @@
-> The program has been audited. You can find the audit report [here](https://docs.meteora.ag/resources/audits#id-2.-damm-v2).
 
 # Meteora Constant Product AMM (DAMM v2)
 
@@ -93,6 +92,6 @@ pnpm test
 - Mainnet-beta: cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG
 - Devnet: cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG
 
-## Faucets
+### Audits
 
-https://faucet.raccoons.dev/
+The program has been audited. You can find the audit report [here](https://docs.meteora.ag/resources/audits#id-2.-damm-v2).
