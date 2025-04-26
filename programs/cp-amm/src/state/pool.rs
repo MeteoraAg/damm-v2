@@ -11,7 +11,8 @@ use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_RATE_SCALE},
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
-        get_delta_amount_b_unsigned, get_next_sqrt_price,
+        get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
+        get_next_sqrt_price_from_output,
     },
     params::swap::TradeDirection,
     safe_math::SafeMath,
@@ -549,13 +550,11 @@ impl Pool {
         is_swap_exact_out: bool,
     ) -> Result<SwapAmount> {
         // finding new target price
-        let next_sqrt_price = get_next_sqrt_price(
-            self.sqrt_price,
-            self.liquidity,
-            amount,
-            true,
-            is_swap_exact_out,
-        )?;
+        let next_sqrt_price = if is_swap_exact_out {
+            get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount, true)?
+        } else {
+            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount, true)?
+        };
 
         if next_sqrt_price < self.sqrt_min_price {
             return Err(PoolError::PriceRangeViolation.into());
@@ -590,13 +589,11 @@ impl Pool {
         is_swap_exact_out: bool,
     ) -> Result<SwapAmount> {
         // finding new target price
-        let next_sqrt_price = get_next_sqrt_price(
-            self.sqrt_price,
-            self.liquidity,
-            amount,
-            false,
-            is_swap_exact_out,
-        )?;
+        let next_sqrt_price = if is_swap_exact_out {
+            get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount, false)?
+        } else {
+            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount, false)?
+        };
 
         if next_sqrt_price > self.sqrt_max_price {
             return Err(PoolError::PriceRangeViolation.into());

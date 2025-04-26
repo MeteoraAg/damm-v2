@@ -5,7 +5,7 @@ use ruint::aliases::U256;
 
 use crate::{
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
-    curve::{get_initialize_amounts, get_next_sqrt_price, RESOLUTION},
+    curve::{get_initialize_amounts, get_next_sqrt_price_from_input, RESOLUTION},
     tests::LIQUIDITY_MAX,
 };
 use proptest::prelude::*;
@@ -30,7 +30,7 @@ fn test_get_next_sqrt_price_from_input_a_for_b(
     liquidity in 1..=LIQUIDITY_MAX,
     amount_in in 0..=u64::MAX,
     ) {
-        get_next_sqrt_price(sqrt_price, liquidity, amount_in, true, false).unwrap();
+        get_next_sqrt_price_from_input(sqrt_price, liquidity, amount_in, true).unwrap();
     }
 #[test]
 fn test_get_next_sqrt_price_from_input_b_for_a(
@@ -38,7 +38,7 @@ fn test_get_next_sqrt_price_from_input_b_for_a(
     liquidity in 1..=LIQUIDITY_MAX,
     amount_in in 0..=u64::MAX,
     ) {
-        get_next_sqrt_price(sqrt_price, liquidity, amount_in, false, false).unwrap();
+        get_next_sqrt_price_from_input(sqrt_price, liquidity, amount_in, false).unwrap();
     }
 }
 
@@ -58,10 +58,12 @@ fn get_next_sqrt_price_from_input_single_test() {
     let sqrt_price = MAX_SQRT_PRICE / 2;
     let liquidity = 1372985471608509983;
     let amount_in = 100_000_00;
-    let next_price = get_next_sqrt_price(sqrt_price, liquidity, amount_in, true, false).unwrap();
+    let next_price =
+        get_next_sqrt_price_from_input(sqrt_price, liquidity, amount_in, true).unwrap();
     println!("{}", next_price);
 
-    let next_price = get_next_sqrt_price(sqrt_price, liquidity, amount_in, false, false).unwrap();
+    let next_price =
+        get_next_sqrt_price_from_input(sqrt_price, liquidity, amount_in, false).unwrap();
     println!("{}", next_price);
 }
 
