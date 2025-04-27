@@ -138,7 +138,7 @@ export async function createConfigIx(
   const config = deriveConfigAddress(params.index);
   const transaction = await program.methods
     .createConfig(params)
-    .accounts({
+    .accountsPartial({
       config,
       admin: admin.publicKey,
       systemProgram: SystemProgram.programId,
