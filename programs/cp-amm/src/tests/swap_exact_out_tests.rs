@@ -25,7 +25,8 @@ fn test_reserve_wont_lost_when_swap_exact_out_from_a_to_b() {
 
     let exact_amount_b_out = 100_000_000;
     let trade_direction = TradeDirection::AtoB;
-    let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, true).unwrap();
+    let fee_mode =
+        &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, true, true).unwrap();
 
     let swap_result = pool
         .get_swap_result(exact_amount_b_out, fee_mode, trade_direction, 0, true)
@@ -63,7 +64,8 @@ fn test_reserve_wont_lost_when_swap_exact_out_from_b_to_a() {
 
     let exact_amount_a_out = 100_000_000;
     let trade_direction = TradeDirection::BtoA;
-    let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, true).unwrap();
+    let fee_mode =
+        &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, true, true).unwrap();
 
     let swap_result = pool
         .get_swap_result(exact_amount_a_out, fee_mode, trade_direction, 0, true)
@@ -101,7 +103,8 @@ fn test_reverse_swap_exact_out_in_a_to_b() {
 
     let amount_out = 100_000_000;
     let trade_direction = TradeDirection::AtoB;
-    let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false).unwrap();
+    let fee_mode =
+        &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false, true).unwrap();
 
     let swap_result = pool
         .get_swap_result(amount_out, fee_mode, trade_direction, 0, true)
@@ -141,7 +144,8 @@ fn test_reverse_swap_exact_out_in_b_to_a() {
 
     let exact_amout_a_out = 100_000_000;
     let trade_direction = TradeDirection::BtoA;
-    let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false).unwrap();
+    let fee_mode =
+        &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false, true).unwrap();
 
     let swap_result = pool
         .get_swap_result(exact_amout_a_out, fee_mode, trade_direction, 0, true)

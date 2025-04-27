@@ -411,13 +411,7 @@ impl Pool {
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
 
-        let fees_on_input = if is_swap_exact_out {
-            !fee_mode.fees_on_input
-        } else {
-            fee_mode.fees_on_input
-        };
-
-        let actual_amount = if fees_on_input {
+        let actual_amount = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
                 amount: amount_after_fee,
                 lp_fee,
@@ -454,7 +448,7 @@ impl Pool {
             }
         }?;
 
-        let actual_amount_out = if fees_on_input {
+        let actual_output_amount = if fee_mode.fees_on_input {
             output_amount
         } else {
             let FeeOnAmountResult {
@@ -474,13 +468,14 @@ impl Pool {
             actual_lp_fee = lp_fee;
             actual_referral_fee = referral_fee;
             actual_partner_fee = partner_fee;
+
             amount_after_fee
         };
 
         let (input_amount_result, output_amount_result) = if is_swap_exact_out {
-            (actual_amount_out, amount)
+            (actual_output_amount, amount)
         } else {
-            (amount, actual_amount_out)
+            (amount, actual_output_amount)
         };
 
         Ok(SwapResult {

@@ -143,7 +143,12 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     pool.update_pre_swap(current_timestamp)?;
 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
-    let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
+    let fee_mode = &FeeMode::get_fee_mode(
+        pool.collect_fee_mode,
+        trade_direction,
+        has_referral,
+        is_swap_exact_out,
+    )?;
 
     let swap_result = pool.get_swap_result(
         amount_specified,

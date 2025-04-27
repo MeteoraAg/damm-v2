@@ -351,11 +351,12 @@ impl FeeMode {
         collect_fee_mode: u8,
         trade_direction: TradeDirection,
         has_referral: bool,
+        is_swap_exact_out: bool,
     ) -> Result<FeeMode> {
         let collect_fee_mode = CollectFeeMode::try_from(collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
 
-        let (fees_on_input, fees_on_token_a) = match (collect_fee_mode, trade_direction) {
+        let (mut fees_on_input, fees_on_token_a) = match (collect_fee_mode, trade_direction) {
             // When collecting fees on output token
             (CollectFeeMode::BothToken, TradeDirection::AtoB) => (false, false),
             (CollectFeeMode::BothToken, TradeDirection::BtoA) => (false, true),
@@ -364,6 +365,10 @@ impl FeeMode {
             (CollectFeeMode::OnlyB, TradeDirection::AtoB) => (false, false),
             (CollectFeeMode::OnlyB, TradeDirection::BtoA) => (true, false),
         };
+
+        if is_swap_exact_out {
+            fees_on_input = !fees_on_input
+        }
 
         Ok(FeeMode {
             fees_on_input,
@@ -381,9 +386,13 @@ mod tests {
 
     #[test]
     fn test_fee_mode_output_token_a_to_b() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::BothToken as u8, TradeDirection::AtoB, false)
-                .unwrap();
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::BothToken as u8,
+            TradeDirection::AtoB,
+            false,
+            false,
+        )
+        .unwrap();
 
         assert_eq!(fee_mode.fees_on_input, false);
         assert_eq!(fee_mode.fees_on_token_a, false);
@@ -392,9 +401,13 @@ mod tests {
 
     #[test]
     fn test_fee_mode_output_token_b_to_a() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::BothToken as u8, TradeDirection::BtoA, true)
-                .unwrap();
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::BothToken as u8,
+            TradeDirection::BtoA,
+            true,
+            false,
+        )
+        .unwrap();
 
         assert_eq!(fee_mode.fees_on_input, false);
         assert_eq!(fee_mode.fees_on_token_a, true);
@@ -403,9 +416,13 @@ mod tests {
 
     #[test]
     fn test_fee_mode_quote_token_a_to_b() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::AtoB, false)
-                .unwrap();
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::OnlyB as u8,
+            TradeDirection::AtoB,
+            false,
+            false,
+        )
+        .unwrap();
 
         assert_eq!(fee_mode.fees_on_input, false);
         assert_eq!(fee_mode.fees_on_token_a, false);
@@ -414,8 +431,13 @@ mod tests {
 
     #[test]
     fn test_fee_mode_quote_token_b_to_a() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::BtoA, true).unwrap();
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::OnlyB as u8,
+            TradeDirection::BtoA,
+            true,
+            false,
+        )
+        .unwrap();
 
         assert_eq!(fee_mode.fees_on_input, true);
         assert_eq!(fee_mode.fees_on_token_a, false);
@@ -427,6 +449,7 @@ mod tests {
         let result = FeeMode::get_fee_mode(
             2, // Invalid mode
             TradeDirection::BtoA,
+            false,
             false,
         );
 
@@ -446,14 +469,23 @@ mod tests {
     #[test]
     fn test_fee_mode_properties() {
         // When trading BaseToQuote, fees should never be on input
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::AtoB, true).unwrap();
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::OnlyB as u8,
+            TradeDirection::AtoB,
+            true,
+            false,
+        )
+        .unwrap();
         assert_eq!(fee_mode.fees_on_input, false);
 
         // When using QuoteToken mode, base_token should always be false
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::BtoA, false)
-                .unwrap();
+        let fee_mode = FeeMode::get_fee_mode(
+            CollectFeeMode::OnlyB as u8,
+            TradeDirection::BtoA,
+            false,
+            false,
+        )
+        .unwrap();
         assert_eq!(fee_mode.fees_on_token_a, false);
     }
 }

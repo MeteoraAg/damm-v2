@@ -30,7 +30,7 @@ proptest! {
 
         let trade_direction = TradeDirection::AtoB;
 
-        let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false).unwrap();
+        let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false, true).unwrap();
         let max_amount_in = pool.get_max_amount_in(trade_direction).unwrap();
         if amount_in <= max_amount_in {
             let swap_result_0 = pool
@@ -66,7 +66,7 @@ proptest! {
 
         let trade_direction = TradeDirection::BtoA;
 
-        let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false).unwrap();
+        let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false, true).unwrap();
         let max_amount_in = pool.get_max_amount_in(trade_direction).unwrap();
         if amount_in <= max_amount_in {
             let swap_result_0 = pool
@@ -131,7 +131,8 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
         sqrt_max_price: MAX_SQRT_PRICE,
         ..Default::default()
     };
-    let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false).unwrap();
+    let fee_mode =
+        &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false, true).unwrap();
     let swap_result_0 = pool
         .get_swap_result(amount_in, fee_mode, trade_direction, 0, false)
         .unwrap();
@@ -193,7 +194,8 @@ fn test_swap_basic() {
 
     let amount_in = 100_000_000;
     let trade_direction = TradeDirection::AtoB;
-    let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false).unwrap();
+    let fee_mode =
+        &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false, true).unwrap();
 
     let swap_result = pool
         .get_swap_result(amount_in, fee_mode, trade_direction, 0, false)
