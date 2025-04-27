@@ -411,60 +411,35 @@ impl Pool {
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
 
-        let actual_amount = if is_swap_exact_out {
-            let actual_amount_in = if fee_mode.fees_on_input {
-                amount
-            } else {
-                let FeeOnAmountResult {
-                    amount: amount_calculated_fee,
-                    lp_fee,
-                    protocol_fee,
-                    partner_fee,
-                    referral_fee,
-                } = self.pool_fees.get_fee_on_amount(
-                    amount,
-                    fee_mode.has_referral,
-                    current_point,
-                    self.activation_point,
-                    is_swap_exact_out,
-                )?;
-
-                actual_protocol_fee = protocol_fee;
-                actual_lp_fee = lp_fee;
-                actual_referral_fee = referral_fee;
-                actual_partner_fee = partner_fee;
-
-                amount_calculated_fee
-            };
-
-            actual_amount_in
+        let fees_on_input = if is_swap_exact_out {
+            !fee_mode.fees_on_input
         } else {
-            let actual_amount_in = if fee_mode.fees_on_input {
-                let FeeOnAmountResult {
-                    amount: amount_calculated_fee,
-                    lp_fee,
-                    protocol_fee,
-                    partner_fee,
-                    referral_fee,
-                } = self.pool_fees.get_fee_on_amount(
-                    amount,
-                    fee_mode.has_referral,
-                    current_point,
-                    self.activation_point,
-                    is_swap_exact_out,
-                )?;
+            fee_mode.fees_on_input
+        };
 
-                actual_protocol_fee = protocol_fee;
-                actual_lp_fee = lp_fee;
-                actual_referral_fee = referral_fee;
-                actual_partner_fee = partner_fee;
+        let actual_amount = if fees_on_input {
+            let FeeOnAmountResult {
+                amount: amount_after_fee,
+                lp_fee,
+                protocol_fee,
+                partner_fee,
+                referral_fee,
+            } = self.pool_fees.get_fee_on_amount(
+                amount,
+                fee_mode.has_referral,
+                current_point,
+                self.activation_point,
+                is_swap_exact_out,
+            )?;
 
-                amount_calculated_fee
-            } else {
-                amount
-            };
+            actual_protocol_fee = protocol_fee;
+            actual_lp_fee = lp_fee;
+            actual_referral_fee = referral_fee;
+            actual_partner_fee = partner_fee;
 
-            actual_amount_in
+            amount_after_fee
+        } else {
+            amount
         };
 
         let SwapAmount {
@@ -479,57 +454,32 @@ impl Pool {
             }
         }?;
 
+        let actual_amount_out = if fees_on_input {
+            output_amount
+        } else {
+            let FeeOnAmountResult {
+                amount: amount_after_fee,
+                lp_fee,
+                protocol_fee,
+                partner_fee,
+                referral_fee,
+            } = self.pool_fees.get_fee_on_amount(
+                output_amount,
+                fee_mode.has_referral,
+                current_point,
+                self.activation_point,
+                is_swap_exact_out,
+            )?;
+            actual_protocol_fee = protocol_fee;
+            actual_lp_fee = lp_fee;
+            actual_referral_fee = referral_fee;
+            actual_partner_fee = partner_fee;
+            amount_after_fee
+        };
+
         let (input_amount_result, output_amount_result) = if is_swap_exact_out {
-            let actual_amount_out = if fee_mode.fees_on_input {
-                let FeeOnAmountResult {
-                    amount: amount_calculated_fee,
-                    lp_fee,
-                    protocol_fee,
-                    partner_fee,
-                    referral_fee,
-                } = self.pool_fees.get_fee_on_amount(
-                    output_amount,
-                    fee_mode.has_referral,
-                    current_point,
-                    self.activation_point,
-                    is_swap_exact_out,
-                )?;
-                actual_protocol_fee = protocol_fee;
-                actual_lp_fee = lp_fee;
-                actual_referral_fee = referral_fee;
-                actual_partner_fee = partner_fee;
-
-                amount_calculated_fee
-            } else {
-                output_amount
-            };
-
             (actual_amount_out, amount)
         } else {
-            let actual_amount_out = if fee_mode.fees_on_input {
-                output_amount
-            } else {
-                let FeeOnAmountResult {
-                    amount: amount_calculated_fee,
-                    lp_fee,
-                    protocol_fee,
-                    partner_fee,
-                    referral_fee,
-                } = self.pool_fees.get_fee_on_amount(
-                    output_amount,
-                    fee_mode.has_referral,
-                    current_point,
-                    self.activation_point,
-                    is_swap_exact_out,
-                )?;
-                actual_protocol_fee = protocol_fee;
-                actual_lp_fee = lp_fee;
-                actual_referral_fee = referral_fee;
-                actual_partner_fee = partner_fee;
-
-                amount_calculated_fee
-            };
-
             (amount, actual_amount_out)
         };
 
