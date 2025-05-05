@@ -404,15 +404,18 @@ pub fn validate_quote_token(
     token_mint_b: &Pubkey,
     has_alpha_vault: bool,
 ) -> Result<()> {
-    let is_a_whitelisted_quote_token = is_whitelisted_quote_token(token_mint_a);
-    // A will never be a whitelisted quote token
-    require!(!is_a_whitelisted_quote_token, PoolError::InvalidQuoteMint);
-    let is_b_whitelisted_quote_token = is_whitelisted_quote_token(token_mint_b);
-    if !is_b_whitelisted_quote_token {
-        // BE AWARE!!!!!!!!!!!!!!!!!!!!!!!!!!
-        // even B is not whitelisted quote token, but deployer should always be aware that B is quote token, A is base token
-        // if B is not whitelisted quote token, then pool shouldn't be linked with an alpha-vault
-        require!(!has_alpha_vault, PoolError::InvalidQuoteMint);
+    #[cfg(not(feature = "devnet"))]
+    {
+        let is_a_whitelisted_quote_token = is_whitelisted_quote_token(token_mint_a);
+        // A will never be a whitelisted quote token
+        require!(!is_a_whitelisted_quote_token, PoolError::InvalidQuoteMint);
+        let is_b_whitelisted_quote_token = is_whitelisted_quote_token(token_mint_b);
+        if !is_b_whitelisted_quote_token {
+            // BE AWARE!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // even B is not whitelisted quote token, but deployer should always be aware that B is quote token, A is base token
+            // if B is not whitelisted quote token, then pool shouldn't be linked with an alpha-vault
+            require!(!has_alpha_vault, PoolError::InvalidQuoteMint);
+        }
     }
     Ok(())
 }
