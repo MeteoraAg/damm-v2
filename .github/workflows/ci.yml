@@ -54,7 +54,7 @@ jobs:
         with:
           path: ~/.anchor
           key: anchor-${{ runner.os }}-${{ hashFiles('Anchor.toml') }}
-      - run: anchor build
+      - run: RUSTUP_TOOLCHAIN=${{ env.NIGHTLY_TOOLCHAIN }} anchor build
         shell: bash
 
   cli_build:
