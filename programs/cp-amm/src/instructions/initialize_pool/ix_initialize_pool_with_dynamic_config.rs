@@ -208,8 +208,6 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         has_alpha_vault,
     } = params;
 
-    require!(liquidity > 0, PoolError::InvalidMinimumLiquidity);
-
     // init pool
     let config = ctx.accounts.config.load()?;
 
