@@ -1,7 +1,6 @@
-import { Keypair, PublicKey } from "@solana/web3.js";
-import BN from "bn.js";
-import { describe } from "mocha";
 import { Clock, ProgramTestContext } from "solana-bankrun";
+import { generateKpAndFund, startTest } from "./bankrun-utils/common";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -9,29 +8,27 @@ import {
   createConfigIx,
   CreateConfigParams,
   createPosition,
-  createToken,
   fundReward,
   getPool,
   initializePool,
   InitializePoolParams,
   initializeReward,
   InitializeRewardParams,
-  MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
+  MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
-  mintSplTokenTo,
   updateRewardDuration,
   updateRewardFunder,
   withdrawIneligibleReward,
+  createToken,
+  mintSplTokenTo,
 } from "./bankrun-utils";
-import { generateKpAndFund, startTest } from "./bankrun-utils/common";
-import {
-  createToken2022,
-  createTransferFeeExtensionWithInstruction,
-  mintToToken2022,
-} from "./bankrun-utils/token2022";
+import BN from "bn.js";
+import { describe } from "mocha";
+import { ExtensionType } from "@solana/spl-token";
+import { createToken2022, mintToToken2022 } from "./bankrun-utils/token2022";
 
-describe("Reward unit-testing", () => {
+describe("Reward by creator", () => {
   // SPL-Token
   describe("Reward with SPL-Token", () => {
     let context: ProgramTestContext;
@@ -192,7 +189,7 @@ describe("Reward unit-testing", () => {
       const index = 0;
       const initRewardParams: InitializeRewardParams = {
         index,
-        payer: admin,
+        payer: creator,
         rewardDuration: new BN(24 * 60 * 60),
         pool,
         rewardMint,
@@ -202,7 +199,7 @@ describe("Reward unit-testing", () => {
       // update duration
       await updateRewardDuration(context.banksClient, {
         index,
-        admin: admin,
+        admin: creator,
         pool,
         newDuration: new BN(1),
       });
@@ -210,7 +207,7 @@ describe("Reward unit-testing", () => {
       // update new funder
       await updateRewardFunder(context.banksClient, {
         index,
-        admin: admin,
+        admin: creator,
         pool,
         newFunder: funder.publicKey,
       });
@@ -265,11 +262,9 @@ describe("Reward unit-testing", () => {
     let funder: Keypair;
     let admin: Keypair;
     let user: Keypair;
-
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
     let rewardMint: PublicKey;
-
     let liquidity: BN;
     let sqrtPrice: BN;
     const configId = Math.floor(Math.random() * 1000);
@@ -277,48 +272,28 @@ describe("Reward unit-testing", () => {
     beforeEach(async () => {
       const root = Keypair.generate();
       context = await startTest(root);
-
-      const tokenAMintKeypair = Keypair.generate();
-      const tokenBMintKeypair = Keypair.generate();
-      const rewardMintKeypair = Keypair.generate();
-
-      tokenAMint = tokenAMintKeypair.publicKey;
-      tokenBMint = tokenBMintKeypair.publicKey;
-      rewardMint = rewardMintKeypair.publicKey;
-
-      const tokenAExtensions = [
-        createTransferFeeExtensionWithInstruction(tokenAMint),
-      ];
-      const tokenBExtensions = [
-        createTransferFeeExtensionWithInstruction(tokenBMint),
-      ];
-      const rewardExtensions = [
-        createTransferFeeExtensionWithInstruction(rewardMint),
-      ];
+      const extensions = [ExtensionType.TransferFeeConfig];
 
       user = await generateKpAndFund(context.banksClient, context.payer);
       funder = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
 
-      await createToken2022(
+      tokenAMint = await createToken2022(
         context.banksClient,
         context.payer,
-        tokenAExtensions,
-        tokenAMintKeypair
+        extensions
       );
-      await createToken2022(
+      tokenBMint = await createToken2022(
         context.banksClient,
         context.payer,
-        tokenBExtensions,
-        tokenBMintKeypair
+        extensions
       );
 
-      await createToken2022(
+      rewardMint = await createToken2022(
         context.banksClient,
         context.payer,
-        rewardExtensions,
-        rewardMintKeypair
+        extensions
       );
 
       await mintToToken2022(
@@ -441,7 +416,7 @@ describe("Reward unit-testing", () => {
       const index = 0;
       const initRewardParams: InitializeRewardParams = {
         index,
-        payer: admin,
+        payer: creator,
         rewardDuration: new BN(24 * 60 * 60),
         pool,
         rewardMint,
@@ -451,7 +426,7 @@ describe("Reward unit-testing", () => {
       // update duration
       await updateRewardDuration(context.banksClient, {
         index,
-        admin: admin,
+        admin: creator,
         pool,
         newDuration: new BN(1),
       });
@@ -459,7 +434,7 @@ describe("Reward unit-testing", () => {
       // update new funder
       await updateRewardFunder(context.banksClient, {
         index,
-        admin: admin,
+        admin: creator,
         pool,
         newFunder: funder.publicKey,
       });

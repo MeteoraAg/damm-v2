@@ -938,7 +938,8 @@ export async function initializeReward(
       poolAuthority,
       rewardVault,
       rewardMint,
-      admin: payer.publicKey,
+      payer: payer.publicKey,
+      signer: payer.publicKey,
       tokenProgram,
       systemProgram: SystemProgram.programId,
     })
@@ -976,7 +977,7 @@ export async function updateRewardDuration(
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
       pool,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
@@ -1007,7 +1008,7 @@ export async function updateRewardFunder(
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
       pool,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
