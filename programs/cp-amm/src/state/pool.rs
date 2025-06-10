@@ -424,6 +424,7 @@ impl Pool {
                 current_point,
                 self.activation_point,
                 self.has_partner(),
+                trade_direction,
             )?;
 
             actual_protocol_fee = protocol_fee;
@@ -459,6 +460,7 @@ impl Pool {
                 current_point,
                 self.activation_point,
                 self.has_partner(),
+                trade_direction,
             )?;
             actual_protocol_fee = protocol_fee;
             actual_lp_fee = lp_fee;
