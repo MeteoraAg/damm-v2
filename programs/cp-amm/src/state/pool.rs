@@ -421,6 +421,7 @@ impl Pool {
                 fee_mode.has_referral,
                 current_point,
                 self.activation_point,
+                trade_direction,
             )?;
 
             actual_protocol_fee = protocol_fee;
@@ -455,6 +456,7 @@ impl Pool {
                 fee_mode.has_referral,
                 current_point,
                 self.activation_point,
+                trade_direction,
             )?;
             actual_protocol_fee = protocol_fee;
             actual_lp_fee = lp_fee;
