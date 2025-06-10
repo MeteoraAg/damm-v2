@@ -5,7 +5,7 @@ use anchor_spl::{
 };
 
 use crate::{
-    activation_handler::ActivationHandler,
+    activation_handler::{ActivationHandler, ActivationType},
     alpha_vault::alpha_vault,
     constants::{
         seeds::{
@@ -67,8 +67,11 @@ impl InitializeCustomizablePoolParameters {
 
         require!(self.liquidity > 0, PoolError::InvalidMinimumLiquidity);
 
+        let activation_type = ActivationType::try_from(self.activation_type)
+            .map_err(|_| PoolError::TypeCastFailed)?;
         // validate fee
-        self.pool_fees.validate()?;
+        self.pool_fees
+            .validate(self.collect_fee_mode, activation_type)?;
         // more validation for protocol fee and partner fee
         self.pool_fees.validate_for_customizable_pool()?;
 
