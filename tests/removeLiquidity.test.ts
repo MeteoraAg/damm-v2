@@ -15,6 +15,7 @@ import {
   createToken,
   removeAllLiquidity,
   closePosition,
+  CreateConfigParams,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { ExtensionType } from "@solana/spl-token";
@@ -88,14 +89,14 @@ describe("Remove liquidity", () => {
       );
 
       // create config
-      const createConfigParams = {
+      const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: new BN(0),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           protocolFeePercent: 10,
           partnerFeePercent: 0,
@@ -257,14 +258,14 @@ describe("Remove liquidity", () => {
       );
 
       // create config
-      const createConfigParams = {
+      const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: new BN(0),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           protocolFeePercent: 10,
           partnerFeePercent: 0,

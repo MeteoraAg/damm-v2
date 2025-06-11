@@ -102,10 +102,10 @@ describe("Claim fee", () => {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: new BN(0),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           protocolFeePercent: 10,
           partnerFeePercent: 0,
@@ -292,10 +292,10 @@ describe("Claim fee", () => {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: new BN(0),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           protocolFeePercent: 10,
           partnerFeePercent: 0,
