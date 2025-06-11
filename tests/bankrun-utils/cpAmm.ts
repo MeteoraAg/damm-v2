@@ -102,10 +102,10 @@ export type DynamicFee = {
 
 export type BaseFee = {
   cliffFeeNumerator: BN;
-  numberOfPeriod: number;
-  periodFrequency: BN;
-  reductionFactor: BN;
-  feeSchedulerMode: number;
+  firstFactor: number;
+  secondFactor: BN;
+  thirdFactor: BN;
+  baseFeeMode: number;
 };
 
 export type PoolFees = {
@@ -205,17 +205,17 @@ export async function createConfigIx(
   expect(configState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(
     params.poolFees.baseFee.cliffFeeNumerator.toNumber()
   );
-  expect(configState.poolFees.baseFee.numberOfPeriod).eq(
-    params.poolFees.baseFee.numberOfPeriod
+  expect(configState.poolFees.baseFee.firstFactor).eq(
+    params.poolFees.baseFee.firstFactor
   );
-  expect(configState.poolFees.baseFee.reductionFactor.toNumber()).eq(
-    params.poolFees.baseFee.reductionFactor.toNumber()
+  expect(configState.poolFees.baseFee.thirdFactor.toNumber()).eq(
+    params.poolFees.baseFee.thirdFactor.toNumber()
   );
-  expect(configState.poolFees.baseFee.feeSchedulerMode).eq(
-    params.poolFees.baseFee.feeSchedulerMode
+  expect(configState.poolFees.baseFee.baseFeeMode).eq(
+    params.poolFees.baseFee.baseFeeMode
   );
-  expect(configState.poolFees.baseFee.periodFrequency.toNumber()).eq(
-    params.poolFees.baseFee.periodFrequency.toNumber()
+  expect(configState.poolFees.baseFee.secondFactor.toNumber()).eq(
+    params.poolFees.baseFee.secondFactor.toNumber()
   );
   expect(configState.poolFees.protocolFeePercent).eq(
     params.poolFees.protocolFeePercent
