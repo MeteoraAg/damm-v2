@@ -127,8 +127,10 @@ pub struct Pool {
     pub collect_fee_mode: u8,
     /// pool type
     pub pool_type: u8,
+    // pool version
+    pub version: u8,
     /// padding
-    pub _padding_0: [u8; 2],
+    pub _padding_0: [u8; 1],
     /// cumulative
     pub fee_a_per_liquidity: [u8; 32], // U256
     /// cumulative
@@ -391,6 +393,7 @@ impl Pool {
         self.sqrt_price = sqrt_price;
         self.collect_fee_mode = collect_fee_mode;
         self.pool_type = pool_type;
+        self.version = 1
     }
 
     pub fn pool_reward_initialized(&self) -> bool {
