@@ -30,6 +30,8 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
+  SYSVAR_INSTRUCTIONS_PUBKEY,
+  Transaction,
 } from "@solana/web3.js";
 import { BanksClient } from "solana-bankrun";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
@@ -1560,7 +1562,10 @@ export type SwapParams = {
   referralTokenAccount: PublicKey | null;
 };
 
-export async function swap(banksClient: BanksClient, params: SwapParams) {
+export async function swapInstruction(
+  banksClient: BanksClient,
+  params: SwapParams
+): Promise<Transaction> {
   const {
     payer,
     pool,
@@ -1616,10 +1621,26 @@ export async function swap(banksClient: BanksClient, params: SwapParams) {
       tokenBMint,
       referralTokenAccount,
     })
+    .remainingAccounts(
+      // TODO should check condition to add this in remaning accounts
+      [
+        {
+          isSigner: false,
+          isWritable: false,
+          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+        },
+      ]
+    )
     .transaction();
 
+    return transaction;
+}
+
+export async function swap(banksClient: BanksClient, params: SwapParams) {
+  const transaction = await swapInstruction(banksClient, params)
+
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
+  transaction.sign(params.payer);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 }
