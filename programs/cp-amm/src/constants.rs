@@ -87,8 +87,8 @@ pub mod fee {
     pub const FEE_DENOMINATOR: u64 = 1_000_000_000;
 
     /// Max fee BPS
-    pub const MAX_FEE_BPS: u64 = 5000; // 50%
-    pub const MAX_FEE_NUMERATOR: u64 = 500_000_000; // 50%
+    pub const MAX_FEE_BPS: u64 = 9900; // 99%
+    pub const MAX_FEE_NUMERATOR: u64 = 990_000_000; // 99%
 
     /// Max basis point. 100% in pct
     pub const MAX_BASIS_POINT: u64 = 10000;

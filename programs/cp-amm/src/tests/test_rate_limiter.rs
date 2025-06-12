@@ -20,8 +20,8 @@ fn test_validate_rate_limiter() {
             max_limiter_duration: 60,        // 60 seconds
             fee_increment_bps: 10,           // 10 bps
         };
-        assert!(rate_limiter.validate(1, ActivationType::Slot).is_err());
-        assert!(rate_limiter.validate(0, ActivationType::Slot).is_ok());
+        assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
+        assert!(rate_limiter.validate(1, ActivationType::Slot).is_ok());
     }
 
     // validate zero rate limiter
@@ -82,7 +82,7 @@ fn test_rate_limiter_behavior() {
         max_limiter_duration: 60, // 60 seconds
         fee_increment_bps,        // 10 bps
     };
-    assert!(rate_limiter.validate(0, ActivationType::Slot).is_ok());
+    assert!(rate_limiter.validate(1, ActivationType::Slot).is_ok());
 
     {
         let fee_numerator = rate_limiter
@@ -133,7 +133,7 @@ fn test_rate_limiter_behavior() {
 
 fn calculate_output_amount(rate_limiter: &FeeRateLimiter, input_amount: u64) -> u64 {
     let trade_fee_numerator = rate_limiter
-        .get_base_fee_numerator(0, 0, TradeDirection::QuoteToBase, input_amount)
+        .get_base_fee_numerator(0, 0, TradeDirection::BtoA, input_amount)
         .unwrap();
     let trading_fee: u64 = safe_mul_div_cast_u64(
         input_amount,
@@ -187,7 +187,7 @@ fn test_rate_limiter_base_fee_numerator() {
     {
         // trade from base to quote
         let fee_numerator = rate_limiter
-            .get_base_fee_numerator(0, 0, TradeDirection::BaseToQuote, 2_000_000_000)
+            .get_base_fee_numerator(0, 0, TradeDirection::AtoB, 2_000_000_000)
             .unwrap();
 
         assert_eq!(fee_numerator, rate_limiter.cliff_fee_numerator);
@@ -199,7 +199,7 @@ fn test_rate_limiter_base_fee_numerator() {
             .get_base_fee_numerator(
                 rate_limiter.max_limiter_duration + 1,
                 0,
-                TradeDirection::QuoteToBase,
+                TradeDirection::BtoA,
                 2_000_000_000,
             )
             .unwrap();
@@ -213,7 +213,7 @@ fn test_rate_limiter_base_fee_numerator() {
             .get_base_fee_numerator(
                 rate_limiter.max_limiter_duration,
                 0,
-                TradeDirection::QuoteToBase,
+                TradeDirection::BtoA,
                 2_000_000_000,
             )
             .unwrap();
