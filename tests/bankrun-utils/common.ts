@@ -6,7 +6,7 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import { BanksClient, ProgramTestContext, startAnchor } from "solana-bankrun";
-import { BASIS_POINT_MAX, CP_AMM_PROGRAM_ID, FEE_DENOMINATOR, MAX_FEE_BPS, MAX_FEE_NUMERATOR, MAX_RATE_LIMITER_DURATION_IN_SECONDS, MAX_RATE_LIMITER_DURATION_IN_SLOTS, MIN_FEE_NUMERATOR } from "./constants";
+import { BASIS_POINT_MAX, CP_AMM_PROGRAM_ID, FEE_DENOMINATOR,MAX_FEE_BPS_V1,MAX_FEE_NUMERATOR_V1,MAX_RATE_LIMITER_DURATION_IN_SECONDS, MAX_RATE_LIMITER_DURATION_IN_SLOTS, MIN_FEE_NUMERATOR } from "./constants";
 import BN from "bn.js";
 import { BaseFee } from "./cpAmm";
 
@@ -120,15 +120,15 @@ export function getRateLimiterParams(
       throw new Error('All rate limiter parameters must be greater than zero')
   }
 
-  if (baseFeeBps > MAX_FEE_BPS) {
+  if (baseFeeBps > MAX_FEE_BPS_V1) {
       throw new Error(
-          `Base fee (${baseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
+          `Base fee (${baseFeeBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS_V1} bps`
       )
   }
 
-  if (feeIncrementBps > MAX_FEE_BPS) {
+  if (feeIncrementBps > MAX_FEE_BPS_V1) {
       throw new Error(
-          `Fee increment (${feeIncrementBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS} bps`
+          `Fee increment (${feeIncrementBps} bps) exceeds maximum allowed value of ${MAX_FEE_BPS_V1} bps`
       )
   }
 
@@ -138,7 +138,7 @@ export function getRateLimiterParams(
       )
   }
 
-  const deltaNumerator = new BN(MAX_FEE_NUMERATOR).sub(cliffFeeNumerator)
+  const deltaNumerator = new BN(MAX_FEE_NUMERATOR_V1).sub(cliffFeeNumerator)
   const maxIndex = deltaNumerator.div(feeIncrementNumerator)
   if (maxIndex.lt(new BN(1))) {
       throw new Error('Fee increment is too large for the given base fee')
@@ -146,7 +146,7 @@ export function getRateLimiterParams(
 
   if (
       cliffFeeNumerator.lt(new BN(MIN_FEE_NUMERATOR)) ||
-      cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR))
+      cliffFeeNumerator.gt(new BN(MAX_FEE_NUMERATOR_V1))
   ) {
       throw new Error('Base fee must be between 0.01% and 99%')
   }
@@ -214,7 +214,7 @@ export function calculateRateLimiterFee(params: BaseFee, inputAmount: BN): BN {
   const b = diff.mod(x0)
 
   // calculate max_index
-  const maxFeeNumerator = new BN(MAX_FEE_NUMERATOR)
+  const maxFeeNumerator = new BN(MAX_FEE_NUMERATOR_V1)
   const deltaNumerator = maxFeeNumerator.sub(cliffFeeNumerator)
   const maxIndex = deltaNumerator.div(feeIncrementNumerator)
 

@@ -85,7 +85,7 @@ pub fn handle_create_static_config(
         ActivationType::try_from(activation_type).map_err(|_| PoolError::TypeCastFailed)?;
 
     // validate fee
-    pool_fees.validate(collect_fee_mode, activation_type)?;
+    pool_fees.validate(collect_fee_mode, activation_type, 1)?; // pool version = 1
 
     let partner_info = PartnerInfo {
         partner_authority: pool_creator_authority,

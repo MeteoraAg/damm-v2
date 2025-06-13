@@ -1,6 +1,8 @@
 use crate::{
     activation_handler::ActivationType,
-    constants::fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR, MIN_FEE_NUMERATOR},
+    constants::fee::{
+        FEE_DENOMINATOR, MAX_FEE_NUMERATOR_V0, MAX_FEE_NUMERATOR_V1, MIN_FEE_NUMERATOR,
+    },
     fee_math::get_fee_in_period,
     math::safe_math::SafeMath,
     params::{fee_parameters::validate_fee_fraction, swap::TradeDirection},
@@ -63,7 +65,12 @@ impl FeeScheduler {
 }
 
 impl BaseFeeHandler for FeeScheduler {
-    fn validate(&self, _collect_fee_mode: u8, _activation_type: ActivationType) -> Result<()> {
+    fn validate(
+        &self,
+        _collect_fee_mode: u8,
+        _activation_type: ActivationType,
+        pool_version: u8,
+    ) -> Result<()> {
         if self.period_frequency != 0 || self.number_of_period != 0 || self.reduction_factor != 0 {
             require!(
                 self.number_of_period != 0
@@ -76,10 +83,23 @@ impl BaseFeeHandler for FeeScheduler {
         let max_fee_numerator = self.get_max_base_fee_numerator();
         validate_fee_fraction(min_fee_numerator, FEE_DENOMINATOR)?;
         validate_fee_fraction(max_fee_numerator, FEE_DENOMINATOR)?;
+
         require!(
-            min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR,
+            min_fee_numerator >= MIN_FEE_NUMERATOR,
             PoolError::ExceedMaxFeeBps
         );
+        if pool_version == 1 {
+            require!(
+                max_fee_numerator <= MAX_FEE_NUMERATOR_V1,
+                PoolError::ExceedMaxFeeBps
+            );
+        } else {
+            require!(
+                max_fee_numerator <= MAX_FEE_NUMERATOR_V0,
+                PoolError::ExceedMaxFeeBps
+            );
+        };
+
         Ok(())
     }
     fn get_base_fee_numerator(

@@ -11,7 +11,12 @@ use crate::{
 };
 
 pub trait BaseFeeHandler {
-    fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()>;
+    fn validate(
+        &self,
+        collect_fee_mode: u8,
+        activation_type: ActivationType,
+        pool_version: u8,
+    ) -> Result<()>;
     fn get_base_fee_numerator(
         &self,
         current_point: u64,

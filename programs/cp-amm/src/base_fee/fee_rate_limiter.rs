@@ -1,7 +1,7 @@
 use crate::{
     activation_handler::ActivationType,
     constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR, MIN_FEE_NUMERATOR},
+        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR_V1, MIN_FEE_NUMERATOR},
         MAX_RATE_LIMITER_DURATION_IN_SECONDS, MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     },
     params::{fee_parameters::to_numerator, swap::TradeDirection},
@@ -69,7 +69,7 @@ impl FeeRateLimiter {
     }
 
     pub fn get_max_index(&self) -> Result<u64> {
-        let delta_numerator = MAX_FEE_NUMERATOR.safe_sub(self.cliff_fee_numerator)?;
+        let delta_numerator = MAX_FEE_NUMERATOR_V1.safe_sub(self.cliff_fee_numerator)?;
         let fee_increment_numerator =
             to_numerator(self.fee_increment_bps.into(), FEE_DENOMINATOR.into())?;
         let max_index = delta_numerator.safe_div(fee_increment_numerator)?;
@@ -104,7 +104,7 @@ impl FeeRateLimiter {
                 first_fee + second_fee
             } else {
                 let numerator_1 = c + c * max_index + i * max_index * (max_index + one) / two;
-                let numerator_2 = U256::from(MAX_FEE_NUMERATOR);
+                let numerator_2 = U256::from(MAX_FEE_NUMERATOR_V1);
                 let first_fee = x0 * numerator_1;
 
                 let d = a - max_index;
@@ -132,7 +132,12 @@ impl FeeRateLimiter {
 }
 
 impl BaseFeeHandler for FeeRateLimiter {
-    fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
+    fn validate(
+        &self,
+        collect_fee_mode: u8,
+        activation_type: ActivationType,
+        _pool_version: u8,
+    ) -> Result<()> {
         let collect_fee_mode = CollectFeeMode::try_from(collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
         // can only be apllied in quote token collect fee mode
@@ -169,7 +174,7 @@ impl BaseFeeHandler for FeeRateLimiter {
         // that condition is redundant, but is is safe to add this
         require!(
             self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
-                && self.cliff_fee_numerator <= MAX_FEE_NUMERATOR,
+                && self.cliff_fee_numerator <= MAX_FEE_NUMERATOR_V1,
             PoolError::InvalidFeeRateLimiter
         );
 
@@ -177,7 +182,7 @@ impl BaseFeeHandler for FeeRateLimiter {
         let min_fee_numerator = self.get_fee_numerator_from_amount(0)?;
         let max_fee_numerator = self.get_fee_numerator_from_amount(u64::MAX)?;
         require!(
-            min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR,
+            min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR_V1,
             PoolError::InvalidFeeRateLimiter
         );
         Ok(())

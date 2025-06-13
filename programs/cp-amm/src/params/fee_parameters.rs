@@ -38,7 +38,12 @@ pub struct BaseFeeParameters {
 }
 
 impl BaseFeeParameters {
-    fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
+    fn validate(
+        &self,
+        collect_fee_mode: u8,
+        activation_type: ActivationType,
+        pool_version: u8,
+    ) -> Result<()> {
         let base_fee_handler = get_base_fee_handler(
             self.cliff_fee_numerator,
             self.first_factor,
@@ -46,7 +51,7 @@ impl BaseFeeParameters {
             self.third_factor,
             self.base_fee_mode,
         )?;
-        base_fee_handler.validate(collect_fee_mode, activation_type)?;
+        base_fee_handler.validate(collect_fee_mode, activation_type, pool_version)?;
 
         Ok(())
     }
@@ -251,8 +256,14 @@ pub fn to_numerator(bps: u128, denominator: u128) -> Result<u64> {
 
 impl PoolFeeParameters {
     /// Validate that the fees are reasonable
-    pub fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
-        self.base_fee.validate(collect_fee_mode, activation_type)?;
+    pub fn validate(
+        &self,
+        collect_fee_mode: u8,
+        activation_type: ActivationType,
+        pool_version: u8,
+    ) -> Result<()> {
+        self.base_fee
+            .validate(collect_fee_mode, activation_type, pool_version)?;
         validate_fee_fraction(self.protocol_fee_percent.into(), 100)?;
         validate_fee_fraction(self.partner_fee_percent.into(), 100)?;
         validate_fee_fraction(self.referral_fee_percent.into(), 100)?;

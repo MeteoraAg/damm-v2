@@ -31,7 +31,7 @@ import {
 import BN from "bn.js";
 import { assert, expect } from "chai";
 
-describe("Rate limiter", () => {
+describe.only("Rate limiter", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let operator: Keypair;

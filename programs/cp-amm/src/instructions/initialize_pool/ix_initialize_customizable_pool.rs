@@ -71,8 +71,8 @@ impl InitializeCustomizablePoolParameters {
             .map_err(|_| PoolError::TypeCastFailed)?;
         // validate fee
         self.pool_fees
-            .validate(self.collect_fee_mode, activation_type)?;
-        // more validation for protocol fee and partner fee
+            .validate(self.collect_fee_mode, activation_type, 1)?; // pool version = 1
+                                                                   // more validation for protocol fee and partner fee
         self.pool_fees.validate_for_customizable_pool()?;
 
         CollectFeeMode::try_from(self.collect_fee_mode)

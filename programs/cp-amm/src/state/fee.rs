@@ -1,4 +1,4 @@
-use std::u64;
+use std::{cmp::max, u64};
 
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -7,7 +7,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     base_fee::{get_base_fee_handler, FeeRateLimiter},
     constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
+        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR_V0, MAX_FEE_NUMERATOR_V1},
         BASIS_POINT_MAX, ONE_Q64,
     },
     params::swap::TradeDirection,
@@ -172,13 +172,21 @@ impl PoolFeesStruct {
         current_point: u64,
         activation_point: u64,
         trade_direction: TradeDirection,
+        pool_version: u8,
     ) -> Result<FeeOnAmountResult> {
         let trade_fee_numerator =
             self.get_total_trading_fee(current_point, activation_point, amount, trade_direction)?;
-        let trade_fee_numerator = if trade_fee_numerator > MAX_FEE_NUMERATOR.into() {
-            MAX_FEE_NUMERATOR
+
+        let trade_fee_numerator: u64 = if pool_version == 1 {
+            max(
+                trade_fee_numerator.try_into().unwrap(),
+                MAX_FEE_NUMERATOR_V1,
+            )
         } else {
-            trade_fee_numerator.try_into().unwrap()
+            max(
+                trade_fee_numerator.try_into().unwrap(),
+                MAX_FEE_NUMERATOR_V0,
+            )
         };
 
         let lp_fee: u64 =
