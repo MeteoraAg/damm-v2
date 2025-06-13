@@ -31,7 +31,7 @@ import {
 import BN from "bn.js";
 import { assert, expect } from "chai";
 
-describe.only("Rate limiter", () => {
+describe("Rate limiter", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let operator: Keypair;
@@ -160,10 +160,14 @@ describe.only("Rate limiter", () => {
       poolState.metrics.totalProtocolBFee
     );
 
+    console.log("aaa: ", {
+      totalTradingFee: totalTradingFee.toNumber(),
+      referenceAmount: referenceAmount.div(new BN(100)).toNumber()
+    })
+
     expect(totalTradingFee.toNumber()).eq(
       referenceAmount.div(new BN(100)).toNumber()
     );
-
     // swap with 2 SOL
 
     await swap(context.banksClient, {

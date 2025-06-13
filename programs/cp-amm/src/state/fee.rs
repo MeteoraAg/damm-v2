@@ -1,4 +1,4 @@
-use std::{cmp::max, u64};
+use std::cmp::min;
 
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -176,14 +176,13 @@ impl PoolFeesStruct {
     ) -> Result<FeeOnAmountResult> {
         let trade_fee_numerator =
             self.get_total_trading_fee(current_point, activation_point, amount, trade_direction)?;
-
         let trade_fee_numerator: u64 = if pool_version == 1 {
-            max(
+            min(
                 trade_fee_numerator.try_into().unwrap(),
                 MAX_FEE_NUMERATOR_V1,
             )
         } else {
-            max(
+            min(
                 trade_fee_numerator.try_into().unwrap(),
                 MAX_FEE_NUMERATOR_V0,
             )
