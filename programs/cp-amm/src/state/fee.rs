@@ -6,10 +6,7 @@ use static_assertions::const_assert_eq;
 
 use crate::{
     base_fee::{get_base_fee_handler, FeeRateLimiter},
-    constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
-        BASIS_POINT_MAX, ONE_Q64,
-    },
+    constants::{fee::FEE_DENOMINATOR, BASIS_POINT_MAX, ONE_Q64},
     params::swap::TradeDirection,
     safe_math::SafeMath,
     u128x128_math::Rounding,
@@ -172,11 +169,12 @@ impl PoolFeesStruct {
         current_point: u64,
         activation_point: u64,
         trade_direction: TradeDirection,
+        max_fee_numerator: u64,
     ) -> Result<FeeOnAmountResult> {
         let trade_fee_numerator =
             self.get_total_trading_fee(current_point, activation_point, amount, trade_direction)?;
-        let trade_fee_numerator = if trade_fee_numerator > MAX_FEE_NUMERATOR.into() {
-            MAX_FEE_NUMERATOR
+        let trade_fee_numerator = if trade_fee_numerator > max_fee_numerator.into() {
+            max_fee_numerator
         } else {
             trade_fee_numerator.try_into().unwrap()
         };

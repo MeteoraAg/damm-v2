@@ -9,6 +9,7 @@ import {
   MIN_SQRT_PRICE,
   mintSplTokenTo,
   createToken,
+  getPool,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { ExtensionType } from "@solana/spl-token";
@@ -17,6 +18,7 @@ import {
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./bankrun-utils/token2022";
+import { expect } from "chai";
 
 describe("Initialize customizable pool", () => {
   describe("SPL-Token", () => {
@@ -174,7 +176,9 @@ describe("Initialize customizable pool", () => {
         collectFeeMode: 0,
       };
 
-      await initializeCustomizeablePool(context.banksClient, params);
+      const { pool } = await initializeCustomizeablePool(context.banksClient, params);
+      const poolState = await getPool(context.banksClient, pool);
+      expect(poolState.version).eq(1);
     });
   });
 });

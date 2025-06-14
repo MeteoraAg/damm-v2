@@ -11,8 +11,10 @@ import {
   CreateDynamicConfigParams,
   InitializePoolWithCustomizeConfigParams,
   initializePoolWithCustomizeConfig,
+  getPool,
 } from "./bankrun-utils";
 import BN from "bn.js";
+import { expect } from "chai";
 
 describe("Dynamic config test", () => {
   let context: ProgramTestContext;
@@ -101,6 +103,8 @@ describe("Dynamic config test", () => {
       collectFeeMode: 0,
     };
 
-    await initializePoolWithCustomizeConfig(context.banksClient, params);
+    const { pool } = await initializePoolWithCustomizeConfig(context.banksClient, params);
+    const poolState = await getPool(context.banksClient, pool);
+    expect(poolState.version).eq(1);
   });
 });
