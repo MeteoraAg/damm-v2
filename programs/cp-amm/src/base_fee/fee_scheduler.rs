@@ -4,6 +4,7 @@ use crate::{
     fee_math::get_fee_in_period,
     math::safe_math::SafeMath,
     params::{fee_parameters::validate_fee_fraction, swap::TradeDirection},
+    state::CollectFeeMode,
     PoolError,
 };
 use anchor_lang::prelude::*;
@@ -63,7 +64,11 @@ impl FeeScheduler {
 }
 
 impl BaseFeeHandler for FeeScheduler {
-    fn validate(&self, _collect_fee_mode: u8, _activation_type: ActivationType) -> Result<()> {
+    fn validate(
+        &self,
+        _collect_fee_mode: CollectFeeMode,
+        _activation_type: ActivationType,
+    ) -> Result<()> {
         if self.period_frequency != 0 || self.number_of_period != 0 || self.reduction_factor != 0 {
             require!(
                 self.number_of_period != 0
@@ -92,11 +97,15 @@ impl BaseFeeHandler for FeeScheduler {
         if self.period_frequency == 0 {
             return Ok(self.cliff_fee_numerator);
         }
-
-        let period = current_point
-            .safe_sub(activation_point)?
-            .safe_div(self.period_frequency)?;
-
+        // it means alpha-vault is buying
+        let period = if current_point < activation_point {
+            self.number_of_period.into()
+        } else {
+            let period = current_point
+                .safe_sub(activation_point)?
+                .safe_div(self.period_frequency)?;
+            period.min(self.number_of_period.into())
+        };
         self.get_base_fee_numerator_by_period(period)
     }
 }

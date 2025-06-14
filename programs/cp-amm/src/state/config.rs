@@ -53,8 +53,8 @@ const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeConfig {
     pub cliff_fee_numerator: u64,
-    // reverse order to ensure it is backward-compatible on fee scheduler
-    // first_factor: number_of_period, period_frequency: second_factor, reduction_factor: third_factor
+    // In fee scheduler first_factor: number_of_period, period_frequency: second_factor, reduction_factor: third_factor
+    // in rate limiter: first_factor: fee_increment_bps, max_limiter_duration: second_factor, reduction_factor: reference_amount
     pub base_fee_mode: u8,
     pub padding: [u8; 5],
     pub first_factor: u16,

@@ -78,16 +78,23 @@ pub fn handle_create_static_config(
     };
     activation_params.validate()?;
 
+    let pool_activation_type =
+        ActivationType::try_from(activation_type).map_err(|_| PoolError::InvalidActivationType)?;
+
+    let pool_collect_fee_mode =
+        CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::InvalidCollectFeeMode)?;
+    pool_fees.validate(pool_collect_fee_mode, pool_activation_type)?;
+
     let mut config = ctx.accounts.config.load_init()?;
     config.init_static_config(
         index,
         &pool_fees,
         vault_config_key,
         pool_creator_authority,
-        activation_type.into(),
+        activation_type,
         sqrt_min_price,
         sqrt_max_price,
-        collect_fee_mode.into(),
+        collect_fee_mode,
     );
 
     emit_cpi!(event::EvtCreateConfig {
@@ -95,7 +102,7 @@ pub fn handle_create_static_config(
         config: ctx.accounts.config.key(),
         vault_config_key,
         pool_creator_authority,
-        activation_type: activation_type.into(),
+        activation_type,
         collect_fee_mode,
         sqrt_min_price,
         sqrt_max_price,
