@@ -1,6 +1,6 @@
 use crate::{
     activation_handler::ActivationType,
-    constants::fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR, MIN_FEE_NUMERATOR},
+    constants::fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR_V1, MIN_FEE_NUMERATOR},
     fee_math::get_fee_in_period,
     math::safe_math::SafeMath,
     params::{fee_parameters::validate_fee_fraction, swap::TradeDirection},
@@ -77,7 +77,7 @@ impl BaseFeeHandler for FeeScheduler {
         validate_fee_fraction(min_fee_numerator, FEE_DENOMINATOR)?;
         validate_fee_fraction(max_fee_numerator, FEE_DENOMINATOR)?;
         require!(
-            min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR,
+            min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR_V1,
             PoolError::ExceedMaxFeeBps
         );
         Ok(())
