@@ -47,8 +47,13 @@ impl FeeRateLimiter {
             return Ok(false);
         }
 
-        // only handle for the case quote to base and collect fee mode in quote token
+        // only handle for the case B to A and collect fee mode in token B
         if trade_direction == TradeDirection::AtoB {
+            return Ok(false);
+        }
+
+        // it means whitelisted vault is buying
+        if current_point < activation_point {
             return Ok(false);
         }
 
@@ -132,10 +137,12 @@ impl FeeRateLimiter {
 }
 
 impl BaseFeeHandler for FeeRateLimiter {
-    fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
-        let collect_fee_mode = CollectFeeMode::try_from(collect_fee_mode)
-            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-        // can only be apllied in quote token collect fee mode
+    fn validate(
+        &self,
+        collect_fee_mode: CollectFeeMode,
+        activation_type: ActivationType,
+    ) -> Result<()> {
+        // can only be applied in OnlyB collect fee mode
         require!(
             collect_fee_mode == CollectFeeMode::OnlyB,
             PoolError::InvalidFeeRateLimiter

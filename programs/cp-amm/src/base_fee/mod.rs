@@ -6,12 +6,18 @@ pub use fee_rate_limiter::*;
 use anchor_lang::prelude::*;
 
 use crate::{
-    activation_handler::ActivationType, params::swap::TradeDirection, state::fee::BaseFeeMode,
+    activation_handler::ActivationType,
+    params::swap::TradeDirection,
+    state::{fee::BaseFeeMode, CollectFeeMode},
     PoolError,
 };
 
 pub trait BaseFeeHandler {
-    fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()>;
+    fn validate(
+        &self,
+        collect_fee_mode: CollectFeeMode,
+        activation_type: ActivationType,
+    ) -> Result<()>;
     fn get_base_fee_numerator(
         &self,
         current_point: u64,

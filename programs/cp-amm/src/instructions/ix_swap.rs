@@ -256,7 +256,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
             if sibling_instruction.program_id == crate::ID
                 && sibling_instruction.data[..8].eq(SwapInstruction::DISCRIMINATOR)
             {
-                if sibling_instruction.accounts[2].pubkey.eq(pool) {
+                if sibling_instruction.accounts[1].pubkey.eq(pool) {
                     return Err(PoolError::FailToValidateSingleSwapInstruction.into());
                 }
             }
@@ -283,7 +283,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
                 }
             }
         } else if instruction.data[..8].eq(SwapInstruction::DISCRIMINATOR) {
-            if instruction.accounts[2].pubkey.eq(pool) {
+            if instruction.accounts[1].pubkey.eq(pool) {
                 // otherwise, we just need to search swap instruction discriminator, so creator can still bundle initialzing pool and swap at 1 tx
                 msg!("Multiple swaps not allowed");
                 return Err(PoolError::FailToValidateSingleSwapInstruction.into());
