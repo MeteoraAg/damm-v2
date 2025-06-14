@@ -8,7 +8,10 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     assert_eq_admin,
-    constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
+    constants::{
+        fee::{MAX_FEE_NUMERATOR_V0, MAX_FEE_NUMERATOR_V1},
+        LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE,
+    },
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
         get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
@@ -78,6 +81,22 @@ pub enum PoolType {
     Customizable,
 }
 
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum PoolVersion {
+    V0, // 0
+    V1, // 1
+}
+
 #[account(zero_copy)]
 #[derive(InitSpace, Debug, Default)]
 pub struct Pool {
@@ -127,8 +146,10 @@ pub struct Pool {
     pub collect_fee_mode: u8,
     /// pool type
     pub pool_type: u8,
+    /// pool version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%
+    pub version: u8,
     /// padding
-    pub _padding_0: [u8; 2],
+    pub _padding_0: u8,
     /// cumulative
     pub fee_a_per_liquidity: [u8; 32], // U256
     /// cumulative
@@ -393,6 +414,7 @@ impl Pool {
         self.sqrt_price = sqrt_price;
         self.collect_fee_mode = collect_fee_mode;
         self.pool_type = pool_type;
+        self.version = PoolVersion::V1.into();
     }
 
     pub fn pool_reward_initialized(&self) -> bool {
@@ -411,6 +433,14 @@ impl Pool {
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
 
+        let pool_version =
+            PoolVersion::try_from(self.version).map_err(|_| PoolError::TypeCastFailed)?;
+        let max_fee_numerator = if pool_version == PoolVersion::V0 {
+            MAX_FEE_NUMERATOR_V0
+        } else {
+            MAX_FEE_NUMERATOR_V1
+        };
+
         let actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
                 amount,
@@ -425,6 +455,7 @@ impl Pool {
                 self.activation_point,
                 self.has_partner(),
                 trade_direction,
+                max_fee_numerator,
             )?;
 
             actual_protocol_fee = protocol_fee;
@@ -461,6 +492,7 @@ impl Pool {
                 self.activation_point,
                 self.has_partner(),
                 trade_direction,
+                max_fee_numerator,
             )?;
             actual_protocol_fee = protocol_fee;
             actual_lp_fee = lp_fee;

@@ -87,8 +87,11 @@ pub mod fee {
     pub const FEE_DENOMINATOR: u64 = 1_000_000_000;
 
     /// Max fee BPS
-    pub const MAX_FEE_BPS: u64 = 9900; // 99%
-    pub const MAX_FEE_NUMERATOR: u64 = 990_000_000; // 99%
+    pub const MAX_FEE_BPS_V0: u64 = 5000; // 50%
+    pub const MAX_FEE_NUMERATOR_V0: u64 = 500_000_000; // 50%
+
+    pub const MAX_FEE_BPS_V1: u64 = 9900; // 99%
+    pub const MAX_FEE_NUMERATOR_V1: u64 = 990_000_000; // 99%
 
     /// Max basis point. 100% in pct
     pub const MAX_BASIS_POINT: u64 = 10000;
@@ -97,8 +100,13 @@ pub mod fee {
     pub const MIN_FEE_NUMERATOR: u64 = 100_000;
 
     static_assertions::const_assert_eq!(
-        MAX_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT,
-        MAX_FEE_NUMERATOR
+        MAX_FEE_BPS_V0 * FEE_DENOMINATOR / MAX_BASIS_POINT,
+        MAX_FEE_NUMERATOR_V0
+    );
+
+    static_assertions::const_assert_eq!(
+        MAX_FEE_BPS_V1 * FEE_DENOMINATOR / MAX_BASIS_POINT,
+        MAX_FEE_NUMERATOR_V1
     );
 
     static_assertions::const_assert_eq!(

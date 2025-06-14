@@ -124,6 +124,7 @@ describe("Initialize pool", () => {
       });
       const poolState = await getPool(context.banksClient, pool);
       expect(poolState.poolStatus).eq(newStatus);
+      expect(poolState.version).eq(1);
     });
   });
 
@@ -244,6 +245,7 @@ describe("Initialize pool", () => {
       });
       const poolState = await getPool(context.banksClient, pool);
       expect(poolState.poolStatus).eq(newStatus);
+      expect(poolState.version).eq(1);
     });
   });
 });
