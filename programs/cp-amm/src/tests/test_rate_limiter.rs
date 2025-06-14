@@ -1,7 +1,7 @@
 use crate::{
     activation_handler::ActivationType,
     base_fee::{BaseFeeHandler, FeeRateLimiter},
-    constants::fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR, MIN_FEE_NUMERATOR},
+    constants::fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR_V1, MIN_FEE_NUMERATOR},
     params::{
         fee_parameters::{to_bps, to_numerator},
         swap::TradeDirection,
@@ -59,7 +59,7 @@ fn test_validate_rate_limiter() {
         };
         assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
         let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: MAX_FEE_NUMERATOR + 1,
+            cliff_fee_numerator: MAX_FEE_NUMERATOR_V1 + 1,
             reference_amount: 1_000_000_000, // 1SOL
             max_limiter_duration: 60,        // 60 seconds
             fee_increment_bps: 10,           // 10 bps
