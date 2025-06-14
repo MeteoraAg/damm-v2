@@ -9,7 +9,7 @@ use crate::{
         activation::ActivationParams,
         fee_parameters::{PartnerInfo, PoolFeeParameters},
     },
-    state::Config,
+    state::{CollectFeeMode, Config},
     PoolError,
 };
 
@@ -81,11 +81,12 @@ pub fn handle_create_static_config(
     };
     activation_params.validate()?;
 
-    let activation_type =
+    let pool_activation_type =
         ActivationType::try_from(activation_type).map_err(|_| PoolError::TypeCastFailed)?;
 
-    // validate fee
-    pool_fees.validate(collect_fee_mode, activation_type)?;
+    let pool_collect_fee_mode =
+        CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::TypeCastFailed)?;
+    pool_fees.validate(pool_collect_fee_mode, pool_activation_type)?;
 
     let partner_info = PartnerInfo {
         partner_authority: pool_creator_authority,
@@ -101,10 +102,10 @@ pub fn handle_create_static_config(
         &pool_fees,
         vault_config_key,
         pool_creator_authority,
-        activation_type.into(),
+        activation_type,
         sqrt_min_price,
         sqrt_max_price,
-        collect_fee_mode.into(),
+        collect_fee_mode,
     );
 
     emit_cpi!(event::EvtCreateConfig {
@@ -112,7 +113,7 @@ pub fn handle_create_static_config(
         config: ctx.accounts.config.key(),
         vault_config_key,
         pool_creator_authority,
-        activation_type: activation_type.into(),
+        activation_type,
         collect_fee_mode,
         sqrt_min_price,
         sqrt_max_price,

@@ -70,13 +70,11 @@ impl InitializeCustomizablePoolParameters {
         let activation_type = ActivationType::try_from(self.activation_type)
             .map_err(|_| PoolError::TypeCastFailed)?;
         // validate fee
-        self.pool_fees
-            .validate(self.collect_fee_mode, activation_type)?;
+        let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
+            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+        self.pool_fees.validate(collect_fee_mode, activation_type)?;
         // more validation for protocol fee and partner fee
         self.pool_fees.validate_for_customizable_pool()?;
-
-        CollectFeeMode::try_from(self.collect_fee_mode)
-            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
 
         // validate activation
         let activation_params = ActivationParams {

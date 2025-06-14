@@ -8,7 +8,7 @@ use crate::constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
 use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
-use crate::state::{BaseFeeConfig, DynamicFeeConfig, PoolFeesConfig};
+use crate::state::{BaseFeeConfig, CollectFeeMode, DynamicFeeConfig, PoolFeesConfig};
 use anchor_lang::prelude::*;
 
 /// Information regarding fee charges
@@ -36,7 +36,11 @@ pub struct BaseFeeParameters {
 }
 
 impl BaseFeeParameters {
-    fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
+    fn validate(
+        &self,
+        collect_fee_mode: CollectFeeMode,
+        activation_type: ActivationType,
+    ) -> Result<()> {
         let base_fee_handler = get_base_fee_handler(
             self.cliff_fee_numerator,
             self.first_factor,
@@ -249,7 +253,11 @@ pub fn to_numerator(bps: u128, denominator: u128) -> Result<u64> {
 
 impl PoolFeeParameters {
     /// Validate that the fees are reasonable
-    pub fn validate(&self, collect_fee_mode: u8, activation_type: ActivationType) -> Result<()> {
+    pub fn validate(
+        &self,
+        collect_fee_mode: CollectFeeMode,
+        activation_type: ActivationType,
+    ) -> Result<()> {
         self.base_fee.validate(collect_fee_mode, activation_type)?;
         validate_fee_fraction(self.protocol_fee_percent.into(), 100)?;
         validate_fee_fraction(self.partner_fee_percent.into(), 100)?;

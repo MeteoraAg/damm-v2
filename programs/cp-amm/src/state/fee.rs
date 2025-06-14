@@ -45,8 +45,7 @@ pub enum BaseFeeMode {
     FeeSchedulerLinear,
     // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
     FeeSchedulerExponential,
-    // Progressive fee: cliff tier (≤x0) → incremental tiers → flat rate (>max_index)
-    // fee = amount*c (≤x0) | x0*(c*(1+a) + i*a*(a+1)/2) + b*(c+i*(a+1)) | base + flat * MAX_FEE
+    // rate limiter
     RateLimiter,
 }
 
@@ -107,9 +106,9 @@ impl BaseFeeStruct {
         if base_fee_mode == BaseFeeMode::RateLimiter {
             Ok(FeeRateLimiter {
                 cliff_fee_numerator: self.cliff_fee_numerator,
-                reference_amount: self.third_factor,
-                max_limiter_duration: self.second_factor,
                 fee_increment_bps: self.first_factor,
+                max_limiter_duration: self.second_factor,
+                reference_amount: self.third_factor,
             })
         } else {
             Err(PoolError::InvalidFeeRateLimiter.into())
