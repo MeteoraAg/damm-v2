@@ -7,6 +7,7 @@ import {
 } from "@solana/web3.js";
 import { BanksClient, ProgramTestContext, startAnchor } from "solana-bankrun";
 import {
+  ALPHA_VAULT_PROGRAM_ID,
   BASIS_POINT_MAX,
   CP_AMM_PROGRAM_ID,
   FEE_DENOMINATOR,
@@ -29,6 +30,10 @@ export async function startTest(root: Keypair) {
       {
         name: "cp_amm",
         programId: new PublicKey(CP_AMM_PROGRAM_ID),
+      },
+      {
+        name: "alpha_vault",
+        programId: new PublicKey(ALPHA_VAULT_PROGRAM_ID),
       },
     ],
     [
@@ -122,7 +127,7 @@ export async function generateKpAndFund(
     banksClient,
     rootKeypair,
     kp.publicKey,
-    new BN(LAMPORTS_PER_SOL)
+    new BN(100 * LAMPORTS_PER_SOL)
   );
   return kp;
 }

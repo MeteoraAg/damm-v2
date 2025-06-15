@@ -21,6 +21,7 @@ import {
   getMintCloseAuthority,
   MintCloseAuthorityLayout,
   MetadataPointerLayout,
+  NATIVE_MINT,
 } from "@solana/spl-token";
 import { unpack } from "@solana/spl-token-metadata";
 import {
@@ -28,6 +29,7 @@ import {
   ComputeBudgetProgram,
   Connection,
   Keypair,
+  LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
   SYSVAR_INSTRUCTIONS_PUBKEY,
@@ -36,7 +38,7 @@ import {
 import { BanksClient } from "solana-bankrun";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { CpAmm } from "../../target/types/cp_amm";
-import { getOrCreateAssociatedTokenAccount } from "./token";
+import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 import {
   deriveClaimFeeOperatorAddress,
   deriveConfigAddress,
@@ -790,12 +792,17 @@ export async function initializeCustomizeablePool(
     true,
     tokenAProgram
   );
-  const payerTokenB = getAssociatedTokenAddressSync(
+  const payerTokenB = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    payer,
     tokenBMint,
     payer.publicKey,
-    true,
     tokenBProgram
   );
+
+  if (tokenBMint.equals(NATIVE_MINT)) {
+    await wrapSOL(banksClient, payer, new BN(LAMPORTS_PER_SOL));
+  }
 
   const transaction = await program.methods
     .initializeCustomizablePool({
@@ -1633,11 +1640,11 @@ export async function swapInstruction(
     )
     .transaction();
 
-    return transaction;
+  return transaction;
 }
 
 export async function swap(banksClient: BanksClient, params: SwapParams) {
-  const transaction = await swapInstruction(banksClient, params)
+  const transaction = await swapInstruction(banksClient, params);
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(params.payer);
@@ -1744,20 +1751,6 @@ export async function getConfig(
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(config);
   return program.coder.accounts.decode("config", Buffer.from(account.data));
-}
-
-export function getStakeProgramErrorCodeHexString(errorMessage: String) {
-  const error = CpAmmIDL.errors.find(
-    (e) =>
-      e.name.toLowerCase() === errorMessage.toLowerCase() ||
-      e.msg.toLowerCase() === errorMessage.toLowerCase()
-  );
-
-  if (!error) {
-    throw new Error(`Unknown CP AMM error message / name: ${errorMessage}`);
-  }
-
-  return "0x" + error.code.toString(16);
 }
 
 export async function getTokenBadge(
