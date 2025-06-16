@@ -294,7 +294,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         ctx.accounts.pool.key(),
         ctx.accounts.position_nft_mint.key(),
         liquidity,
-    )?;
+    );
 
     // create position nft
     drop(position);

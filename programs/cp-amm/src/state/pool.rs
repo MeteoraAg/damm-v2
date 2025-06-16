@@ -161,13 +161,11 @@ pub struct PoolMetrics {
 const_assert_eq!(PoolMetrics::INIT_SPACE, 80);
 
 impl PoolMetrics {
-    pub fn increase_position(&mut self) -> Result<()> {
-        self.total_position = self.total_position.safe_add(1)?;
-        Ok(())
+    pub fn increase_position(&mut self) {
+        self.total_position = self.total_position.wrapping_add(1);
     }
-    pub fn reduce_position(&mut self) -> Result<()> {
-        self.total_position = self.total_position.safe_sub(1)?;
-        Ok(())
+    pub fn reduce_position(&mut self) {
+        self.total_position = self.total_position.wrapping_sub(1);
     }
 
     pub fn accumulate_fee(
