@@ -22,6 +22,7 @@ import {
   MintCloseAuthorityLayout,
   MetadataPointerLayout,
   unpackAccount,
+  NATIVE_MINT,
 } from "@solana/spl-token";
 import { unpack } from "@solana/spl-token-metadata";
 import {
@@ -30,6 +31,7 @@ import {
   ComputeBudgetProgram,
   Connection,
   Keypair,
+  LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
   SYSVAR_INSTRUCTIONS_PUBKEY,
@@ -38,7 +40,7 @@ import {
 import { BanksClient } from "solana-bankrun";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { CpAmm } from "../../target/types/cp_amm";
-import { getOrCreateAssociatedTokenAccount } from "./token";
+import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 import {
   deriveClaimFeeOperatorAddress,
   deriveConfigAddress,
@@ -792,7 +794,7 @@ export type PoolFeesParams = {
   dynamicFee: DynamicFee | null;
 };
 
-export type InitializeCustomizeablePoolParams = {
+export type InitializeCustomizablePoolParams = {
   payer: Keypair;
   creator: PublicKey;
   tokenAMint: PublicKey;
@@ -808,9 +810,9 @@ export type InitializeCustomizeablePoolParams = {
   activationPoint: BN | null;
 };
 
-export async function initializeCustomizeablePool(
+export async function initializeCustomizablePool(
   banksClient: BanksClient,
-  params: InitializeCustomizeablePoolParams
+  params: InitializeCustomizablePoolParams
 ): Promise<{ pool: PublicKey; position: PublicKey }> {
   const {
     tokenAMint,
@@ -848,12 +850,17 @@ export async function initializeCustomizeablePool(
     true,
     tokenAProgram
   );
-  const payerTokenB = getAssociatedTokenAddressSync(
+  const payerTokenB = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    payer,
     tokenBMint,
     payer.publicKey,
-    true,
     tokenBProgram
   );
+
+  if (tokenBMint.equals(NATIVE_MINT)) {
+    await wrapSOL(banksClient, payer, new BN(LAMPORTS_PER_SOL));
+  }
 
   const transaction = await program.methods
     .initializeCustomizablePool({
@@ -1693,11 +1700,11 @@ export async function swapInstruction(
     )
     .transaction();
 
-    return transaction;
+  return transaction;
 }
 
 export async function swap(banksClient: BanksClient, params: SwapParams) {
-  const transaction = await swapInstruction(banksClient, params)
+  const transaction = await swapInstruction(banksClient, params);
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(params.payer);
@@ -1806,6 +1813,7 @@ export async function getConfig(
   return program.coder.accounts.decode("config", Buffer.from(account.data));
 }
 
+<<<<<<< HEAD
 export function getCpAmmProgramErrorCodeHexString(errorMessage: String) {
   const error = CpAmmIDL.errors.find(
     (e) =>
@@ -1820,6 +1828,8 @@ export function getCpAmmProgramErrorCodeHexString(errorMessage: String) {
   return "0x" + error.code.toString(16);
 }
 
+=======
+>>>>>>> 9cb7d8c (add test (#58))
 export async function getTokenBadge(
   banksClient: BanksClient,
   tokenBadge: PublicKey

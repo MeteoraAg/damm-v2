@@ -2,8 +2,8 @@ import { ProgramTestContext } from "solana-bankrun";
 import { generateKpAndFund, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
-  InitializeCustomizeablePoolParams,
-  initializeCustomizeablePool,
+  InitializeCustomizablePoolParams,
+  initializeCustomizablePool,
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -61,7 +61,7 @@ describe("Initialize customizable pool", () => {
     });
 
     it("Initialize customizeable pool with spl token", async () => {
-      const params: InitializeCustomizeablePoolParams = {
+      const params: InitializeCustomizablePoolParams = {
         payer: creator,
         creator: creator.publicKey,
         tokenAMint,
@@ -89,7 +89,7 @@ describe("Initialize customizable pool", () => {
         collectFeeMode: 0,
       };
 
-      await initializeCustomizeablePool(context.banksClient, params);
+      await initializeCustomizablePool(context.banksClient, params);
     });
   });
 
@@ -148,7 +148,7 @@ describe("Initialize customizable pool", () => {
     });
 
     it("Initialize customizeable pool with spl token", async () => {
-      const params: InitializeCustomizeablePoolParams = {
+      const params: InitializeCustomizablePoolParams = {
         payer: creator,
         creator: creator.publicKey,
         tokenAMint,
@@ -176,7 +176,7 @@ describe("Initialize customizable pool", () => {
         collectFeeMode: 0,
       };
 
-      const { pool } = await initializeCustomizeablePool(context.banksClient, params);
+      const { pool } = await initializeCustomizablePool(context.banksClient, params);
       const poolState = await getPool(context.banksClient, pool);
       expect(poolState.version).eq(0);
     });
