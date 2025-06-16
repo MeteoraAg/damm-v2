@@ -414,7 +414,7 @@ impl Pool {
         self.sqrt_price = sqrt_price;
         self.collect_fee_mode = collect_fee_mode;
         self.pool_type = pool_type;
-        self.version = PoolVersion::V1.into();
+        self.version = PoolVersion::V0.into(); // still use v0 for now
     }
 
     pub fn pool_reward_initialized(&self) -> bool {
