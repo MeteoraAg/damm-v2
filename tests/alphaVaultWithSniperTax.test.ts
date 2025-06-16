@@ -100,7 +100,7 @@ describe("Alpha vault with sniper tax", () => {
         new BN(FEE_DENOMINATOR),
         Rounding.Up
       );
-      // alpha vault can buy with minimum fee (rate limiter don't applied)
+      // alpha vault can buy with minimum fee (fee scheduler don't applied)
       // expect total trading fee equal minimum base fee
       expect(totalTradingFee.toNumber()).eq(lpFee.toNumber());
     });
