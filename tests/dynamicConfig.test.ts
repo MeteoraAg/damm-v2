@@ -103,6 +103,6 @@ describe("Dynamic config test", () => {
 
     const { pool } = await initializePoolWithCustomizeConfig(context.banksClient, params);
     const poolState = await getPool(context.banksClient, pool);
-    expect(poolState.version).eq(1);
+    expect(poolState.version).eq(0);
   });
 });

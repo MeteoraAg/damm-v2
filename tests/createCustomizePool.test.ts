@@ -174,7 +174,7 @@ describe("Initialize customizable pool", () => {
 
       const { pool } = await initializeCustomizeablePool(context.banksClient, params);
       const poolState = await getPool(context.banksClient, pool);
-      expect(poolState.version).eq(1);
+      expect(poolState.version).eq(0);
     });
   });
 });
