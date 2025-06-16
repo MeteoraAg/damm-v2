@@ -1,6 +1,8 @@
 import { ProgramTestContext } from "solana-bankrun";
 import {
+  expectThrowsAsync,
   generateKpAndFund,
+  getCpAmmProgramErrorCodeHexString,
   processTransactionMaybeThrow,
   randomID,
   startTest,
@@ -13,8 +15,8 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import {
-  InitializeCustomizeablePoolParams,
-  initializeCustomizeablePool,
+  InitializeCustomizablePoolParams,
+  initializeCustomizablePool,
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -30,6 +32,7 @@ import {
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { assert, expect } from "chai";
+import { ANCHOR_ERROR__ACCOUNT_NOT_ENOUGH_KEYS } from "@coral-xyz/anchor-errors";
 
 describe("Rate limiter", () => {
   let context: ProgramTestContext;
@@ -219,7 +222,7 @@ describe("Rate limiter", () => {
     const liquidity = new BN(MIN_LP_AMOUNT);
     const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
-    const initPoolParams: InitializeCustomizeablePoolParams = {
+    const initPoolParams: InitializeCustomizablePoolParams = {
       payer: poolCreator,
       creator: poolCreator.publicKey,
       tokenAMint: tokenA,
@@ -246,18 +249,21 @@ describe("Rate limiter", () => {
       collectFeeMode: 1, // onlyB
       activationPoint: null,
     };
-    const { pool } = await initializeCustomizeablePool(context.banksClient, initPoolParams);
+    const { pool } = await initializeCustomizablePool(
+      context.banksClient,
+      initPoolParams
+    );
 
     // swap with 1 SOL
     const swapIx = await swapInstruction(context.banksClient, {
-        payer: poolCreator,
-        pool,
-        inputTokenMint: tokenB,
-        outputTokenMint: tokenA,
-        amountIn: referenceAmount,
-        minimumAmountOut: new BN(0),
-        referralTokenAccount: null,
-      });
+      payer: poolCreator,
+      pool,
+      inputTokenMint: tokenB,
+      outputTokenMint: tokenA,
+      amountIn: referenceAmount,
+      minimumAmountOut: new BN(0),
+      referralTokenAccount: null,
+    });
 
     let transaction = new Transaction();
     for (let i = 0; i < 2; i++) {
@@ -267,13 +273,11 @@ describe("Rate limiter", () => {
     transaction.recentBlockhash = (
       await context.banksClient.getLatestBlockhash()
     )[0];
-    transaction.sign(user);
+    transaction.sign(poolCreator);
 
-    try {
-      await processTransactionMaybeThrow(context.banksClient, transaction);
-      assert.ok(false);
-    } catch (e) {
-      // console.log(e)
-    }
+    const errorCode = getCpAmmProgramErrorCodeHexString("FailToValidateSingleSwapInstruction")
+    await expectThrowsAsync(async ()=>{
+      await processTransactionMaybeThrow(context.banksClient, transaction); 
+    }, errorCode)
   });
 });
