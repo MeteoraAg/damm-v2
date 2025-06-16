@@ -736,7 +736,7 @@ export type PoolFeesParams = {
   dynamicFee: DynamicFee | null;
 };
 
-export type InitializeCustomizeablePoolParams = {
+export type InitializeCustomizablePoolParams = {
   payer: Keypair;
   creator: PublicKey;
   tokenAMint: PublicKey;
@@ -752,9 +752,9 @@ export type InitializeCustomizeablePoolParams = {
   activationPoint: BN | null;
 };
 
-export async function initializeCustomizeablePool(
+export async function initializeCustomizablePool(
   banksClient: BanksClient,
-  params: InitializeCustomizeablePoolParams
+  params: InitializeCustomizablePoolParams
 ): Promise<{ pool: PublicKey; position: PublicKey }> {
   const {
     tokenAMint,

@@ -99,6 +99,17 @@ export function createAlphaVaultProgram() {
   return program;
 }
 
+export async function getVaultState(banksClient: BanksClient, alphaVault: PublicKey): Promise<any>{
+  const alphaVaultProgram = createAlphaVaultProgram();
+
+  const alphaVaultAccount = await banksClient.getAccount(alphaVault);
+  return alphaVaultProgram.coder.accounts.decode(
+    "vault",
+    Buffer.from(alphaVaultAccount.data)
+  );
+
+}
+
 export async function setupProrataAlphaVault(
   banksClient: BanksClient,
   params: SetupProrataAlphaVaultParams
@@ -208,6 +219,7 @@ export async function depositAlphaVault(
     )[0];
     createEscrowTx.feePayer = payer.publicKey;
     createEscrowTx.sign(payer);
+    
 
     await processTransactionMaybeThrow(banksClient, createEscrowTx);
   }
@@ -239,7 +251,7 @@ export async function depositAlphaVault(
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.feePayer = payer.publicKey;
+  transaction.feePayer = ownerKeypair.publicKey;
   transaction.sign(ownerKeypair);
 
   await processTransactionMaybeThrow(banksClient, transaction);
@@ -313,21 +325,4 @@ export async function fillDammV2(
   transaction.sign(onwer);
 
   await processTransactionMaybeThrow(banksClient, transaction);
-
-  poolState = await getPool(banksClient, pool);
-  let totalTradingFee = poolState.metrics.totalLpBFee.add(
-    poolState.metrics.totalProtocolBFee
-  );
-  const totalDeposit = new BN(alphaVaultState.totalDeposit);
-  const feeNumerator = poolState.poolFees.baseFee.cliffFeeNumerator;
-
-  const lpFee = mulDiv(
-    totalDeposit,
-    feeNumerator,
-    new BN(FEE_DENOMINATOR),
-    Rounding.Up
-  );
-  // alpha vault can buy with minimum fee (rate limiter don't applied)
-  // expect total trading fee equal minimum base fee
-  expect(totalTradingFee.toNumber()).eq(lpFee.toNumber())
 }

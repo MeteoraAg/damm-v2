@@ -15,8 +15,8 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import {
-  InitializeCustomizeablePoolParams,
-  initializeCustomizeablePool,
+  InitializeCustomizablePoolParams,
+  initializeCustomizablePool,
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -222,7 +222,7 @@ describe("Rate limiter", () => {
     const liquidity = new BN(MIN_LP_AMOUNT);
     const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
-    const initPoolParams: InitializeCustomizeablePoolParams = {
+    const initPoolParams: InitializeCustomizablePoolParams = {
       payer: poolCreator,
       creator: poolCreator.publicKey,
       tokenAMint: tokenA,
@@ -249,7 +249,7 @@ describe("Rate limiter", () => {
       collectFeeMode: 1, // onlyB
       activationPoint: null,
     };
-    const { pool } = await initializeCustomizeablePool(
+    const { pool } = await initializeCustomizablePool(
       context.banksClient,
       initPoolParams
     );
