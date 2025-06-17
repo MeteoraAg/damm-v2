@@ -85,11 +85,11 @@ impl FeeRateLimiter {
 
     // export function for testing
     pub fn get_fee_numerator_from_amount(&self, input_amount: u64) -> Result<u64> {
-        let max_fee_numerator = to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
-
         let fee_numerator = if input_amount <= self.reference_amount {
             self.cliff_fee_numerator
         } else {
+            let max_fee_numerator = to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
+
             let c = U256::from(self.cliff_fee_numerator);
             let (a, b) = input_amount
                 .safe_sub(self.reference_amount)?
@@ -183,6 +183,14 @@ impl BaseFeeHandler for FeeRateLimiter {
         let max_fee_numerator = self.get_fee_numerator_from_amount(u64::MAX)?;
         require!(
             min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR_V1,
+            PoolError::InvalidFeeRateLimiter
+        );
+
+        let max_fee_numerator_from_bps =
+            to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
+
+        require!(
+            max_fee_numerator == max_fee_numerator_from_bps,
             PoolError::InvalidFeeRateLimiter
         );
 
