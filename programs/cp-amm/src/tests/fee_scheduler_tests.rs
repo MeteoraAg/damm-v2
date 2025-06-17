@@ -25,7 +25,7 @@ fn test_base_fee() {
         cliff_fee_numerator: 100_000,
         base_fee_mode: 1,
         first_factor: 50,
-        second_factor: 1,
+        second_factor: 1u64.to_le_bytes(),
         third_factor: 500, // 5% each second
         ..Default::default()
     };

@@ -27,6 +27,7 @@ import {
   createToken,
 } from "./bankrun-utils";
 import {
+  convertToByteArray,
   generateKpAndFund,
   startTest,
   warpSlotBy,
@@ -108,7 +109,7 @@ describe("Lock position", () => {
           baseFee: {
             cliffFeeNumerator: new BN(10_000_000),
             firstFactor: 0,
-            secondFactor: new BN(0),
+            secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
             baseFeeMode: 0,
           },
@@ -424,7 +425,7 @@ describe("Lock position", () => {
           baseFee: {
             cliffFeeNumerator: new BN(10_000_000),
             firstFactor: 0,
-            secondFactor: new BN(0),
+            secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
             baseFeeMode: 0,
           },

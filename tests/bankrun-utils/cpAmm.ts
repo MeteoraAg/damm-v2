@@ -107,7 +107,7 @@ export type DynamicFee = {
 export type BaseFee = {
   cliffFeeNumerator: BN;
   firstFactor: number;
-  secondFactor: BN;
+  secondFactor: number[];
   thirdFactor: BN;
   baseFeeMode: number;
 };
@@ -218,8 +218,9 @@ export async function createConfigIx(
   expect(configState.poolFees.baseFee.baseFeeMode).eq(
     params.poolFees.baseFee.baseFeeMode
   );
-  expect(configState.poolFees.baseFee.secondFactor.toNumber()).eq(
-    params.poolFees.baseFee.secondFactor.toNumber()
+
+  expect(Buffer.from(configState.poolFees.baseFee.secondFactor).toString()).eq(
+    Buffer.from(params.poolFees.baseFee.secondFactor).toString()
   );
   expect(configState.poolFees.protocolFeePercent).eq(
     params.poolFees.protocolFeePercent

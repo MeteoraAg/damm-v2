@@ -1,5 +1,5 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { generateKpAndFund, startTest } from "./bankrun-utils/common";
+import { convertToByteArray, generateKpAndFund, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   MIN_LP_AMOUNT,
@@ -90,7 +90,7 @@ describe("Dynamic config test", () => {
         baseFee: {
           cliffFeeNumerator: new BN(2_500_000),
           firstFactor: 0,
-          secondFactor: new BN(0),
+          secondFactor: convertToByteArray(new BN(0)),
           thirdFactor: new BN(0),
           baseFeeMode: 0,
         },

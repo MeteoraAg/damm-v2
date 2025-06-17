@@ -19,6 +19,7 @@ fn test_validate_rate_limiter() {
             cliff_fee_numerator: 10_0000,
             reference_amount: 1_000_000_000, // 1SOL
             max_limiter_duration: 60,        // 60 seconds
+            max_fee_bps: 5000,               // 50 %
             fee_increment_bps: 10,           // 10 bps
         };
         assert!(rate_limiter
@@ -35,6 +36,7 @@ fn test_validate_rate_limiter() {
             cliff_fee_numerator: 10_0000,
             reference_amount: 1,     // 1SOL
             max_limiter_duration: 0, // 60 seconds
+            max_fee_bps: 5000,       // 50 %
             fee_increment_bps: 0,    // 10 bps
         };
         assert!(rate_limiter
@@ -44,6 +46,7 @@ fn test_validate_rate_limiter() {
             cliff_fee_numerator: 10_0000,
             reference_amount: 0,     // 1SOL
             max_limiter_duration: 1, // 60 seconds
+            max_fee_bps: 5000,       // 50 %
             fee_increment_bps: 0,    // 10 bps
         };
         assert!(rate_limiter
@@ -53,6 +56,7 @@ fn test_validate_rate_limiter() {
             cliff_fee_numerator: 10_0000,
             reference_amount: 0,     // 1SOL
             max_limiter_duration: 0, // 60 seconds
+            max_fee_bps: 5000,       // 50 %
             fee_increment_bps: 1,    // 10 bps
         };
         assert!(rate_limiter
@@ -66,6 +70,7 @@ fn test_validate_rate_limiter() {
             cliff_fee_numerator: MIN_FEE_NUMERATOR - 1,
             reference_amount: 1_000_000_000, // 1SOL
             max_limiter_duration: 60,        // 60 seconds
+            max_fee_bps: 5000,               // 50 %
             fee_increment_bps: 10,           // 10 bps
         };
         assert!(rate_limiter
@@ -75,6 +80,7 @@ fn test_validate_rate_limiter() {
             cliff_fee_numerator: MAX_FEE_NUMERATOR_V1 + 1,
             reference_amount: 1_000_000_000, // 1SOL
             max_limiter_duration: 60,        // 60 seconds
+            max_fee_bps: 5000,               // 50 %
             fee_increment_bps: 10,           // 10 bps
         };
         assert!(rate_limiter
@@ -95,6 +101,7 @@ fn test_rate_limiter_behavior() {
         cliff_fee_numerator,
         reference_amount,         // 1SOL
         max_limiter_duration: 60, // 60 seconds
+        max_fee_bps: 5000,        // 50 %
         fee_increment_bps,        // 10 bps
     };
     assert!(rate_limiter
@@ -144,7 +151,8 @@ fn test_rate_limiter_behavior() {
             .get_fee_numerator_from_amount(u64::MAX)
             .unwrap();
         let fee_bps = to_bps(fee_numerator.into(), FEE_DENOMINATOR.into()).unwrap();
-        assert_eq!(fee_bps, 9899); // 98.99%
+
+        assert_eq!(fee_bps, u64::from(rate_limiter.max_fee_bps)); // fee_bps cap equal max_fee_bps
     }
 }
 
@@ -173,6 +181,7 @@ fn test_rate_limiter_routing_friendly() {
         cliff_fee_numerator,
         reference_amount,         // 1SOL
         max_limiter_duration: 60, // 60 seconds
+        max_fee_bps: 5000,        // 50 %
         fee_increment_bps,        // 10 bps
     };
 
@@ -198,6 +207,7 @@ fn test_rate_limiter_base_fee_numerator() {
         cliff_fee_numerator,
         reference_amount,         // 1SOL
         max_limiter_duration: 60, // 60 seconds
+        max_fee_bps: 5000,        // 50 %
         fee_increment_bps,        // 10 bps
     };
 
@@ -214,7 +224,7 @@ fn test_rate_limiter_base_fee_numerator() {
         // trade pass last effective point
         let fee_numerator = rate_limiter
             .get_base_fee_numerator(
-                rate_limiter.max_limiter_duration + 1,
+                (rate_limiter.max_limiter_duration + 1).into(),
                 0,
                 TradeDirection::BtoA,
                 2_000_000_000,
@@ -228,7 +238,7 @@ fn test_rate_limiter_base_fee_numerator() {
         // trade in effective point
         let fee_numerator = rate_limiter
             .get_base_fee_numerator(
-                rate_limiter.max_limiter_duration,
+                rate_limiter.max_limiter_duration.into(),
                 0,
                 TradeDirection::BtoA,
                 2_000_000_000,
