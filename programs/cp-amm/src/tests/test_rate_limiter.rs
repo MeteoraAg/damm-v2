@@ -117,6 +117,7 @@ fn test_rate_limiter_from_pool_fee_params() {
     let rate_limiter = base_fee_struct.get_fee_rate_limiter().unwrap();
 
     assert_eq!(rate_limiter.max_fee_bps, max_fee_bps);
+    assert_eq!(rate_limiter.max_limiter_duration, max_limiter_duration);
 }
 // that test show that more amount, then more fee numerator
 #[test]

@@ -108,9 +108,15 @@ impl BaseFeeStruct {
                 cliff_fee_numerator: self.cliff_fee_numerator,
                 fee_increment_bps: self.first_factor,
                 max_limiter_duration: u32::from_le_bytes(
-                    self.second_factor[0..4].try_into().unwrap(),
+                    self.second_factor[0..4]
+                        .try_into()
+                        .map_err(|_| PoolError::TypeCastFailed)?,
                 ),
-                max_fee_bps: u32::from_le_bytes(self.second_factor[4..8].try_into().unwrap()),
+                max_fee_bps: u32::from_le_bytes(
+                    self.second_factor[4..8]
+                        .try_into()
+                        .map_err(|_| PoolError::TypeCastFailed)?,
+                ),
                 reference_amount: self.third_factor,
             })
         } else {

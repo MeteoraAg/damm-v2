@@ -167,7 +167,7 @@ impl BaseFeeHandler for FeeRateLimiter {
         };
 
         require!(
-            u64::from(self.max_limiter_duration) <= max_limiter_duration,
+            self.max_limiter_duration <= max_limiter_duration,
             PoolError::InvalidFeeRateLimiter
         );
 
@@ -178,18 +178,20 @@ impl BaseFeeHandler for FeeRateLimiter {
             PoolError::InvalidFeeRateLimiter
         );
 
+        let max_fee_numerator_from_bps =
+            to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
+        // this condition is redundant, but is is safe to add this
+        require!(
+            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
+                && self.cliff_fee_numerator <= max_fee_numerator_from_bps,
+            PoolError::InvalidFeeRateLimiter
+        );
+
         // validate max fee (more amount, then more fee)
         let min_fee_numerator = self.get_fee_numerator_from_amount(0)?;
         let max_fee_numerator = self.get_fee_numerator_from_amount(u64::MAX)?;
         require!(
             min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR_V1,
-            PoolError::InvalidFeeRateLimiter
-        );
-
-        // this condition is redundant, but is is safe to add this
-        require!(
-            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
-                && self.cliff_fee_numerator <= max_fee_numerator,
             PoolError::InvalidFeeRateLimiter
         );
 

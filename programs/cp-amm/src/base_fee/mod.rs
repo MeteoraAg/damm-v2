@@ -51,8 +51,16 @@ pub fn get_base_fee_handler(
             let fee_rate_limiter = FeeRateLimiter {
                 cliff_fee_numerator,
                 fee_increment_bps: first_factor,
-                max_limiter_duration: u32::from_le_bytes(second_factor[0..4].try_into().unwrap()),
-                max_fee_bps: u32::from_le_bytes(second_factor[4..8].try_into().unwrap()),
+                max_limiter_duration: u32::from_le_bytes(
+                    second_factor[0..4]
+                        .try_into()
+                        .map_err(|_| PoolError::TypeCastFailed)?,
+                ),
+                max_fee_bps: u32::from_le_bytes(
+                    second_factor[4..8]
+                        .try_into()
+                        .map_err(|_| PoolError::TypeCastFailed)?,
+                ),
                 reference_amount: third_factor,
             };
             Ok(Box::new(fee_rate_limiter))
