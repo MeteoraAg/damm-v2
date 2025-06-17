@@ -186,14 +186,6 @@ impl BaseFeeHandler for FeeRateLimiter {
             PoolError::InvalidFeeRateLimiter
         );
 
-        let max_fee_numerator_from_bps =
-            to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
-
-        require!(
-            max_fee_numerator == max_fee_numerator_from_bps,
-            PoolError::InvalidFeeRateLimiter
-        );
-
         // this condition is redundant, but is is safe to add this
         require!(
             self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
