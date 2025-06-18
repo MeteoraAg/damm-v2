@@ -1,5 +1,6 @@
 import { ProgramTestContext } from "solana-bankrun";
 import {
+  convertToRateLimiterSecondFactor,
   expectThrowsAsync,
   generateKpAndFund,
   getCpAmmProgramErrorCodeHexString,
@@ -32,7 +33,6 @@ import {
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { assert, expect } from "chai";
-import { ANCHOR_ERROR__ACCOUNT_NOT_ENOUGH_KEYS } from "@coral-xyz/anchor-errors";
 
 describe("Rate limiter", () => {
   let context: ProgramTestContext;
@@ -100,13 +100,16 @@ describe("Rate limiter", () => {
   it("Rate limiter", async () => {
     let referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
     let maxRateLimiterDuration = new BN(10);
+    let maxFeeBps = new BN(5000);
+
+    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(maxRateLimiterDuration, maxFeeBps)
 
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
           cliffFeeNumerator: new BN(10_000_000), // 100bps
           firstFactor: 10, // 10 bps
-          secondFactor: maxRateLimiterDuration, // 10 slot
+          secondFactor: rateLimiterSecondFactor, // combined(maxRateLimiterDuration, maxFeeBps)
           thirdFactor: referenceAmount, // 1 sol
           baseFeeMode: 2, // rate limiter mode
         },
@@ -219,6 +222,9 @@ describe("Rate limiter", () => {
   it("Try to send multiple instructions", async () => {
     let referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
     let maxRateLimiterDuration = new BN(10);
+    let maxFeeBps = new BN(5000);
+
+    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(maxRateLimiterDuration, maxFeeBps)
     const liquidity = new BN(MIN_LP_AMOUNT);
     const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
@@ -231,7 +237,7 @@ describe("Rate limiter", () => {
         baseFee: {
           cliffFeeNumerator: new BN(10_000_000), // 100bps
           firstFactor: 10, // 10 bps
-          secondFactor: maxRateLimiterDuration, // 10 slot
+          secondFactor: rateLimiterSecondFactor,
           thirdFactor: referenceAmount, // 1 sol
           baseFeeMode: 2, // rate limiter mode
         },

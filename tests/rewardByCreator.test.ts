@@ -130,7 +130,7 @@ describe("Reward by creator", () => {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
             firstFactor: 0,
-            secondFactor: new BN(0),
+            secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
             baseFeeMode: 0,
           },
@@ -433,7 +433,7 @@ describe("Reward by creator", () => {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
             firstFactor: 0,
-            secondFactor: new BN(0),
+            secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
             baseFeeMode: 0,
           },
@@ -628,7 +628,7 @@ describe("Reward by creator", () => {
       await expectThrowsAsync(async () => {
         await initializeReward(context.banksClient, initRewardParams);
       }, errorCode);
- 
+
     });
   });
 });

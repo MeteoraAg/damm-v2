@@ -6,13 +6,10 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import { BanksClient, ProgramTestContext, startAnchor } from "solana-bankrun";
-import {
-  ALPHA_VAULT_PROGRAM_ID,
-  CP_AMM_PROGRAM_ID,
-} from "./constants";
+import { ALPHA_VAULT_PROGRAM_ID, CP_AMM_PROGRAM_ID } from "./constants";
 import BN from "bn.js";
 
-import CpAmmIdl from "../../target/idl/cp_amm.json"
+import CpAmmIdl from "../../target/idl/cp_amm.json";
 
 export async function startTest(root: Keypair) {
   // Program name need to match fixtures program name
@@ -131,4 +128,18 @@ export function randomID(min = 0, max = 10000) {
 export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
   const clock = await context.banksClient.getClock();
   context.warpToSlot(clock.slot + BigInt(slots.toString()));
+}
+
+export function convertToByteArray(value: BN): number[] {
+  return Array.from(value.toArrayLike(Buffer, "le", 8));
+}
+
+export function convertToRateLimiterSecondFactor(
+  maxLimiterDuration: BN,
+  maxFeeBps: BN
+): number[] {
+  const buffer1 = maxLimiterDuration.toArrayLike(Buffer, "le", 4);
+  const buffer2 = maxFeeBps.toArrayLike(Buffer, "le", 4);
+  const buffer = Buffer.concat([buffer1, buffer2]);
+  return Array.from(buffer);
 }

@@ -35,8 +35,8 @@ pub const MIN_REWARD_DURATION: u64 = 24 * 60 * 60; // 1 day
 
 pub const MAX_REWARD_DURATION: u64 = 31536000; // 1 year = 365 * 24 * 3600
 
-pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u64 = 60 * 60 * 12; // 12 hours
-pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u64 = 108000; // 12 hours
+pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
+pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
 
 static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,

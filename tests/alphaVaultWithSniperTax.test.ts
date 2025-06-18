@@ -1,5 +1,7 @@
 import { BanksClient, ProgramTestContext } from "solana-bankrun";
 import {
+  convertToByteArray,
+  convertToRateLimiterSecondFactor,
   generateKpAndFund,
   startTest,
   warpSlotBy,
@@ -63,7 +65,7 @@ describe("Alpha vault with sniper tax", () => {
       const baseFee = {
         cliffFeeNumerator: new BN(990_000_000), // 99 %
         firstFactor: 100, // 100 periods
-        secondFactor: new BN(1), // 1 slot
+        secondFactor: convertToByteArray(new BN(1)),
         thirdFactor: new BN(9875000),
         baseFeeMode: 0, // fee scheduler Linear mode
       };
@@ -139,10 +141,17 @@ describe("Alpha vault with sniper tax", () => {
     it("Alpha vault can buy before activation point with minimum fee", async () => {
       let referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
       let maxRateLimiterDuration = new BN(10);
+      let maxFeeBps = new BN(5000);
+
+      let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(
+        maxRateLimiterDuration,
+        maxFeeBps
+      );
+
       const baseFee = {
         cliffFeeNumerator: new BN(10_000_000), // 100bps
         firstFactor: 10, // 10 bps
-        secondFactor: maxRateLimiterDuration, // 10 slot
+        secondFactor: rateLimiterSecondFactor,
         thirdFactor: referenceAmount, // 1 sol
         baseFeeMode: 2, // rate limiter mode
       };
