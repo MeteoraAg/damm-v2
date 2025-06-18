@@ -65,7 +65,7 @@ pub struct PoolFeesStruct {
     /// accounts during a trade, making the value of liquidity tokens rise.
     /// Trade fee numerator
     pub base_fee: BaseFeeStruct,
-    /// padding, previous protocol_fee_percent, partner_fee_percent, referral_fee_percent. be careful when use this field
+    /// padding, previous protocol_fee_percent, partner_fee_percent, referral_fee_percent. be careful when use these field
     pub padding: [u8; 3],
     /// padding
     pub padding_0: [u8; 5],

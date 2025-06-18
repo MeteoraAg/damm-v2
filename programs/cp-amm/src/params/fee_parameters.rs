@@ -17,7 +17,7 @@ use super::swap::TradeDirection;
 pub struct PoolFeeParameters {
     /// Base fee
     pub base_fee: BaseFeeParameters,
-    /// padding, previous protocol_fee_percent, partner_fee_percent, referral_fee_percent. be careful when use this field
+    /// padding, previous protocol_fee_percent, partner_fee_percent, referral_fee_percent. be careful when use these field
     pub padding: [u8; 3],
     /// dynamic fee
     pub dynamic_fee: Option<DynamicFeeParameters>,
@@ -96,8 +96,8 @@ impl PoolFeeParameters {
     pub fn to_pool_fees_config(&self) -> PoolFeesConfig {
         let &PoolFeeParameters {
             base_fee,
-            padding: _padding,
             dynamic_fee,
+            ..
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
             PoolFeesConfig {
@@ -115,8 +115,8 @@ impl PoolFeeParameters {
     pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
         let &PoolFeeParameters {
             base_fee,
-            padding: _padding,
             dynamic_fee,
+            ..
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
             PoolFeesStruct {
