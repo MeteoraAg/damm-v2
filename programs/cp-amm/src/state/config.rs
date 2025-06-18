@@ -58,7 +58,7 @@ pub struct BaseFeeConfig {
     pub base_fee_mode: u8,
     pub padding: [u8; 5],
     pub first_factor: u16,
-    pub second_factor: u64,
+    pub second_factor: [u8; 8],
     pub third_factor: u64,
 }
 

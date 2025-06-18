@@ -32,7 +32,8 @@ use ruint::aliases::U256;
 pub struct FeeRateLimiter {
     pub cliff_fee_numerator: u64,
     pub fee_increment_bps: u16,
-    pub max_limiter_duration: u64,
+    pub max_limiter_duration: u32,
+    pub max_fee_bps: u32,
     pub reference_amount: u64,
 }
 
@@ -74,7 +75,8 @@ impl FeeRateLimiter {
     }
 
     pub fn get_max_index(&self) -> Result<u64> {
-        let delta_numerator = MAX_FEE_NUMERATOR_V1.safe_sub(self.cliff_fee_numerator)?;
+        let max_fee_numerator = to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
+        let delta_numerator = max_fee_numerator.safe_sub(self.cliff_fee_numerator)?;
         let fee_increment_numerator =
             to_numerator(self.fee_increment_bps.into(), FEE_DENOMINATOR.into())?;
         let max_index = delta_numerator.safe_div(fee_increment_numerator)?;
@@ -86,6 +88,8 @@ impl FeeRateLimiter {
         let fee_numerator = if input_amount <= self.reference_amount {
             self.cliff_fee_numerator
         } else {
+            let max_fee_numerator = to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
+
             let c = U256::from(self.cliff_fee_numerator);
             let (a, b) = input_amount
                 .safe_sub(self.reference_amount)?
@@ -109,7 +113,7 @@ impl FeeRateLimiter {
                 first_fee + second_fee
             } else {
                 let numerator_1 = c + c * max_index + i * max_index * (max_index + one) / two;
-                let numerator_2 = U256::from(MAX_FEE_NUMERATOR_V1);
+                let numerator_2 = U256::from(max_fee_numerator);
                 let first_fee = x0 * numerator_1;
 
                 let d = a - max_index;
@@ -161,6 +165,7 @@ impl BaseFeeHandler for FeeRateLimiter {
             ActivationType::Slot => MAX_RATE_LIMITER_DURATION_IN_SLOTS,
             ActivationType::Timestamp => MAX_RATE_LIMITER_DURATION_IN_SECONDS,
         };
+
         require!(
             self.max_limiter_duration <= max_limiter_duration,
             PoolError::InvalidFeeRateLimiter
@@ -173,10 +178,12 @@ impl BaseFeeHandler for FeeRateLimiter {
             PoolError::InvalidFeeRateLimiter
         );
 
-        // that condition is redundant, but is is safe to add this
+        let max_fee_numerator_from_bps =
+            to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
+        // this condition is redundant, but is is safe to add this
         require!(
             self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
-                && self.cliff_fee_numerator <= MAX_FEE_NUMERATOR_V1,
+                && self.cliff_fee_numerator <= max_fee_numerator_from_bps,
             PoolError::InvalidFeeRateLimiter
         );
 
@@ -187,6 +194,7 @@ impl BaseFeeHandler for FeeRateLimiter {
             min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR_V1,
             PoolError::InvalidFeeRateLimiter
         );
+
         Ok(())
     }
     fn get_base_fee_numerator(
