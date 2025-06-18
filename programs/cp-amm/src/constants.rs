@@ -96,9 +96,11 @@ pub mod fee {
         MIN_FEE_NUMERATOR
     );
 
-    pub const CUSTOMIZABLE_PROTOCOL_FEE_PERCENT: u8 = 20; // 20%
+    pub const PROTOCOL_FEE_PERCENT: u8 = 20; // 20%
 
-    pub const CUSTOMIZABLE_HOST_FEE_PERCENT: u8 = 20; // 20%
+    pub const HOST_FEE_PERCENT: u8 = 20; // 20%
+
+    pub const PARTNER_FEE_PERCENT: u8 = 0; // 0%
 
     pub const MEME_MIN_FEE_UPDATE_WINDOW_DURATION: i64 = 60 * 30; // 30 minutes
 }

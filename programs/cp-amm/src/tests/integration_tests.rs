@@ -28,9 +28,6 @@ proptest! {
                 cliff_fee_numerator: 1_000_000,
                 ..Default::default()
             }, //1%
-            protocol_fee_percent: 20,
-            partner_fee_percent: 50,
-            referral_fee_percent: 20,
             ..Default::default()
         };
 
@@ -91,9 +88,6 @@ fn test_reserve_wont_lost_single() {
             cliff_fee_numerator: 1_000_000,
             ..Default::default()
         }, //1%
-        protocol_fee_percent: 20,
-        partner_fee_percent: 50,
-        referral_fee_percent: 20,
         ..Default::default()
     };
     let mut pool = Pool {

@@ -6,7 +6,10 @@ use static_assertions::const_assert_eq;
 
 use crate::{
     constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
+        fee::{
+            FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_FEE_NUMERATOR, PARTNER_FEE_PERCENT,
+            PROTOCOL_FEE_PERCENT,
+        },
         BASIS_POINT_MAX, ONE_Q64,
     },
     fee_math::get_fee_in_period,
@@ -62,22 +65,12 @@ pub struct PoolFeesStruct {
     /// accounts during a trade, making the value of liquidity tokens rise.
     /// Trade fee numerator
     pub base_fee: BaseFeeStruct,
-
-    /// Protocol trading fees are extra token amounts that are held inside the token
-    /// accounts during a trade, with the equivalent in pool tokens minted to
-    /// the protocol of the program.
-    /// Protocol trade fee numerator
-    pub protocol_fee_percent: u8,
-    /// partner fee
-    pub partner_fee_percent: u8,
-    /// referral fee
-    pub referral_fee_percent: u8,
+    /// padding, previous protocol_fee_percent, partner_fee_percent, referral_fee_percent. be careful when use this field
+    pub padding: [u8; 3],
     /// padding
     pub padding_0: [u8; 5],
-
     /// dynamic fee
     pub dynamic_fee: DynamicFeeStruct,
-
     /// padding
     pub padding_1: [u64; 2],
 }
@@ -174,22 +167,13 @@ impl PoolFeesStruct {
         // update amount
         let amount = amount.safe_sub(lp_fee)?;
 
-        let protocol_fee = safe_mul_div_cast_u64(
-            lp_fee,
-            self.protocol_fee_percent.into(),
-            100,
-            Rounding::Down,
-        )?;
+        let protocol_fee =
+            safe_mul_div_cast_u64(lp_fee, PROTOCOL_FEE_PERCENT.into(), 100, Rounding::Down)?;
         // update lp fee
         let lp_fee = lp_fee.safe_sub(protocol_fee)?;
 
         let referral_fee = if has_referral {
-            safe_mul_div_cast_u64(
-                protocol_fee,
-                self.referral_fee_percent.into(),
-                100,
-                Rounding::Down,
-            )?
+            safe_mul_div_cast_u64(protocol_fee, HOST_FEE_PERCENT.into(), 100, Rounding::Down)?
         } else {
             0
         };
@@ -197,7 +181,7 @@ impl PoolFeesStruct {
         let protocol_fee_after_referral_fee = protocol_fee.safe_sub(referral_fee)?;
         let partner_fee = safe_mul_div_cast_u64(
             protocol_fee_after_referral_fee,
-            self.partner_fee_percent.into(),
+            PARTNER_FEE_PERCENT.into(),
             100,
             Rounding::Down,
         )?;

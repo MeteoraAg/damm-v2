@@ -5,7 +5,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     activation_handler::ActivationType,
     alpha_vault::alpha_vault,
-    constants::activation::*,
+    constants::{activation::*, fee::PARTNER_FEE_PERCENT},
     error::PoolError,
     params::fee_parameters::{
         BaseFeeParameters, DynamicFeeParameters, PartnerInfo, PoolFeeParameters,
@@ -40,9 +40,8 @@ pub enum ConfigType {
 pub struct PoolFeesConfig {
     pub base_fee: BaseFeeConfig,
     pub dynamic_fee: DynamicFeeConfig,
-    pub protocol_fee_percent: u8,
-    pub partner_fee_percent: u8,
-    pub referral_fee_percent: u8,
+    /// padding, previous protocol_fee_percent, partner_fee_percent, referral_fee_percent. be careful when use this field
+    pub padding: [u8; 3],
     pub padding_0: [u8; 5],
     pub padding_1: [u64; 5],
 }
@@ -89,9 +88,6 @@ impl PoolFeesConfig {
     pub fn to_pool_fee_parameters(&self) -> PoolFeeParameters {
         let &PoolFeesConfig {
             base_fee,
-            protocol_fee_percent,
-            partner_fee_percent,
-            referral_fee_percent,
             dynamic_fee:
                 DynamicFeeConfig {
                     initialized,
@@ -109,9 +105,6 @@ impl PoolFeesConfig {
         if initialized == 1 {
             PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters(),
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
                 dynamic_fee: Some(DynamicFeeParameters {
                     bin_step,
                     bin_step_u128,
@@ -121,13 +114,11 @@ impl PoolFeesConfig {
                     max_volatility_accumulator,
                     variable_fee_control,
                 }),
+                ..Default::default()
             }
         } else {
             PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters(),
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
                 ..Default::default()
             }
         }
@@ -136,18 +127,12 @@ impl PoolFeesConfig {
     pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
         let &PoolFeesConfig {
             base_fee,
-            protocol_fee_percent,
-            partner_fee_percent,
-            referral_fee_percent,
             dynamic_fee,
             ..
         } = self;
 
         PoolFeesStruct {
             base_fee: base_fee.to_base_fee_struct(),
-            protocol_fee_percent,
-            partner_fee_percent,
-            referral_fee_percent,
             dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
             ..Default::default()
         }
@@ -314,7 +299,7 @@ impl Config {
     pub fn get_partner_info(&self) -> PartnerInfo {
         PartnerInfo {
             partner_authority: self.pool_creator_authority,
-            fee_percent: self.pool_fees.partner_fee_percent,
+            fee_percent: PARTNER_FEE_PERCENT,
             ..Default::default()
         }
     }
