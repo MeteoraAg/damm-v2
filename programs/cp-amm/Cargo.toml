@@ -31,5 +31,3 @@ spl-token-metadata-interface = { version = "=0.6.0" }
 
 [dev-dependencies]
 proptest = "1.2.0"
-anchor-client = { workspace = true }
-tokio = {workspace = true}

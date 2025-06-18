@@ -1,21 +1,19 @@
 import { expect } from "chai";
 import { convertToByteArray } from "./bankrun-utils/common";
-import { clusterApiUrl, Connection, PublicKey } from "@solana/web3.js";
 import { createCpAmmProgram } from "./bankrun-utils";
 import BN from "bn.js";
+import fs from "fs"
 
 describe("Account Layout backward compatible", () => {
   it("Config account", async () => {
     const program = createCpAmmProgram();
-    const connection = new Connection(clusterApiUrl("mainnet-beta"));
-    const data = await connection.getAccountInfo(
-      new PublicKey("TBuzuEMMQizTjpZhRLaUPavALhZmD8U1hwiw1pWSCSq")
-    );
+
+    const accountData = fs.readFileSync("./programs/cp-amm/src/tests/fixtures/config_account.bin");
     // https://solscan.io/account/TBuzuEMMQizTjpZhRLaUPavALhZmD8U1hwiw1pWSCSq#anchorData
     const periodFrequency = 60;
     const configState = program.coder.accounts.decode(
       "config",
-      Buffer.from(data.data)
+      Buffer.from(accountData)
     );
     const secondFactorByNewLayout = configState.poolFees.baseFee.secondFactor;
     // validate convert from le bytes array to number
@@ -34,15 +32,13 @@ describe("Account Layout backward compatible", () => {
 
   it("Pool account", async () => {
     const program = createCpAmmProgram();
-    const connection = new Connection(clusterApiUrl("mainnet-beta"));
-    const data = await connection.getAccountInfo(
-      new PublicKey("E8zRkDw3UdzRc8qVWmqyQ9MLj7jhgZDHSroYud5t25A7")
-    );
+
+    const accountData = fs.readFileSync("./programs/cp-amm/src/tests/fixtures/pool_account.bin");
     // https://solscan.io/account/E8zRkDw3UdzRc8qVWmqyQ9MLj7jhgZDHSroYud5t25A7#anchorData
     const periodFrequency = 60;
     const poolState = program.coder.accounts.decode(
       "pool",
-      Buffer.from(data.data)
+      Buffer.from(accountData)
     );
     const secondFactorByNewLayout = poolState.poolFees.baseFee.secondFactor;
     // validate convert from le bytes array to number

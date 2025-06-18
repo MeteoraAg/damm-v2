@@ -1,25 +1,14 @@
-use std::str::FromStr;
-
-use anchor_client::{
-    solana_client::rpc_client::RpcClient, solana_sdk::commitment_config::CommitmentConfig,
-};
-use anchor_lang::prelude::Pubkey;
-
 use crate::state::{Config, Pool};
 
-#[tokio::test(flavor = "multi_thread")]
-async fn config_account_layout_backward_compatible() {
-    let config_pubkey = Pubkey::from_str("TBuzuEMMQizTjpZhRLaUPavALhZmD8U1hwiw1pWSCSq").unwrap();
+use std::fs;
 
-    let rpc_url = "https://api.mainnet-beta.solana.com".to_string();
-    let client = RpcClient::new_with_commitment(&rpc_url, CommitmentConfig::confirmed());
+#[test]
+fn config_account_layout_backward_compatible() {
+    // config account: TBuzuEMMQizTjpZhRLaUPavALhZmD8U1hwiw1pWSCSq
+    let config_account_data =
+        fs::read(&"./src/tests/fixtures/config_account.bin").expect("Failed to read account data");
 
-    // Get and decode account
-    let config_account = client
-        .get_account(&config_pubkey)
-        .expect("Failed to get account");
-
-    let mut data_without_discriminator = config_account.data[8..].to_vec();
+    let mut data_without_discriminator = config_account_data[8..].to_vec();
     let config_state: &mut Config = bytemuck::from_bytes_mut(&mut data_without_discriminator);
 
     // Test backward compatibility
@@ -38,19 +27,13 @@ async fn config_account_layout_backward_compatible() {
     );
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn pool_account_layout_backward_compatible() {
-    let config_pubkey = Pubkey::from_str("E8zRkDw3UdzRc8qVWmqyQ9MLj7jhgZDHSroYud5t25A7").unwrap();
+#[test]
+fn pool_account_layout_backward_compatible() {
+    // pool account: E8zRkDw3UdzRc8qVWmqyQ9MLj7jhgZDHSroYud5t25A7
+    let pool_account_data =
+        fs::read(&"./src/tests/fixtures/pool_account.bin").expect("Failed to read account data");
 
-    let rpc_url = "https://api.mainnet-beta.solana.com".to_string();
-    let client = RpcClient::new_with_commitment(&rpc_url, CommitmentConfig::confirmed());
-
-    // Get and decode account
-    let pool_account = client
-        .get_account(&config_pubkey)
-        .expect("Failed to get account");
-
-    let mut data_without_discriminator = pool_account.data[8..].to_vec();
+    let mut data_without_discriminator = pool_account_data[8..].to_vec();
     let pool_state: &mut Pool = bytemuck::from_bytes_mut(&mut data_without_discriminator);
 
     // Test backward compatibility
