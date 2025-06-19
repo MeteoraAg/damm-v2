@@ -5,7 +5,8 @@ use anchor_spl::{
 };
 
 use crate::{
-    constants::seeds::{POOL_AUTHORITY_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX},
+    const_pda,
+    constants::seeds::{POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX},
     get_pool_access_validator,
     state::{Pool, Position},
     token::update_account_lamports_to_minimum_balance,
@@ -61,7 +62,7 @@ pub struct CreatePositionCtx<'info> {
     pub position: AccountLoader<'info, Position>,
 
     /// CHECK: pool authority
-    #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
+    #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
     /// Address paying to create the position. Can be anyone
@@ -105,7 +106,7 @@ pub fn handle_create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
         ctx.accounts.system_program.to_account_info(),
         ctx.accounts.token_program.to_account_info(),
         ctx.accounts.position_nft_account.to_account_info(),
-        ctx.bumps.pool_authority,
+        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtCreatePosition {

@@ -5,6 +5,7 @@ use anchor_lang::prelude::*;
 #[macro_use]
 pub mod macros;
 
+pub mod const_pda;
 pub mod instructions;
 pub use instructions::*;
 pub mod constants;

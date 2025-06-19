@@ -3,8 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     activation_handler::ActivationHandler,
-    constants::seeds::POOL_AUTHORITY_PREFIX,
-    get_pool_access_validator,
+    const_pda, get_pool_access_validator,
     params::swap::TradeDirection,
     state::{fee::FeeMode, Pool},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool, transfer_from_user},
@@ -22,10 +21,7 @@ pub struct SwapParameters {
 pub struct SwapCtx<'info> {
     /// CHECK: pool authority
     #[account(
-        seeds = [
-            POOL_AUTHORITY_PREFIX.as_ref(),
-        ],
-        bump,
+        address = const_pda::pool_authority::ID
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
@@ -171,7 +167,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         &ctx.accounts.output_token_account,
         output_program,
         swap_result.output_amount,
-        ctx.bumps.pool_authority,
+        const_pda::pool_authority::BUMP,
     )?;
     // send to referral
     if has_referral {
@@ -183,7 +179,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
                 &ctx.accounts.referral_token_account.clone().unwrap(),
                 &ctx.accounts.token_a_program,
                 swap_result.referral_fee,
-                ctx.bumps.pool_authority,
+                const_pda::pool_authority::BUMP,
             )?;
         } else {
             transfer_from_pool(
@@ -193,7 +189,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
                 &ctx.accounts.referral_token_account.clone().unwrap(),
                 &ctx.accounts.token_b_program,
                 swap_result.referral_fee,
-                ctx.bumps.pool_authority,
+                const_pda::pool_authority::BUMP,
             )?;
         }
     }

@@ -2,7 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    constants::{seeds::POOL_AUTHORITY_PREFIX, treasury},
+    const_pda,
+    constants::treasury,
     state::{ClaimFeeOperator, Pool},
     token::transfer_from_pool,
     EvtClaimProtocolFee,
@@ -13,7 +14,7 @@ use crate::{
 #[derive(Accounts)]
 pub struct ClaimProtocolFeesCtx<'info> {
     /// CHECK: pool authority
-    #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
+    #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
     #[account(mut, has_one = token_a_vault, has_one = token_b_vault, has_one = token_a_mint, has_one = token_b_mint)]
@@ -78,7 +79,7 @@ pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeesCtx>) -> Result<(
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_a_program,
         token_a_amount,
-        ctx.bumps.pool_authority,
+        const_pda::pool_authority::BUMP,
     )?;
 
     transfer_from_pool(
@@ -88,7 +89,7 @@ pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeesCtx>) -> Result<(
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_b_program,
         token_b_amount,
-        ctx.bumps.pool_authority,
+        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtClaimProtocolFee {
