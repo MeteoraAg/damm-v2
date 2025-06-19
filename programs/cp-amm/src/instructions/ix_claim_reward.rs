@@ -65,7 +65,11 @@ impl<'info> ClaimRewardCtx<'info> {
     }
 }
 
-pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Result<()> {
+pub fn handle_claim_reward(
+    ctx: Context<ClaimRewardCtx>,
+    reward_index: u8,
+    skip_reward: u8,
+) -> Result<()> {
     let index: usize = reward_index
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
@@ -84,15 +88,19 @@ pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Re
 
     // transfer rewards to user
     if total_reward > 0 {
-        transfer_from_pool(
-            ctx.accounts.pool_authority.to_account_info(),
-            &ctx.accounts.reward_mint,
-            &ctx.accounts.reward_vault,
-            &ctx.accounts.user_token_account,
-            &ctx.accounts.token_program,
-            total_reward,
-            ctx.bumps.pool_authority,
-        )?;
+        if ctx.accounts.reward_vault.is_frozen() {
+            require!(skip_reward == 1, PoolError::RewardVaultFrozenSkipRequired)
+        } else {
+            transfer_from_pool(
+                ctx.accounts.pool_authority.to_account_info(),
+                &ctx.accounts.reward_mint,
+                &ctx.accounts.reward_vault,
+                &ctx.accounts.user_token_account,
+                &ctx.accounts.token_program,
+                total_reward,
+                ctx.bumps.pool_authority,
+            )?;
+        }
     }
 
     emit_cpi!(EvtClaimReward {

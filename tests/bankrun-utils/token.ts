@@ -1,6 +1,7 @@
 import {
   AccountLayout,
   createAssociatedTokenAccountInstruction,
+  createFreezeAccountInstruction,
   createInitializeMint2Instruction,
   createInitializeMintInstruction,
   createMintToInstruction,
@@ -57,7 +58,8 @@ export async function getOrCreateAssociatedTokenAccount(
 export async function createToken(
   banksClient: BanksClient,
   payer: Keypair,
-  mintAuthority: PublicKey
+  mintAuthority: PublicKey,
+  freezeAuthority?: PublicKey
 ): Promise<PublicKey> {
   const mintKeypair = Keypair.generate();
   const rent = await banksClient.getRent();
@@ -75,7 +77,7 @@ export async function createToken(
     mintKeypair.publicKey,
     DECIMALS,
     mintAuthority,
-    null
+    freezeAuthority
   );
 
   let transaction = new Transaction();
@@ -87,6 +89,29 @@ export async function createToken(
   await banksClient.processTransaction(transaction);
 
   return mintKeypair.publicKey;
+}
+
+export async function freezeTokenAccount(
+  banksClient: BanksClient,
+  freezeAuthority: Keypair,
+  tokenMint: PublicKey,
+  tokenAccount: PublicKey,
+  tokenProgram = TOKEN_PROGRAM_ID
+) {
+  const freezeInstruction = createFreezeAccountInstruction(
+    tokenAccount,
+    tokenMint,
+    freezeAuthority.publicKey,
+    [],
+    tokenProgram
+  );
+  let transaction = new Transaction();
+  const [recentBlockhash] = await banksClient.getLatestBlockhash();
+  transaction.recentBlockhash = recentBlockhash;
+  transaction.add(freezeInstruction);
+  transaction.sign(freezeAuthority);
+
+  await banksClient.processTransaction(transaction);
 }
 
 export async function wrapSOL(

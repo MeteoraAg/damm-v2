@@ -231,6 +231,7 @@ describe("Reward by admin", () => {
         user,
         pool,
         position,
+        skipReward: 0,
       });
 
       // claim ineligible reward
@@ -473,6 +474,17 @@ describe("Reward by admin", () => {
         carryForward: true,
         amount: new BN("100"),
       });
+      let currentClock = await context.banksClient.getClock();
+      const newTimestamp = Number(currentClock.unixTimestamp) + 3600;
+      context.setClock(
+        new Clock(
+          currentClock.slot,
+          currentClock.epochStartTimestamp,
+          currentClock.epoch,
+          currentClock.leaderScheduleEpoch,
+          BigInt(newTimestamp.toString())
+        )
+      );
 
       // claim reward
 
@@ -481,6 +493,7 @@ describe("Reward by admin", () => {
         user,
         pool,
         position,
+        skipReward: 0,
       });
 
       // claim ineligible reward
@@ -488,7 +501,7 @@ describe("Reward by admin", () => {
       // set new timestamp to pass reward duration end
       const timestamp =
         poolState.rewardInfos[index].rewardDurationEnd.addn(5000);
-      const currentClock = await context.banksClient.getClock();
+       currentClock = await context.banksClient.getClock();
       context.setClock(
         new Clock(
           currentClock.slot,
