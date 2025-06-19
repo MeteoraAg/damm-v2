@@ -227,18 +227,16 @@ impl Position {
         Ok(self.reward_infos[reward_index].reward_pendings)
     }
 
-    fn accumulate_total_claimed_rewards(&mut self, reward_index: usize, reward: u64) -> Result<()> {
+    fn accumulate_total_claimed_rewards(&mut self, reward_index: usize, reward: u64) {
         let total_claimed_reward = self.reward_infos[reward_index].total_claimed_rewards;
         self.reward_infos[reward_index].total_claimed_rewards =
-            total_claimed_reward.safe_add(reward)?;
-
-        Ok(())
+            total_claimed_reward.wrapping_add(reward);
     }
 
     pub fn claim_reward(&mut self, reward_index: usize) -> Result<u64> {
         let total_reward = self.get_total_reward(reward_index)?;
 
-        self.accumulate_total_claimed_rewards(reward_index, total_reward)?;
+        self.accumulate_total_claimed_rewards(reward_index, total_reward);
 
         self.reset_all_pending_reward(reward_index);
 
