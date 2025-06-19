@@ -95,7 +95,7 @@ pub fn handle_create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
         ctx.accounts.pool.key(),
         ctx.accounts.position_nft_mint.key(),
         liquidity,
-    )?;
+    );
 
     drop(position);
     create_position_nft(
