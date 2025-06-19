@@ -25,8 +25,7 @@ import {
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { describe } from "mocha";
-import { ExtensionType } from "@solana/spl-token";
-import { createToken2022, mintToToken2022 } from "./bankrun-utils/token2022";
+import { createToken2022, createTransferFeeExtensionWithInstruction, mintToToken2022 } from "./bankrun-utils/token2022";
 
 describe("Reward by creator", () => {
   // SPL-Token
@@ -272,28 +271,49 @@ describe("Reward by creator", () => {
     beforeEach(async () => {
       const root = Keypair.generate();
       context = await startTest(root);
-      const extensions = [ExtensionType.TransferFeeConfig];
+
+      const tokenAMintKeypair = Keypair.generate();
+      const tokenBMintKeypair = Keypair.generate();
+      const rewardMintKeypair = Keypair.generate();
+
+      tokenAMint = tokenAMintKeypair.publicKey;
+      tokenBMint = tokenBMintKeypair.publicKey;
+      rewardMint = rewardMintKeypair.publicKey;
+
+      const tokenAExtensions = [
+        createTransferFeeExtensionWithInstruction(tokenAMint),
+      ];
+      const tokenBExtensions = [
+        createTransferFeeExtensionWithInstruction(tokenBMint),
+      ];
+
+      const rewardExtensions = [
+        createTransferFeeExtensionWithInstruction(rewardMint),
+      ];
 
       user = await generateKpAndFund(context.banksClient, context.payer);
       funder = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
 
-      tokenAMint = await createToken2022(
+      await createToken2022(
         context.banksClient,
         context.payer,
-        extensions
+        tokenAExtensions,
+        tokenAMintKeypair,
       );
-      tokenBMint = await createToken2022(
+      await createToken2022(
         context.banksClient,
         context.payer,
-        extensions
+        tokenBExtensions,
+        tokenBMintKeypair,
       );
 
-      rewardMint = await createToken2022(
+      await createToken2022(
         context.banksClient,
         context.payer,
-        extensions
+        rewardExtensions,
+        rewardMintKeypair,
       );
 
       await mintToToken2022(

@@ -1,8 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{
-    assert_eq_admin, constants::NUM_REWARDS, state::Pool, EvtUpdateRewardFunder, PoolError,
-};
+use crate::{constants::NUM_REWARDS, state::Pool, EvtUpdateRewardFunder, PoolError};
 
 #[event_cpi]
 #[derive(Accounts)]

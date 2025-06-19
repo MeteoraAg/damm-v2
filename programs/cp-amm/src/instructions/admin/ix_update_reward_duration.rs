@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    assert_eq_admin,
     constants::{MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS},
     state::Pool,
     EvtUpdateRewardDuration, PoolError,
