@@ -134,6 +134,6 @@ pub enum PoolError {
     #[msg("Invalid pool creator")]
     InvalidPoolCreator,
 
-    #[msg("Reward vault is frozen, must skip claim to proceed")]
+    #[msg("Reward vault is frozen, must skip reward to proceed")]
     RewardVaultFrozenSkipRequired,
 }
