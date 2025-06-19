@@ -155,6 +155,7 @@ impl PoolFeesStruct {
         has_referral: bool,
         current_point: u64,
         activation_point: u64,
+        has_partner: bool,
     ) -> Result<FeeOnAmountResult> {
         let trade_fee_numerator = self.get_total_trading_fee(current_point, activation_point)?;
         let trade_fee_numerator = if trade_fee_numerator > MAX_FEE_NUMERATOR.into() {
@@ -179,12 +180,16 @@ impl PoolFeesStruct {
         };
 
         let protocol_fee_after_referral_fee = protocol_fee.safe_sub(referral_fee)?;
-        let partner_fee = safe_mul_div_cast_u64(
-            protocol_fee_after_referral_fee,
-            PARTNER_FEE_PERCENT.into(),
-            100,
-            Rounding::Down,
-        )?;
+        let partner_fee = if has_partner && PARTNER_FEE_PERCENT > 0 {
+            safe_mul_div_cast_u64(
+                protocol_fee_after_referral_fee,
+                PARTNER_FEE_PERCENT.into(),
+                100,
+                Rounding::Down,
+            )?
+        } else {
+            0
+        };
 
         let protocol_fee = protocol_fee_after_referral_fee.safe_sub(partner_fee)?;
 

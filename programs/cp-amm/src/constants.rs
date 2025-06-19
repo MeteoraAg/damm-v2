@@ -103,6 +103,10 @@ pub mod fee {
     pub const PARTNER_FEE_PERCENT: u8 = 0; // 0%
 
     pub const MEME_MIN_FEE_UPDATE_WINDOW_DURATION: i64 = 60 * 30; // 30 minutes
+
+    static_assertions::const_assert!(PROTOCOL_FEE_PERCENT <= 50);
+    static_assertions::const_assert!(HOST_FEE_PERCENT <= 50);
+    static_assertions::const_assert!(PARTNER_FEE_PERCENT <= 50);
 }
 
 pub mod seeds {

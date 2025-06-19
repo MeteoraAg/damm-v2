@@ -409,6 +409,8 @@ impl Pool {
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
 
+        let has_partner = self.has_partner();
+
         let actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
                 amount,
@@ -421,6 +423,7 @@ impl Pool {
                 fee_mode.has_referral,
                 current_point,
                 self.activation_point,
+                has_partner,
             )?;
 
             actual_protocol_fee = protocol_fee;
@@ -455,6 +458,7 @@ impl Pool {
                 fee_mode.has_referral,
                 current_point,
                 self.activation_point,
+                has_partner,
             )?;
             actual_protocol_fee = protocol_fee;
             actual_lp_fee = lp_fee;
@@ -734,6 +738,10 @@ impl Pool {
 
     pub fn fee_b_per_liquidity(&self) -> U256 {
         U256::from_le_bytes(self.fee_b_per_liquidity)
+    }
+
+    pub fn has_partner(&self) -> bool {
+        self.partner != Pubkey::default()
     }
 }
 
