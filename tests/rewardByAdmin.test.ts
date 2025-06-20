@@ -204,7 +204,7 @@ describe("Reward by admin", () => {
         index,
         admin: admin,
         pool,
-        newDuration: new BN(1),
+        newDuration: new BN(2 * 24 * 60 * 60),
       });
 
       // update new funder
@@ -454,7 +454,7 @@ describe("Reward by admin", () => {
         index,
         admin: admin,
         pool,
-        newDuration: new BN(1),
+        newDuration: new BN(2 * 24 * 60 * 60),
       });
 
       // update new funder
