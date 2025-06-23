@@ -72,7 +72,7 @@ pub struct ClaimPositionFee2Ctx<'info> {
 }
 
 impl<'info> ClaimPositionFee2Ctx<'info> {
-    pub fn validation(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<()> {
         let pool = self.pool.load()?;
 
         let collect_fee_mode = CollectFeeMode::try_from(pool.collect_fee_mode)
@@ -99,6 +99,9 @@ impl<'info> ClaimPositionFee2Ctx<'info> {
 }
 
 pub fn handle_claim_position_fee2(ctx: Context<ClaimPositionFee2Ctx>) -> Result<()> {
+    // validate
+    ctx.accounts.validate()?;
+
     let mut position = ctx.accounts.position.load_mut()?;
 
     let pool = ctx.accounts.pool.load()?;
