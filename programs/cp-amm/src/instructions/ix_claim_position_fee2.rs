@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
     state::{Pool, Position},
-    token::{transfer_from_pool, unwarp_sol_to_user},
+    token::transfer_from_pool,
     EvtClaimPositionFee,
 };
 
@@ -52,10 +52,6 @@ pub struct ClaimPositionFee2Ctx<'info> {
 
     /// owner of position
     pub owner: Signer<'info>,
-
-    /// CHECK: Account to receive position fee
-    #[account(mut)]
-    pub fee_receiver: UncheckedAccount<'info>,
 
     /// Token b program
     pub token_b_program: Interface<'info, TokenInterface>,
@@ -110,13 +106,6 @@ pub fn handle_claim_position_fee2(ctx: Context<ClaimPositionFee2Ctx>) -> Result<
             fee_b_pending,
             ctx.bumps.pool_authority,
         )?;
-
-        unwarp_sol_to_user(
-            &ctx.accounts.token_b_account,
-            ctx.accounts.fee_receiver.to_account_info(),
-            ctx.accounts.owner.to_account_info(),
-            &ctx.accounts.token_b_program,
-        )?
     }
 
     position.reset_pending_fee();

@@ -1757,18 +1757,11 @@ export async function claimPositionFee2(
     tokenAMint = poolState.tokenAMint;
   }
 
-  console.log({
-    tokenAAccount,
-    tokenAMint,
-    tokenAProgram,
-  });
-
   const transaction = await program.methods
     .claimPositionFee2()
     .accountsPartial({
       poolAuthority,
       owner: owner.publicKey,
-      feeReceiver,
       pool,
       position,
       positionNftAccount,

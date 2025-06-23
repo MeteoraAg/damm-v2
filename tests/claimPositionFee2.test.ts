@@ -19,13 +19,14 @@ import {
 import BN from "bn.js";
 import { NATIVE_MINT } from "@solana/spl-token";
 
-describe("Claim position fee 2", () => {
+describe.only("Claim position fee 2", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let creator: Keypair;
   let user: Keypair;
   let feeReceiver: Keypair;
   let tokenAMint: PublicKey;
+  let tokenBMint: PublicKey;
 
   beforeEach(async () => {
     const root = Keypair.generate();
@@ -41,6 +42,12 @@ describe("Claim position fee 2", () => {
       context.payer.publicKey
     );
 
+    tokenBMint = await createToken(
+        context.banksClient,
+        context.payer,
+        context.payer.publicKey
+      );
+
     await mintSplTokenTo(
       context.banksClient,
       context.payer,
@@ -48,6 +55,22 @@ describe("Claim position fee 2", () => {
       context.payer,
       creator.publicKey
     );
+
+    await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        creator.publicKey
+      );
+
+      await mintSplTokenTo(
+        context.banksClient,
+        context.payer,
+        tokenBMint,
+        context.payer,
+        user.publicKey
+      );
   });
 
   it("Claim position fee with pool collect fee mode both token", async () => {
@@ -59,6 +82,7 @@ describe("Claim position fee 2", () => {
       user,
       feeReceiver.publicKey,
       tokenAMint,
+      NATIVE_MINT,
       collectFeeMode
     );
   });
@@ -72,6 +96,21 @@ describe("Claim position fee 2", () => {
       user,
       feeReceiver.publicKey,
       tokenAMint,
+      NATIVE_MINT,
+      collectFeeMode
+    );
+  });
+
+  it.only("test", async () => {
+    const collectFeeMode = 1; // only quote
+    await fullFlow(
+      context.banksClient,
+      admin,
+      creator,
+      user,
+      feeReceiver.publicKey,
+      tokenAMint,
+      tokenBMint,
       collectFeeMode
     );
   });
@@ -84,6 +123,7 @@ async function fullFlow(
   user: Keypair,
   feeReceiver: PublicKey,
   tokenAMint: PublicKey,
+  tokenBMint: PublicKey,
   collectFeeMode: number
 ) {
   const createConfigParams = {
@@ -124,7 +164,7 @@ async function fullFlow(
     creator: creator.publicKey,
     config,
     tokenAMint,
-    tokenBMint: NATIVE_MINT,
+    tokenBMint,
     liquidity,
     sqrtPrice,
     activationPoint: null,
@@ -137,7 +177,7 @@ async function fullFlow(
   let swapParams: SwapParams = {
     payer: user,
     pool,
-    inputTokenMint: NATIVE_MINT,
+    inputTokenMint: tokenBMint,
     outputTokenMint: poolState.tokenAMint,
     amountIn: new BN(LAMPORTS_PER_SOL),
     minimumAmountOut: new BN(0),
@@ -147,7 +187,7 @@ async function fullFlow(
   await swap(banksClient, swapParams);
 
   swapParams.inputTokenMint = poolState.tokenAMint;
-  swapParams.outputTokenMint = NATIVE_MINT;
+  swapParams.outputTokenMint = poolState.tokenBMint;
   swapParams.amountIn = new BN(100 * 10 ** 9);
 
   await swap(banksClient, swapParams);
