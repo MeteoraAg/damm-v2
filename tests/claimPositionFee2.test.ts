@@ -19,7 +19,7 @@ import {
 import BN from "bn.js";
 import { NATIVE_MINT } from "@solana/spl-token";
 
-describe.only("Claim position fee 2", () => {
+describe("Claim position fee 2", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let creator: Keypair;

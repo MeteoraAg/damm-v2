@@ -130,4 +130,7 @@ pub enum PoolError {
 
     #[msg("Invalid config type")]
     InvalidConfigType,
+
+    #[msg("Account required by the instruction is missing")]
+    MissingAccount,
 }

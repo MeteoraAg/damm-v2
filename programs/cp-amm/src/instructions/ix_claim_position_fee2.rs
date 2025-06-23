@@ -3,9 +3,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
-    state::{Pool, Position},
+    state::{CollectFeeMode, Pool, Position},
     token::transfer_from_pool,
-    EvtClaimPositionFee,
+    EvtClaimPositionFee, PoolError,
 };
 
 #[event_cpi]
@@ -69,6 +69,33 @@ pub struct ClaimPositionFee2Ctx<'info> {
 
     /// Token a program
     pub token_a_program: Option<Interface<'info, TokenInterface>>,
+}
+
+impl<'info> ClaimPositionFee2Ctx<'info> {
+    pub fn validation(&self) -> Result<()> {
+        let pool = self.pool.load()?;
+
+        let collect_fee_mode = CollectFeeMode::try_from(pool.collect_fee_mode)
+            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
+        if collect_fee_mode == CollectFeeMode::BothToken {
+            // require option accounts
+            require!(self.token_a_vault.is_some(), PoolError::MissingAccount);
+            require!(self.token_a_account.is_some(), PoolError::MissingAccount);
+            require!(self.token_a_mint.is_some(), PoolError::MissingAccount);
+            require!(self.token_a_program.is_some(), PoolError::MissingAccount);
+
+            // validate account
+            require_keys_eq!(
+                pool.token_a_vault,
+                self.token_a_vault.clone().unwrap().key()
+            );
+
+            require_keys_eq!(pool.token_a_mint, self.token_a_mint.clone().unwrap().key());
+        }
+
+        Ok(())
+    }
 }
 
 pub fn handle_claim_position_fee2(ctx: Context<ClaimPositionFee2Ctx>) -> Result<()> {
