@@ -215,4 +215,8 @@ pub mod cp_amm {
     pub fn claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Result<()> {
         instructions::handle_claim_reward(ctx, reward_index)
     }
+
+    pub fn claim_position_fee2(ctx: Context<ClaimPositionFee2Ctx>) -> Result<()> {
+        instructions::handle_claim_position_fee2(ctx)
+    }
 }

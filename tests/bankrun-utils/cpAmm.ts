@@ -21,6 +21,7 @@ import {
   getMintCloseAuthority,
   MintCloseAuthorityLayout,
   MetadataPointerLayout,
+  NATIVE_MINT,
 } from "@solana/spl-token";
 import { unpack } from "@solana/spl-token-metadata";
 import {
@@ -34,7 +35,7 @@ import {
 import { BanksClient } from "solana-bankrun";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { CpAmm } from "../../target/types/cp_amm";
-import { getOrCreateAssociatedTokenAccount } from "./token";
+import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 import {
   deriveClaimFeeOperatorAddress,
   deriveConfigAddress,
@@ -501,16 +502,19 @@ export async function initializePool(
   const tokenAProgram = (await banksClient.getAccount(tokenAMint)).owner;
   const tokenBProgram = (await banksClient.getAccount(tokenBMint)).owner;
 
-  const payerTokenA = getAssociatedTokenAddressSync(
+  const payerTokenA = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    payer,
     tokenAMint,
     payer.publicKey,
-    true,
     tokenAProgram
   );
-  const payerTokenB = getAssociatedTokenAddressSync(
+
+  const payerTokenB = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    payer,
     tokenBMint,
     payer.publicKey,
-    true,
     tokenBProgram
   );
 
@@ -1580,22 +1584,34 @@ export async function swap(banksClient: BanksClient, params: SwapParams) {
 
   const tokenBProgram = (await banksClient.getAccount(poolState.tokenBMint))
     .owner;
-  const inputTokenAccount = getAssociatedTokenAddressSync(
+
+  const inputTokenProgram = poolState.tokenAMint.equals(inputTokenMint) ? tokenAProgram : tokenBProgram
+  const outputTokenProgram = poolState.tokenAMint.equals(outputTokenMint) ? tokenAProgram : tokenBProgram
+
+  const inputTokenAccount = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    payer,
     inputTokenMint,
     payer.publicKey,
-    true,
-    tokenAProgram
+    inputTokenProgram
   );
-  const outputTokenAccount = getAssociatedTokenAddressSync(
+
+  const outputTokenAccount = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    payer,
     outputTokenMint,
     payer.publicKey,
-    true,
-    tokenBProgram
+    outputTokenProgram
   );
+
   const tokenAVault = poolState.tokenAVault;
   const tokenBVault = poolState.tokenBVault;
   const tokenAMint = poolState.tokenAMint;
   const tokenBMint = poolState.tokenBMint;
+
+  if(inputTokenMint.equals(NATIVE_MINT)){
+    await wrapSOL(banksClient, payer, amountIn)
+  }
 
   const transaction = await program.methods
     .swap({
@@ -1685,6 +1701,92 @@ export async function claimPositionFee(
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(owner);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+export type ClaimPositionFee2Params = {
+  owner: Keypair;
+  pool: PublicKey;
+  position: PublicKey;
+  payer: Keypair;
+  feeReceiver: PublicKey;
+};
+
+export async function claimPositionFee2(
+  banksClient: BanksClient,
+  params: ClaimPositionFee2Params
+) {
+  const { owner, pool, position, payer, feeReceiver } = params;
+
+  const program = createCpAmmProgram();
+  const poolState = await getPool(banksClient, pool);
+  const positionState = await getPosition(banksClient, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  const poolAuthority = derivePoolAuthority();
+
+  const tokenBProgram = (await banksClient.getAccount(poolState.tokenBMint))
+    .owner;
+
+  const tokenBAccount = await getOrCreateAssociatedTokenAccount(
+    banksClient,
+    payer,
+    poolState.tokenBMint,
+    owner.publicKey
+  );
+
+  const tokenBVault = poolState.tokenBVault;
+  const tokenBMint = poolState.tokenBMint;
+  const tokenAVault = poolState.tokenAVault;
+
+  let tokenAAccount = null;
+  let tokenAMint = null;
+  let tokenAProgram = null;
+
+  // fee in both token
+  if (poolState.collectFeeMode == 0) {
+    tokenAProgram = (await banksClient.getAccount(poolState.tokenAMint)).owner;
+    tokenAAccount = await getOrCreateAssociatedTokenAccount(
+      banksClient,
+      payer,
+      poolState.tokenAMint,
+      payer.publicKey
+    );
+
+    tokenAMint = poolState.tokenAMint;
+  }
+
+  console.log({
+    tokenAAccount,
+    tokenAMint,
+    tokenAProgram,
+  });
+
+  const transaction = await program.methods
+    .claimPositionFee2()
+    .accountsPartial({
+      poolAuthority,
+      owner: owner.publicKey,
+      feeReceiver,
+      pool,
+      position,
+      positionNftAccount,
+      tokenAAccount,
+      tokenBAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint,
+      tokenBMint,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(owner);
+
+  console.log("size: ", transaction.serialize().length);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 }
