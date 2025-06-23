@@ -94,7 +94,7 @@ export async function generateKpAndFund(
     banksClient,
     rootKeypair,
     kp.publicKey,
-    new BN(LAMPORTS_PER_SOL)
+    new BN(100*LAMPORTS_PER_SOL)
   );
   return kp;
 }
