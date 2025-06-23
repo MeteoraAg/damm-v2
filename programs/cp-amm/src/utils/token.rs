@@ -268,29 +268,3 @@ pub fn update_account_lamports_to_minimum_balance<'info>(
 
     Ok(())
 }
-
-pub fn unwarp_sol_to_user<'info>(
-    token_account: &InterfaceAccount<'info, TokenAccount>,
-    receiver: AccountInfo<'info>,
-    owner: AccountInfo<'info>,
-    token_program: &Interface<'info, TokenInterface>,
-) -> Result<()> {
-    let instruction = spl_token_2022::instruction::close_account(
-        token_program.key,
-        &token_account.key(),
-        receiver.key,
-        owner.key,
-        &[owner.key],
-    )?;
-
-    let account_infos = vec![
-        token_account.to_account_info(),
-        receiver.to_account_info(),
-        owner.to_account_info(),
-        token_program.to_account_info(),
-    ];
-
-    invoke_signed(&instruction, &account_infos, &[])?;
-
-    Ok(())
-}
