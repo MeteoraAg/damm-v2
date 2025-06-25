@@ -255,6 +255,72 @@ describe("Reward by admin", () => {
         pool,
       });
     });
+
+    it("Admin can initialize and update reward at index = 0", async () => {
+      liquidity = new BN(MIN_LP_AMOUNT);
+      sqrtPrice = new BN(MIN_SQRT_PRICE);
+
+      const initPoolParams: InitializePoolParams = {
+        payer: creator,
+        creator: creator.publicKey,
+        config,
+        tokenAMint,
+        tokenBMint,
+        liquidity,
+        sqrtPrice,
+        activationPoint: null,
+      };
+
+      const { pool } = await initializePool(
+        context.banksClient,
+        initPoolParams
+      );
+
+      // user create postion and add liquidity
+      const position = await createPosition(
+        context.banksClient,
+        user,
+        user.publicKey,
+        pool
+      );
+
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(100),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(context.banksClient, addLiquidityParams);
+
+      // init reward
+      const index = 0;
+      const initRewardParams: InitializeRewardParams = {
+        index,
+        payer: admin,
+        rewardDuration: new BN(24 * 60 * 60),
+        pool,
+        rewardMint,
+      };
+      await initializeReward(context.banksClient, initRewardParams);
+
+      // update duration
+      await updateRewardDuration(context.banksClient, {
+        index,
+        admin: admin,
+        pool,
+        newDuration: new BN(2 * 24 * 60 * 60),
+      });
+
+      // update new funder
+      await updateRewardFunder(context.banksClient, {
+        index,
+        admin: admin,
+        pool,
+        newFunder: funder.publicKey,
+      });
+    });
   });
 
   // SPL-Token2022
@@ -516,6 +582,73 @@ describe("Reward by admin", () => {
         funder,
         pool,
       });
+    });
+
+    it("Admin can initialize and update reward at index = 0", async () => {
+      liquidity = new BN(MIN_LP_AMOUNT);
+      sqrtPrice = new BN(MIN_SQRT_PRICE);
+
+      const initPoolParams: InitializePoolParams = {
+        payer: creator,
+        creator: creator.publicKey,
+        config,
+        tokenAMint,
+        tokenBMint,
+        liquidity,
+        sqrtPrice,
+        activationPoint: null,
+      };
+
+      const { pool } = await initializePool(
+        context.banksClient,
+        initPoolParams
+      );
+
+      // user create postion and add liquidity
+      const position = await createPosition(
+        context.banksClient,
+        user,
+        user.publicKey,
+        pool
+      );
+
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(100),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(context.banksClient, addLiquidityParams);
+
+      // init reward
+      const index = 1;
+      const initRewardParams: InitializeRewardParams = {
+        index,
+        payer: admin,
+        rewardDuration: new BN(24 * 60 * 60),
+        pool,
+        rewardMint,
+      };
+      await initializeReward(context.banksClient, initRewardParams);
+
+      // update duration
+      await updateRewardDuration(context.banksClient, {
+        index,
+        admin: admin,
+        pool,
+        newDuration: new BN(2 * 24 * 60 * 60),
+      });
+
+      // update new funder
+      await updateRewardFunder(context.banksClient, {
+        index,
+        admin: admin,
+        pool,
+        newFunder: funder.publicKey,
+      });
+
     });
   });
 });
