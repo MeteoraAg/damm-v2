@@ -747,10 +747,9 @@ impl Pool {
         reward_index: usize,
         signer: Pubkey,
     ) -> Result<()> {
-        // legacy pools would have creator's pubkey as Pubkey::default()
-        if reward_index == 0 && self.creator.ne(&Pubkey::default()) {
-            // only pool creator is allowed to initialize reward with index 0
-            require!(self.creator == signer, PoolError::InvalidPoolCreator);
+        // pool creator is allowed to initialize reward with only index 0
+        if signer == self.creator {
+            require!(reward_index == 0, PoolError::InvalidRewardIndex)
         } else {
             require!(assert_eq_admin(signer), PoolError::InvalidAdmin);
         }

@@ -1,5 +1,9 @@
 import { Clock, ProgramTestContext } from "solana-bankrun";
-import { generateKpAndFund, startTest } from "./bankrun-utils/common";
+import {
+  expectThrowsAsync,
+  generateKpAndFund,
+  startTest,
+} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -22,10 +26,15 @@ import {
   withdrawIneligibleReward,
   createToken,
   mintSplTokenTo,
+  getCpAmmProgramErrorCodeHexString,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { describe } from "mocha";
-import { createToken2022, createTransferFeeExtensionWithInstruction, mintToToken2022 } from "./bankrun-utils/token2022";
+import {
+  createToken2022,
+  createTransferFeeExtensionWithInstruction,
+  mintToToken2022,
+} from "./bankrun-utils/token2022";
 
 describe("Reward by creator", () => {
   // SPL-Token
@@ -227,7 +236,7 @@ describe("Reward by creator", () => {
         user,
         pool,
         position,
-        skipReward: 0
+        skipReward: 0,
       });
 
       // claim ineligible reward
@@ -250,6 +259,60 @@ describe("Reward by creator", () => {
         funder,
         pool,
       });
+    });
+
+    it("Creator cannot create reward at index 1", async () => {
+      liquidity = new BN(MIN_LP_AMOUNT);
+      sqrtPrice = new BN(MIN_SQRT_PRICE);
+
+      const initPoolParams: InitializePoolParams = {
+        payer: creator,
+        creator: creator.publicKey,
+        config,
+        tokenAMint,
+        tokenBMint,
+        liquidity,
+        sqrtPrice,
+        activationPoint: null,
+      };
+
+      const { pool } = await initializePool(
+        context.banksClient,
+        initPoolParams
+      );
+
+      // user create postion and add liquidity
+      const position = await createPosition(
+        context.banksClient,
+        user,
+        user.publicKey,
+        pool
+      );
+
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(100),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(context.banksClient, addLiquidityParams);
+
+      // init reward
+      const index = 1;
+      const initRewardParams: InitializeRewardParams = {
+        index,
+        payer: creator,
+        rewardDuration: new BN(24 * 60 * 60),
+        pool,
+        rewardMint,
+      };
+
+      const errorCode = getCpAmmProgramErrorCodeHexString("InvalidRewardIndex");
+      await expectThrowsAsync(async () => {
+        await initializeReward(context.banksClient, initRewardParams);
+      }, errorCode);
     });
   });
 
@@ -301,20 +364,20 @@ describe("Reward by creator", () => {
         context.banksClient,
         context.payer,
         tokenAExtensions,
-        tokenAMintKeypair,
+        tokenAMintKeypair
       );
       await createToken2022(
         context.banksClient,
         context.payer,
         tokenBExtensions,
-        tokenBMintKeypair,
+        tokenBMintKeypair
       );
 
       await createToken2022(
         context.banksClient,
         context.payer,
         rewardExtensions,
-        rewardMintKeypair,
+        rewardMintKeypair
       );
 
       await mintToToken2022(
@@ -449,7 +512,7 @@ describe("Reward by creator", () => {
         index,
         admin: creator,
         pool,
-        newDuration:new BN(2 * 24 * 60 * 60),
+        newDuration: new BN(2 * 24 * 60 * 60),
       });
 
       // update new funder
@@ -489,7 +552,7 @@ describe("Reward by creator", () => {
         user,
         pool,
         position,
-        skipReward: 0
+        skipReward: 0,
       });
 
       // claim ineligible reward
@@ -512,6 +575,60 @@ describe("Reward by creator", () => {
         funder,
         pool,
       });
+    });
+
+    it("Creator cannot create reward at index 1", async () => {
+      liquidity = new BN(MIN_LP_AMOUNT);
+      sqrtPrice = new BN(MIN_SQRT_PRICE);
+
+      const initPoolParams: InitializePoolParams = {
+        payer: creator,
+        creator: creator.publicKey,
+        config,
+        tokenAMint,
+        tokenBMint,
+        liquidity,
+        sqrtPrice,
+        activationPoint: null,
+      };
+
+      const { pool } = await initializePool(
+        context.banksClient,
+        initPoolParams
+      );
+
+      // user create postion and add liquidity
+      const position = await createPosition(
+        context.banksClient,
+        user,
+        user.publicKey,
+        pool
+      );
+
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(100),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(context.banksClient, addLiquidityParams);
+
+      // init reward
+      const index = 1;
+      const initRewardParams: InitializeRewardParams = {
+        index,
+        payer: creator,
+        rewardDuration: new BN(24 * 60 * 60),
+        pool,
+        rewardMint,
+      };
+      const errorCode = getCpAmmProgramErrorCodeHexString("InvalidRewardIndex");
+      await expectThrowsAsync(async () => {
+        await initializeReward(context.banksClient, initRewardParams);
+      }, errorCode);
+ 
     });
   });
 });
