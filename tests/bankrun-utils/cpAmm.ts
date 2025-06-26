@@ -1095,13 +1095,14 @@ export type ClaimRewardParams = {
   user: Keypair;
   position: PublicKey;
   pool: PublicKey;
+  skipReward: number
 };
 
 export async function claimReward(
   banksClient: BanksClient,
   params: ClaimRewardParams
 ): Promise<void> {
-  const { index, pool, user, position } = params;
+  const { index, pool, user, position, skipReward } = params;
   const program = createCpAmmProgram();
 
   const poolState = await getPool(banksClient, pool);
@@ -1123,7 +1124,7 @@ export async function claimReward(
   );
 
   const transaction = await program.methods
-    .claimReward(index)
+    .claimReward(index, skipReward)
     .accountsPartial({
       pool,
       positionNftAccount,
@@ -1784,7 +1785,7 @@ export async function getConfig(
   return program.coder.accounts.decode("config", Buffer.from(account.data));
 }
 
-export function getStakeProgramErrorCodeHexString(errorMessage: String) {
+export function getCpAmmProgramErrorCodeHexString(errorMessage: String) {
   const error = CpAmmIDL.errors.find(
     (e) =>
       e.name.toLowerCase() === errorMessage.toLowerCase() ||
