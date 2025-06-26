@@ -130,4 +130,10 @@ pub enum PoolError {
 
     #[msg("Invalid config type")]
     InvalidConfigType,
+
+    #[msg("Invalid pool creator")]
+    InvalidPoolCreator,
+
+    #[msg("Reward vault is frozen, must skip reward to proceed")]
+    RewardVaultFrozenSkipRequired,
 }

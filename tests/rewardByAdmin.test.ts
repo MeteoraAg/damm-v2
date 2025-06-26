@@ -31,7 +31,7 @@ import {
   mintToToken2022,
 } from "./bankrun-utils/token2022";
 
-describe("Reward unit-testing", () => {
+describe("Reward by admin", () => {
   // SPL-Token
   describe("Reward with SPL-Token", () => {
     let context: ProgramTestContext;
@@ -189,7 +189,7 @@ describe("Reward unit-testing", () => {
       await addLiquidity(context.banksClient, addLiquidityParams);
 
       // init reward
-      const index = 0;
+      const index = 1;
       const initRewardParams: InitializeRewardParams = {
         index,
         payer: admin,
@@ -204,7 +204,7 @@ describe("Reward unit-testing", () => {
         index,
         admin: admin,
         pool,
-        newDuration: new BN(1),
+        newDuration: new BN(2 * 24 * 60 * 60),
       });
 
       // update new funder
@@ -231,6 +231,7 @@ describe("Reward unit-testing", () => {
         user,
         pool,
         position,
+        skipReward: 0,
       });
 
       // claim ineligible reward
@@ -252,6 +253,72 @@ describe("Reward unit-testing", () => {
         index,
         funder,
         pool,
+      });
+    });
+
+    it("Admin can initialize and update reward at index = 0", async () => {
+      liquidity = new BN(MIN_LP_AMOUNT);
+      sqrtPrice = new BN(MIN_SQRT_PRICE);
+
+      const initPoolParams: InitializePoolParams = {
+        payer: creator,
+        creator: creator.publicKey,
+        config,
+        tokenAMint,
+        tokenBMint,
+        liquidity,
+        sqrtPrice,
+        activationPoint: null,
+      };
+
+      const { pool } = await initializePool(
+        context.banksClient,
+        initPoolParams
+      );
+
+      // user create postion and add liquidity
+      const position = await createPosition(
+        context.banksClient,
+        user,
+        user.publicKey,
+        pool
+      );
+
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(100),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(context.banksClient, addLiquidityParams);
+
+      // init reward
+      const index = 0;
+      const initRewardParams: InitializeRewardParams = {
+        index,
+        payer: admin,
+        rewardDuration: new BN(24 * 60 * 60),
+        pool,
+        rewardMint,
+      };
+      await initializeReward(context.banksClient, initRewardParams);
+
+      // update duration
+      await updateRewardDuration(context.banksClient, {
+        index,
+        admin: admin,
+        pool,
+        newDuration: new BN(2 * 24 * 60 * 60),
+      });
+
+      // update new funder
+      await updateRewardFunder(context.banksClient, {
+        index,
+        admin: admin,
+        pool,
+        newFunder: funder.publicKey,
       });
     });
   });
@@ -438,7 +505,7 @@ describe("Reward unit-testing", () => {
       await addLiquidity(context.banksClient, addLiquidityParams);
 
       // init reward
-      const index = 0;
+      const index = 1;
       const initRewardParams: InitializeRewardParams = {
         index,
         payer: admin,
@@ -453,7 +520,7 @@ describe("Reward unit-testing", () => {
         index,
         admin: admin,
         pool,
-        newDuration: new BN(1),
+        newDuration: new BN(2 * 24 * 60 * 60),
       });
 
       // update new funder
@@ -473,6 +540,17 @@ describe("Reward unit-testing", () => {
         carryForward: true,
         amount: new BN("100"),
       });
+      let currentClock = await context.banksClient.getClock();
+      const newTimestamp = Number(currentClock.unixTimestamp) + 3600;
+      context.setClock(
+        new Clock(
+          currentClock.slot,
+          currentClock.epochStartTimestamp,
+          currentClock.epoch,
+          currentClock.leaderScheduleEpoch,
+          BigInt(newTimestamp.toString())
+        )
+      );
 
       // claim reward
 
@@ -481,6 +559,7 @@ describe("Reward unit-testing", () => {
         user,
         pool,
         position,
+        skipReward: 0,
       });
 
       // claim ineligible reward
@@ -488,7 +567,7 @@ describe("Reward unit-testing", () => {
       // set new timestamp to pass reward duration end
       const timestamp =
         poolState.rewardInfos[index].rewardDurationEnd.addn(5000);
-      const currentClock = await context.banksClient.getClock();
+       currentClock = await context.banksClient.getClock();
       context.setClock(
         new Clock(
           currentClock.slot,
@@ -503,6 +582,73 @@ describe("Reward unit-testing", () => {
         funder,
         pool,
       });
+    });
+
+    it("Admin can initialize and update reward at index = 0", async () => {
+      liquidity = new BN(MIN_LP_AMOUNT);
+      sqrtPrice = new BN(MIN_SQRT_PRICE);
+
+      const initPoolParams: InitializePoolParams = {
+        payer: creator,
+        creator: creator.publicKey,
+        config,
+        tokenAMint,
+        tokenBMint,
+        liquidity,
+        sqrtPrice,
+        activationPoint: null,
+      };
+
+      const { pool } = await initializePool(
+        context.banksClient,
+        initPoolParams
+      );
+
+      // user create postion and add liquidity
+      const position = await createPosition(
+        context.banksClient,
+        user,
+        user.publicKey,
+        pool
+      );
+
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(100),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(context.banksClient, addLiquidityParams);
+
+      // init reward
+      const index = 1;
+      const initRewardParams: InitializeRewardParams = {
+        index,
+        payer: admin,
+        rewardDuration: new BN(24 * 60 * 60),
+        pool,
+        rewardMint,
+      };
+      await initializeReward(context.banksClient, initRewardParams);
+
+      // update duration
+      await updateRewardDuration(context.banksClient, {
+        index,
+        admin: admin,
+        pool,
+        newDuration: new BN(2 * 24 * 60 * 60),
+      });
+
+      // update new funder
+      await updateRewardFunder(context.banksClient, {
+        index,
+        admin: admin,
+        pool,
+        newFunder: funder.publicKey,
+      });
+
     });
   });
 });

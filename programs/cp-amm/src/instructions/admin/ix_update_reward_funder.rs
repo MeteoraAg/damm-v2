@@ -1,8 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{
-    assert_eq_admin, constants::NUM_REWARDS, state::Pool, EvtUpdateRewardFunder, PoolError,
-};
+use crate::{constants::NUM_REWARDS, state::Pool, EvtUpdateRewardFunder, PoolError};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -10,8 +8,7 @@ pub struct UpdateRewardFunderCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
-    #[account(constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin)]
-    pub admin: Signer<'info>,
+    pub signer: Signer<'info>,
 }
 
 impl<'info> UpdateRewardFunderCtx<'info> {
@@ -24,6 +21,8 @@ impl<'info> UpdateRewardFunderCtx<'info> {
         require!(reward_info.initialized(), PoolError::RewardUninitialized);
 
         require!(reward_info.funder != new_funder, PoolError::IdenticalFunder);
+
+        pool.validate_authority_to_edit_reward(reward_index, self.signer.key())?;
 
         Ok(())
     }

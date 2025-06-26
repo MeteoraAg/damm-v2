@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    assert_eq_admin,
     constants::{MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS},
     state::Pool,
     EvtUpdateRewardDuration, PoolError,
@@ -13,10 +12,7 @@ pub struct UpdateRewardDurationCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
-    #[account(
-        constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
-    )]
-    pub admin: Signer<'info>,
+    pub signer: Signer<'info>,
 }
 
 impl<'info> UpdateRewardDurationCtx<'info> {
@@ -44,6 +40,8 @@ impl<'info> UpdateRewardDurationCtx<'info> {
             reward_info.reward_duration_end < (current_time as u64),
             PoolError::RewardCampaignInProgress
         );
+
+        pool.validate_authority_to_edit_reward(reward_index, self.signer.key())?;
 
         Ok(())
     }

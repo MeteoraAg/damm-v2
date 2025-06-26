@@ -220,7 +220,11 @@ pub mod cp_amm {
         instructions::handle_permanent_lock_position(ctx, permanent_lock_liquidity)
     }
 
-    pub fn claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Result<()> {
-        instructions::handle_claim_reward(ctx, reward_index)
+    pub fn claim_reward(
+        ctx: Context<ClaimRewardCtx>,
+        reward_index: u8,
+        skip_reward: u8,
+    ) -> Result<()> {
+        instructions::handle_claim_reward(ctx, reward_index, skip_reward)
     }
 }

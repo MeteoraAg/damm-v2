@@ -288,5 +288,5 @@ export function randomID(min = 0, max = 10000) {
 
 export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
   const clock = await context.banksClient.getClock();
-  await context.warpToSlot(clock.slot + BigInt(slots.toString()));
+   context.warpToSlot(clock.slot + BigInt(slots.toString()));
 }

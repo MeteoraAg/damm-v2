@@ -31,7 +31,7 @@ pub const U24_MAX: u32 = 0xffffff;
 pub const NUM_REWARDS: usize = 2;
 
 // Minimum reward duration
-pub const MIN_REWARD_DURATION: u64 = 1;
+pub const MIN_REWARD_DURATION: u64 = 24 * 60 * 60; // 1 day
 
 pub const MAX_REWARD_DURATION: u64 = 31536000; // 1 year = 365 * 24 * 3600
 
