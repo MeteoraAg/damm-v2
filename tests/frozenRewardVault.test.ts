@@ -1,6 +1,6 @@
-import {  Clock, ProgramTestContext } from "solana-bankrun";
+import { Clock, ProgramTestContext } from "solana-bankrun";
 import {
-    expectThrowsAsync,
+  expectThrowsAsync,
   generateKpAndFund,
   startTest,
 } from "./bankrun-utils/common";
@@ -28,6 +28,7 @@ import {
   U64_MAX,
   getCpAmmProgramErrorCodeHexString,
   getPosition,
+  convertToByteArray,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { describe } from "mocha";
@@ -125,10 +126,10 @@ describe("Frozen reward vault", () => {
       poolFees: {
         baseFee: {
           cliffFeeNumerator: new BN(2_500_000),
-          numberOfPeriod: 0,
-          reductionFactor: new BN(0),
-          periodFrequency: new BN(0),
-          feeSchedulerMode: 0,
+          firstFactor: 0,
+          secondFactor: convertToByteArray(new BN(0)),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
         protocolFeePercent: 10,
         partnerFeePercent: 0,
@@ -234,14 +235,14 @@ describe("Frozen reward vault", () => {
 
     // check error
     const errorCode = getCpAmmProgramErrorCodeHexString("RewardVaultFrozenSkipRequired")
-    await expectThrowsAsync(async ()=>{
-        await claimReward(context.banksClient, {
-            index,
-            user,
-            pool,
-            position,
-            skipReward: 0, // skip_reward is required in case reward vault frozen
-          });
+    await expectThrowsAsync(async () => {
+      await claimReward(context.banksClient, {
+        index,
+        user,
+        pool,
+        position,
+        skipReward: 0, // skip_reward is required in case reward vault frozen
+      });
     }, errorCode)
 
 

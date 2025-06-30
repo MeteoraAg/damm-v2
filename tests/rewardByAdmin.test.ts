@@ -23,6 +23,7 @@ import {
   updateRewardDuration,
   updateRewardFunder,
   withdrawIneligibleReward,
+  convertToByteArray,
 } from "./bankrun-utils";
 import { generateKpAndFund, startTest } from "./bankrun-utils/common";
 import {
@@ -124,10 +125,10 @@ describe("Reward by admin", () => {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: convertToByteArray(new BN(0)),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           protocolFeePercent: 10,
           partnerFeePercent: 0,
@@ -440,10 +441,10 @@ describe("Reward by admin", () => {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: convertToByteArray(new BN(0)),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           protocolFeePercent: 10,
           partnerFeePercent: 0,
@@ -567,7 +568,7 @@ describe("Reward by admin", () => {
       // set new timestamp to pass reward duration end
       const timestamp =
         poolState.rewardInfos[index].rewardDurationEnd.addn(5000);
-       currentClock = await context.banksClient.getClock();
+      currentClock = await context.banksClient.getClock();
       context.setClock(
         new Clock(
           currentClock.slot,
