@@ -5,7 +5,7 @@ use cp_amm::{
     ActivationType,
 };
 
-pub fn get_quote(
+pub fn quote_exact_in(
     pool: &Pool,
     current_timestamp: u64,
     current_slot: u64,
