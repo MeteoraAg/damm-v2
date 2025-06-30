@@ -23,7 +23,7 @@ import { DECIMALS } from "./constants";
 import { getOrCreateAssociatedTokenAccount } from "./token";
 const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
 
-interface ExtensionWithInstruction {
+export interface ExtensionWithInstruction {
   extension: ExtensionType;
   instruction: TransactionInstruction;
 }
@@ -84,39 +84,8 @@ export async function createToken2022(
       space: mintLen,
       lamports: Number(mintLamports.toString()),
       programId: TOKEN_2022_PROGRAM_ID,
-<<<<<<< HEAD
     }),
     ...extensions.map((ext) => ext.instruction),
-=======
-    })
-  );
-
-  for (const extension of extensions) {
-    if (extension == ExtensionType.TransferFeeConfig) {
-      instructions.push(
-        createInitializeTransferFeeConfigInstruction(
-          mintKeypair.publicKey,
-          transferFeeConfigAuthority.publicKey,
-          withdrawWithheldAuthority.publicKey,
-          feeBasisPoints,
-          maxFee,
-          TOKEN_2022_PROGRAM_ID
-        )
-      );
-    }
-    if (extension == ExtensionType.DefaultAccountState) {
-      instructions.push(
-        createInitializeDefaultAccountStateInstruction(
-          mintKeypair.publicKey,
-          AccountState.Initialized,
-          TOKEN_2022_PROGRAM_ID
-        )
-      );
-    }
-  }
-
-  instructions.push(
->>>>>>> 92db649 (add test)
     createInitializeMint2Instruction(
       mintKeypair.publicKey,
       DECIMALS,

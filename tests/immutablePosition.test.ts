@@ -15,8 +15,17 @@ import {
   initializePool,
 } from "./bankrun-utils";
 import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
-import { createToken2022, mintToToken2022 } from "./bankrun-utils/token2022";
+import {
+  AccountState,
+  createInitializeDefaultAccountStateInstruction,
+  ExtensionType,
+  TOKEN_2022_PROGRAM_ID,
+} from "@solana/spl-token";
+import {
+  createToken2022,
+  ExtensionWithInstruction,
+  mintToToken2022,
+} from "./bankrun-utils/token2022";
 
 describe("Immutable position owner", () => {
   let context: ProgramTestContext;
@@ -27,18 +36,48 @@ describe("Immutable position owner", () => {
   beforeEach(async () => {
     const root = Keypair.generate();
     context = await startTest(root);
-    const extensions = [ExtensionType.DefaultAccountState];
+
+    const tokenAMintKeypair = Keypair.generate();
+    const tokenBMintKeypair = Keypair.generate();
+
+    tokenAMint = tokenAMintKeypair.publicKey;
+    tokenBMint = tokenBMintKeypair.publicKey;
+    tokenAMint = tokenAMintKeypair.publicKey;
+    tokenBMint = tokenBMintKeypair.publicKey;
+
+    const tokenAExtensions = [
+      {
+        extension: ExtensionType.DefaultAccountState,
+        instruction: createInitializeDefaultAccountStateInstruction(
+          tokenAMint,
+          AccountState.Initialized,
+          TOKEN_2022_PROGRAM_ID
+        ),
+      },
+    ];
+    const tokenBExtensions = [
+      {
+        extension: ExtensionType.DefaultAccountState,
+        instruction: createInitializeDefaultAccountStateInstruction(
+          tokenBMint,
+          AccountState.Initialized,
+          TOKEN_2022_PROGRAM_ID
+        ),
+      },
+    ];
     creator = await generateKpAndFund(context.banksClient, context.payer);
 
     tokenAMint = await createToken2022(
       context.banksClient,
       context.payer,
-      extensions
+      tokenAExtensions,
+      tokenAMintKeypair
     );
     tokenBMint = await createToken2022(
       context.banksClient,
       context.payer,
-      extensions
+      tokenBExtensions,
+      tokenBMintKeypair
     );
 
     await mintToToken2022(
