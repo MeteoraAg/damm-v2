@@ -1872,7 +1872,6 @@ export async function getConfig(
   return program.coder.accounts.decode("config", Buffer.from(account.data));
 }
 
-<<<<<<< HEAD
 export function getCpAmmProgramErrorCodeHexString(errorMessage: String) {
   const error = CpAmmIDL.errors.find(
     (e) =>
@@ -1887,8 +1886,6 @@ export function getCpAmmProgramErrorCodeHexString(errorMessage: String) {
   return "0x" + error.code.toString(16);
 }
 
-=======
->>>>>>> 9cb7d8c (add test (#58))
 export async function getTokenBadge(
   banksClient: BanksClient,
   tokenBadge: PublicKey

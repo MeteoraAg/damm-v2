@@ -23,6 +23,7 @@ import {
   updateRewardDuration,
   updateRewardFunder,
   withdrawIneligibleReward,
+  convertToByteArray,
 } from "./bankrun-utils";
 import { generateKpAndFund, startTest } from "./bankrun-utils/common";
 import {
@@ -124,10 +125,10 @@ describe("Reward by admin", () => {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: convertToByteArray(new BN(0)),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           padding: [],
           dynamicFee: null,
@@ -438,10 +439,10 @@ describe("Reward by admin", () => {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: convertToByteArray(new BN(0)),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           padding: [],
           dynamicFee: null,

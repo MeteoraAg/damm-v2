@@ -27,6 +27,7 @@ import {
   createToken,
   mintSplTokenTo,
   getCpAmmProgramErrorCodeHexString,
+  convertToByteArray,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { describe } from "mocha";
