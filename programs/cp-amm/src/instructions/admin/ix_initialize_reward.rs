@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    assert_eq_admin, const_pda,
+    const_pda,
     constants::{
         seeds::REWARD_VAULT_PREFIX, MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS,
     },
