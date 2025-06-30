@@ -89,9 +89,9 @@ impl PoolFeesConfig {
     pub fn to_pool_fee_parameters(&self) -> PoolFeeParameters {
         let &PoolFeesConfig {
             base_fee,
-            protocol_fee_percent,
-            partner_fee_percent,
-            referral_fee_percent,
+            protocol_fee_percent: _,
+            partner_fee_percent: _,
+            referral_fee_percent: _,
             dynamic_fee:
                 DynamicFeeConfig {
                     initialized,
@@ -109,9 +109,7 @@ impl PoolFeesConfig {
         if initialized == 1 {
             PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters(),
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
+                padding: [0; 3],
                 dynamic_fee: Some(DynamicFeeParameters {
                     bin_step,
                     bin_step_u128,
@@ -125,9 +123,7 @@ impl PoolFeesConfig {
         } else {
             PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters(),
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
+                padding: [0; 3],
                 ..Default::default()
             }
         }

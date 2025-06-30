@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use crate::{
     activation_handler::ActivationHandler,
     assert_eq_admin,
-    constants::{seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{fee::PARTNER_FEE_PERCENT, seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     event,
     params::{
         activation::ActivationParams,
@@ -92,7 +92,7 @@ pub fn handle_create_static_config(
 
     let partner_info = PartnerInfo {
         partner_authority: pool_creator_authority,
-        fee_percent: pool_fees.partner_fee_percent,
+        fee_percent: PARTNER_FEE_PERCENT,
         ..Default::default()
     };
 

@@ -1,6 +1,6 @@
-import {  Clock, ProgramTestContext } from "solana-bankrun";
+import { Clock, ProgramTestContext } from "solana-bankrun";
 import {
-    expectThrowsAsync,
+  expectThrowsAsync,
   generateKpAndFund,
   startTest,
 } from "./bankrun-utils/common";
@@ -130,9 +130,7 @@ describe("Frozen reward vault", () => {
           periodFrequency: new BN(0),
           feeSchedulerMode: 0,
         },
-        protocolFeePercent: 10,
-        partnerFeePercent: 0,
-        referralFeePercent: 0,
+        padding: [],
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -234,14 +232,14 @@ describe("Frozen reward vault", () => {
 
     // check error
     const errorCode = getCpAmmProgramErrorCodeHexString("RewardVaultFrozenSkipRequired")
-    await expectThrowsAsync(async ()=>{
-        await claimReward(context.banksClient, {
-            index,
-            user,
-            pool,
-            position,
-            skipReward: 0, // skip_reward is required in case reward vault frozen
-          });
+    await expectThrowsAsync(async () => {
+      await claimReward(context.banksClient, {
+        index,
+        user,
+        pool,
+        position,
+        skipReward: 0, // skip_reward is required in case reward vault frozen
+      });
     }, errorCode)
 
 

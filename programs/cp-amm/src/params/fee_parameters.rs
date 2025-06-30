@@ -1,7 +1,7 @@
 //! Fees module includes information about fee charges
 use crate::constants::fee::{
-    CUSTOMIZABLE_HOST_FEE_PERCENT, CUSTOMIZABLE_PROTOCOL_FEE_PERCENT, FEE_DENOMINATOR,
-    MAX_BASIS_POINT, MAX_FEE_NUMERATOR, MIN_FEE_NUMERATOR,
+    FEE_DENOMINATOR, HOST_FEE_PERCENT, MAX_BASIS_POINT, MAX_FEE_NUMERATOR, MIN_FEE_NUMERATOR,
+    PARTNER_FEE_PERCENT, PROTOCOL_FEE_PERCENT,
 };
 use crate::constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
 use crate::error::PoolError;
@@ -16,12 +16,8 @@ use anchor_lang::prelude::*;
 pub struct PoolFeeParameters {
     /// Base fee
     pub base_fee: BaseFeeParameters,
-    /// Protocol trade fee percent
-    pub protocol_fee_percent: u8,
-    /// partner fee percent
-    pub partner_fee_percent: u8,
-    /// referral fee percent
-    pub referral_fee_percent: u8,
+    /// padding
+    pub padding: [u8; 3],
     /// dynamic fee
     pub dynamic_fee: Option<DynamicFeeParameters>,
 }
@@ -99,26 +95,24 @@ impl PoolFeeParameters {
     pub fn to_pool_fees_config(&self) -> PoolFeesConfig {
         let &PoolFeeParameters {
             base_fee,
-            protocol_fee_percent,
-            partner_fee_percent,
-            referral_fee_percent,
+            padding: _,
             dynamic_fee,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
             PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config(),
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
+                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
+                partner_fee_percent: PARTNER_FEE_PERCENT,
+                referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
                 ..Default::default()
             }
         } else {
             PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config(),
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
+                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
+                partner_fee_percent: PARTNER_FEE_PERCENT,
+                referral_fee_percent: HOST_FEE_PERCENT,
                 ..Default::default()
             }
         }
@@ -126,26 +120,24 @@ impl PoolFeeParameters {
     pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
         let &PoolFeeParameters {
             base_fee,
-            protocol_fee_percent,
-            partner_fee_percent,
-            referral_fee_percent,
+            padding: _,
             dynamic_fee,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
             PoolFeesStruct {
                 base_fee: base_fee.to_base_fee_struct(),
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
+                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
+                partner_fee_percent: PARTNER_FEE_PERCENT,
+                referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
                 ..Default::default()
             }
         } else {
             PoolFeesStruct {
                 base_fee: base_fee.to_base_fee_struct(),
-                protocol_fee_percent,
-                partner_fee_percent,
-                referral_fee_percent,
+                protocol_fee_percent: PROTOCOL_FEE_PERCENT,
+                partner_fee_percent: PARTNER_FEE_PERCENT,
+                referral_fee_percent: HOST_FEE_PERCENT,
                 ..Default::default()
             }
         }
@@ -267,26 +259,10 @@ impl PoolFeeParameters {
     /// Validate that the fees are reasonable
     pub fn validate(&self) -> Result<()> {
         self.base_fee.validate()?;
-        validate_fee_fraction(self.protocol_fee_percent.into(), 100)?;
-        validate_fee_fraction(self.partner_fee_percent.into(), 100)?;
-        validate_fee_fraction(self.referral_fee_percent.into(), 100)?;
 
         if let Some(dynamic_fee) = self.dynamic_fee {
             dynamic_fee.validate()?;
         }
-        Ok(())
-    }
-
-    pub fn validate_for_customizable_pool(&self) -> Result<()> {
-        require!(
-            self.protocol_fee_percent == CUSTOMIZABLE_PROTOCOL_FEE_PERCENT,
-            PoolError::InvalidParameters
-        );
-        require!(
-            self.referral_fee_percent == CUSTOMIZABLE_HOST_FEE_PERCENT,
-            PoolError::InvalidParameters
-        );
-        require!(self.partner_fee_percent == 0, PoolError::InvalidParameters);
         Ok(())
     }
 }

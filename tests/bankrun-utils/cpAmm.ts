@@ -112,9 +112,7 @@ export type BaseFee = {
 
 export type PoolFees = {
   baseFee: BaseFee;
-  protocolFeePercent: number;
-  partnerFeePercent: number;
-  referralFeePercent: number;
+  padding: number[],
   dynamicFee: DynamicFee | null;
 };
 
@@ -220,13 +218,13 @@ export async function createConfigIx(
     params.poolFees.baseFee.periodFrequency.toNumber()
   );
   expect(configState.poolFees.protocolFeePercent).eq(
-    params.poolFees.protocolFeePercent
+    20
   );
   expect(configState.poolFees.partnerFeePercent).eq(
-    params.poolFees.partnerFeePercent
+    0
   );
   expect(configState.poolFees.referralFeePercent).eq(
-    params.poolFees.referralFeePercent
+    20
   );
   expect(configState.configType).eq(0); // ConfigType: Static
 
@@ -784,9 +782,7 @@ export async function setPoolStatus(
 
 export type PoolFeesParams = {
   baseFee: BaseFee;
-  protocolFeePercent: number;
-  partnerFeePercent: number;
-  referralFeePercent: number;
+  padding: number[],
   dynamicFee: DynamicFee | null;
 };
 

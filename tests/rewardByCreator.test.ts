@@ -134,9 +134,7 @@ describe("Reward by creator", () => {
             periodFrequency: new BN(0),
             feeSchedulerMode: 0,
           },
-          protocolFeePercent: 10,
-          partnerFeePercent: 0,
-          referralFeePercent: 0,
+          padding: [],
           dynamicFee: null,
         },
         sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -437,9 +435,7 @@ describe("Reward by creator", () => {
             periodFrequency: new BN(0),
             feeSchedulerMode: 0,
           },
-          protocolFeePercent: 10,
-          partnerFeePercent: 0,
-          referralFeePercent: 0,
+          padding: [],
           dynamicFee: null,
         },
         sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -628,7 +624,7 @@ describe("Reward by creator", () => {
       await expectThrowsAsync(async () => {
         await initializeReward(context.banksClient, initRewardParams);
       }, errorCode);
- 
+
     });
   });
 });
