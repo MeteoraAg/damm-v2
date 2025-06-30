@@ -4,9 +4,12 @@ import {
   ExtensionType,
   getMintLen,
   TOKEN_2022_PROGRAM_ID,
-  createInitializeMetadataPointerInstruction,
   createMintToInstruction,
+  createInitializeDefaultAccountStateInstruction,
+  AccountState,
   createInitializePermanentDelegateInstruction,
+  createAccount,
+  mintTo,
 } from "@solana/spl-token";
 import {
   Keypair,
@@ -20,7 +23,7 @@ import { DECIMALS } from "./constants";
 import { getOrCreateAssociatedTokenAccount } from "./token";
 const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
 
-interface ExtensionWithInstruction {
+export interface ExtensionWithInstruction {
   extension: ExtensionType;
   instruction: TransactionInstruction;
 }
@@ -73,7 +76,8 @@ export async function createToken2022(
   const mintLamports = (await banksClient.getRent()).minimumBalance(
     BigInt(mintLen)
   );
-  const transaction = new Transaction().add(
+  const instructions = [];
+  instructions.push(
     SystemProgram.createAccount({
       fromPubkey: payer.publicKey,
       newAccountPubkey: mintKeypair.publicKey,
@@ -90,6 +94,8 @@ export async function createToken2022(
       TOKEN_2022_PROGRAM_ID
     )
   );
+
+  const transaction = new Transaction().add(...instructions);
 
   const [recentBlockhash] = await banksClient.getLatestBlockhash();
   transaction.recentBlockhash = recentBlockhash;

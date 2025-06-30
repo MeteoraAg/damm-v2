@@ -136,4 +136,10 @@ pub enum PoolError {
 
     #[msg("Reward vault is frozen, must skip reward to proceed")]
     RewardVaultFrozenSkipRequired,
+
+    #[msg("Invalid position type")]
+    InvalidPositionType,
+
+    #[msg("Invalid extension")]
+    InvalidExtension,
 }
