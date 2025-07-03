@@ -122,6 +122,8 @@ pub fn handle_fund_reward(
         reward_index,
         amount: total_amount,
         transfer_fee_excluded_amount_in,
+        reward_rate: reward_info.reward_rate,
+        reward_duration_end: reward_info.reward_duration_end
     });
 
     Ok(())

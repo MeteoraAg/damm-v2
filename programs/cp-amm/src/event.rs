@@ -208,6 +208,10 @@ pub struct EvtFundReward {
     pub amount: u64,
     // Amount excluded transfer fee
     pub transfer_fee_excluded_amount_in: u64,
+    // reward duration end
+    pub reward_duration_end: u64,
+    // reward rate
+    pub reward_rate: u128,
 }
 
 #[event]
