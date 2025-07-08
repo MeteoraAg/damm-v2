@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 
 use crate::{
     params::fee_parameters::PoolFeeParameters, state::SwapResult, AddLiquidityParameters,
-    RemoveLiquidityParameters, SwapExactInParameters, SwapParameters,
+    RemoveLiquidityParameters, SwapExactInParameters, SwapExactOutParameters, SwapParameters,
 };
 
 /// Close config
@@ -266,6 +266,17 @@ pub struct EvtSwapExactIn {
     pub trade_direction: u8,
     pub has_referral: bool,
     pub params: SwapExactInParameters,
+    pub swap_result: SwapResult,
+    pub actual_amount_in: u64,
+    pub current_timestamp: u64,
+}
+
+#[event]
+pub struct EvtSwapExactOut {
+    pub pool: Pubkey,
+    pub trade_direction: u8,
+    pub has_referral: bool,
+    pub params: SwapExactOutParameters,
     pub swap_result: SwapResult,
     pub actual_amount_in: u64,
     pub current_timestamp: u64,

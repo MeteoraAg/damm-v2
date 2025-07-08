@@ -30,3 +30,5 @@ pub mod ix_close_position;
 pub use ix_close_position::*;
 pub mod ix_swap_exact_in;
 pub use ix_swap_exact_in::*;
+pub mod ix_swap_exact_out;
+pub use ix_swap_exact_out::*;
