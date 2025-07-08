@@ -12,6 +12,7 @@ use crate::{
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
         get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
+        get_next_sqrt_price_from_output,
     },
     params::swap::TradeDirection,
     safe_math::SafeMath,
@@ -76,6 +77,22 @@ pub enum PoolStatus {
 pub enum PoolType {
     Permissionless,
     Customizable,
+}
+
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum SwapMode {
+    ExactIn,
+    ExacOut,
 }
 
 #[account(zero_copy)]
@@ -399,7 +416,7 @@ impl Pool {
         self.reward_infos[0].initialized() || self.reward_infos[1].initialized()
     }
 
-    pub fn get_swap_result(
+    pub fn get_swap_result_with_amount_in(
         &self,
         amount_in: u64,
         fee_mode: &FeeMode,
@@ -424,12 +441,10 @@ impl Pool {
                 current_point,
                 self.activation_point,
             )?;
-
             actual_protocol_fee = protocol_fee;
             actual_lp_fee = lp_fee;
             actual_referral_fee = referral_fee;
             actual_partner_fee = partner_fee;
-
             amount
         } else {
             amount_in
@@ -438,9 +453,14 @@ impl Pool {
         let SwapAmount {
             output_amount,
             next_sqrt_price,
+            ..
         } = match trade_direction {
-            TradeDirection::AtoB => self.get_swap_result_from_a_to_b(actual_amount_in),
-            TradeDirection::BtoA => self.get_swap_result_from_b_to_a(actual_amount_in),
+            TradeDirection::AtoB => {
+                self.get_swap_result_from_a_to_b(actual_amount_in, SwapMode::ExactIn)
+            }
+            TradeDirection::BtoA => {
+                self.get_swap_result_from_b_to_a(actual_amount_in, SwapMode::ExactIn)
+            }
         }?;
 
         let actual_amount_out = if fee_mode.fees_on_input {
@@ -474,46 +494,85 @@ impl Pool {
             referral_fee: actual_referral_fee,
         })
     }
-    fn get_swap_result_from_a_to_b(&self, amount_in: u64) -> Result<SwapAmount> {
+
+    fn get_swap_result_from_a_to_b(&self, amount: u64, swap_mode: SwapMode) -> Result<SwapAmount> {
         // finding new target price
-        let next_sqrt_price =
-            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, true)?;
+        let next_sqrt_price = if swap_mode == SwapMode::ExactIn {
+            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount, true)?
+        } else {
+            get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount, true)?
+        };
 
         if next_sqrt_price < self.sqrt_min_price {
             return Err(PoolError::PriceRangeViolation.into());
         }
 
-        // finding output amount
-        let output_amount = get_delta_amount_b_unsigned(
-            next_sqrt_price,
-            self.sqrt_price,
-            self.liquidity,
-            Rounding::Down,
-        )?;
+        // finding input/output amount
+        let (input_amount, output_amount) = if swap_mode == SwapMode::ExactIn {
+            (
+                amount,
+                get_delta_amount_b_unsigned(
+                    next_sqrt_price,
+                    self.sqrt_price,
+                    self.liquidity,
+                    Rounding::Down,
+                )?,
+            )
+        } else {
+            (
+                get_delta_amount_a_unsigned(
+                    next_sqrt_price,
+                    self.sqrt_price,
+                    self.liquidity,
+                    Rounding::Up,
+                )?,
+                amount,
+            )
+        };
 
         Ok(SwapAmount {
+            input_amount,
             output_amount,
             next_sqrt_price,
         })
     }
 
-    fn get_swap_result_from_b_to_a(&self, amount_in: u64) -> Result<SwapAmount> {
+    fn get_swap_result_from_b_to_a(&self, amount: u64, swap_mode: SwapMode) -> Result<SwapAmount> {
         // finding new target price
-        let next_sqrt_price =
-            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, false)?;
+        let next_sqrt_price = if swap_mode == SwapMode::ExactIn {
+            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount, false)?
+        } else {
+            get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount, false)?
+        };
 
         if next_sqrt_price > self.sqrt_max_price {
             return Err(PoolError::PriceRangeViolation.into());
         }
         // finding output amount
-        let output_amount = get_delta_amount_a_unsigned(
-            self.sqrt_price,
-            next_sqrt_price,
-            self.liquidity,
-            Rounding::Down,
-        )?;
+        let (input_amount, output_amount) = if swap_mode == SwapMode::ExactIn {
+            (
+                amount,
+                get_delta_amount_a_unsigned(
+                    self.sqrt_price,
+                    next_sqrt_price,
+                    self.liquidity,
+                    Rounding::Down,
+                )?,
+            )
+        } else {
+            (
+                get_delta_amount_b_unsigned(
+                    self.sqrt_price,
+                    next_sqrt_price,
+                    self.liquidity,
+                    Rounding::Up,
+                )?,
+                amount,
+            )
+        };
 
         Ok(SwapAmount {
+            input_amount,
             output_amount,
             next_sqrt_price,
         })
@@ -769,6 +828,7 @@ pub struct SwapResult {
 }
 
 pub struct SwapAmount {
+    input_amount: u64,
     output_amount: u64,
     next_sqrt_price: u128,
 }

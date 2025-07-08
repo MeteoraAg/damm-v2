@@ -6,7 +6,7 @@ use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
     get_pool_access_validator,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, Pool},
+    state::{fee::FeeMode, Pool, SwapMode},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool, transfer_from_user},
     EvtSwap, PoolError,
 };
@@ -138,7 +138,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
     let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
 
-    let swap_result = pool.get_swap_result(
+    let swap_result = pool.get_swap_result_with_amount_in(
         transfer_fee_excluded_amount_in,
         fee_mode,
         trade_direction,

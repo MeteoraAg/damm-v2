@@ -7,7 +7,7 @@ use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
     get_pool_access_validator,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, Pool},
+    state::{fee::FeeMode, Pool, SwapMode},
     token::{
         calculate_transfer_fee_excluded_amount, transfer_from_pool, transfer_from_user,
         TransferFeeExcludedAmount,
@@ -123,7 +123,7 @@ pub fn handle_swap_exact_in(
         ),
     };
 
-    // Fee in
+    // Transfer-in fee (Token Extension)
     let TransferFeeExcludedAmount {
         amount: transfer_fee_excluded_amount_in,
         ..
@@ -146,14 +146,14 @@ pub fn handle_swap_exact_in(
     pool.update_pre_swap(current_timestamp)?;
 
     // Swap
-    let swap_result = pool.get_swap_result(
+    let swap_result = pool.get_swap_result_with_amount_in(
         transfer_fee_excluded_amount_in,
         fee_mode,
         trade_direction,
         current_point,
     )?;
 
-    // Fee out
+    // Transfer-out fee (Token Extension)
     let TransferFeeExcludedAmount {
         amount: transfer_fee_excluded_amount_out,
         ..
