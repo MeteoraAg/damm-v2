@@ -227,4 +227,11 @@ pub mod cp_amm {
     ) -> Result<()> {
         instructions::handle_claim_reward(ctx, reward_index, skip_reward)
     }
+
+    pub fn swap_exact_in(
+        ctx: Context<SwapExactInCtx>,
+        params: SwapExactInParameters,
+    ) -> Result<()> {
+        instructions::handle_swap_exact_in(ctx, params)
+    }
 }

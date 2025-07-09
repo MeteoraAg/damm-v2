@@ -14,6 +14,7 @@ proptest! {
     #![proptest_config(ProptestConfig {
         cases: 10000, .. ProptestConfig::default()
     })]
+
     #[test]
     fn test_reserve_wont_lost_when_swap_from_a_to_b(
         sqrt_price in MIN_SQRT_PRICE..=MAX_SQRT_PRICE,
@@ -46,9 +47,7 @@ proptest! {
 
             assert!(swap_result_1.output_amount < amount_in);
         }
-
     }
-
 
     #[test]
     fn test_reserve_wont_lost_when_swap_from_b_to_a(
@@ -83,7 +82,6 @@ proptest! {
             assert!(swap_result_1.output_amount < amount_in);
         }
     }
-
 }
 
 // #[test]

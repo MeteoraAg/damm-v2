@@ -12,6 +12,7 @@ use crate::{
     fee_math::get_fee_in_period,
     params::swap::TradeDirection,
     safe_math::SafeMath,
+    state::SwapMode,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u64, safe_shl_div_cast},
     PoolError,
@@ -156,23 +157,45 @@ impl PoolFeesStruct {
         Ok(total_fee_numerator)
     }
 
+    ///
+    /// The nested fee model
+    ///
+    /// ( lp_fee ( protocol_fee ( referral_fee, partner_fee ) ) )
+    ///
+    /// # Formula
+    ///
+    /// * `lp_fee = amount_in * fee_numerator / fee_denominator`
+    /// * `lp_fee = amount_out * fee_numerator / (fee_denominator - fee_numerator)`
+    ///
     pub fn get_fee_on_amount(
         &self,
         amount: u64,
         has_referral: bool,
         current_point: u64,
         activation_point: u64,
+        swap_mode: SwapMode,
     ) -> Result<FeeOnAmountResult> {
-        let trade_fee_numerator = self.get_total_trading_fee(current_point, activation_point)?;
-        let trade_fee_numerator = if trade_fee_numerator > MAX_FEE_NUMERATOR.into() {
-            MAX_FEE_NUMERATOR
+        let trading_fee_numerator = MAX_FEE_NUMERATOR.min(
+            self.get_total_trading_fee(current_point, activation_point)?
+                .try_into()
+                .map_err(|_| PoolError::MathOverflow)?,
+        );
+        let lp_fee = if swap_mode == SwapMode::ExactIn {
+            safe_mul_div_cast_u64(amount, trading_fee_numerator, FEE_DENOMINATOR, Rounding::Up)?
         } else {
-            trade_fee_numerator.try_into().unwrap()
+            safe_mul_div_cast_u64(
+                amount,
+                trading_fee_numerator,
+                FEE_DENOMINATOR.safe_sub(trading_fee_numerator)?,
+                Rounding::Up,
+            )?
         };
-        let lp_fee: u64 =
-            safe_mul_div_cast_u64(amount, trade_fee_numerator, FEE_DENOMINATOR, Rounding::Up)?;
         // update amount
-        let amount = amount.safe_sub(lp_fee)?;
+        let amount = if swap_mode == SwapMode::ExactIn {
+            amount.safe_sub(lp_fee)?
+        } else {
+            amount
+        };
 
         let protocol_fee = safe_mul_div_cast_u64(
             lp_fee,
