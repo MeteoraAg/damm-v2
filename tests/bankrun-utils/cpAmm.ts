@@ -1095,7 +1095,7 @@ export type ClaimRewardParams = {
   user: Keypair;
   position: PublicKey;
   pool: PublicKey;
-  skipReward: number
+  skipReward: number;
 };
 
 export async function claimReward(
@@ -1746,6 +1746,53 @@ export async function claimPositionFee(
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(owner);
 
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+export type SplitPositionParams = {
+  owner: Keypair;
+  payer: Keypair;
+  pool: PublicKey;
+  position: PublicKey;
+  liquidityDelta: BN;
+  positionNftAccount: PublicKey;
+  newPositionNftAccount: PublicKey;
+  newPosition: PublicKey;
+  newPositionOwner: PublicKey;
+};
+export async function splitPosition(
+  banksClient: BanksClient,
+  params: SplitPositionParams
+) {
+  const {
+    liquidityDelta,
+    pool,
+    positionNftAccount,
+    position,
+    newPositionNftAccount,
+    newPosition,
+    newPositionOwner,
+    owner,
+    payer,
+  } = params;
+  const program = createCpAmmProgram();
+  const poolAuthority = derivePoolAuthority();
+  const transaction = await program.methods
+    .splitPosition(liquidityDelta)
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      positionNftAccount,
+      position,
+      newPositionNftAccount,
+      newPosition,
+      newPositionOwner,
+      owner: owner.publicKey,
+      payer: payer.publicKey
+    })
+    .transaction();
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(payer, owner);
   await processTransactionMaybeThrow(banksClient, transaction);
 }
 

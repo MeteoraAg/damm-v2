@@ -259,3 +259,13 @@ pub struct EvtWithdrawIneligibleReward {
     // Amount of ineligible reward withdrawn
     pub amount: u64,
 }
+
+#[event]
+pub struct EvtSplitPosition {
+    pub pool: Pubkey,
+    pub owner: Pubkey,
+    pub position: Pubkey,
+    pub new_position_owner: Pubkey,
+    pub new_position: Pubkey,
+    pub liquidity_delta: u128,
+}

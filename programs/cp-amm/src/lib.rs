@@ -227,4 +227,8 @@ pub mod cp_amm {
     ) -> Result<()> {
         instructions::handle_claim_reward(ctx, reward_index, skip_reward)
     }
+
+    pub fn split_position(ctx: Context<SplitPositionCtx>, liquidity_delta: u128) -> Result<()> {
+        instructions::handle_split_position(ctx, liquidity_delta)
+    }
 }
