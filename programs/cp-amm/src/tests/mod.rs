@@ -5,6 +5,12 @@ pub const LIQUIDITY_MAX: u128 = 34028236692093846346337460743;
 mod swap_tests;
 
 #[cfg(test)]
+mod swap_exact_in_tests;
+
+#[cfg(test)]
+mod swap_exact_out_tests;
+
+#[cfg(test)]
 mod modify_liquidity_tests;
 
 #[cfg(test)]

@@ -11,8 +11,8 @@ use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_RATE_SCALE},
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
-        get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
-        get_next_sqrt_price_from_output,
+        get_delta_amount_b_unsigned, get_delta_amount_b_unsigned_unchecked,
+        get_next_sqrt_price_from_input, get_next_sqrt_price_from_output,
     },
     params::swap::TradeDirection,
     safe_math::SafeMath,
@@ -790,6 +790,28 @@ impl Pool {
             Ok(u64::MAX)
         } else {
             Ok(amount.try_into().unwrap())
+        }
+    }
+
+    pub fn get_max_amount_out(&self, trade_direction: TradeDirection) -> Result<u64> {
+        let amount = match trade_direction {
+            TradeDirection::AtoB => get_delta_amount_b_unsigned_unchecked(
+                self.sqrt_min_price,
+                self.sqrt_price,
+                self.liquidity,
+                Rounding::Down,
+            )?,
+            TradeDirection::BtoA => get_delta_amount_a_unsigned_unchecked(
+                self.sqrt_price,
+                self.sqrt_max_price,
+                self.liquidity,
+                Rounding::Down,
+            )?,
+        };
+        if amount > U256::from(u64::MAX) {
+            Ok(u64::MAX)
+        } else {
+            Ok(amount.try_into().map_err(|_| PoolError::MathOverflow)?)
         }
     }
 
