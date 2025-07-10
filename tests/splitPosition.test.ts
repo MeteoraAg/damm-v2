@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
-import { generateKpAndFund, startTest } from "./bankrun-utils/common";
+import { expectThrowsAsync, generateKpAndFund, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createConfigIx,
@@ -17,10 +17,11 @@ import {
   getPosition,
   splitPosition,
   derivePositionNftAccount,
+  getCpAmmProgramErrorCodeHexString,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
-describe.only("Split position", () => {
+describe("Split position", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let creator: Keypair;
@@ -116,7 +117,40 @@ describe.only("Split position", () => {
     position = result.position;
   });
 
+  it("Cannot split two same position", async () => {
+    const positionState = await getPosition(context.banksClient, position);
+
+    const splitParams = {
+      unlockedLiquidityPercentage: 50,
+      permanentLockedLiquidityPercentage: 0,
+      feeAPercentage: 0,
+      feeBPercentage: 0,
+      reward0Percentage: 0,
+      reward1Percentage: 0,
+    }
+
+    const errorCode = getCpAmmProgramErrorCodeHexString("SamePosition")
+
+    await expectThrowsAsync( async () => {await splitPosition(context.banksClient, {
+      owner1: creator,
+      owner2: creator,
+      pool,
+      firstPosition: position,
+      secondPosition: position,
+      firstPositionNftAccount: derivePositionNftAccount(
+        positionState.nftMint
+      ),
+      secondPositionNftAccount: derivePositionNftAccount(
+        positionState.nftMint
+      ),
+      ...splitParams
+    })}, errorCode)
+
+   
+  });
+
   it("Split position into two position", async () => {
+
     // create new position
     const secondPosition = await createPosition(
       context.banksClient,
@@ -125,14 +159,25 @@ describe.only("Split position", () => {
       pool
     );
     const firstPositionState = await getPosition(context.banksClient, position);
-    const newLiquidityDelta = firstPositionState.unlockedLiquidity.divn(2);
-    let newPositionState = await getPosition(
+
+    const splitParams = {
+      unlockedLiquidityPercentage: 50,
+      permanentLockedLiquidityPercentage: 0,
+      feeAPercentage: 0,
+      feeBPercentage: 0,
+      reward0Percentage: 0,
+      reward1Percentage: 0,
+    }
+
+    const newLiquidityDelta = firstPositionState.unlockedLiquidity.muln(splitParams.unlockedLiquidityPercentage).divn(100);
+    let secondPositionState = await getPosition(
       context.banksClient,
       secondPosition
     );
     let poolState = await getPool(context.banksClient, pool);
     const beforeLiquidity = poolState.liquidity;
-    const beforeNewPositionLiquidity = newPositionState.unlockedLiquidity;
+
+    const beforeSecondPositionLiquidity = secondPositionState.unlockedLiquidity;
 
     await splitPosition(context.banksClient, {
       owner1: creator,
@@ -144,24 +189,19 @@ describe.only("Split position", () => {
         firstPositionState.nftMint
       ),
       secondPositionNftAccount: derivePositionNftAccount(
-        newPositionState.nftMint
+        secondPositionState.nftMint
       ),
-      permanentLockedLiquidityPercentage: 0,
-      unlockedLiquidityPercentage: 50,
-      feeAPercentage: 50,
-      feeBPercentage: 50,
-      reward0Percentage: 50,
-      reward1Percentage: 50,
+      ...splitParams
     });
 
     poolState = await getPool(context.banksClient, pool);
-    newPositionState = await getPosition(context.banksClient, secondPosition);
+    secondPositionState = await getPosition(context.banksClient, secondPosition);
 
     // assert
     expect(beforeLiquidity.toString()).eq(poolState.liquidity.toString());
-    const afterNewPositionLiquidity = newPositionState.unlockedLiquidity;
+    const afterSecondPositionLiquidity = secondPositionState.unlockedLiquidity;
     expect(
-      afterNewPositionLiquidity.sub(beforeNewPositionLiquidity).toString()
+      afterSecondPositionLiquidity.sub(beforeSecondPositionLiquidity).toString()
     ).eq(newLiquidityDelta.toString());
   });
 });

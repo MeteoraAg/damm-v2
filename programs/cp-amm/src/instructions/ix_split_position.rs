@@ -129,6 +129,13 @@ pub fn handle_split_position(
 
     params.validate()?;
 
+    // can not split two same position
+    require_keys_neq!(
+        ctx.accounts.first_position.key(),
+        ctx.accounts.second_position.key(),
+        PoolError::SamePosition
+    );
+
     let SplitPositionParameters {
         unlocked_liquidity_percentage,
         permanent_locked_liquidity_percentage,
@@ -147,12 +154,6 @@ pub fn handle_split_position(
     require!(
         first_position.vested_liquidity == 0,
         PoolError::UnsupportPositionHasVestingLock
-    );
-    // can not split two same position
-    require_keys_neq!(
-        ctx.accounts.first_position.key(),
-        ctx.accounts.second_position.key(),
-        PoolError::SamePosition
     );
 
     // update current pool reward & postion reward for first and second

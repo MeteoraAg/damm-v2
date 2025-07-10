@@ -624,7 +624,7 @@ impl Pool {
     }
 
     pub fn apply_split_position(
-        &mut self,
+        &self,
         first_position: &mut Position,
         second_position: &mut Position,
         unlocked_liquidity_percentage: u8,
