@@ -20,7 +20,7 @@ import {
 } from "./bankrun-utils";
 import BN from "bn.js";
 
-describe("Split position", () => {
+describe.only("Split position", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let creator: Keypair;
@@ -118,7 +118,7 @@ describe("Split position", () => {
 
   it("Split position into two position", async () => {
     // create new position
-    const newPosition = await createPosition(
+    const secondPosition = await createPosition(
       context.banksClient,
       user,
       user.publicKey,
@@ -126,29 +126,42 @@ describe("Split position", () => {
     );
     const firstPositionState = await getPosition(context.banksClient, position);
     const newLiquidityDelta = firstPositionState.unlockedLiquidity.divn(2);
-    let newPositionState = await getPosition(context.banksClient, newPosition);
+    let newPositionState = await getPosition(
+      context.banksClient,
+      secondPosition
+    );
     let poolState = await getPool(context.banksClient, pool);
     const beforeLiquidity = poolState.liquidity;
     const beforeNewPositionLiquidity = newPositionState.unlockedLiquidity;
 
     await splitPosition(context.banksClient, {
-      owner: creator,
-      payer: creator,
+      owner1: creator,
+      owner2: user,
       pool,
-      position,
-      liquidityDelta: newLiquidityDelta,
-      positionNftAccount: derivePositionNftAccount(firstPositionState.nftMint),
-      newPositionNftAccount: derivePositionNftAccount(newPositionState.nftMint),
-      newPosition,
-      newPositionOwner: user.publicKey,
+      firstPosition: position,
+      secondPosition,
+      firstPositionNftAccount: derivePositionNftAccount(
+        firstPositionState.nftMint
+      ),
+      secondPositionNftAccount: derivePositionNftAccount(
+        newPositionState.nftMint
+      ),
+      permanentLockedLiquidityPercentage: 0,
+      unlockedLiquidityPercentage: 50,
+      feeAPercentage: 50,
+      feeBPercentage: 50,
+      reward0Percentage: 50,
+      reward1Percentage: 50,
     });
 
     poolState = await getPool(context.banksClient, pool);
-    newPositionState = await getPosition(context.banksClient, newPosition);
+    newPositionState = await getPosition(context.banksClient, secondPosition);
 
     // assert
     expect(beforeLiquidity.toString()).eq(poolState.liquidity.toString());
     const afterNewPositionLiquidity = newPositionState.unlockedLiquidity;
-    expect(afterNewPositionLiquidity.sub(beforeNewPositionLiquidity).toString()).eq(newLiquidityDelta.toString())
+    expect(
+      afterNewPositionLiquidity.sub(beforeNewPositionLiquidity).toString()
+    ).eq(newLiquidityDelta.toString());
   });
 });

@@ -1750,49 +1750,65 @@ export async function claimPositionFee(
 }
 
 export type SplitPositionParams = {
-  owner: Keypair;
-  payer: Keypair;
+  owner1: Keypair;
+  owner2: Keypair;
   pool: PublicKey;
-  position: PublicKey;
-  liquidityDelta: BN;
-  positionNftAccount: PublicKey;
-  newPositionNftAccount: PublicKey;
-  newPosition: PublicKey;
-  newPositionOwner: PublicKey;
+  firstPosition: PublicKey;
+  firstPositionNftAccount: PublicKey;
+  secondPosition: PublicKey;
+  secondPositionNftAccount: PublicKey;
+  permanentLockedLiquidityPercentage: number;
+  unlockedLiquidityPercentage: number;
+  feeAPercentage: number;
+  feeBPercentage: number;
+  reward0Percentage: number;
+  reward1Percentage: number;
 };
 export async function splitPosition(
   banksClient: BanksClient,
   params: SplitPositionParams
 ) {
   const {
-    liquidityDelta,
     pool,
-    positionNftAccount,
-    position,
-    newPositionNftAccount,
-    newPosition,
-    newPositionOwner,
-    owner,
-    payer,
+    owner1,
+    owner2,
+    firstPosition,
+    secondPosition,
+    firstPositionNftAccount,
+    secondPositionNftAccount,
+    permanentLockedLiquidityPercentage,
+    unlockedLiquidityPercentage,
+    feeAPercentage,
+    feeBPercentage,
+    reward0Percentage,
+    reward1Percentage,
   } = params;
   const program = createCpAmmProgram();
   const poolAuthority = derivePoolAuthority();
   const transaction = await program.methods
-    .splitPosition(liquidityDelta)
+    .splitPosition({
+      permanentLockedLiquidityPercentage,
+      unlockedLiquidityPercentage,
+      feeAPercentage,
+      feeBPercentage,
+      reward0Percentage,
+      reward1Percentage,
+      padding: new Array(16).fill(0),
+    })
     .accountsPartial({
       poolAuthority,
       pool,
-      positionNftAccount,
-      position,
-      newPositionNftAccount,
-      newPosition,
-      newPositionOwner,
-      owner: owner.publicKey,
-      payer: payer.publicKey
+      firstPosition,
+      firstPositionNftAccount,
+      secondPosition,
+      secondPositionNftAccount,
+      owner1: owner1.publicKey,
+      owner2: owner2.publicKey,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer, owner);
+  transaction.sign(owner1, owner2);
+
   await processTransactionMaybeThrow(banksClient, transaction);
 }
 

@@ -136,4 +136,13 @@ pub enum PoolError {
 
     #[msg("Reward vault is frozen, must skip reward to proceed")]
     RewardVaultFrozenSkipRequired,
+
+    #[msg("Invalid parameters for split position")]
+    InvalidSplitPositionParameters,
+
+    #[msg("Unsupported split position has vesting lock")]
+    UnsupportPositionHasVestingLock,
+
+    #[msg("Same position")]
+    SamePosition,
 }

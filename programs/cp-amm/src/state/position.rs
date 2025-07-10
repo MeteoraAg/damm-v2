@@ -150,6 +150,61 @@ impl Position {
         Ok(())
     }
 
+    pub fn remove_permanent_locked_liquidity(
+        &mut self,
+        permanent_locked_liquidity_delta: u128,
+    ) -> Result<()> {
+        require!(
+            permanent_locked_liquidity_delta <= self.permanent_locked_liquidity,
+            PoolError::InsufficientLiquidity
+        );
+
+        self.permanent_locked_liquidity = self
+            .permanent_locked_liquidity
+            .safe_sub(permanent_locked_liquidity_delta)?;
+        Ok(())
+    }
+
+    pub fn add_permanent_locked_liquidity(
+        &mut self,
+        permanent_lock_liquidity_delta: u128,
+    ) -> Result<()> {
+        self.permanent_locked_liquidity = self
+            .permanent_locked_liquidity
+            .safe_add(permanent_lock_liquidity_delta)?;
+        Ok(())
+    }
+
+    pub fn remove_fee_pending(&mut self, fee_a_delta: u64, fee_b_delta: u64) -> Result<()> {
+        self.fee_a_pending = self.fee_a_pending.safe_sub(fee_a_delta)?;
+        self.fee_b_pending = self.fee_b_pending.safe_sub(fee_b_delta)?;
+
+        Ok(())
+    }
+
+    pub fn add_fee_pending(&mut self, fee_a_delta: u64, fee_b_delta: u64) -> Result<()> {
+        self.fee_a_pending = self.fee_a_pending.safe_add(fee_a_delta)?;
+        self.fee_b_pending = self.fee_b_pending.safe_add(fee_b_delta)?;
+
+        Ok(())
+    }
+
+    pub fn remove_reward_pending(&mut self, reward_index: usize, reward_amount: u64) -> Result<()> {
+        self.reward_infos[reward_index].reward_pendings = self.reward_infos[reward_index]
+            .reward_pendings
+            .safe_sub(reward_amount)?;
+
+        Ok(())
+    }
+
+    pub fn add_reward_pending(&mut self, reward_index: usize, reward_amount: u64) -> Result<()> {
+        self.reward_infos[reward_index].reward_pendings = self.reward_infos[reward_index]
+            .reward_pendings
+            .safe_add(reward_amount)?;
+
+        Ok(())
+    }
+
     pub fn update_fee(
         &mut self,
         fee_a_per_token_stored: U256,
@@ -263,4 +318,54 @@ impl Position {
         // check liquidity and fee
         Ok(self.get_total_liquidity()? == 0 && self.fee_a_pending == 0 && self.fee_b_pending == 0)
     }
+
+    pub fn split_unlocked_liquidity(&self, percentage: u8) -> Result<u128> {
+        let liquidity_delta = self
+            .unlocked_liquidity
+            .safe_mul(percentage.into())?
+            .safe_div(100)?;
+
+        Ok(liquidity_delta)
+    }
+
+    pub fn split_permanent_locked_liquidity(&self, percentage: u8) -> Result<u128> {
+        let permanent_locked_liquidity_delta = self
+            .permanent_locked_liquidity
+            .safe_mul(percentage.into())?
+            .safe_div(100)?;
+
+        Ok(permanent_locked_liquidity_delta)
+    }
+
+    pub fn split_pending_fee(
+        &self,
+        fee_a_percentage: u8,
+        fee_b_percentage: u8,
+    ) -> Result<SplitFeeAmount> {
+        let fee_a_split = u128::from(self.fee_a_pending)
+            .safe_mul(fee_a_percentage.into())?
+            .safe_div(100)?;
+        let fee_b_split = u128::from(self.fee_b_pending)
+            .safe_mul(fee_b_percentage.into())?
+            .safe_div(100)?;
+
+        Ok(SplitFeeAmount {
+            fee_a_amount: u64::try_from(fee_a_split).map_err(|_| PoolError::MathOverflow)?,
+            fee_b_amount: u64::try_from(fee_b_split).map_err(|_| PoolError::MathOverflow)?,
+        })
+    }
+
+    pub fn split_pending_reward(&self, reward_index: usize, reward_percentage: u8) -> Result<u64> {
+        let position_reward = self.reward_infos[reward_index];
+        let reward_split = u128::from(position_reward.reward_pendings)
+            .safe_mul(reward_percentage.into())?
+            .safe_div(100)?;
+
+        Ok(u64::try_from(reward_split).map_err(|_| PoolError::MathOverflow)?)
+    }
+}
+
+pub struct SplitFeeAmount {
+    pub fee_a_amount: u64,
+    pub fee_b_amount: u64,
 }
