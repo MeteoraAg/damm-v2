@@ -88,7 +88,7 @@ const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
 pub struct BaseFeeStruct {
     pub cliff_fee_numerator: u64,
     // In fee scheduler first_factor: number_of_period, second_factor: period_frequency, third_factor: reduction_factor
-    // in rate limiter: first_factor: fee_increment_bps, second_factor: max_limiter_duration, third_factor: reference_amount
+    // in rate limiter: first_factor: fee_increment_bps, second_factor: max_limiter_duration, max_fee_bps, third_factor: reference_amount
     pub base_fee_mode: u8,
     pub padding_0: [u8; 5],
     pub first_factor: u16,
