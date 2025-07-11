@@ -67,11 +67,17 @@ impl FeeRateLimiter {
     }
 
     fn is_zero_rate_limiter(&self) -> bool {
-        self.reference_amount == 0 && self.max_limiter_duration == 0 && self.fee_increment_bps == 0
+        self.reference_amount == 0
+            && self.max_limiter_duration == 0
+            && self.max_fee_bps == 0
+            && self.fee_increment_bps == 0
     }
 
     fn is_non_zero_rate_limiter(&self) -> bool {
-        self.reference_amount != 0 && self.max_limiter_duration != 0 && self.fee_increment_bps != 0
+        self.reference_amount != 0
+            && self.max_limiter_duration != 0
+            && self.max_fee_bps != 0
+            && self.fee_increment_bps != 0
     }
 
     pub fn get_max_index(&self) -> Result<u64> {
