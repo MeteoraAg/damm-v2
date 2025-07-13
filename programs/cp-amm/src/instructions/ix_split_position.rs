@@ -5,7 +5,7 @@ use crate::{
     constants::seeds::POOL_AUTHORITY_PREFIX,
     get_pool_access_validator,
     state::{Pool, Position, SplitAmountInfo},
-    EvtPositionInfo, EvtSplitPosition, EvtSplitPositionAmount, PoolError,
+    EvtSplitPosition, EvtSplitPositionInfo, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -178,7 +178,7 @@ pub fn handle_split_position(
         owner_2: ctx.accounts.owner_2.key(),
         first_position: ctx.accounts.first_position.key(),
         second_position: ctx.accounts.second_position.key(),
-        amount_splits: EvtSplitPositionAmount {
+        amount_splits: EvtSplitPositionInfo {
             unlocked_liquidity: split_amount_info.unlocked_liquidity,
             permanent_locked_liquidity: split_amount_info.permanent_locked_liquidity,
             fee_a: split_amount_info.fee_a,
@@ -186,8 +186,9 @@ pub fn handle_split_position(
             reward_0: split_amount_info.reward_0,
             reward_1: split_amount_info.reward_1
         },
-        first_position_info: EvtPositionInfo {
-            liquidity: first_position.get_total_liquidity()?,
+        first_position_info: EvtSplitPositionInfo {
+            unlocked_liquidity: first_position.unlocked_liquidity,
+            permanent_locked_liquidity: first_position.permanent_locked_liquidity,
             fee_a: first_position.fee_a_pending,
             fee_b: first_position.fee_b_pending,
             reward_0: first_position
@@ -201,8 +202,9 @@ pub fn handle_split_position(
                 .map(|r| r.reward_pendings)
                 .unwrap_or(0),
         },
-        second_position_info: EvtPositionInfo {
-            liquidity: second_position.get_total_liquidity()?,
+        second_position_info: EvtSplitPositionInfo {
+            unlocked_liquidity: second_position.unlocked_liquidity,
+            permanent_locked_liquidity: second_position.permanent_locked_liquidity,
             fee_a: second_position.fee_a_pending,
             fee_b: second_position.fee_b_pending,
             reward_0: second_position

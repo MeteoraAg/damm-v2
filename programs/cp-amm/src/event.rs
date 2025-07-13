@@ -261,7 +261,7 @@ pub struct EvtWithdrawIneligibleReward {
 }
 
 #[event]
-pub struct EvtSplitPositionAmount {
+pub struct EvtSplitPositionInfo {
     pub unlocked_liquidity: u128,
     pub permanent_locked_liquidity: u128,
     pub fee_a: u64,
@@ -271,22 +271,14 @@ pub struct EvtSplitPositionAmount {
 }
 
 #[event]
-pub struct EvtPositionInfo {
-    pub liquidity: u128,
-    pub fee_a: u64,
-    pub fee_b: u64,
-    pub reward_0: u64,
-    pub reward_1: u64,
-}
-#[event]
 pub struct EvtSplitPosition {
     pub pool: Pubkey,
     pub owner_1: Pubkey,
     pub owner_2: Pubkey,
     pub first_position: Pubkey,
     pub second_position: Pubkey,
-    pub amount_splits: EvtSplitPositionAmount,
-    pub first_position_info: EvtPositionInfo,
-    pub second_position_info: EvtPositionInfo,
+    pub amount_splits: EvtSplitPositionInfo,
+    pub first_position_info: EvtSplitPositionInfo,
+    pub second_position_info: EvtSplitPositionInfo,
     pub split_position_parameters: SplitPositionParameters,
 }
