@@ -10,17 +10,17 @@ use crate::{
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SplitPositionParameters {
-    /// Percentage of unlocked liquidity to allocate to the second position
+    /// Percentage of unlocked liquidity to split to the second position
     pub unlocked_liquidity_percentage: u8,
-    /// Percentage of permanent locked liquidity to allocate to the second position
+    /// Percentage of permanent locked liquidity to split to the second position
     pub permanent_locked_liquidity_percentage: u8,
-    /// Percentage of accumulated fee A to allocate to the second position
+    /// Percentage of fee A pending to split to the second position
     pub fee_a_percentage: u8,
-    /// Percentage of accumulated fee B to allocate to the second position
+    /// Percentage of fee B pending to split to the second position
     pub fee_b_percentage: u8,
-    /// Percentage of accumulated reward 0 to allocate to the second position
+    /// Percentage of reward 0 pending to split to the second position
     pub reward_0_percentage: u8,
-    /// Percentage of accumulated reward 1 to allocate to the second position
+    /// Percentage of reward 1 pending to split to the second position
     pub reward_1_percentage: u8,
     /// padding for future
     pub padding: [u8; 16],
