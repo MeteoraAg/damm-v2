@@ -648,8 +648,8 @@ impl Pool {
 
         // split unlocked liquidity by percentage
         if unlocked_liquidity_percentage > 0 {
-            let unlocked_liquidity_delta =
-                first_position.split_unlocked_liquidity(unlocked_liquidity_percentage)?;
+            let unlocked_liquidity_delta = first_position
+                .get_unlocked_liquidity_by_percentage(unlocked_liquidity_percentage)?;
 
             first_position.remove_unlocked_liquidity(unlocked_liquidity_delta)?;
             second_position.add_liquidity(unlocked_liquidity_delta)?;
@@ -660,7 +660,9 @@ impl Pool {
         // split permanent locked liquidity by percentage
         if permanent_locked_liquidity_percentage > 0 {
             let permanent_locked_liquidity_delta = first_position
-                .split_permanent_locked_liquidity(permanent_locked_liquidity_percentage)?;
+                .get_permanent_locked_liquidity_by_percentage(
+                    permanent_locked_liquidity_percentage,
+                )?;
 
             first_position.remove_permanent_locked_liquidity(permanent_locked_liquidity_delta)?;
             second_position.add_permanent_locked_liquidity(permanent_locked_liquidity_delta)?;
@@ -673,7 +675,7 @@ impl Pool {
             let SplitFeeAmount {
                 fee_a_amount,
                 fee_b_amount,
-            } = first_position.split_pending_fee(fee_a_percentage, fee_b_percentage)?;
+            } = first_position.get_pending_fee_by_percentage(fee_a_percentage, fee_b_percentage)?;
 
             first_position.remove_fee_pending(fee_a_amount, fee_b_amount)?;
             second_position.add_fee_pending(fee_a_amount, fee_b_amount)?;
@@ -685,26 +687,28 @@ impl Pool {
         // split pending reward by percentage
         if self.pool_reward_initialized() {
             if reward_0_percentage > 0 {
-                let pool_reward_info = self.reward_infos[0];
+                let reward_index = 0;
+                let pool_reward_info = self.reward_infos[reward_index];
                 if pool_reward_info.initialized() {
-                    let split_reward =
-                        first_position.split_pending_reward(0, reward_0_percentage)?;
+                    let split_reward = first_position
+                        .get_pending_reward_by_percentage(reward_index, reward_0_percentage)?;
 
-                    first_position.remove_reward_pending(0, split_reward)?;
-                    second_position.add_reward_pending(0, split_reward)?;
+                    first_position.remove_reward_pending(reward_index, split_reward)?;
+                    second_position.add_reward_pending(reward_index, split_reward)?;
 
                     reward_0_split = split_reward;
                 }
             }
 
             if reward_1_percentage > 0 {
-                let pool_reward_info = self.reward_infos[1];
+                let reward_index = 1;
+                let pool_reward_info = self.reward_infos[reward_index];
                 if pool_reward_info.initialized() {
-                    let split_reward =
-                        first_position.split_pending_reward(1, reward_1_percentage)?;
+                    let split_reward = first_position
+                        .get_pending_reward_by_percentage(reward_index, reward_1_percentage)?;
 
-                    first_position.remove_reward_pending(1, split_reward)?;
-                    second_position.add_reward_pending(1, split_reward)?;
+                    first_position.remove_reward_pending(reward_index, split_reward)?;
+                    second_position.add_reward_pending(reward_index, split_reward)?;
 
                     reward_1_split = split_reward
                 }
@@ -877,7 +881,7 @@ pub struct ModifyLiquidityResult {
     pub token_b_amount: u64,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, PartialEq)]
 pub struct SplitAmountInfo {
     pub permanent_locked_liquidity: u128,
     pub unlocked_liquidity: u128,

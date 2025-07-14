@@ -259,18 +259,24 @@ impl Position {
         if pool.pool_reward_initialized() {
             // update pool reward before any update about position reward
             pool.update_rewards(current_time)?;
+            // update position reward
+            self.update_position_reward(pool)?;
+        }
 
-            let position_liquidity = self.get_total_liquidity()?;
-            let position_reward_infos = &mut self.reward_infos;
-            for reward_idx in 0..NUM_REWARDS {
-                let pool_reward_info = pool.reward_infos[reward_idx];
+        Ok(())
+    }
 
-                if pool_reward_info.initialized() {
-                    let reward_per_token_stored =
-                        U256::from_le_bytes(pool_reward_info.reward_per_token_stored);
-                    position_reward_infos[reward_idx]
-                        .update_rewards(position_liquidity, reward_per_token_stored)?;
-                }
+    pub fn update_position_reward(&mut self, pool: &Pool) -> Result<()> {
+        let position_liquidity = self.get_total_liquidity()?;
+        let position_reward_infos = &mut self.reward_infos;
+        for reward_idx in 0..NUM_REWARDS {
+            let pool_reward_info = pool.reward_infos[reward_idx];
+
+            if pool_reward_info.initialized() {
+                let reward_per_token_stored =
+                    U256::from_le_bytes(pool_reward_info.reward_per_token_stored);
+                position_reward_infos[reward_idx]
+                    .update_rewards(position_liquidity, reward_per_token_stored)?;
             }
         }
 
@@ -319,7 +325,7 @@ impl Position {
         Ok(self.get_total_liquidity()? == 0 && self.fee_a_pending == 0 && self.fee_b_pending == 0)
     }
 
-    pub fn split_unlocked_liquidity(&self, percentage: u8) -> Result<u128> {
+    pub fn get_unlocked_liquidity_by_percentage(&self, percentage: u8) -> Result<u128> {
         let liquidity_delta = self
             .unlocked_liquidity
             .safe_mul(percentage.into())?
@@ -328,7 +334,7 @@ impl Position {
         Ok(liquidity_delta)
     }
 
-    pub fn split_permanent_locked_liquidity(&self, percentage: u8) -> Result<u128> {
+    pub fn get_permanent_locked_liquidity_by_percentage(&self, percentage: u8) -> Result<u128> {
         let permanent_locked_liquidity_delta = self
             .permanent_locked_liquidity
             .safe_mul(percentage.into())?
@@ -337,7 +343,7 @@ impl Position {
         Ok(permanent_locked_liquidity_delta)
     }
 
-    pub fn split_pending_fee(
+    pub fn get_pending_fee_by_percentage(
         &self,
         fee_a_percentage: u8,
         fee_b_percentage: u8,
@@ -355,7 +361,11 @@ impl Position {
         })
     }
 
-    pub fn split_pending_reward(&self, reward_index: usize, reward_percentage: u8) -> Result<u64> {
+    pub fn get_pending_reward_by_percentage(
+        &self,
+        reward_index: usize,
+        reward_percentage: u8,
+    ) -> Result<u64> {
         let position_reward = self.reward_infos[reward_index];
         let reward_split = u128::from(position_reward.reward_pendings)
             .safe_mul(reward_percentage.into())?
@@ -368,4 +378,13 @@ impl Position {
 pub struct SplitFeeAmount {
     pub fee_a_amount: u64,
     pub fee_b_amount: u64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct SplitPositionInfo {
+    pub liquidity: u128,
+    pub fee_a: u64,
+    pub fee_b: u64,
+    pub reward_0: u64,
+    pub reward_1: u64,
 }

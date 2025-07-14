@@ -1750,8 +1750,8 @@ export async function claimPositionFee(
 }
 
 export type SplitPositionParams = {
-  owner1: Keypair;
-  owner2: Keypair;
+  firstPositionOwner: Keypair;
+  secondPositionOwner: Keypair;
   pool: PublicKey;
   firstPosition: PublicKey;
   firstPositionNftAccount: PublicKey;
@@ -1770,8 +1770,8 @@ export async function splitPosition(
 ) {
   const {
     pool,
-    owner1,
-    owner2,
+    firstPositionOwner,
+    secondPositionOwner,
     firstPosition,
     secondPosition,
     firstPositionNftAccount,
@@ -1796,18 +1796,17 @@ export async function splitPosition(
       padding: new Array(16).fill(0),
     })
     .accountsPartial({
-      poolAuthority,
       pool,
       firstPosition,
       firstPositionNftAccount,
       secondPosition,
       secondPositionNftAccount,
-      owner1: owner1.publicKey,
-      owner2: owner2.publicKey,
+      firstOwner: firstPositionOwner.publicKey,
+      secondOwner: secondPositionOwner.publicKey,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(owner1, owner2);
+  transaction.sign(firstPositionOwner, secondPositionOwner);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 }

@@ -29,7 +29,7 @@ import {
 } from "./bankrun-utils";
 import BN from "bn.js";
 
-describe("Split position", () => {
+describe.only("Split position", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let creator: Keypair;
@@ -157,8 +157,8 @@ describe("Split position", () => {
 
     await expectThrowsAsync(async () => {
       await splitPosition(context.banksClient, {
-        owner1: creator,
-        owner2: creator,
+        firstPositionOwner: creator,
+        secondPositionOwner: creator,
         pool,
         firstPosition: position,
         secondPosition: position,
@@ -202,8 +202,8 @@ describe("Split position", () => {
 
     await expectThrowsAsync(async () => {
       await splitPosition(context.banksClient, {
-        owner1: creator,
-        owner2: user,
+        firstPositionOwner: creator,
+        secondPositionOwner: user,
         pool,
         firstPosition: position,
         secondPosition,
@@ -271,8 +271,8 @@ describe("Split position", () => {
     const beforeSecondPositionLiquidity = secondPositionState.unlockedLiquidity;
 
     await splitPosition(context.banksClient, {
-      owner1: creator,
-      owner2: user,
+      firstPositionOwner: creator,
+      secondPositionOwner: user,
       pool,
       firstPosition: position,
       secondPosition,
@@ -341,8 +341,8 @@ describe("Split position", () => {
       secondPositionState.permanentLockedLiquidity;
 
     await splitPosition(context.banksClient, {
-      owner1: creator,
-      owner2: user,
+      firstPositionOwner: creator,
+      secondPositionOwner: user,
       pool,
       firstPosition: position,
       secondPosition,
@@ -411,8 +411,8 @@ describe("Split position", () => {
     };
 
     await splitPosition(context.banksClient, {
-      owner1: creator,
-      owner2: user,
+      firstPositionOwner: creator,
+      secondPositionOwner: user,
       pool,
       firstPosition,
       secondPosition,

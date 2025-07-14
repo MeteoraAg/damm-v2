@@ -2,10 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::TokenAccount;
 
 use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX,
-    get_pool_access_validator,
-    state::{Pool, Position, SplitAmountInfo},
-    EvtSplitPosition, EvtSplitPositionInfo, PoolError,
+    state::{Pool, Position, SplitAmountInfo, SplitPositionInfo},
+    EvtSplitPosition, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -70,10 +68,6 @@ impl SplitPositionParameters {
 #[event_cpi]
 #[derive(Accounts)]
 pub struct SplitPositionCtx<'info> {
-    /// CHECK: pool authority
-    #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
-    pub pool_authority: UncheckedAccount<'info>,
-
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -81,6 +75,7 @@ pub struct SplitPositionCtx<'info> {
     #[account(
         mut,
         has_one = pool,
+        constraint = first_position.key() != second_position.key() @ PoolError::SamePosition,
     )]
     pub first_position: AccountLoader<'info, Position>,
 
@@ -88,7 +83,7 @@ pub struct SplitPositionCtx<'info> {
     #[account(
         constraint = first_position_nft_account.mint == first_position.load()?.nft_mint,
         constraint = first_position_nft_account.amount == 1,
-        token::authority = owner_1
+        token::authority = first_owner
     )]
     pub first_position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -103,38 +98,23 @@ pub struct SplitPositionCtx<'info> {
     #[account(
         constraint = second_position_nft_account.mint == second_position.load()?.nft_mint,
         constraint = second_position_nft_account.amount == 1,
-        token::authority = owner_2
+        token::authority = second_owner
 )]
     pub second_position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// Owner of first position
-    pub owner_1: Signer<'info>,
+    pub first_owner: Signer<'info>,
 
     /// Owner of second position
-    pub owner_2: Signer<'info>,
+    pub second_owner: Signer<'info>,
 }
 
 pub fn handle_split_position(
     ctx: Context<SplitPositionCtx>,
     params: SplitPositionParameters,
 ) -> Result<()> {
-    {
-        let pool = ctx.accounts.pool.load()?;
-        let access_validator = get_pool_access_validator(&pool)?;
-        require!(
-            access_validator.can_remove_liquidity(),
-            PoolError::PoolDisabled
-        );
-    }
-
+    // validate params
     params.validate()?;
-
-    // can not split two same position
-    require_keys_neq!(
-        ctx.accounts.first_position.key(),
-        ctx.accounts.second_position.key(),
-        PoolError::SamePosition
-    );
 
     let SplitPositionParameters {
         unlocked_liquidity_percentage,
@@ -151,15 +131,19 @@ pub fn handle_split_position(
     let mut first_position = ctx.accounts.first_position.load_mut()?;
     let mut second_position = ctx.accounts.second_position.load_mut()?;
 
+    // Require positions without vested liquidity to avoid complex logic.
+    // Because a position can have multiple vested locks with different vesting time.
     require!(
         first_position.vested_liquidity == 0,
         PoolError::UnsupportPositionHasVestingLock
     );
 
-    // update current pool reward & postion reward for first and second
     let current_time = Clock::get()?.unix_timestamp as u64;
-    first_position.update_rewards(&mut pool, current_time)?;
-    second_position.update_rewards(&mut pool, current_time)?;
+    // update current pool reward
+    pool.update_rewards(current_time)?;
+    // update first and second position reward
+    first_position.update_position_reward(&pool)?;
+    second_position.update_position_reward(&pool)?;
 
     let split_amount_info: SplitAmountInfo = pool.apply_split_position(
         &mut first_position,
@@ -174,21 +158,13 @@ pub fn handle_split_position(
 
     emit_cpi!(EvtSplitPosition {
         pool: ctx.accounts.pool.key(),
-        owner_1: ctx.accounts.owner_1.key(),
-        owner_2: ctx.accounts.owner_2.key(),
+        first_owner: ctx.accounts.first_owner.key(),
+        second_owner: ctx.accounts.second_owner.key(),
         first_position: ctx.accounts.first_position.key(),
         second_position: ctx.accounts.second_position.key(),
-        amount_splits: EvtSplitPositionInfo {
-            unlocked_liquidity: split_amount_info.unlocked_liquidity,
-            permanent_locked_liquidity: split_amount_info.permanent_locked_liquidity,
-            fee_a: split_amount_info.fee_a,
-            fee_b: split_amount_info.fee_b,
-            reward_0: split_amount_info.reward_0,
-            reward_1: split_amount_info.reward_1
-        },
-        first_position_info: EvtSplitPositionInfo {
-            unlocked_liquidity: first_position.unlocked_liquidity,
-            permanent_locked_liquidity: first_position.permanent_locked_liquidity,
+        amount_splits: split_amount_info,
+        first_position_info: SplitPositionInfo {
+            liquidity: first_position.get_total_liquidity()?,
             fee_a: first_position.fee_a_pending,
             fee_b: first_position.fee_b_pending,
             reward_0: first_position
@@ -202,9 +178,8 @@ pub fn handle_split_position(
                 .map(|r| r.reward_pendings)
                 .unwrap_or(0),
         },
-        second_position_info: EvtSplitPositionInfo {
-            unlocked_liquidity: second_position.unlocked_liquidity,
-            permanent_locked_liquidity: second_position.permanent_locked_liquidity,
+        second_position_info: SplitPositionInfo {
+            liquidity: first_position.get_total_liquidity()?,
             fee_a: second_position.fee_a_pending,
             fee_b: second_position.fee_b_pending,
             reward_0: second_position
