@@ -163,6 +163,7 @@ pub fn handle_split_position(
         first_position: ctx.accounts.first_position.key(),
         second_position: ctx.accounts.second_position.key(),
         amount_splits: split_amount_info,
+        current_sqrt_price: pool.sqrt_price,
         first_position_info: SplitPositionInfo {
             liquidity: first_position.get_total_liquidity()?,
             fee_a: first_position.fee_a_pending,
@@ -179,7 +180,7 @@ pub fn handle_split_position(
                 .unwrap_or(0),
         },
         second_position_info: SplitPositionInfo {
-            liquidity: first_position.get_total_liquidity()?,
+            liquidity: second_position.get_total_liquidity()?,
             fee_a: second_position.fee_a_pending,
             fee_b: second_position.fee_b_pending,
             reward_0: second_position

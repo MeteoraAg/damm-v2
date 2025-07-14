@@ -268,6 +268,7 @@ pub struct EvtSplitPosition {
     pub second_owner: Pubkey,
     pub first_position: Pubkey,
     pub second_position: Pubkey,
+    pub current_sqrt_price: u128,
     pub amount_splits: SplitAmountInfo,
     pub first_position_info: SplitPositionInfo,
     pub second_position_info: SplitPositionInfo,

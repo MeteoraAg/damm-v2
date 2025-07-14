@@ -8,7 +8,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     assert_eq_admin,
-    constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_RATE_SCALE},
+    constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
         get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
@@ -687,28 +687,26 @@ impl Pool {
         // split pending reward by percentage
         if self.pool_reward_initialized() {
             if reward_0_percentage > 0 {
-                let reward_index = 0;
-                let pool_reward_info = self.reward_infos[reward_index];
+                let pool_reward_info = self.reward_infos[REWARD_INDEX_0];
                 if pool_reward_info.initialized() {
                     let split_reward = first_position
-                        .get_pending_reward_by_percentage(reward_index, reward_0_percentage)?;
+                        .get_pending_reward_by_percentage(REWARD_INDEX_0, reward_0_percentage)?;
 
-                    first_position.remove_reward_pending(reward_index, split_reward)?;
-                    second_position.add_reward_pending(reward_index, split_reward)?;
+                    first_position.remove_reward_pending(REWARD_INDEX_0, split_reward)?;
+                    second_position.add_reward_pending(REWARD_INDEX_0, split_reward)?;
 
                     reward_0_split = split_reward;
                 }
             }
 
             if reward_1_percentage > 0 {
-                let reward_index = 1;
-                let pool_reward_info = self.reward_infos[reward_index];
+                let pool_reward_info = self.reward_infos[REWARD_INDEX_1];
                 if pool_reward_info.initialized() {
                     let split_reward = first_position
-                        .get_pending_reward_by_percentage(reward_index, reward_1_percentage)?;
+                        .get_pending_reward_by_percentage(REWARD_INDEX_1, reward_1_percentage)?;
 
-                    first_position.remove_reward_pending(reward_index, split_reward)?;
-                    second_position.add_reward_pending(reward_index, split_reward)?;
+                    first_position.remove_reward_pending(REWARD_INDEX_1, split_reward)?;
+                    second_position.add_reward_pending(REWARD_INDEX_1, split_reward)?;
 
                     reward_1_split = split_reward
                 }
