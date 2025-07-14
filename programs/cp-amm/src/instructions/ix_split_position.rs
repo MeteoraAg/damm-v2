@@ -91,7 +91,7 @@ pub struct SplitPositionCtx<'info> {
     #[account(
         mut,
         has_one = pool,
-      )]
+    )]
     pub second_position: AccountLoader<'info, Position>,
 
     /// The token account for position nft
@@ -99,7 +99,7 @@ pub struct SplitPositionCtx<'info> {
         constraint = second_position_nft_account.mint == second_position.load()?.nft_mint,
         constraint = second_position_nft_account.amount == 1,
         token::authority = second_owner
-)]
+    )]
     pub second_position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// Owner of first position
