@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::TokenAccount;
 
 use crate::{
+    constants::{REWARD_INDEX_0, REWARD_INDEX_1},
     state::{Pool, Position, SplitAmountInfo, SplitPositionInfo},
     EvtSplitPosition, PoolError,
 };
@@ -170,12 +171,12 @@ pub fn handle_split_position(
             fee_b: first_position.fee_b_pending,
             reward_0: first_position
                 .reward_infos
-                .get(0)
+                .get(REWARD_INDEX_0)
                 .map(|r| r.reward_pendings)
                 .unwrap_or(0),
             reward_1: first_position
                 .reward_infos
-                .get(1)
+                .get(REWARD_INDEX_1)
                 .map(|r| r.reward_pendings)
                 .unwrap_or(0),
         },
@@ -185,12 +186,12 @@ pub fn handle_split_position(
             fee_b: second_position.fee_b_pending,
             reward_0: second_position
                 .reward_infos
-                .get(0)
+                .get(REWARD_INDEX_0)
                 .map(|r| r.reward_pendings)
                 .unwrap_or(0),
             reward_1: second_position
                 .reward_infos
-                .get(1)
+                .get(REWARD_INDEX_1)
                 .map(|r| r.reward_pendings)
                 .unwrap_or(0),
         },

@@ -30,7 +30,7 @@ pub const U24_MAX: u32 = 0xffffff;
 // Number of rewards supported by pool
 pub const NUM_REWARDS: usize = 2;
 pub const REWARD_INDEX_0: usize = 0;
-pub const REWARD_INDEX_1: usize = 0;
+pub const REWARD_INDEX_1: usize = 1;
 
 // Minimum reward duration
 pub const MIN_REWARD_DURATION: u64 = 24 * 60 * 60; // 1 day
