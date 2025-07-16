@@ -79,7 +79,7 @@ pub fn handle_close_position(ctx: Context<ClosePositionCtx>) -> Result<()> {
     ))?;
 
     // close position_nft_mint
-    let signer_seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
+    let signer_seeds = pool_authority_seeds!();
     token_2022::close_account(CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
         token_2022::CloseAccount {

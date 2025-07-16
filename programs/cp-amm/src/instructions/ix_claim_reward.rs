@@ -92,7 +92,6 @@ pub fn handle_claim_reward(ctx: Context<ClaimRewardCtx>, reward_index: u8) -> Re
             &ctx.accounts.user_token_account,
             &ctx.accounts.token_program,
             total_reward,
-            const_pda::pool_authority::BUMP,
         )?;
     }
 

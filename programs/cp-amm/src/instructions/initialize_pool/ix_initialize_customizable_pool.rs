@@ -326,7 +326,6 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         ctx.accounts.system_program.to_account_info(),
         ctx.accounts.token_2022_program.to_account_info(),
         ctx.accounts.position_nft_account.to_account_info(),
-        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtCreatePosition {

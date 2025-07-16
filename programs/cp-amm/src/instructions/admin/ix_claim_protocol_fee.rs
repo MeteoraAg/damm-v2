@@ -79,7 +79,6 @@ pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeesCtx>) -> Result<(
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_a_program,
         token_a_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     transfer_from_pool(
@@ -89,7 +88,6 @@ pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeesCtx>) -> Result<(
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_b_program,
         token_b_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtClaimProtocolFee {
