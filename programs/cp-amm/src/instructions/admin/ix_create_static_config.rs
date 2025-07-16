@@ -3,12 +3,9 @@ use anchor_lang::prelude::*;
 use crate::{
     activation_handler::ActivationHandler,
     assert_eq_admin,
-    constants::{fee::PARTNER_FEE_PERCENT, seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     event,
-    params::{
-        activation::ActivationParams,
-        fee_parameters::{PartnerInfo, PoolFeeParameters},
-    },
+    params::{activation::ActivationParams, fee_parameters::PoolFeeParameters},
     state::{CollectFeeMode, Config},
     PoolError,
 };
@@ -89,14 +86,6 @@ pub fn handle_create_static_config(
         has_alpha_vault,
     };
     activation_params.validate()?;
-
-    let partner_info = PartnerInfo {
-        partner_authority: pool_creator_authority,
-        fee_percent: PARTNER_FEE_PERCENT,
-        ..Default::default()
-    };
-
-    partner_info.validate()?;
 
     let mut config = ctx.accounts.config.load_init()?;
     config.init_static_config(

@@ -89,9 +89,6 @@ impl PoolFeesConfig {
     pub fn to_pool_fee_parameters(&self) -> PoolFeeParameters {
         let &PoolFeesConfig {
             base_fee,
-            protocol_fee_percent: _,
-            partner_fee_percent: _,
-            referral_fee_percent: _,
             dynamic_fee:
                 DynamicFeeConfig {
                     initialized,
