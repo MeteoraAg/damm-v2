@@ -92,7 +92,6 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
             &ctx.accounts.token_a_account,
             &ctx.accounts.token_a_program,
             fee_a_pending,
-            const_pda::pool_authority::BUMP,
         )?;
     }
 
@@ -104,7 +103,6 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
             &ctx.accounts.token_b_account,
             &ctx.accounts.token_b_program,
             fee_b_pending,
-            const_pda::pool_authority::BUMP,
         )?;
     }
 

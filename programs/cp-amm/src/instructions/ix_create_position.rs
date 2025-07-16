@@ -106,7 +106,6 @@ pub fn handle_create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
         ctx.accounts.system_program.to_account_info(),
         ctx.accounts.token_program.to_account_info(),
         ctx.accounts.position_nft_account.to_account_info(),
-        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtCreatePosition {
@@ -126,10 +125,9 @@ pub fn create_position_nft<'info>(
     system_program: AccountInfo<'info>,
     token_program: AccountInfo<'info>,
     position_nft_account: AccountInfo<'info>,
-    pool_authority_bump: u8,
 ) -> Result<()> {
     // init token metadata
-    let seeds = pool_authority_seeds!(pool_authority_bump);
+    let seeds = pool_authority_seeds!();
     let signer_seeds = &[&seeds[..]];
     let cpi_accounts = TokenMetadataInitialize {
         program_id: token_program.clone(),

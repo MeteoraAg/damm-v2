@@ -167,7 +167,6 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         &ctx.accounts.output_token_account,
         output_program,
         swap_result.output_amount,
-        const_pda::pool_authority::BUMP,
     )?;
     // send to referral
     if has_referral {
@@ -179,7 +178,6 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
                 &ctx.accounts.referral_token_account.clone().unwrap(),
                 &ctx.accounts.token_a_program,
                 swap_result.referral_fee,
-                const_pda::pool_authority::BUMP,
             )?;
         } else {
             transfer_from_pool(
@@ -189,7 +187,6 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
                 &ctx.accounts.referral_token_account.clone().unwrap(),
                 &ctx.accounts.token_b_program,
                 swap_result.referral_fee,
-                const_pda::pool_authority::BUMP,
             )?;
         }
     }

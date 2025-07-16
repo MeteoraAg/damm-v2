@@ -99,7 +99,6 @@ pub fn handle_claim_reward(
                 &ctx.accounts.user_token_account,
                 &ctx.accounts.token_program,
                 total_reward,
-                const_pda::pool_authority::BUMP,
             )?;
         }
     }

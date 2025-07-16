@@ -191,9 +191,8 @@ pub fn transfer_from_pool<'c: 'info, 'info>(
     token_owner_account: &InterfaceAccount<'info, TokenAccount>,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
-    bump: u8,
 ) -> Result<()> {
-    let signer_seeds = pool_authority_seeds!(bump);
+    let signer_seeds = pool_authority_seeds!();
 
     let instruction = spl_token_2022::instruction::transfer_checked(
         token_program.key,

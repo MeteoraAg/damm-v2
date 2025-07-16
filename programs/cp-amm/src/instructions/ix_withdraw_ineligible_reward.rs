@@ -85,7 +85,6 @@ pub fn handle_withdraw_ineligible_reward(
             &ctx.accounts.funder_token_account,
             &ctx.accounts.token_program,
             ineligible_reward,
-            const_pda::pool_authority::BUMP,
         )?;
     }
 
