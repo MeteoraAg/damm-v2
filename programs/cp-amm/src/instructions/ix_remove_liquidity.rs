@@ -139,7 +139,6 @@ pub fn handle_remove_liquidity(
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_a_program,
         token_a_amount,
-        const_pda::pool_authority::BUMP,
     )?;
     transfer_from_pool(
         ctx.accounts.pool_authority.to_account_info(),
@@ -148,7 +147,6 @@ pub fn handle_remove_liquidity(
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_b_program,
         token_b_amount,
-        const_pda::pool_authority::BUMP,
     )?;
 
     emit_cpi!(EvtRemoveLiquidity {
