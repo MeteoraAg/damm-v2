@@ -82,10 +82,10 @@ pub fn handle_create_static_config(
     activation_params.validate()?;
 
     let pool_activation_type =
-        ActivationType::try_from(activation_type).map_err(|_| PoolError::TypeCastFailed)?;
+        ActivationType::try_from(activation_type).map_err(|_| PoolError::InvalidActivationType)?;
 
     let pool_collect_fee_mode =
-        CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::TypeCastFailed)?;
+        CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::InvalidCollectFeeMode)?;
     pool_fees.validate(pool_collect_fee_mode, pool_activation_type)?;
 
     let partner_info = PartnerInfo {

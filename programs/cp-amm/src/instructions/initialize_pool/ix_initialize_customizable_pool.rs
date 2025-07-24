@@ -68,7 +68,7 @@ impl InitializeCustomizablePoolParameters {
         require!(self.liquidity > 0, PoolError::InvalidMinimumLiquidity);
 
         let activation_type = ActivationType::try_from(self.activation_type)
-            .map_err(|_| PoolError::TypeCastFailed)?;
+            .map_err(|_| PoolError::InvalidActivationType)?;
         // validate fee
         let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
