@@ -4,8 +4,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX,
-    get_pool_access_validator,
+    const_pda, get_pool_access_validator,
     state::{ModifyLiquidityResult, Pool, Position},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
@@ -26,7 +25,7 @@ pub struct RemoveLiquidityParameters {
 #[derive(Accounts)]
 pub struct RemoveLiquidityCtx<'info> {
     /// CHECK: pool authority
-    #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
+    #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
     #[account(mut, has_one = token_a_vault, has_one = token_b_vault, has_one = token_a_mint, has_one = token_b_mint)]
@@ -140,7 +139,6 @@ pub fn handle_remove_liquidity(
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_a_program,
         token_a_amount,
-        ctx.bumps.pool_authority,
     )?;
     transfer_from_pool(
         ctx.accounts.pool_authority.to_account_info(),
@@ -149,7 +147,6 @@ pub fn handle_remove_liquidity(
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_b_program,
         token_b_amount,
-        ctx.bumps.pool_authority,
     )?;
 
     emit_cpi!(EvtRemoveLiquidity {

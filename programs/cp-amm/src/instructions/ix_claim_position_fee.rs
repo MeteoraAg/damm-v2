@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX,
+    const_pda,
     state::{Pool, Position},
     token::transfer_from_pool,
     EvtClaimPositionFee,
@@ -13,10 +13,7 @@ use crate::{
 pub struct ClaimPositionFeeCtx<'info> {
     /// CHECK: pool authority
     #[account(
-        seeds = [
-            POOL_AUTHORITY_PREFIX.as_ref(),
-        ],
-        bump,
+        address = const_pda::pool_authority::ID
     )]
     pub pool_authority: UncheckedAccount<'info>,
 
@@ -95,7 +92,6 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
             &ctx.accounts.token_a_account,
             &ctx.accounts.token_a_program,
             fee_a_pending,
-            ctx.bumps.pool_authority,
         )?;
     }
 
@@ -107,7 +103,6 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
             &ctx.accounts.token_b_account,
             &ctx.accounts.token_b_program,
             fee_b_pending,
-            ctx.bumps.pool_authority,
         )?;
     }
 

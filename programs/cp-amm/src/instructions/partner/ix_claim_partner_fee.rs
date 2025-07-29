@@ -1,17 +1,14 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
-use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX, state::Pool, token::transfer_from_pool,
-    EvtClaimPartnerFee,
-};
+use crate::{const_pda, state::Pool, token::transfer_from_pool, EvtClaimPartnerFee};
 
 /// Accounts for partner to claim fees
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimPartnerFeesCtx<'info> {
     /// CHECK: pool authority
-    #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
+    #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
     #[account(
@@ -72,7 +69,6 @@ pub fn handle_claim_partner_fee(
             &ctx.accounts.token_a_account,
             &ctx.accounts.token_a_program,
             token_a_amount,
-            ctx.bumps.pool_authority,
         )?;
     }
 
@@ -84,7 +80,6 @@ pub fn handle_claim_partner_fee(
             &ctx.accounts.token_b_account,
             &ctx.accounts.token_b_program,
             token_b_amount,
-            ctx.bumps.pool_authority,
         )?;
     }
 

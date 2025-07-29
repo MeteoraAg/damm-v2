@@ -2,7 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    constants::{seeds::POOL_AUTHORITY_PREFIX, NUM_REWARDS},
+    const_pda,
+    constants::NUM_REWARDS,
     error::PoolError,
     event::EvtClaimReward,
     state::{pool::Pool, position::Position},
@@ -13,7 +14,7 @@ use crate::{
 #[derive(Accounts)]
 pub struct ClaimRewardCtx<'info> {
     /// CHECK: pool authority
-    #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
+    #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -98,7 +99,6 @@ pub fn handle_claim_reward(
                 &ctx.accounts.user_token_account,
                 &ctx.accounts.token_program,
                 total_reward,
-                ctx.bumps.pool_authority,
             )?;
         }
     }

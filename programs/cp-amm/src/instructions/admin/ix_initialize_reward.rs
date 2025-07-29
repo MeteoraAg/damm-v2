@@ -2,9 +2,9 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
+    const_pda,
     constants::{
-        seeds::{POOL_AUTHORITY_PREFIX, REWARD_VAULT_PREFIX},
-        MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS,
+        seeds::REWARD_VAULT_PREFIX, MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS,
     },
     error::PoolError,
     event::EvtInitializeReward,
@@ -17,7 +17,7 @@ use crate::{
 #[instruction(reward_index: u8)]
 pub struct InitializeRewardCtx<'info> {
     /// CHECK: pool authority
-    #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
+    #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
     #[account(mut)]

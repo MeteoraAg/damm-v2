@@ -5,7 +5,7 @@ use anchor_spl::{
 };
 
 use crate::{
-    constants::seeds::POOL_AUTHORITY_PREFIX,
+    const_pda,
     state::{Pool, Position},
     EvtClosePosition, PoolError,
 };
@@ -37,7 +37,7 @@ pub struct ClosePositionCtx<'info> {
     pub position: AccountLoader<'info, Position>,
 
     /// CHECK: pool authority
-    #[account(seeds = [POOL_AUTHORITY_PREFIX.as_ref()], bump)]
+    #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
     /// CHECK: rent receiver
@@ -82,7 +82,7 @@ pub fn handle_close_position(ctx: Context<ClosePositionCtx>) -> Result<()> {
     ))?;
 
     // close position_nft_mint
-    let signer_seeds = pool_authority_seeds!(ctx.bumps.pool_authority);
+    let signer_seeds = pool_authority_seeds!();
     token_2022::close_account(CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
         token_2022::CloseAccount {
