@@ -9,3 +9,4 @@ authors = ["minh <minh@raccoons.dev>"]
 anyhow = "1.0.71"
 cp-amm = { path = "../programs/cp-amm" }
 anchor-lang = { workspace = true}
+bytemuck = { workspace = true}

@@ -16,3 +16,4 @@ codegen-units = 1
 anchor-lang = { version = "0.31.0", features = ["init-if-needed"] }
 anchor-spl = "0.31.0"
 anchor-client = "0.31.0"
+bytemuck = { version = "1.20.0"}
