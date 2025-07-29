@@ -29,7 +29,7 @@ import {
 } from "./bankrun-utils";
 import BN from "bn.js";
 
-describe.only("Split position", () => {
+describe("Split position", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let creator: Keypair;
