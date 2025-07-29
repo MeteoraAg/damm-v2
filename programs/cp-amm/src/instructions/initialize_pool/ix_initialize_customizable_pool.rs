@@ -70,8 +70,6 @@ impl InitializeCustomizablePoolParameters {
 
         // validate fee
         self.pool_fees.validate()?;
-        // more validation for protocol fee and partner fee
-        self.pool_fees.validate_for_customizable_pool()?;
 
         CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;

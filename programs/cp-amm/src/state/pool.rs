@@ -423,6 +423,7 @@ impl Pool {
                 fee_mode.has_referral,
                 current_point,
                 self.activation_point,
+                self.has_partner(),
             )?;
 
             actual_protocol_fee = protocol_fee;
@@ -457,6 +458,7 @@ impl Pool {
                 fee_mode.has_referral,
                 current_point,
                 self.activation_point,
+                self.has_partner(),
             )?;
             actual_protocol_fee = protocol_fee;
             actual_lp_fee = lp_fee;
@@ -754,6 +756,10 @@ impl Pool {
             require!(assert_eq_admin(signer), PoolError::InvalidAdmin);
         }
         Ok(())
+    }
+
+    pub fn has_partner(&self) -> bool {
+        self.partner != Pubkey::default()
     }
 }
 

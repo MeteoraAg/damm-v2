@@ -129,9 +129,7 @@ describe("Reward by admin", () => {
             periodFrequency: new BN(0),
             feeSchedulerMode: 0,
           },
-          protocolFeePercent: 10,
-          partnerFeePercent: 0,
-          referralFeePercent: 0,
+          padding: [],
           dynamicFee: null,
         },
         sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -445,9 +443,7 @@ describe("Reward by admin", () => {
             periodFrequency: new BN(0),
             feeSchedulerMode: 0,
           },
-          protocolFeePercent: 10,
-          partnerFeePercent: 0,
-          referralFeePercent: 0,
+          padding: [],
           dynamicFee: null,
         },
         sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -567,7 +563,7 @@ describe("Reward by admin", () => {
       // set new timestamp to pass reward duration end
       const timestamp =
         poolState.rewardInfos[index].rewardDurationEnd.addn(5000);
-       currentClock = await context.banksClient.getClock();
+      currentClock = await context.banksClient.getClock();
       context.setClock(
         new Clock(
           currentClock.slot,
