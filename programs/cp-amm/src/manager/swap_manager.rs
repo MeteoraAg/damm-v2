@@ -17,7 +17,7 @@ pub struct SwapFinalResult {
 }
 
 pub fn swap(
-    pool: Pool,
+    pool: &Pool,
     amount_in: u64,
     current_slot: u64,
     current_timestamp: i64,
@@ -35,15 +35,12 @@ pub fn swap(
 }
 
 fn handle_normal_swap(
-    mut pool: Pool,
+    pool: &Pool,
     amount_in: u64,
     current_slot: u64,
     current_timestamp: i64,
     a_to_b: bool,
 ) -> Result<SwapFinalResult> {
-    // update for dynamic fee reference
-    pool.update_pre_swap(current_timestamp as u64)?;
-
     let trade_direction = if a_to_b {
         TradeDirection::AtoB
     } else {
