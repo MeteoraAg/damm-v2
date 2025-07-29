@@ -188,6 +188,8 @@ pub struct EvtInitializeReward {
     pub reward_mint: Pubkey,
     // Address of the funder
     pub funder: Pubkey,
+    // reward creator
+    pub creator: Pubkey,
     // Index of the farm reward being initialized
     pub reward_index: u8,
     // Duration of the farm reward in seconds
@@ -208,6 +210,12 @@ pub struct EvtFundReward {
     pub amount: u64,
     // Amount excluded transfer fee
     pub transfer_fee_excluded_amount_in: u64,
+    // reward duration end
+    pub reward_duration_end: u64,
+    // reward rate before funding
+    pub pre_reward_rate: u128,
+    // reward rate after funding
+    pub post_reward_rate: u128,
 }
 
 #[event]

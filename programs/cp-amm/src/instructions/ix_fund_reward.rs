@@ -75,6 +75,7 @@ pub fn handle_fund_reward(
 
     // 2. set new farming rate
     let reward_info = &mut pool.reward_infos[index];
+    let pre_reward_rate = reward_info.reward_rate;
 
     let total_amount = if carry_forward {
         let carry_forward_ineligible_reward: u64 = safe_mul_shr_cast(
@@ -122,6 +123,9 @@ pub fn handle_fund_reward(
         reward_index,
         amount: total_amount,
         transfer_fee_excluded_amount_in,
+        pre_reward_rate,
+        post_reward_rate: reward_info.reward_rate,
+        reward_duration_end: reward_info.reward_duration_end
     });
 
     Ok(())

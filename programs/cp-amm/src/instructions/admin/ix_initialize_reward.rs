@@ -104,6 +104,7 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
         pool: ctx.accounts.pool.key(),
         reward_mint: ctx.accounts.reward_mint.key(),
         funder,
+        creator: ctx.accounts.signer.key(),
         reward_duration,
         reward_index,
     });
