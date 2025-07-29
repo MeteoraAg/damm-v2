@@ -3,6 +3,7 @@ use anchor_spl::token_interface::TokenAccount;
 
 use crate::{
     constants::{REWARD_INDEX_0, REWARD_INDEX_1},
+    get_pool_access_validator,
     state::{Pool, Position, SplitAmountInfo, SplitPositionInfo},
     EvtSplitPosition, PoolError,
 };
@@ -114,6 +115,15 @@ pub fn handle_split_position(
     ctx: Context<SplitPositionCtx>,
     params: SplitPositionParameters,
 ) -> Result<()> {
+    {
+        let pool = ctx.accounts.pool.load()?;
+        let access_validator = get_pool_access_validator(&pool)?;
+        require!(
+            access_validator.can_split_position(),
+            PoolError::PoolDisabled
+        );
+    }
+
     // validate params
     params.validate()?;
 
