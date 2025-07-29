@@ -2,8 +2,9 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    params::fee_parameters::PoolFeeParameters, state::SwapResult, AddLiquidityParameters,
-    RemoveLiquidityParameters, SwapParameters,
+    params::fee_parameters::PoolFeeParameters,
+    state::{SplitAmountInfo, SplitPositionInfo, SwapResult},
+    AddLiquidityParameters, RemoveLiquidityParameters, SplitPositionParameters, SwapParameters,
 };
 
 /// Close config
@@ -266,4 +267,18 @@ pub struct EvtWithdrawIneligibleReward {
     pub reward_mint: Pubkey,
     // Amount of ineligible reward withdrawn
     pub amount: u64,
+}
+
+#[event]
+pub struct EvtSplitPosition {
+    pub pool: Pubkey,
+    pub first_owner: Pubkey,
+    pub second_owner: Pubkey,
+    pub first_position: Pubkey,
+    pub second_position: Pubkey,
+    pub current_sqrt_price: u128,
+    pub amount_splits: SplitAmountInfo,
+    pub first_position_info: SplitPositionInfo,
+    pub second_position_info: SplitPositionInfo,
+    pub split_position_parameters: SplitPositionParameters,
 }

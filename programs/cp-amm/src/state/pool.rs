@@ -8,7 +8,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     assert_eq_admin,
-    constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_RATE_SCALE},
+    constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
         get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
@@ -17,7 +17,7 @@ use crate::{
     safe_math::SafeMath,
     state::{
         fee::{DynamicFeeStruct, FeeOnAmountResult, PoolFeesStruct},
-        Position,
+        Position, SplitFeeAmount,
     },
     u128x128_math::{shl_div_256, Rounding},
     utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
@@ -625,6 +625,106 @@ impl Pool {
         Ok(())
     }
 
+    pub fn apply_split_position(
+        &self,
+        first_position: &mut Position,
+        second_position: &mut Position,
+        unlocked_liquidity_percentage: u8,
+        permanent_locked_liquidity_percentage: u8,
+        fee_a_percentage: u8,
+        fee_b_percentage: u8,
+        reward_0_percentage: u8,
+        reward_1_percentage: u8,
+    ) -> Result<SplitAmountInfo> {
+        // update current fee for first position
+        first_position.update_fee(self.fee_a_per_liquidity(), self.fee_b_per_liquidity())?;
+        // update current fee for second position
+        second_position.update_fee(self.fee_a_per_liquidity(), self.fee_b_per_liquidity())?;
+
+        let mut unlocked_liquidity_split = 0;
+        let mut permanent_locked_liquidity_split = 0;
+        let mut fee_a_split = 0;
+        let mut fee_b_split = 0;
+        let mut reward_0_split = 0;
+        let mut reward_1_split = 0;
+
+        // split unlocked liquidity by percentage
+        if unlocked_liquidity_percentage > 0 {
+            let unlocked_liquidity_delta = first_position
+                .get_unlocked_liquidity_by_percentage(unlocked_liquidity_percentage)?;
+
+            first_position.remove_unlocked_liquidity(unlocked_liquidity_delta)?;
+            second_position.add_liquidity(unlocked_liquidity_delta)?;
+
+            unlocked_liquidity_split = unlocked_liquidity_delta;
+        }
+
+        // split permanent locked liquidity by percentage
+        if permanent_locked_liquidity_percentage > 0 {
+            let permanent_locked_liquidity_delta = first_position
+                .get_permanent_locked_liquidity_by_percentage(
+                    permanent_locked_liquidity_percentage,
+                )?;
+
+            first_position.remove_permanent_locked_liquidity(permanent_locked_liquidity_delta)?;
+            second_position.add_permanent_locked_liquidity(permanent_locked_liquidity_delta)?;
+
+            permanent_locked_liquidity_split = permanent_locked_liquidity_delta;
+        }
+
+        // split pending lp fee  by percentage
+        if fee_a_percentage > 0 || fee_b_percentage > 0 {
+            let SplitFeeAmount {
+                fee_a_amount,
+                fee_b_amount,
+            } = first_position.get_pending_fee_by_percentage(fee_a_percentage, fee_b_percentage)?;
+
+            first_position.remove_fee_pending(fee_a_amount, fee_b_amount)?;
+            second_position.add_fee_pending(fee_a_amount, fee_b_amount)?;
+
+            fee_a_split = fee_a_amount;
+            fee_b_split = fee_b_amount;
+        }
+
+        // split pending reward by percentage
+        if self.pool_reward_initialized() {
+            if reward_0_percentage > 0 {
+                let pool_reward_info = self.reward_infos[REWARD_INDEX_0];
+                if pool_reward_info.initialized() {
+                    let split_reward = first_position
+                        .get_pending_reward_by_percentage(REWARD_INDEX_0, reward_0_percentage)?;
+
+                    first_position.remove_reward_pending(REWARD_INDEX_0, split_reward)?;
+                    second_position.add_reward_pending(REWARD_INDEX_0, split_reward)?;
+
+                    reward_0_split = split_reward;
+                }
+            }
+
+            if reward_1_percentage > 0 {
+                let pool_reward_info = self.reward_infos[REWARD_INDEX_1];
+                if pool_reward_info.initialized() {
+                    let split_reward = first_position
+                        .get_pending_reward_by_percentage(REWARD_INDEX_1, reward_1_percentage)?;
+
+                    first_position.remove_reward_pending(REWARD_INDEX_1, split_reward)?;
+                    second_position.add_reward_pending(REWARD_INDEX_1, split_reward)?;
+
+                    reward_1_split = split_reward
+                }
+            }
+        }
+
+        Ok(SplitAmountInfo {
+            unlocked_liquidity: unlocked_liquidity_split,
+            permanent_locked_liquidity: permanent_locked_liquidity_split,
+            fee_a: fee_a_split,
+            fee_b: fee_b_split,
+            reward_0: reward_0_split,
+            reward_1: reward_1_split,
+        })
+    }
+
     pub fn get_max_amount_in(&self, trade_direction: TradeDirection) -> Result<u64> {
         let amount = match trade_direction {
             TradeDirection::AtoB => get_delta_amount_a_unsigned_unchecked(
@@ -783,4 +883,14 @@ pub struct SwapAmount {
 pub struct ModifyLiquidityResult {
     pub token_a_amount: u64,
     pub token_b_amount: u64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, PartialEq)]
+pub struct SplitAmountInfo {
+    pub permanent_locked_liquidity: u128,
+    pub unlocked_liquidity: u128,
+    pub fee_a: u64,
+    pub fee_b: u64,
+    pub reward_0: u64,
+    pub reward_1: u64,
 }

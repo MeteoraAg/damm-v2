@@ -65,4 +65,7 @@ impl PoolActionAccess for PermissionlessActionAccess {
     fn can_lock_position(&self) -> bool {
         self.is_enabled
     }
+    fn can_split_position(&self) -> bool {
+        self.is_enabled
+    }
 }
