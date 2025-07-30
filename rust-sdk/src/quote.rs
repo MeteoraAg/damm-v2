@@ -15,29 +15,16 @@ pub fn get_quote(
 ) -> Result<SwapResult> {
     ensure!(actual_amount_in > 0, "amount is zero");
 
-    let result = if pool.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
-        let mut pool = *pool;
-        pool.update_pre_swap(current_timestamp)?;
-        get_internal_quote(
-            &pool,
-            current_timestamp,
-            current_slot,
-            actual_amount_in,
-            a_to_b,
-            has_referral,
-        )
-    } else {
-        get_internal_quote(
-            pool,
-            current_timestamp,
-            current_slot,
-            actual_amount_in,
-            a_to_b,
-            has_referral,
-        )
-    };
-
-    result
+    let result = get_internal_quote(
+        pool,
+        current_timestamp,
+        current_slot,
+        actual_amount_in,
+        a_to_b,
+        has_referral,
+    )
+    .unwrap();
+    Ok(result)
 }
 
 fn get_internal_quote(
@@ -55,6 +42,11 @@ fn get_internal_quote(
         ActivationType::Slot => current_slot,
         ActivationType::Timestamp => current_timestamp,
     };
+
+    ensure!(
+        pool.pool_status == 0 && pool.activation_point <= current_point,
+        "Swap is disabled"
+    );
 
     let trade_direction = if a_to_b {
         TradeDirection::AtoB
