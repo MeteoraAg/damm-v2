@@ -21,6 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+
+## cp_amm [0.1.3]
+
+### Added
+- Add new endpoint `split_position` that allows position's owner to split position.
+
+### Changed
+- Loosen protocol and partner fee validation on program
+- Optimize for pool authority seed calculation
+- Make swap fields public
+- Update quote function in sdk, add a condition for swap enabled 
+
+### Breaking Changes
+- `EvtInitializeReward` emit more fields: `creator`, `reward_duration_end`, `pre_reward_rate` and `post_reward_rate`
+
 ## cp_amm [0.1.2]
 
 ### Added
