@@ -281,9 +281,7 @@ impl DynamicFeeStruct {
         sqrt_price_current: u128,
         current_timestamp: u64,
     ) -> Result<()> {
-        let elapsed = current_timestamp
-            .safe_sub(self.last_update_timestamp)
-            .unwrap();
+        let elapsed = current_timestamp.safe_sub(self.last_update_timestamp)?;
         // Not high frequency trade
         if elapsed >= self.filter_period as u64 {
             // Update sqrt of last transaction
