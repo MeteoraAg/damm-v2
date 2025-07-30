@@ -1,7 +1,5 @@
-use anchor_lang::prelude::Pubkey;
 use anyhow::{ensure, Context, Ok, Result};
 use cp_amm::{
-    get_pool_access_validator,
     params::swap::TradeDirection,
     state::{fee::FeeMode, Pool, SwapResult},
     ActivationType,
@@ -16,13 +14,8 @@ pub fn get_quote(
     has_referral: bool,
 ) -> Result<SwapResult> {
     ensure!(actual_amount_in > 0, "amount is zero");
-    let access_validator = get_pool_access_validator(&pool)?;
-    ensure!(
-        access_validator.can_swap(&Pubkey::default()),
-        "Swap is disabled"
-    );
 
-    get_internal_quote(
+    let result = get_internal_quote(
         pool,
         current_timestamp,
         current_slot,
@@ -30,6 +23,8 @@ pub fn get_quote(
         a_to_b,
         has_referral,
     )
+    .unwrap();
+    Ok(result)
 }
 
 fn get_internal_quote(
@@ -47,6 +42,11 @@ fn get_internal_quote(
         ActivationType::Slot => current_slot,
         ActivationType::Timestamp => current_timestamp,
     };
+
+    ensure!(
+        pool.pool_status == 0 && pool.activation_point <= current_point,
+        "Swap is disabled"
+    );
 
     let trade_direction = if a_to_b {
         TradeDirection::AtoB

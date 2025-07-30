@@ -1,4 +1,3 @@
-pub mod test_debug_jupiter;
 pub mod test_quote_exact_in;
 
 use std::fs;
