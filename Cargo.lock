@@ -1738,6 +1738,7 @@ checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 name = "rust-sdk"
 version = "0.1.0"
 dependencies = [
+ "anchor-lang",
  "anyhow",
  "cp-amm",
 ]

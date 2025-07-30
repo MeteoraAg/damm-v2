@@ -1,5 +1,7 @@
+use anchor_lang::prelude::Pubkey;
 use anyhow::{ensure, Context, Ok, Result};
 use cp_amm::{
+    get_pool_access_validator,
     params::swap::TradeDirection,
     state::{fee::FeeMode, Pool, SwapResult},
     ActivationType,
@@ -14,30 +16,20 @@ pub fn get_quote(
     has_referral: bool,
 ) -> Result<SwapResult> {
     ensure!(actual_amount_in > 0, "amount is zero");
+    let access_validator = get_pool_access_validator(&pool)?;
+    ensure!(
+        access_validator.can_swap(&Pubkey::default()),
+        "Swap is disabled"
+    );
 
-    let result = if pool.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
-        let mut pool = *pool;
-        pool.update_pre_swap(current_timestamp)?;
-        get_internal_quote(
-            &pool,
-            current_timestamp,
-            current_slot,
-            actual_amount_in,
-            a_to_b,
-            has_referral,
-        )
-    } else {
-        get_internal_quote(
-            pool,
-            current_timestamp,
-            current_slot,
-            actual_amount_in,
-            a_to_b,
-            has_referral,
-        )
-    };
-
-    result
+    get_internal_quote(
+        pool,
+        current_timestamp,
+        current_slot,
+        actual_amount_in,
+        a_to_b,
+        has_referral,
+    )
 }
 
 fn get_internal_quote(
