@@ -26,6 +26,7 @@ import {
   U64_MAX,
   addLiquidity,
   swap,
+  convertToByteArray
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -93,18 +94,17 @@ describe("Split position", () => {
       user.publicKey
     );
     // create config
+
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
           cliffFeeNumerator: new BN(2_500_000),
-          numberOfPeriod: 0,
-          reductionFactor: new BN(0),
-          periodFrequency: new BN(0),
-          feeSchedulerMode: 0,
+          firstFactor: 0,
+          secondFactor: convertToByteArray(new BN(0)),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
-        protocolFeePercent: 10,
-        partnerFeePercent: 0,
-        referralFeePercent: 0,
+        padding: [],
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),

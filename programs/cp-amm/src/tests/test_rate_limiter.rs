@@ -107,10 +107,8 @@ fn test_rate_limiter_from_pool_fee_params() {
 
     let pool_fees = PoolFeeParameters {
         base_fee,
-        protocol_fee_percent: 20,
-        partner_fee_percent: 0,
-        referral_fee_percent: 20,
         dynamic_fee: None,
+        ..Default::default()
     };
 
     let base_fee_struct = pool_fees.to_pool_fees_struct().base_fee;
