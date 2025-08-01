@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
 import {
+  convertToByteArray,
   expectThrowsAsync,
   generateKpAndFund,
   startTest,
@@ -99,10 +100,10 @@ describe("Permissionless transfer hook", () => {
       poolFees: {
         baseFee: {
           cliffFeeNumerator: new BN(2_500_000),
-          numberOfPeriod: 0,
-          reductionFactor: new BN(0),
-          periodFrequency: new BN(0),
-          feeSchedulerMode: 0,
+          firstFactor: 0,
+          secondFactor: convertToByteArray(new BN(0)),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
         padding: [],
         dynamicFee: null,
@@ -145,7 +146,11 @@ describe("Permissionless transfer hook", () => {
 
     // revoke program id
 
-    await revokeAuthorityAndProgramIdTransferHook(context.banksClient, context.payer, tokenAMint)
+    await revokeAuthorityAndProgramIdTransferHook(
+      context.banksClient,
+      context.payer,
+      tokenAMint
+    );
 
     const { pool } = await initializePool(context.banksClient, initPoolParams);
 

@@ -113,9 +113,7 @@ describe("Rate limiter", () => {
           thirdFactor: referenceAmount, // 1 sol
           baseFeeMode: 2, // rate limiter mode
         },
-        protocolFeePercent: 10,
-        partnerFeePercent: 0,
-        referralFeePercent: 0,
+        padding: [],
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -241,9 +239,7 @@ describe("Rate limiter", () => {
           thirdFactor: referenceAmount, // 1 sol
           baseFeeMode: 2, // rate limiter mode
         },
-        protocolFeePercent: 20,
-        partnerFeePercent: 0,
-        referralFeePercent: 20,
+        padding: [],
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
