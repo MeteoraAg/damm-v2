@@ -8,6 +8,7 @@ import {
 import { BanksClient, ProgramTestContext, startAnchor } from "solana-bankrun";
 import { CP_AMM_PROGRAM_ID } from "./constants";
 import BN from "bn.js";
+import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 
 export async function startTest(root: Keypair) {
   // Program name need to match fixtures program name
@@ -17,6 +18,10 @@ export async function startTest(root: Keypair) {
       {
         name: "cp_amm",
         programId: new PublicKey(CP_AMM_PROGRAM_ID),
+      },
+      {
+        name: "transfer_hook_counter",
+        programId: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
       },
     ],
     [
