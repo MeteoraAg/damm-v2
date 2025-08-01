@@ -27,3 +27,9 @@ mod fee_scheduler_tests;
 
 #[cfg(test)]
 mod test_volatility_accumulate;
+
+#[cfg(test)]
+mod test_rate_limiter;
+
+#[cfg(test)]
+mod layout_test;

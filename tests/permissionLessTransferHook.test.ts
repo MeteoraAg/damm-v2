@@ -1,49 +1,72 @@
+import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, startTest } from "./bankrun-utils/common";
+import {
+  convertToByteArray,
+  expectThrowsAsync,
+  generateKpAndFund,
+  startTest,
+} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
-  addLiquidity,
-  AddLiquidityParams,
-  claimPositionFee,
   createConfigIx,
   CreateConfigParams,
-  createPosition,
+  getPool,
   initializePool,
   InitializePoolParams,
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
-  swap,
-  SwapParams,
+  setPoolStatus,
   createToken,
   mintSplTokenTo,
+  getCpAmmProgramErrorCodeHexString,
 } from "./bankrun-utils";
 import BN from "bn.js";
+import {
+  createToken2022,
+  createTransferHookExtensionWithInstruction,
+  mintToToken2022,
+  revokeAuthorityAndProgramIdTransferHook,
+} from "./bankrun-utils/token2022";
+import { createExtraAccountMetaListAndCounter } from "./bankrun-utils/transferHook";
 
-describe("Claim position fee", () => {
+describe("Permissionless transfer hook", () => {
   let context: ProgramTestContext;
-  let admin: Keypair;
-  let user: Keypair;
   let creator: Keypair;
   let config: PublicKey;
-  let pool: PublicKey;
-  let position: PublicKey;
+
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
+
+  let liquidity: BN;
+  let sqrtPrice: BN;
+  let admin: Keypair;
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
     const root = Keypair.generate();
     context = await startTest(root);
 
-    user = await generateKpAndFund(context.banksClient, context.payer);
-    admin = await generateKpAndFund(context.banksClient, context.payer);
-    creator = await generateKpAndFund(context.banksClient, context.payer);
+    const tokenAMintKeypair = Keypair.generate();
+    const tokenBMintKeypair = Keypair.generate();
 
-    tokenAMint = await createToken(
+    tokenAMint = tokenAMintKeypair.publicKey;
+
+    const tokenAExtensions = [
+      createTransferHookExtensionWithInstruction(
+        tokenAMintKeypair.publicKey,
+        context.payer.publicKey
+      ),
+    ];
+
+    creator = await generateKpAndFund(context.banksClient, context.payer);
+    admin = await generateKpAndFund(context.banksClient, context.payer);
+
+    await createToken2022(
       context.banksClient,
       context.payer,
-      context.payer.publicKey
+      tokenAExtensions,
+      tokenAMintKeypair
     );
     tokenBMint = await createToken(
       context.banksClient,
@@ -51,23 +74,7 @@ describe("Claim position fee", () => {
       context.payer.publicKey
     );
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenAMint,
-      context.payer,
-      user.publicKey
-    );
-
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenBMint,
-      context.payer,
-      user.publicKey
-    );
-
-    await mintSplTokenTo(
+    await mintToToken2022(
       context.banksClient,
       context.payer,
       tokenAMint,
@@ -83,6 +90,11 @@ describe("Claim position fee", () => {
       creator.publicKey
     );
 
+    await createExtraAccountMetaListAndCounter(
+      context.banksClient,
+      admin,
+      tokenAMint
+    );
     // create config
     const createConfigParams: CreateConfigParams = {
       poolFees: {
@@ -110,6 +122,11 @@ describe("Claim position fee", () => {
       new BN(configId),
       createConfigParams
     );
+  });
+
+  it("Initialize pool with permission less transfer hook", async () => {
+    liquidity = new BN(MIN_LP_AMOUNT);
+    sqrtPrice = new BN(MIN_SQRT_PRICE);
 
     const initPoolParams: InitializePoolParams = {
       payer: creator,
@@ -117,50 +134,33 @@ describe("Claim position fee", () => {
       config,
       tokenAMint,
       tokenBMint,
-      liquidity: new BN(MIN_LP_AMOUNT),
-      sqrtPrice: new BN(MIN_SQRT_PRICE.muln(2)),
+      liquidity,
+      sqrtPrice,
       activationPoint: null,
     };
 
-    const result = await initializePool(context.banksClient, initPoolParams);
-    pool = result.pool;
-    position = await createPosition(
+    const errorCode = getCpAmmProgramErrorCodeHexString("InvalidTokenBadge");
+    await expectThrowsAsync(async () => {
+      await initializePool(context.banksClient, initPoolParams);
+    }, errorCode);
+
+    // revoke program id
+
+    await revokeAuthorityAndProgramIdTransferHook(
       context.banksClient,
-      user,
-      user.publicKey,
-      pool
+      context.payer,
+      tokenAMint
     );
-  });
 
-  it("User claim position fee", async () => {
-    const addLiquidityParams: AddLiquidityParams = {
-      owner: user,
+    const { pool } = await initializePool(context.banksClient, initPoolParams);
+
+    const newStatus = 1;
+    await setPoolStatus(context.banksClient, {
+      admin,
       pool,
-      position,
-      liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
-      tokenAAmountThreshold: new BN(200),
-      tokenBAmountThreshold: new BN(200),
-    };
-    await addLiquidity(context.banksClient, addLiquidityParams);
-
-    const swapParams: SwapParams = {
-      payer: user,
-      pool,
-      inputTokenMint: tokenAMint,
-      outputTokenMint: tokenBMint,
-      amountIn: new BN(10),
-      minimumAmountOut: new BN(0),
-      referralTokenAccount: null,
-    };
-
-    await swap(context.banksClient, swapParams);
-
-    // claim position fee
-    const claimParams = {
-      owner: user,
-      pool,
-      position,
-    };
-    await claimPositionFee(context.banksClient, claimParams);
+      status: newStatus,
+    });
+    const poolState = await getPool(context.banksClient, pool);
+    expect(poolState.poolStatus).eq(newStatus);
   });
 });

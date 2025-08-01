@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
-import { generateKpAndFund, startTest } from "./bankrun-utils/common";
+import { convertToByteArray, generateKpAndFund, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createConfigIx,
@@ -72,10 +72,10 @@ describe("Initialize pool", () => {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: convertToByteArray(new BN(0)),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           padding: [],
           dynamicFee: null,
@@ -124,6 +124,7 @@ describe("Initialize pool", () => {
       });
       const poolState = await getPool(context.banksClient, pool);
       expect(poolState.poolStatus).eq(newStatus);
+      expect(poolState.version).eq(0);
     });
   });
 
@@ -192,10 +193,10 @@ describe("Initialize pool", () => {
         poolFees: {
           baseFee: {
             cliffFeeNumerator: new BN(2_500_000),
-            numberOfPeriod: 0,
-            reductionFactor: new BN(0),
-            periodFrequency: new BN(0),
-            feeSchedulerMode: 0,
+            firstFactor: 0,
+            secondFactor: convertToByteArray(new BN(0)),
+            thirdFactor: new BN(0),
+            baseFeeMode: 0,
           },
           padding: [],
           dynamicFee: null,
@@ -244,6 +245,7 @@ describe("Initialize pool", () => {
       });
       const poolState = await getPool(context.banksClient, pool);
       expect(poolState.poolStatus).eq(newStatus);
+      expect(poolState.version).eq(0);
     });
   });
 });

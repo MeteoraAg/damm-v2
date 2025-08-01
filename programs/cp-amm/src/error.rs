@@ -145,4 +145,16 @@ pub enum PoolError {
 
     #[msg("Same position")]
     SamePosition,
+
+    #[msg("Invalid base fee mode")]
+    InvalidBaseFeeMode,
+
+    #[msg("Invalid fee rate limiter")]
+    InvalidFeeRateLimiter,
+
+    #[msg("Fail to validate single swap instruction in rate limiter")]
+    FailToValidateSingleSwapInstruction,
+
+    #[msg("Invalid fee scheduler")]
+    InvalidFeeScheduler,
 }
