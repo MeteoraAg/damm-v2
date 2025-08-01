@@ -25,6 +25,10 @@ export async function startTest(root: Keypair) {
         name: "transfer_hook_counter",
         programId: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
       },
+      {
+        name: "alpha_vault",
+        programId: new PublicKey(ALPHA_VAULT_PROGRAM_ID),
+      },
     ],
     [
       {
