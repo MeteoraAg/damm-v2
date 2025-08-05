@@ -1741,6 +1741,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "cp-amm",
+ "ruint",
 ]
 
 [[package]]
