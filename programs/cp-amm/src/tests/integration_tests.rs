@@ -210,7 +210,7 @@ fn execute_swap_liquidity(
     let fee_mode =
         &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral).unwrap();
     let swap_result = pool
-        .get_swap_result(amount_in, fee_mode, trade_direction, 0)
+        .get_swap_exact_in_result(amount_in, fee_mode, trade_direction, 0)
         .unwrap();
 
     pool.apply_swap_result(&swap_result, fee_mode, 0).unwrap();
@@ -220,14 +220,14 @@ fn execute_swap_liquidity(
             reserve.amount_a = reserve.amount_a.checked_add(amount_in).unwrap();
             reserve.amount_b = reserve
                 .amount_b
-                .checked_sub(swap_result.output_amount)
+                .checked_sub(swap_result.excluded_fee_output_amount)
                 .unwrap();
         }
         TradeDirection::BtoA => {
             reserve.amount_b = reserve.amount_b.checked_add(amount_in).unwrap();
             reserve.amount_a = reserve
                 .amount_a
-                .checked_sub(swap_result.output_amount)
+                .checked_sub(swap_result.excluded_fee_output_amount)
                 .unwrap();
         }
     }

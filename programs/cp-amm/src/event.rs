@@ -3,8 +3,9 @@ use anchor_lang::prelude::*;
 
 use crate::{
     params::fee_parameters::PoolFeeParameters,
-    state::{SplitAmountInfo, SplitPositionInfo, SwapResult},
+    state::{SplitAmountInfo, SplitPositionInfo, SwapResult, SwapResult2},
     AddLiquidityParameters, RemoveLiquidityParameters, SplitPositionParameters, SwapParameters,
+    SwapParameters2,
 };
 
 /// Close config
@@ -136,6 +137,17 @@ pub struct EvtSwap {
     pub has_referral: bool,
     pub params: SwapParameters,
     pub swap_result: SwapResult,
+    pub actual_amount_in: u64,
+    pub current_timestamp: u64,
+}
+
+#[event]
+pub struct EvtSwap2 {
+    pub pool: Pubkey,
+    pub trade_direction: u8,
+    pub has_referral: bool,
+    pub params: SwapParameters2,
+    pub swap_result: SwapResult2,
     pub actual_amount_in: u64,
     pub current_timestamp: u64,
 }

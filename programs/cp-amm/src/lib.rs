@@ -198,7 +198,11 @@ pub mod cp_amm {
     }
 
     pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
-        instructions::handle_swap(ctx, params)
+        instructions::handle_swap_v1(ctx, params)
+    }
+
+    pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+        instructions::handle_swap_v2(ctx, params)
     }
 
     pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {

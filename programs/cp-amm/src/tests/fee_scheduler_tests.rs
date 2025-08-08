@@ -30,7 +30,7 @@ fn test_base_fee() {
         ..Default::default()
     };
     let current_fee = base_fee
-        .get_current_base_fee_numerator(
+        .get_current_base_fee_numerator_from_included_fee_amount(
             100,
             0,
             1_000_000,

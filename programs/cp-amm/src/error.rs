@@ -157,4 +157,7 @@ pub enum PoolError {
 
     #[msg("Invalid fee scheduler")]
     InvalidFeeScheduler,
+
+    #[msg("Undetermined error")]
+    UndeterminedError,
 }

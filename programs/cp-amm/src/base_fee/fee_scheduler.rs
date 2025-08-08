@@ -87,12 +87,13 @@ impl BaseFeeHandler for FeeScheduler {
         );
         Ok(())
     }
-    fn get_base_fee_numerator(
+
+    fn get_base_fee_numerator_from_included_fee_amount(
         &self,
         current_point: u64,
         activation_point: u64,
         _trade_direction: TradeDirection,
-        _input_amount: u64,
+        _included_fee_amount: u64,
     ) -> Result<u64> {
         if self.period_frequency == 0 {
             return Ok(self.cliff_fee_numerator);
@@ -107,5 +108,20 @@ impl BaseFeeHandler for FeeScheduler {
             period.min(self.number_of_period.into())
         };
         self.get_base_fee_numerator_by_period(period)
+    }
+
+    fn get_base_fee_numerator_from_excluded_fee_amount(
+        &self,
+        current_point: u64,
+        activation_point: u64,
+        trade_direction: TradeDirection,
+        excluded_fee_amount: u64,
+    ) -> Result<u64> {
+        self.get_base_fee_numerator_from_included_fee_amount(
+            current_point,
+            activation_point,
+            trade_direction,
+            excluded_fee_amount,
+        )
     }
 }
