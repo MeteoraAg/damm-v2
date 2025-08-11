@@ -24,7 +24,7 @@ import { DECIMALS } from "./constants";
 import { getOrCreateAssociatedTokenAccount } from "./token";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 import { processTransactionMaybeThrow } from "./common";
-const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
+const rawAmount = 1_000_000_000 * 10 ** DECIMALS; // 1 millions
 
 interface ExtensionWithInstruction {
   extension: ExtensionType;

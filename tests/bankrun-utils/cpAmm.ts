@@ -116,7 +116,7 @@ export type BaseFee = {
 
 export type PoolFees = {
   baseFee: BaseFee;
-  padding: number[],
+  padding: number[];
   dynamicFee: DynamicFee | null;
 };
 
@@ -222,15 +222,9 @@ export async function createConfigIx(
   expect(Buffer.from(configState.poolFees.baseFee.secondFactor).toString()).eq(
     Buffer.from(params.poolFees.baseFee.secondFactor).toString()
   );
-  expect(configState.poolFees.protocolFeePercent).eq(
-    20
-  );
-  expect(configState.poolFees.partnerFeePercent).eq(
-    0
-  );
-  expect(configState.poolFees.referralFeePercent).eq(
-    20
-  );
+  expect(configState.poolFees.protocolFeePercent).eq(20);
+  expect(configState.poolFees.partnerFeePercent).eq(0);
+  expect(configState.poolFees.referralFeePercent).eq(20);
   expect(configState.configType).eq(0); // ConfigType: Static
 
   return config;
@@ -787,7 +781,7 @@ export async function setPoolStatus(
 
 export type PoolFeesParams = {
   baseFee: BaseFee;
-  padding: number[],
+  padding: number[];
   dynamicFee: DynamicFee | null;
 };
 
@@ -1686,7 +1680,7 @@ export async function swapInstruction(
       referralTokenAccount,
     })
     .remainingAccounts(
-      // TODO should check condition to add this in remaning accounts
+      // TODO should check condition to add this in remaining accounts
       [
         {
           isSigner: false,
@@ -1700,7 +1694,142 @@ export async function swapInstruction(
   return transaction;
 }
 
-export async function swap(banksClient: BanksClient, params: SwapParams) {
+export enum SwapMode {
+  ExactIn,
+  ExactOut,
+  PartialFillIn,
+}
+
+export type Swap2Params = {
+  payer: Keypair;
+  pool: PublicKey;
+  inputTokenMint: PublicKey;
+  outputTokenMint: PublicKey;
+  amount0: BN;
+  amount1: BN;
+  swapMode: SwapMode;
+  referralTokenAccount: PublicKey | null;
+};
+
+export async function swap2Instruction(
+  banksClient: BanksClient,
+  params: Swap2Params
+) {
+  const {
+    payer,
+    pool,
+    inputTokenMint,
+    outputTokenMint,
+    amount0,
+    amount1,
+    swapMode,
+    referralTokenAccount,
+  } = params;
+
+  const program = createCpAmmProgram();
+  const poolState = await getPool(banksClient, pool);
+
+  const poolAuthority = derivePoolAuthority();
+  const tokenAProgram = (await banksClient.getAccount(poolState.tokenAMint))
+    .owner;
+
+  const tokenBProgram = (await banksClient.getAccount(poolState.tokenBMint))
+    .owner;
+  const inputTokenAccount = getAssociatedTokenAddressSync(
+    inputTokenMint,
+    payer.publicKey,
+    true,
+    tokenAProgram
+  );
+  const outputTokenAccount = getAssociatedTokenAddressSync(
+    outputTokenMint,
+    payer.publicKey,
+    true,
+    tokenBProgram
+  );
+  const tokenAVault = poolState.tokenAVault;
+  const tokenBVault = poolState.tokenBVault;
+  const tokenAMint = poolState.tokenAMint;
+  const tokenBMint = poolState.tokenBMint;
+
+  const transaction = await program.methods
+    .swap2({
+      amount0,
+      amount1,
+      swapMode,
+    })
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      payer: payer.publicKey,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint,
+      tokenBMint,
+      referralTokenAccount,
+    })
+    .remainingAccounts(
+      // TODO should check condition to add this in remaining accounts
+      [
+        {
+          isSigner: false,
+          isWritable: false,
+          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+        },
+      ]
+    )
+    .transaction();
+
+  return transaction;
+}
+
+export async function swap2ExactIn(
+  banksClient: BanksClient,
+  params: Omit<Swap2Params, "swapMode">
+) {
+  const swapIx = await swap2Instruction(banksClient, {
+    ...params,
+    swapMode: SwapMode.ExactIn,
+  });
+  swapIx.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  swapIx.sign(params.payer);
+  await processTransactionMaybeThrow(banksClient, swapIx);
+}
+
+export async function swap2ExactOut(
+  banksClient: BanksClient,
+  params: Omit<Swap2Params, "swapMode">
+) {
+  const swapIx = await swap2Instruction(banksClient, {
+    ...params,
+    swapMode: SwapMode.ExactOut,
+  });
+  swapIx.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  swapIx.sign(params.payer);
+  await processTransactionMaybeThrow(banksClient, swapIx);
+}
+
+export async function swap2PartialFillIn(
+  banksClient: BanksClient,
+  params: Omit<Swap2Params, "swapMode">
+) {
+  const swapIx = await swap2Instruction(banksClient, {
+    ...params,
+    swapMode: SwapMode.PartialFillIn,
+  });
+  swapIx.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  swapIx.sign(params.payer);
+  await processTransactionMaybeThrow(banksClient, swapIx);
+}
+
+export async function swapExactIn(
+  banksClient: BanksClient,
+  params: SwapParams
+) {
   const transaction = await swapInstruction(banksClient, params);
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
@@ -1709,7 +1838,7 @@ export async function swap(banksClient: BanksClient, params: SwapParams) {
   await processTransactionMaybeThrow(banksClient, transaction);
 }
 
-export type ClaimpositionFeeParams = {
+export type ClaimPositionFeeParams = {
   owner: Keypair;
   pool: PublicKey;
   position: PublicKey;
@@ -1717,7 +1846,7 @@ export type ClaimpositionFeeParams = {
 
 export async function claimPositionFee(
   banksClient: BanksClient,
-  params: ClaimpositionFeeParams
+  params: ClaimPositionFeeParams
 ) {
   const { owner, pool, position } = params;
 

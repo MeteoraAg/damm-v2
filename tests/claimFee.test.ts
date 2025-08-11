@@ -1,5 +1,10 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  randomID,
+  startTest,
+} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -12,7 +17,7 @@ import {
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
-  swap,
+  swapExactIn,
   SwapParams,
   createClaimFeeOperator,
   claimProtocolFee,
@@ -176,7 +181,7 @@ describe("Claim fee", () => {
         referralTokenAccount: null,
       };
 
-      await swap(context.banksClient, swapParams);
+      await swapExactIn(context.banksClient, swapParams);
 
       // claim protocol fee
       await claimProtocolFee(context.banksClient, {
@@ -364,7 +369,7 @@ describe("Claim fee", () => {
         referralTokenAccount: null,
       };
 
-      await swap(context.banksClient, swapParams);
+      await swapExactIn(context.banksClient, swapParams);
 
       // claim protocol fee
       await claimProtocolFee(context.banksClient, {

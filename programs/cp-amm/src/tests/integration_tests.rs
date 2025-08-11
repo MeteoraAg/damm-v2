@@ -220,14 +220,14 @@ fn execute_swap_liquidity(
             reserve.amount_a = reserve.amount_a.checked_add(amount_in).unwrap();
             reserve.amount_b = reserve
                 .amount_b
-                .checked_sub(swap_result.excluded_fee_output_amount)
+                .checked_sub(swap_result.excluded_lp_fee_output_amount)
                 .unwrap();
         }
         TradeDirection::BtoA => {
             reserve.amount_b = reserve.amount_b.checked_add(amount_in).unwrap();
             reserve.amount_a = reserve
                 .amount_a
-                .checked_sub(swap_result.excluded_fee_output_amount)
+                .checked_sub(swap_result.excluded_lp_fee_output_amount)
                 .unwrap();
         }
     }

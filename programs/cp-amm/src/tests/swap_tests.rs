@@ -41,10 +41,10 @@ proptest! {
             // swap back
 
             let swap_result_1 = pool
-            .get_swap_exact_in_result(swap_result_0.excluded_fee_output_amount, fee_mode, TradeDirection::BtoA, 0)
+            .get_swap_exact_in_result(swap_result_0.excluded_lp_fee_output_amount, fee_mode, TradeDirection::BtoA, 0)
             .unwrap();
 
-            assert!(swap_result_1.excluded_fee_output_amount < amount_in);
+            assert!(swap_result_1.excluded_lp_fee_output_amount < amount_in);
         }
 
     }
@@ -77,10 +77,10 @@ proptest! {
             // swap back
 
             let swap_result_1 = pool
-            .get_swap_exact_in_result(swap_result_0.excluded_fee_output_amount, fee_mode, TradeDirection::AtoB, 0)
+            .get_swap_exact_in_result(swap_result_0.excluded_lp_fee_output_amount, fee_mode, TradeDirection::AtoB, 0)
             .unwrap();
 
-            assert!(swap_result_1.excluded_fee_output_amount < amount_in);
+            assert!(swap_result_1.excluded_lp_fee_output_amount < amount_in);
         }
     }
 
@@ -142,7 +142,7 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
 
     let swap_result_1 = pool
         .get_swap_exact_in_result(
-            swap_result_0.excluded_fee_output_amount,
+            swap_result_0.excluded_lp_fee_output_amount,
             fee_mode,
             TradeDirection::AtoB,
             0,
@@ -151,7 +151,7 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
 
     println!("{:?}", swap_result_1);
 
-    assert!(swap_result_1.excluded_fee_output_amount < amount_in);
+    assert!(swap_result_1.excluded_lp_fee_output_amount < amount_in);
 }
 
 #[test]
@@ -205,11 +205,16 @@ fn test_swap_basic() {
     pool.apply_swap_result(&swap_result, fee_mode, 0).unwrap();
 
     let swap_result_referse = pool
-        .get_swap_exact_in_result(swap_result.excluded_fee_output_amount, fee_mode, TradeDirection::BtoA, 0)
+        .get_swap_exact_in_result(
+            swap_result.excluded_lp_fee_output_amount,
+            fee_mode,
+            TradeDirection::BtoA,
+            0,
+        )
         .unwrap();
 
     println!("reverse {:?}", swap_result_referse);
-    assert!(swap_result_referse.excluded_fee_output_amount <= amount_in);
+    assert!(swap_result_referse.excluded_lp_fee_output_amount <= amount_in);
 }
 
 #[test]
