@@ -299,7 +299,10 @@ impl DynamicFeeStruct {
         sqrt_price_current: u128,
         current_timestamp: u64,
     ) -> Result<()> {
-        let elapsed = current_timestamp.safe_sub(self.last_update_timestamp)?;
+        // it is fine to use saturating_sub, because never a chance current_timestamp is lesser than last_update_timestamp on-chain
+        // but that can benefit off-chain components for simulation when clock is not synced and pool is high frequency trading
+        // furthermore, the function doesn't update fee in pre-swap, so quoting won't be affected
+        let elapsed = current_timestamp.saturating_sub(self.last_update_timestamp);
         // Not high frequency trade
         if elapsed >= self.filter_period as u64 {
             // Update sqrt of last transaction
