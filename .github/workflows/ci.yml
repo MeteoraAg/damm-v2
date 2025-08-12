@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - main
-      - staging
       - release_0.1.4
 
 env:
@@ -40,7 +39,7 @@ jobs:
       - uses: ./.github/actions/setup-solana
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
-       # Cache rust, cargo
+        # Cache rust, cargo
       - uses: Swatinem/rust-cache@v2
         with:
           cache-targets: "true"
@@ -84,7 +83,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.TOOLCHAIN }}
-          components: clippy     
+          components: clippy
       # Cache rust, cargo
       - uses: Swatinem/rust-cache@v1
       # Cache node_modules

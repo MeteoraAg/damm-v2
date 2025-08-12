@@ -164,7 +164,7 @@ impl<'info> SwapCtx<'info> {
 }
 
 pub fn handle_swap_v1(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
-    let (swap_evt_v1, _swap_evt_v2) = process_swap(
+    let (swap_evt_v1, _swap_evt_v2) = handle_swap_wrapper(
         &ctx,
         SwapParameters2 {
             amount_0: params.amount_in,
@@ -178,14 +178,14 @@ pub fn handle_swap_v1(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<(
 }
 
 pub fn handle_swap_v2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
-    let (swap_evt_v1, swap_evt_v2) = process_swap(&ctx, params)?;
+    let (swap_evt_v1, swap_evt_v2) = handle_swap_wrapper(&ctx, params)?;
 
     emit_cpi!(swap_evt_v1);
     emit_cpi!(swap_evt_v2);
     Ok(())
 }
 
-pub fn process_swap(
+pub fn handle_swap_wrapper(
     ctx: &Context<SwapCtx>,
     params: SwapParameters2,
 ) -> Result<(EvtSwap, EvtSwap2)> {
