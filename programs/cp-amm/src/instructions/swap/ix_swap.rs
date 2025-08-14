@@ -112,6 +112,15 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
         ..
     } = params;
 
+    {
+        let pool = ctx.accounts.pool.load()?;
+        let access_validator = get_pool_access_validator(&pool)?;
+        require!(
+            access_validator.can_swap(&ctx.accounts.payer.key()),
+            PoolError::PoolDisabled
+        );
+    }
+
     let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::InvalidInput)?;
     let trade_direction = ctx.accounts.get_trade_direction();
 
@@ -142,15 +151,6 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
     };
 
     require!(amount_0 > 0, PoolError::AmountIsZero);
-
-    {
-        let pool = ctx.accounts.pool.load()?;
-        let access_validator = get_pool_access_validator(&pool)?;
-        require!(
-            access_validator.can_swap(&ctx.accounts.payer.key()),
-            PoolError::PoolDisabled
-        );
-    }
 
     let has_referral = ctx.accounts.referral_token_account.is_some();
     let mut pool = ctx.accounts.pool.load_mut()?;

@@ -1696,8 +1696,8 @@ export async function swapInstruction(
 
 export enum SwapMode {
   ExactIn,
-  ExactOut,
   PartialFillIn,
+  ExactOut,
 }
 
 export type Swap2Params = {
