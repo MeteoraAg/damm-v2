@@ -20,34 +20,35 @@ pub fn process_swap_exact_out<'a, 'b, 'info>(
         amount_1: maximum_amount_in,
     } = params;
 
-    let transfer_fee_included_amount_out =
+    let included_transfer_fee_amount_out =
         calculate_transfer_fee_included_amount(token_out_mint, amount_out)?.amount;
 
     let swap_result = pool.get_swap_result_from_exact_output(
-        transfer_fee_included_amount_out,
+        included_transfer_fee_amount_out,
         fee_mode,
         trade_direction,
         current_point,
     )?;
 
-    let transfer_fee_included_amount_in = calculate_transfer_fee_included_amount(
+    let included_transfer_fee_amount_in = calculate_transfer_fee_included_amount(
         token_in_mint,
         swap_result.included_fee_input_amount,
     )?
     .amount;
 
     require!(
-        transfer_fee_included_amount_in <= maximum_amount_in,
+        included_transfer_fee_amount_in <= maximum_amount_in,
         PoolError::ExceededSlippage
     );
 
     Ok(ProcessSwapResult {
         swap_result,
         swap_in_parameters: SwapParameters {
-            amount_in: transfer_fee_included_amount_in,
+            amount_in: included_transfer_fee_amount_in,
             minimum_amount_out: amount_out,
         },
-        included_transfer_fee_amount_in: transfer_fee_included_amount_in,
-        included_transfer_fee_amount_out: transfer_fee_included_amount_out,
+        included_transfer_fee_amount_in,
+        excluded_transfer_fee_amount_out: amount_out,
+        included_transfer_fee_amount_out,
     })
 }

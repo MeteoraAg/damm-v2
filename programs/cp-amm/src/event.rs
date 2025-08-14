@@ -148,8 +148,11 @@ pub struct EvtSwap2 {
     pub trade_direction: u8,
     pub has_referral: bool,
     pub params: SwapParameters2,
+    // excluded_transfer_fee_amount_in is swap_result.included_fee_amount_in
     pub swap_result: SwapResult2,
-    pub actual_amount_in: u64,
+    pub included_transfer_fee_amount_in: u64,
+    pub included_transfer_fee_amount_out: u64,
+    pub excluded_transfer_fee_amount_out: u64,
     pub current_timestamp: u64,
 }
 

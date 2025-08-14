@@ -118,8 +118,8 @@ impl BaseFeeHandler for FeeScheduler {
         &self,
         current_point: u64,
         activation_point: u64,
-        trade_direction: TradeDirection,
-        excluded_fee_amount: u64,
+        _trade_direction: TradeDirection,
+        _excluded_fee_amount: u64,
     ) -> Result<u64> {
         self.get_base_fee_numerator(current_point, activation_point)
     }

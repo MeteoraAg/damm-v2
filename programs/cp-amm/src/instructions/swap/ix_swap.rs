@@ -189,6 +189,7 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
         swap_in_parameters,
         swap_result,
         included_transfer_fee_amount_in,
+        excluded_transfer_fee_amount_out,
         included_transfer_fee_amount_out,
     } = match swap_mode {
         SwapMode::ExactIn => process_swap_exact_in(process_swap_params),
@@ -263,8 +264,10 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
         has_referral,
         params,
         swap_result,
-        actual_amount_in: included_fee_input_amount,
         current_timestamp,
+        included_transfer_fee_amount_in,
+        included_transfer_fee_amount_out,
+        excluded_transfer_fee_amount_out,
     });
 
     Ok(())

@@ -19,19 +19,19 @@ pub fn process_swap_exact_in<'a, 'b, 'info>(
         current_point,
     } = params;
 
-    let transfer_fee_excluded_amount_in =
+    let excluded_transfer_fee_amount_in =
         calculate_transfer_fee_excluded_amount(token_in_mint, amount_in)?.amount;
 
-    require!(transfer_fee_excluded_amount_in > 0, PoolError::AmountIsZero);
+    require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
 
     let swap_result =
         pool.get_swap_result_from_exact_input(amount_in, fee_mode, trade_direction, current_point)?;
 
-    let transfer_fee_excluded_amount_out =
+    let excluded_transfer_fee_amount_out =
         calculate_transfer_fee_excluded_amount(token_out_mint, swap_result.output_amount)?.amount;
 
     require!(
-        transfer_fee_excluded_amount_out >= minimum_amount_out,
+        excluded_transfer_fee_amount_out >= minimum_amount_out,
         PoolError::ExceededSlippage
     );
 
@@ -41,7 +41,8 @@ pub fn process_swap_exact_in<'a, 'b, 'info>(
             amount_in,
             minimum_amount_out,
         },
-        included_transfer_fee_amount_in: amount_in,
+        excluded_transfer_fee_amount_out,
         included_transfer_fee_amount_out: swap_result.output_amount,
+        included_transfer_fee_amount_in: amount_in,
     })
 }

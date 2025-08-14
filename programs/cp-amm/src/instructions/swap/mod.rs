@@ -33,4 +33,5 @@ pub struct ProcessSwapResult {
     swap_in_parameters: SwapParameters,
     included_transfer_fee_amount_in: u64,
     included_transfer_fee_amount_out: u64,
+    excluded_transfer_fee_amount_out: u64,
 }

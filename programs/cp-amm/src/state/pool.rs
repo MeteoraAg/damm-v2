@@ -1282,6 +1282,7 @@ impl From<SwapResult2> for SwapResult {
 
 #[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize, Clone, Copy)]
 pub struct SwapResult2 {
+    // This is excluded_transfer_fee_amount_in
     pub included_fee_input_amount: u64,
     pub excluded_fee_input_amount: u64,
     pub amount_left: u64,
