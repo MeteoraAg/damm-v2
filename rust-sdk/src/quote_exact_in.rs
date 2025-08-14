@@ -31,6 +31,11 @@ pub fn get_quote(
     let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
 
     Ok(pool
-        .get_swap_exact_in_result(actual_amount_in, fee_mode, trade_direction, current_point)?
+        .get_swap_result_from_exact_input(
+            actual_amount_in,
+            fee_mode,
+            trade_direction,
+            current_point,
+        )?
         .into())
 }

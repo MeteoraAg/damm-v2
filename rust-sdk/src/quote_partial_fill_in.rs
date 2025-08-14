@@ -30,13 +30,13 @@ pub fn get_quote(
 
     let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
 
-    let swap_result = pool.get_swap_partial_fill_in_result(
+    let swap_result = pool.get_swap_result_from_partial_input(
         actual_amount_in,
         fee_mode,
         trade_direction,
         current_point,
     )?;
 
-    let consumed_amount_in = swap_result.included_lp_fee_input_amount;
+    let consumed_amount_in = swap_result.included_fee_input_amount;
     Ok((consumed_amount_in, swap_result.into()))
 }

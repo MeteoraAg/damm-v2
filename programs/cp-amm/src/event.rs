@@ -141,23 +141,6 @@ pub struct EvtSwap {
     pub current_timestamp: u64,
 }
 
-impl From<EvtSwap2> for EvtSwap {
-    fn from(evt: EvtSwap2) -> Self {
-        Self {
-            pool: evt.pool,
-            trade_direction: evt.trade_direction,
-            has_referral: evt.has_referral,
-            params: SwapParameters {
-                amount_in: evt.params.amount_0,
-                minimum_amount_out: evt.params.amount_1,
-            },
-            swap_result: evt.swap_result.into(),
-            actual_amount_in: evt.actual_amount_in,
-            current_timestamp: evt.current_timestamp,
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
 #[event]
 pub struct EvtSwap2 {

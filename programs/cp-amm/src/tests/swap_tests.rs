@@ -34,17 +34,17 @@ proptest! {
         let max_amount_in = pool.get_max_amount_in(trade_direction).unwrap();
         if amount_in <= max_amount_in {
             let swap_result_0 = pool
-            .get_swap_exact_in_result(amount_in, fee_mode, trade_direction, 0)
+            .get_swap_result_from_exact_input(amount_in, fee_mode, trade_direction, 0)
             .unwrap();
 
             pool.apply_swap_result(&swap_result_0, fee_mode, 0).unwrap();
             // swap back
 
             let swap_result_1 = pool
-            .get_swap_exact_in_result(swap_result_0.excluded_lp_fee_output_amount, fee_mode, TradeDirection::BtoA, 0)
+            .get_swap_result_from_exact_input(swap_result_0.output_amount, fee_mode, TradeDirection::BtoA, 0)
             .unwrap();
 
-            assert!(swap_result_1.excluded_lp_fee_output_amount < amount_in);
+            assert!(swap_result_1.output_amount < amount_in);
         }
 
     }
@@ -70,17 +70,17 @@ proptest! {
         let max_amount_in = pool.get_max_amount_in(trade_direction).unwrap();
         if amount_in <= max_amount_in {
             let swap_result_0 = pool
-            .get_swap_exact_in_result(amount_in, fee_mode, trade_direction, 0)
+            .get_swap_result_from_exact_input(amount_in, fee_mode, trade_direction, 0)
             .unwrap();
 
             pool.apply_swap_result(&swap_result_0, fee_mode, 0).unwrap();
             // swap back
 
             let swap_result_1 = pool
-            .get_swap_exact_in_result(swap_result_0.excluded_lp_fee_output_amount, fee_mode, TradeDirection::AtoB, 0)
+            .get_swap_result_from_exact_input(swap_result_0.output_amount, fee_mode, TradeDirection::AtoB, 0)
             .unwrap();
 
-            assert!(swap_result_1.excluded_lp_fee_output_amount < amount_in);
+            assert!(swap_result_1.output_amount < amount_in);
         }
     }
 
@@ -133,7 +133,7 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
     };
     let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false).unwrap();
     let swap_result_0 = pool
-        .get_swap_exact_in_result(amount_in, fee_mode, trade_direction, 0)
+        .get_swap_result_from_exact_input(amount_in, fee_mode, trade_direction, 0)
         .unwrap();
 
     println!("{:?}", swap_result_0);
@@ -141,8 +141,8 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
     pool.apply_swap_result(&swap_result_0, fee_mode, 0).unwrap();
 
     let swap_result_1 = pool
-        .get_swap_exact_in_result(
-            swap_result_0.excluded_lp_fee_output_amount,
+        .get_swap_result_from_exact_input(
+            swap_result_0.output_amount,
             fee_mode,
             TradeDirection::AtoB,
             0,
@@ -151,7 +151,7 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
 
     println!("{:?}", swap_result_1);
 
-    assert!(swap_result_1.excluded_lp_fee_output_amount < amount_in);
+    assert!(swap_result_1.output_amount < amount_in);
 }
 
 #[test]
@@ -195,7 +195,7 @@ fn test_swap_basic() {
     let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false).unwrap();
 
     let swap_result = pool
-        .get_swap_exact_in_result(amount_in, fee_mode, trade_direction, 0)
+        .get_swap_result_from_exact_input(amount_in, fee_mode, trade_direction, 0)
         .unwrap();
 
     println!("result {:?}", swap_result);
@@ -205,16 +205,11 @@ fn test_swap_basic() {
     pool.apply_swap_result(&swap_result, fee_mode, 0).unwrap();
 
     let swap_result_referse = pool
-        .get_swap_exact_in_result(
-            swap_result.excluded_lp_fee_output_amount,
-            fee_mode,
-            TradeDirection::BtoA,
-            0,
-        )
+        .get_swap_result_from_exact_input(swap_result.output_amount, fee_mode, TradeDirection::BtoA, 0)
         .unwrap();
 
     println!("reverse {:?}", swap_result_referse);
-    assert!(swap_result_referse.excluded_lp_fee_output_amount <= amount_in);
+    assert!(swap_result_referse.output_amount <= amount_in);
 }
 
 #[test]

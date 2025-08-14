@@ -65,7 +65,7 @@ pub fn get_delta_amount_a_unsigned_unchecked(
 }
 
 /// Gets the delta amount_b for given liquidity and price range
-/// * `Δb = L (√P_upper - √P_lower)`
+/// Δb = L * (√P_upper - √P_lower)
 pub fn get_delta_amount_b_unsigned(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
@@ -82,7 +82,7 @@ pub fn get_delta_amount_b_unsigned(
     return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
 }
 
-//Δb = L (√P_upper - √P_lower)
+// Δb = L * (√P_upper - √P_lower)
 pub fn get_delta_amount_b_unsigned_unchecked(
     lower_sqrt_price: u128,
     upper_sqrt_price: u128,
@@ -147,30 +147,30 @@ pub fn get_next_sqrt_price_from_output(
 /// Gets the next sqrt price √P' given a delta of token_a
 ///
 /// Always round up because
-/// 1. In the exact output case, token 0 supply decreases leading to price increase.
+/// 1. In the exact output case, token_a supply decreases leading to price increase.
 /// Move price up so that exact output is met.
-/// 2. In the exact input case, token 0 supply increases leading to price decrease.
+/// 2. In the exact input case, token_a supply increases leading to price decrease.
 /// Do not round down to minimize price impact. We only need to meet input
 /// change and not guarantee exact output.
 ///
-/// Use function for exact input or exact output swaps for token 0
+/// Use function for exact input or exact output swaps for token_a
 ///
 /// # Formula
 ///
-/// * `√P' = √P * L / (L + Δx * √P)`
-/// * If Δx * √P overflows, use alternate form `√P' = L / (L/√P + Δx)`
+/// * `√P' = √P * L / (L + Δa * √P)`
+/// * If Δa * √P overflows, use alternate form `√P' = L / (L/√P + Δa)`
 ///
 /// # Proof
 ///
 /// For constant L,
 ///
-///  L = x * √P
-///  x' = x + Δx
-///  x' * √P' = x * √P
-///  (x + Δx) * √P' = x * √P
-///  √P' = (x * √P) / (x + Δx)
-///  x = L/√P
-///  √P' = √P * L / (L + Δx * √P)
+///  L = a * √P
+///  a' = a + Δa
+///  a' * √P' = a * √P
+///  (a + Δa) * √P' = a * √P
+///  √P' = (a * √P) / (a + Δa)
+///  a = L/√P
+///  √P' = √P * L / (L + Δa * √P)
 ///
 pub fn get_next_sqrt_price_from_amount_in_a_rounding_up(
     sqrt_price: u128,
@@ -190,7 +190,7 @@ pub fn get_next_sqrt_price_from_amount_in_a_rounding_up(
     return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
 }
 
-///  √P' = √P * L / (L - Δx * √P)
+///  √P' = √P * L / (L - Δa * √P)
 pub fn get_next_sqrt_price_from_amount_out_a_rounding_up(
     sqrt_price: u128,
     liquidity: u128,
@@ -212,16 +212,16 @@ pub fn get_next_sqrt_price_from_amount_out_a_rounding_up(
 /// Gets the next sqrt price given a delta of token_b
 ///
 /// Always round down because
-/// 1. In the exact output case, token 1 supply decreases leading to price decrease.
-/// Move price down by rounding down so that exact output of token 0 is met.
-/// 2. In the exact input case, token 1 supply increases leading to price increase.
+/// 1. In the exact output case, token_b supply decreases leading to price decrease.
+/// Move price down by rounding down so that exact output of token_a is met.
+/// 2. In the exact input case, token_b supply increases leading to price increase.
 /// Do not round down to minimize price impact. We only need to meet input
-/// change and not gurantee exact output for token 0.
+/// change and not guarantee exact output for token_a.
 ///
 ///
 /// # Formula
 ///
-/// * `√P' = √P + Δy / L`
+/// * `√P' = √P + Δb / L`
 ///
 pub fn get_next_sqrt_price_from_amount_in_b_rounding_down(
     sqrt_price: u128,
@@ -236,7 +236,7 @@ pub fn get_next_sqrt_price_from_amount_in_b_rounding_down(
     Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
-/// * `√P' = √P - Δy / L`
+/// `√P' = √P - Δb / L`
 pub fn get_next_sqrt_price_from_amount_out_b_rounding_down(
     sqrt_price: u128,
     liquidity: u128,

@@ -6,7 +6,7 @@ use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::curve::get_next_sqrt_price_from_output;
-use crate::state::fee::FeeAmountResult;
+use crate::state::fee::FeeOnAmountResult;
 use crate::{
     assert_eq_admin,
     constants::{
@@ -432,7 +432,7 @@ impl Pool {
         }
     }
 
-    pub fn get_swap_exact_out_result(
+    pub fn get_swap_result_from_exact_output(
         &self,
         amount_out: u64,
         fee_mode: &FeeMode,
@@ -440,7 +440,7 @@ impl Pool {
         current_point: u64,
     ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
-        let mut actual_lp_fee = 0;
+        let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
 
@@ -459,35 +459,27 @@ impl Pool {
                     max_fee_numerator,
                 )?;
 
-            let (included_fee_amount_out, _fee_amount) =
+            let (included_fee_amount_out, fee_amount) =
                 PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, amount_out)?;
 
-            let FeeAmountResult {
-                lp_fee,
-                protocol_fee,
-                partner_fee,
-                referral_fee,
-            } = self.pool_fees.split_fee(
-                included_fee_amount_out,
-                trade_fee_numerator,
-                fee_mode.has_referral,
-                self.has_partner(),
-            )?;
+            let (trading_fee, protocol_fee, referral_fee, partner_fee) = self
+                .pool_fees
+                .split_fees(fee_amount, fee_mode.has_referral, self.has_partner())?;
 
             actual_protocol_fee = protocol_fee;
-            actual_lp_fee = lp_fee;
+            actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
             actual_partner_fee = partner_fee;
 
             included_fee_amount_out
         };
 
-        let SwapExactOutAmount {
+        let SwapAmountFromOutput {
             input_amount,
             next_sqrt_price,
         } = match trade_direction {
-            TradeDirection::AtoB => self.get_swap_exact_out_result_from_a_to_b(actual_amount_out),
-            TradeDirection::BtoA => self.get_swap_exact_out_result_from_b_to_a(actual_amount_out),
+            TradeDirection::AtoB => self.calculate_a_to_b_from_amount_out(actual_amount_out),
+            TradeDirection::BtoA => self.calculate_b_to_a_from_amount_out(actual_amount_out),
         }?;
 
         let actual_amount_in = if fee_mode.fees_on_input {
@@ -501,23 +493,15 @@ impl Pool {
                     max_fee_numerator,
                 )?;
 
-            let (included_fee_amount_in, _fee_amount) =
+            let (included_fee_amount_in, fee_amount) =
                 PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, input_amount)?;
 
-            let FeeAmountResult {
-                lp_fee,
-                protocol_fee,
-                partner_fee,
-                referral_fee,
-            } = self.pool_fees.split_fee(
-                included_fee_amount_in,
-                trade_fee_numerator,
-                fee_mode.has_referral,
-                self.has_partner(),
-            )?;
+            let (trading_fee, protocol_fee, referral_fee, partner_fee) = self
+                .pool_fees
+                .split_fees(fee_amount, fee_mode.has_referral, self.has_partner())?;
 
             actual_protocol_fee = protocol_fee;
-            actual_lp_fee = lp_fee;
+            actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
             actual_partner_fee = partner_fee;
 
@@ -527,17 +511,19 @@ impl Pool {
         };
 
         Ok(SwapResult2 {
-            included_lp_fee_input_amount: actual_amount_in,
-            excluded_lp_fee_output_amount: amount_out,
+            amount_left: 0,
+            included_fee_input_amount: actual_amount_in,
+            excluded_fee_input_amount: input_amount,
+            output_amount: amount_out,
             next_sqrt_price,
-            lp_fee: actual_lp_fee,
+            trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             partner_fee: actual_partner_fee,
             referral_fee: actual_referral_fee,
         })
     }
 
-    pub fn get_swap_partial_fill_in_result(
+    pub fn get_swap_result_from_partial_input(
         &self,
         amount_in: u64,
         fee_mode: &FeeMode,
@@ -545,64 +531,57 @@ impl Pool {
         current_point: u64,
     ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
-        let mut actual_lp_fee = 0;
+        let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
-        let mut included_fee_input_amount = amount_in;
 
         let max_fee_numerator = self.get_max_fee_numerator()?;
 
-        let actual_amount_in = if fee_mode.fees_on_input {
-            let trade_fee_numerator = self
-                .pool_fees
-                .get_total_trading_fee_from_included_fee_amount(
-                    current_point,
-                    self.activation_point,
-                    amount_in,
-                    trade_direction,
-                    max_fee_numerator,
-                )?;
+        let trade_fee_numerator = self
+            .pool_fees
+            .get_total_trading_fee_from_included_fee_amount(
+                current_point,
+                self.activation_point,
+                amount_in,
+                trade_direction,
+                max_fee_numerator,
+            )?;
 
-            let FeeAmountResult {
-                lp_fee,
+        let mut actual_amount_in = if fee_mode.fees_on_input {
+            let FeeOnAmountResult {
+                amount,
+                trading_fee,
                 protocol_fee,
                 partner_fee,
                 referral_fee,
-            } = self.pool_fees.split_fee(
+            } = self.pool_fees.get_fee_on_amount(
                 amount_in,
                 trade_fee_numerator,
                 fee_mode.has_referral,
                 self.has_partner(),
             )?;
 
-            let excluded_fee_amount_in = amount_in.safe_sub(lp_fee)?;
-
             actual_protocol_fee = protocol_fee;
-            actual_lp_fee = lp_fee;
+            actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
             actual_partner_fee = partner_fee;
 
-            excluded_fee_amount_in
+            amount
         } else {
             amount_in
         };
 
-        let SwapPartialFillIn {
-            consumed_in_amount,
+        let SwapAmountFromInput {
             amount_left,
             output_amount,
             next_sqrt_price,
         } = match trade_direction {
-            TradeDirection::AtoB => {
-                self.get_swap_partial_fill_in_result_from_a_to_b(actual_amount_in)
-            }
-            TradeDirection::BtoA => {
-                self.get_swap_partial_fill_in_result_from_b_to_a(actual_amount_in)
-            }
+            TradeDirection::AtoB => self.calculate_a_to_b_from_partial_amount_in(actual_amount_in),
+            TradeDirection::BtoA => self.calculate_b_to_a_from_partial_amount_in(actual_amount_in),
         }?;
 
-        if amount_left > 0 {
-            included_fee_input_amount = amount_in.safe_sub(amount_left)?;
+        let included_fee_input_amount = if amount_left > 0 {
+            actual_amount_in = actual_amount_in.safe_sub(amount_left)?;
 
             if fee_mode.fees_on_input {
                 let trade_fee_numerator = self
@@ -610,85 +589,69 @@ impl Pool {
                     .get_total_trading_fee_from_excluded_fee_amount(
                         current_point,
                         self.activation_point,
-                        consumed_in_amount,
+                        actual_amount_in,
                         trade_direction,
                         max_fee_numerator,
                     )?;
 
-                let (included_fee_amount_in, _fee_amount) =
-                    PoolFeesStruct::get_included_fee_amount(
-                        trade_fee_numerator,
-                        consumed_in_amount,
-                    )?;
+                let (included_fee_amount_in, fee_amount) =
+                    PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, actual_amount_in)?;
 
-                let FeeAmountResult {
-                    lp_fee,
-                    protocol_fee,
-                    partner_fee,
-                    referral_fee,
-                } = self.pool_fees.split_fee(
-                    included_fee_amount_in,
-                    trade_fee_numerator,
-                    fee_mode.has_referral,
-                    self.has_partner(),
-                )?;
+                let (trading_fee, protocol_fee, referral_fee, partner_fee) = self
+                    .pool_fees
+                    .split_fees(fee_amount, fee_mode.has_referral, self.has_partner())?;
 
                 actual_protocol_fee = protocol_fee;
-                actual_lp_fee = lp_fee;
+                actual_trading_fee = trading_fee;
                 actual_referral_fee = referral_fee;
                 actual_partner_fee = partner_fee;
 
-                included_fee_input_amount = included_fee_amount_in;
+                included_fee_amount_in
+            } else {
+                actual_amount_in
             }
-        }
+        } else {
+            amount_in
+        };
 
         let actual_amount_out = if fee_mode.fees_on_input {
             output_amount
         } else {
-            let trade_fee_numerator = self
-                .pool_fees
-                .get_total_trading_fee_from_included_fee_amount(
-                    current_point,
-                    self.activation_point,
-                    output_amount,
-                    trade_direction,
-                    max_fee_numerator,
-                )?;
-
-            let FeeAmountResult {
-                lp_fee,
+            let FeeOnAmountResult {
+                amount,
+                trading_fee,
                 protocol_fee,
                 partner_fee,
                 referral_fee,
-            } = self.pool_fees.split_fee(
+            } = self.pool_fees.get_fee_on_amount(
                 output_amount,
                 trade_fee_numerator,
                 fee_mode.has_referral,
                 self.has_partner(),
             )?;
 
-            let excluded_fee_amount_out = output_amount.safe_sub(lp_fee)?;
-
             actual_protocol_fee = protocol_fee;
-            actual_lp_fee = lp_fee;
+            actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
             actual_partner_fee = partner_fee;
 
-            excluded_fee_amount_out
+            amount
         };
 
         Ok(SwapResult2 {
-            included_lp_fee_input_amount: included_fee_input_amount,
-            excluded_lp_fee_output_amount: actual_amount_out,
+            included_fee_input_amount,
+            excluded_fee_input_amount: actual_amount_in,
+            amount_left,
+            output_amount: actual_amount_out,
             next_sqrt_price,
-            lp_fee: actual_lp_fee,
+            trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             partner_fee: actual_partner_fee,
             referral_fee: actual_referral_fee,
         })
     }
 
-    pub fn get_swap_exact_in_result(
+    pub fn get_swap_result_from_exact_input(
         &self,
         amount_in: u64,
         fee_mode: &FeeMode,
@@ -696,105 +659,100 @@ impl Pool {
         current_point: u64,
     ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
-        let mut actual_lp_fee = 0;
+        let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
 
         let max_fee_numerator = self.get_max_fee_numerator()?;
 
-        let actual_amount_in = if fee_mode.fees_on_input {
-            let trade_fee_numerator = self
-                .pool_fees
-                .get_total_trading_fee_from_included_fee_amount(
-                    current_point,
-                    self.activation_point,
-                    amount_in,
-                    trade_direction,
-                    max_fee_numerator,
-                )?;
+        // We can compute the trade_fee_numerator here. Instead of separately for amount_in, and amount_out.
+        // This is because FeeRateLimiter (fee rate scale based on amount) only applied when fee_mode.fees_on_input
+        // (a.k.a TradeDirection::QuoteToBase + CollectFeeMode::QuoteToken)
+        // For the rest of the time, the fee rate is not dependent on amount.
+        let trade_fee_numerator = self
+            .pool_fees
+            .get_total_trading_fee_from_included_fee_amount(
+                current_point,
+                self.activation_point,
+                amount_in,
+                trade_direction,
+                max_fee_numerator,
+            )?;
 
-            let FeeAmountResult {
-                lp_fee,
+        let actual_amount_in = if fee_mode.fees_on_input {
+            let FeeOnAmountResult {
+                amount,
+                trading_fee,
                 protocol_fee,
                 partner_fee,
                 referral_fee,
-            } = self.pool_fees.split_fee(
+            } = self.pool_fees.get_fee_on_amount(
                 amount_in,
                 trade_fee_numerator,
                 fee_mode.has_referral,
                 self.has_partner(),
             )?;
 
-            let excluded_fee_amount_in = amount_in.safe_sub(lp_fee)?;
-
             actual_protocol_fee = protocol_fee;
-            actual_lp_fee = lp_fee;
+            actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
             actual_partner_fee = partner_fee;
 
-            excluded_fee_amount_in
+            amount
         } else {
             amount_in
         };
 
-        let SwapExactInAmount {
+        let SwapAmountFromInput {
             output_amount,
             next_sqrt_price,
+            amount_left,
         } = match trade_direction {
-            TradeDirection::AtoB => self.get_swap_exact_in_result_from_a_to_b(actual_amount_in),
-            TradeDirection::BtoA => self.get_swap_exact_in_result_from_b_to_a(actual_amount_in),
+            TradeDirection::AtoB => self.calculate_a_to_b_from_amount_in(actual_amount_in),
+            TradeDirection::BtoA => self.calculate_b_to_a_from_amount_in(actual_amount_in),
         }?;
 
         let actual_amount_out = if fee_mode.fees_on_input {
             output_amount
         } else {
-            let trade_fee_numerator = self
-                .pool_fees
-                .get_total_trading_fee_from_included_fee_amount(
-                    current_point,
-                    self.activation_point,
-                    output_amount,
-                    trade_direction,
-                    max_fee_numerator,
-                )?;
-
-            let FeeAmountResult {
-                lp_fee,
+            let FeeOnAmountResult {
+                amount,
+                trading_fee,
                 protocol_fee,
                 partner_fee,
                 referral_fee,
-            } = self.pool_fees.split_fee(
+            } = self.pool_fees.get_fee_on_amount(
                 output_amount,
                 trade_fee_numerator,
                 fee_mode.has_referral,
                 self.has_partner(),
             )?;
 
-            let excluded_fee_amount_out = output_amount.safe_sub(lp_fee)?;
-
             actual_protocol_fee = protocol_fee;
-            actual_lp_fee = lp_fee;
+            actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
             actual_partner_fee = partner_fee;
 
-            excluded_fee_amount_out
+            amount
         };
 
         Ok(SwapResult2 {
-            included_lp_fee_input_amount: amount_in,
-            excluded_lp_fee_output_amount: actual_amount_out,
+            amount_left,
+            included_fee_input_amount: amount_in,
+            excluded_fee_input_amount: actual_amount_in,
+            output_amount: actual_amount_out,
             next_sqrt_price,
-            lp_fee: actual_lp_fee,
+            trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             partner_fee: actual_partner_fee,
             referral_fee: actual_referral_fee,
         })
     }
 
-    pub fn get_swap_exact_out_result_from_b_to_a(
+    pub fn calculate_b_to_a_from_amount_out(
         &self,
         amount_out: u64,
-    ) -> Result<SwapExactOutAmount> {
+    ) -> Result<SwapAmountFromOutput> {
         let next_sqrt_price =
             get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount_out, false)?;
 
@@ -809,16 +767,16 @@ impl Pool {
             Rounding::Up,
         )?;
 
-        Ok(SwapExactOutAmount {
+        Ok(SwapAmountFromOutput {
             input_amount: in_amount,
             next_sqrt_price,
         })
     }
 
-    pub fn get_swap_exact_out_result_from_a_to_b(
+    pub fn calculate_a_to_b_from_amount_out(
         &self,
         amount_out: u64,
-    ) -> Result<SwapExactOutAmount> {
+    ) -> Result<SwapAmountFromOutput> {
         let next_sqrt_price =
             get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount_out, true)?;
 
@@ -833,16 +791,16 @@ impl Pool {
             Rounding::Up,
         )?;
 
-        Ok(SwapExactOutAmount {
+        Ok(SwapAmountFromOutput {
             input_amount: in_amount,
             next_sqrt_price,
         })
     }
 
-    pub fn get_swap_partial_fill_in_result_from_b_to_a(
+    pub fn calculate_b_to_a_from_partial_amount_in(
         &self,
         amount_in: u64,
-    ) -> Result<SwapPartialFillIn> {
+    ) -> Result<SwapAmountFromInput> {
         let max_amount_in = get_delta_amount_b_unsigned(
             self.sqrt_price,
             self.sqrt_max_price,
@@ -867,18 +825,17 @@ impl Pool {
 
         let amount_left = amount_in.safe_sub(consumed_in_amount)?;
 
-        Ok(SwapPartialFillIn {
-            consumed_in_amount,
+        Ok(SwapAmountFromInput {
             output_amount,
             next_sqrt_price,
             amount_left,
         })
     }
 
-    pub fn get_swap_partial_fill_in_result_from_a_to_b(
+    pub fn calculate_a_to_b_from_partial_amount_in(
         &self,
         amount_in: u64,
-    ) -> Result<SwapPartialFillIn> {
+    ) -> Result<SwapAmountFromInput> {
         let max_amount_in = get_delta_amount_a_unsigned(
             self.sqrt_min_price,
             self.sqrt_price,
@@ -904,15 +861,14 @@ impl Pool {
 
         let amount_left = amount_in.safe_sub(consumed_in_amount)?;
 
-        Ok(SwapPartialFillIn {
-            consumed_in_amount,
+        Ok(SwapAmountFromInput {
             output_amount,
             next_sqrt_price,
             amount_left,
         })
     }
 
-    fn get_swap_exact_in_result_from_a_to_b(&self, amount_in: u64) -> Result<SwapExactInAmount> {
+    fn calculate_a_to_b_from_amount_in(&self, amount_in: u64) -> Result<SwapAmountFromInput> {
         // finding new target price
         let next_sqrt_price =
             get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, true)?;
@@ -929,13 +885,14 @@ impl Pool {
             Rounding::Down,
         )?;
 
-        Ok(SwapExactInAmount {
+        Ok(SwapAmountFromInput {
             output_amount,
             next_sqrt_price,
+            amount_left: 0,
         })
     }
 
-    fn get_swap_exact_in_result_from_b_to_a(&self, amount_in: u64) -> Result<SwapExactInAmount> {
+    fn calculate_b_to_a_from_amount_in(&self, amount_in: u64) -> Result<SwapAmountFromInput> {
         // finding new target price
         let next_sqrt_price =
             get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, false)?;
@@ -951,9 +908,10 @@ impl Pool {
             Rounding::Down,
         )?;
 
-        Ok(SwapExactInAmount {
+        Ok(SwapAmountFromInput {
             output_amount,
             next_sqrt_price,
+            amount_left: 0,
         })
     }
 
@@ -964,7 +922,7 @@ impl Pool {
         current_timestamp: u64,
     ) -> Result<()> {
         let &SwapResult2 {
-            lp_fee,
+            trading_fee: lp_fee,
             next_sqrt_price,
             protocol_fee,
             partner_fee,
@@ -1312,9 +1270,9 @@ pub struct SwapResult {
 impl From<SwapResult2> for SwapResult {
     fn from(value: SwapResult2) -> Self {
         Self {
-            output_amount: value.excluded_lp_fee_output_amount,
+            output_amount: value.output_amount,
             next_sqrt_price: value.next_sqrt_price,
-            lp_fee: value.lp_fee,
+            lp_fee: value.trading_fee,
             protocol_fee: value.protocol_fee,
             partner_fee: value.partner_fee,
             referral_fee: value.referral_fee,
@@ -1324,28 +1282,24 @@ impl From<SwapResult2> for SwapResult {
 
 #[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize, Clone, Copy)]
 pub struct SwapResult2 {
-    pub included_lp_fee_input_amount: u64,
-    pub excluded_lp_fee_output_amount: u64,
+    pub included_fee_input_amount: u64,
+    pub excluded_fee_input_amount: u64,
+    pub amount_left: u64,
+    pub output_amount: u64,
     pub next_sqrt_price: u128,
-    pub lp_fee: u64,
+    pub trading_fee: u64,
     pub protocol_fee: u64,
     pub partner_fee: u64,
     pub referral_fee: u64,
 }
 
-pub struct SwapPartialFillIn {
-    consumed_in_amount: u64,
+pub struct SwapAmountFromInput {
+    output_amount: u64,
+    next_sqrt_price: u128,
     amount_left: u64,
-    output_amount: u64,
-    next_sqrt_price: u128,
 }
 
-pub struct SwapExactInAmount {
-    output_amount: u64,
-    next_sqrt_price: u128,
-}
-
-pub struct SwapExactOutAmount {
+pub struct SwapAmountFromOutput {
     input_amount: u64,
     next_sqrt_price: u128,
 }

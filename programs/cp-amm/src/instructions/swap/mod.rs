@@ -1,13 +1,13 @@
 pub mod ix_swap;
-use anchor_lang::prelude::{InterfaceAccount, Pubkey};
+use anchor_lang::prelude::InterfaceAccount;
 use anchor_spl::token_interface::Mint;
 pub use ix_swap::*;
 
 pub mod swap_exact_in;
 pub use swap_exact_in::*;
 
-pub mod swap_partial_fill_in;
-pub use swap_partial_fill_in::*;
+pub mod swap_partial_fill;
+pub use swap_partial_fill::*;
 
 pub mod swap_exact_out;
 pub use swap_exact_out::*;
@@ -15,11 +15,9 @@ pub use swap_exact_out::*;
 use crate::{
     params::swap::TradeDirection,
     state::{fee::FeeMode, Pool, SwapResult2},
-    EvtSwap2,
 };
 
 pub struct ProcessSwapParams<'a, 'b, 'info> {
-    pub pool_address: Pubkey,
     pub pool: &'a Pool,
     pub token_in_mint: &'b InterfaceAccount<'info, Mint>,
     pub token_out_mint: &'b InterfaceAccount<'info, Mint>,
@@ -31,7 +29,8 @@ pub struct ProcessSwapParams<'a, 'b, 'info> {
 }
 
 pub struct ProcessSwapResult {
-    pub amount_in: u64,
-    pub swap_result: SwapResult2,
-    pub evt_swap: EvtSwap2,
+    swap_result: SwapResult2,
+    swap_in_parameters: SwapParameters,
+    included_transfer_fee_amount_in: u64,
+    included_transfer_fee_amount_out: u64,
 }

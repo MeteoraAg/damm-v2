@@ -1,11 +1,9 @@
-use std::u64;
-
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::{get_base_fee_handler, FeeRateLimiter},
+    base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{fee::FEE_DENOMINATOR, BASIS_POINT_MAX, ONE_Q64},
     params::swap::TradeDirection,
     safe_math::SafeMath,
@@ -17,8 +15,9 @@ use crate::{
 use super::CollectFeeMode;
 
 #[derive(Debug, PartialEq)]
-pub struct FeeAmountResult {
-    pub lp_fee: u64,
+pub struct FeeOnAmountResult {
+    pub amount: u64,
+    pub trading_fee: u64,
     pub protocol_fee: u64,
     pub partner_fee: u64,
     pub referral_fee: u64,
@@ -122,131 +121,96 @@ impl BaseFeeStruct {
         }
     }
 
-    pub fn get_current_base_fee_numerator_from_included_fee_amount(
-        &self,
-        current_point: u64,
-        activation_point: u64,
-        amount: u64,
-        trade_direction: TradeDirection,
-    ) -> Result<u64> {
-        let base_fee_handler = get_base_fee_handler(
+    pub fn get_base_fee_handler(&self) -> Result<Box<dyn BaseFeeHandler>> {
+        get_base_fee_handler(
             self.cliff_fee_numerator,
             self.first_factor,
             self.second_factor,
             self.third_factor,
             self.base_fee_mode,
-        )?;
-
-        base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
-            current_point,
-            activation_point,
-            trade_direction,
-            amount,
-        )
-    }
-
-    pub fn get_current_base_fee_numerator_from_excluded_fee_amount(
-        &self,
-        current_point: u64,
-        activation_point: u64,
-        amount: u64,
-        trade_direction: TradeDirection,
-    ) -> Result<u64> {
-        let base_fee_handler = get_base_fee_handler(
-            self.cliff_fee_numerator,
-            self.first_factor,
-            self.second_factor,
-            self.third_factor,
-            self.base_fee_mode,
-        )?;
-
-        base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
-            current_point,
-            activation_point,
-            trade_direction,
-            amount,
         )
     }
 }
 
 impl PoolFeesStruct {
+    fn get_total_fee_numerator(
+        &self,
+        base_fee_numerator: u64,
+        max_fee_numerator: u64,
+    ) -> Result<u64> {
+        let dynamic_fee = self.dynamic_fee.get_variable_fee()?;
+        let total_fee_numerator = dynamic_fee.safe_add(base_fee_numerator.into())?;
+        let total_fee_numerator: u64 = total_fee_numerator
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?;
+
+        if total_fee_numerator > max_fee_numerator {
+            Ok(max_fee_numerator)
+        } else {
+            Ok(total_fee_numerator)
+        }
+    }
+
     // in numerator
     pub fn get_total_trading_fee_from_included_fee_amount(
         &self,
         current_point: u64,
         activation_point: u64,
-        amount: u64,
+        included_fee_amount: u64,
         trade_direction: TradeDirection,
         max_fee_numerator: u64,
     ) -> Result<u64> {
-        let base_fee_numerator = self
-            .base_fee
-            .get_current_base_fee_numerator_from_included_fee_amount(
-                current_point,
-                activation_point,
-                amount,
-                trade_direction,
-            )?;
+        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
 
-        let total_fee_numerator: u64 = self
-            .dynamic_fee
-            .get_variable_fee()?
-            .safe_add(base_fee_numerator.into())?
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?;
+        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
+            current_point,
+            activation_point,
+            trade_direction,
+            included_fee_amount,
+        )?;
 
-        Ok(total_fee_numerator.min(max_fee_numerator))
+        self.get_total_fee_numerator(base_fee_numerator, max_fee_numerator)
     }
 
     pub fn get_total_trading_fee_from_excluded_fee_amount(
         &self,
         current_point: u64,
         activation_point: u64,
-        amount: u64,
+        excluded_fee_amount: u64,
         trade_direction: TradeDirection,
         max_fee_numerator: u64,
     ) -> Result<u64> {
-        let base_fee_numerator = self
-            .base_fee
-            .get_current_base_fee_numerator_from_excluded_fee_amount(
-                current_point,
-                activation_point,
-                amount,
-                trade_direction,
-            )?;
+        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
 
-        let total_fee_numerator: u64 = self
-            .dynamic_fee
-            .get_variable_fee()?
-            .safe_add(base_fee_numerator.into())?
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?;
+        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
+            current_point,
+            activation_point,
+            trade_direction,
+            excluded_fee_amount,
+        )?;
 
-        Ok(total_fee_numerator.min(max_fee_numerator))
+        self.get_total_fee_numerator(base_fee_numerator, max_fee_numerator)
     }
 
-    pub fn split_fee(
+    pub fn get_fee_on_amount(
         &self,
-        included_fee_amount: u64,
+        amount: u64,
         trade_fee_numerator: u64,
         has_referral: bool,
         has_partner: bool,
-    ) -> Result<FeeAmountResult> {
-        let lp_fee: u64 = safe_mul_div_cast_u64(
-            included_fee_amount,
-            trade_fee_numerator,
-            FEE_DENOMINATOR,
-            Rounding::Up,
-        )?;
+    ) -> Result<FeeOnAmountResult> {
+        let (amount, trading_fee) =
+            PoolFeesStruct::get_excluded_fee_amount(trade_fee_numerator, amount)?;
 
         let protocol_fee = safe_mul_div_cast_u64(
-            lp_fee,
+            trading_fee,
             self.protocol_fee_percent.into(),
             100,
             Rounding::Down,
         )?;
-        // update lp fee
-        let lp_fee = lp_fee.safe_sub(protocol_fee)?;
+
+        // update trading fee
+        let trading_fee = trading_fee.safe_sub(protocol_fee)?;
 
         let referral_fee = if has_referral {
             safe_mul_div_cast_u64(
@@ -274,8 +238,9 @@ impl PoolFeesStruct {
 
         let protocol_fee = protocol_fee_after_referral_fee.safe_sub(partner_fee)?;
 
-        Ok(FeeAmountResult {
-            lp_fee,
+        Ok(FeeOnAmountResult {
+            amount,
+            trading_fee,
             protocol_fee,
             partner_fee,
             referral_fee,
@@ -308,6 +273,51 @@ impl PoolFeesStruct {
         )?;
         let fee_amount = included_fee_amount.safe_sub(excluded_fee_amount)?;
         Ok((included_fee_amount, fee_amount))
+    }
+
+    pub fn split_fees(
+        &self,
+        fee_amount: u64,
+        has_referral: bool,
+        has_partner: bool,
+    ) -> Result<(u64, u64, u64, u64)> {
+        let protocol_fee = safe_mul_div_cast_u64(
+            fee_amount,
+            self.protocol_fee_percent.into(),
+            100,
+            Rounding::Down,
+        )?;
+
+        // update trading fee
+        let trading_fee: u64 = fee_amount.safe_sub(protocol_fee)?;
+
+        let referral_fee = if has_referral {
+            safe_mul_div_cast_u64(
+                protocol_fee,
+                self.referral_fee_percent.into(),
+                100,
+                Rounding::Down,
+            )?
+        } else {
+            0
+        };
+
+        let protocol_fee_after_referral_fee = protocol_fee.safe_sub(referral_fee)?;
+
+        let partner_fee = if has_partner && self.partner_fee_percent > 0 {
+            safe_mul_div_cast_u64(
+                protocol_fee_after_referral_fee,
+                self.partner_fee_percent.into(),
+                100,
+                Rounding::Down,
+            )?
+        } else {
+            0
+        };
+
+        let protocol_fee = protocol_fee_after_referral_fee.safe_sub(partner_fee)?;
+
+        Ok((trading_fee, protocol_fee, referral_fee, partner_fee))
     }
 }
 

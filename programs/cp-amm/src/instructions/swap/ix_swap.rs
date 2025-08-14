@@ -3,7 +3,7 @@ use crate::{
     const_pda, get_pool_access_validator,
     instruction::Swap as SwapInstruction,
     params::swap::TradeDirection,
-    process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill_in,
+    process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill,
     safe_math::SafeMath,
     state::{fee::FeeMode, Pool, SwapResult2},
     swap::{ProcessSwapParams, ProcessSwapResult},
@@ -25,14 +25,8 @@ use num_enum::{FromPrimitive, IntoPrimitive};
 pub enum SwapMode {
     #[num_enum(default)]
     ExactIn,
+    PartialFill,
     ExactOut,
-    PartialFillIn,
-}
-
-impl SwapMode {
-    pub fn is_swap_in(&self) -> bool {
-        matches!(self, SwapMode::ExactIn | SwapMode::PartialFillIn)
-    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -43,26 +37,12 @@ pub struct SwapParameters {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
 pub struct SwapParameters2 {
+    /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
     pub amount_0: u64,
+    /// When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in
     pub amount_1: u64,
+    /// Swap mode, refer [SwapMode]
     pub swap_mode: u8,
-}
-
-impl SwapParameters2 {
-    pub fn validate(&self) -> Result<()> {
-        SwapMode::try_from(self.swap_mode).map_err(|_| PoolError::InvalidInput)?;
-        require!(self.amount_0 > 0, PoolError::InvalidInput);
-        Ok(())
-    }
-}
-
-struct SwapAccounts<'a, 'info> {
-    token_in_mint: &'a Box<InterfaceAccount<'info, Mint>>,
-    token_out_mint: &'a Box<InterfaceAccount<'info, Mint>>,
-    input_vault_account: &'a Box<InterfaceAccount<'info, TokenAccount>>,
-    output_vault_account: &'a Box<InterfaceAccount<'info, TokenAccount>>,
-    input_program: &'a Interface<'info, TokenInterface>,
-    output_program: &'a Interface<'info, TokenInterface>,
 }
 
 #[event_cpi]
@@ -122,85 +102,46 @@ impl<'info> SwapCtx<'info> {
         }
         TradeDirection::BtoA
     }
-
-    fn get_swap_accounts<'a>(&'a self) -> SwapAccounts<'a, 'info> {
-        let trade_direction = self.get_trade_direction();
-
-        let (
-            token_in_mint,
-            token_out_mint,
-            input_vault_account,
-            output_vault_account,
-            input_program,
-            output_program,
-        ) = match trade_direction {
-            TradeDirection::AtoB => (
-                &self.token_a_mint,
-                &self.token_b_mint,
-                &self.token_a_vault,
-                &self.token_b_vault,
-                &self.token_a_program,
-                &self.token_b_program,
-            ),
-            TradeDirection::BtoA => (
-                &self.token_b_mint,
-                &self.token_a_mint,
-                &self.token_b_vault,
-                &self.token_a_vault,
-                &self.token_b_program,
-                &self.token_a_program,
-            ),
-        };
-
-        SwapAccounts {
-            token_in_mint,
-            token_out_mint,
-            input_vault_account,
-            output_vault_account,
-            input_program,
-            output_program,
-        }
-    }
 }
 
-pub fn handle_swap_v1(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
-    let (swap_evt_v1, _swap_evt_v2) = handle_swap_wrapper(
-        &ctx,
-        SwapParameters2 {
-            amount_0: params.amount_in,
-            amount_1: params.minimum_amount_out,
-            swap_mode: SwapMode::ExactIn.into(),
-        },
-    )?;
+pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+    let SwapParameters2 {
+        amount_0,
+        amount_1,
+        swap_mode,
+        ..
+    } = params;
 
-    emit_cpi!(swap_evt_v1);
-    Ok(())
-}
+    let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::InvalidInput)?;
+    let trade_direction = ctx.accounts.get_trade_direction();
 
-pub fn handle_swap_v2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
-    let (swap_evt_v1, swap_evt_v2) = handle_swap_wrapper(&ctx, params)?;
-
-    emit_cpi!(swap_evt_v1);
-    emit_cpi!(swap_evt_v2);
-    Ok(())
-}
-
-pub fn handle_swap_wrapper(
-    ctx: &Context<SwapCtx>,
-    params: SwapParameters2,
-) -> Result<(EvtSwap, EvtSwap2)> {
-    params.validate()?;
-
-    let swap_mode = SwapMode::from(params.swap_mode);
-
-    let SwapAccounts {
+    let (
         token_in_mint,
         token_out_mint,
         input_vault_account,
         output_vault_account,
         input_program,
         output_program,
-    } = ctx.accounts.get_swap_accounts();
+    ) = match trade_direction {
+        TradeDirection::AtoB => (
+            &ctx.accounts.token_a_mint,
+            &ctx.accounts.token_b_mint,
+            &ctx.accounts.token_a_vault,
+            &ctx.accounts.token_b_vault,
+            &ctx.accounts.token_a_program,
+            &ctx.accounts.token_b_program,
+        ),
+        TradeDirection::BtoA => (
+            &ctx.accounts.token_b_mint,
+            &ctx.accounts.token_a_mint,
+            &ctx.accounts.token_b_vault,
+            &ctx.accounts.token_a_vault,
+            &ctx.accounts.token_b_program,
+            &ctx.accounts.token_a_program,
+        ),
+    };
+
+    require!(amount_0 > 0, PoolError::AmountIsZero);
 
     {
         let pool = ctx.accounts.pool.load()?;
@@ -211,9 +152,7 @@ pub fn handle_swap_wrapper(
         );
     }
 
-    let trade_direction = ctx.accounts.get_trade_direction();
     let has_referral = ctx.accounts.referral_token_account.is_some();
-
     let mut pool = ctx.accounts.pool.load_mut()?;
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
@@ -235,32 +174,32 @@ pub fn handle_swap_wrapper(
 
     let fee_mode = FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
 
-    let params = ProcessSwapParams {
-        pool_address: ctx.accounts.pool.key(),
+    let process_swap_params = ProcessSwapParams {
         pool: &pool,
         token_in_mint,
         token_out_mint,
-        amount_0: params.amount_0,
-        amount_1: params.amount_1,
+        amount_0,
+        amount_1,
         fee_mode: &fee_mode,
         trade_direction,
         current_point,
     };
 
     let ProcessSwapResult {
-        amount_in,
+        swap_in_parameters,
         swap_result,
-        evt_swap,
+        included_transfer_fee_amount_in,
+        included_transfer_fee_amount_out,
     } = match swap_mode {
-        SwapMode::ExactIn => process_swap_exact_in(params),
-        SwapMode::ExactOut => process_swap_exact_out(params),
-        SwapMode::PartialFillIn => process_swap_partial_fill_in(params),
+        SwapMode::ExactIn => process_swap_exact_in(process_swap_params),
+        SwapMode::ExactOut => process_swap_exact_out(process_swap_params),
+        SwapMode::PartialFill => process_swap_partial_fill(process_swap_params),
     }?;
 
     pool.apply_swap_result(&swap_result, &fee_mode, current_timestamp)?;
 
     let SwapResult2 {
-        excluded_lp_fee_output_amount: amount_out,
+        included_fee_input_amount,
         referral_fee,
         ..
     } = swap_result;
@@ -272,7 +211,7 @@ pub fn handle_swap_wrapper(
         &ctx.accounts.input_token_account,
         input_vault_account,
         input_program,
-        amount_in,
+        included_transfer_fee_amount_in,
     )?;
 
     // send to user
@@ -282,7 +221,7 @@ pub fn handle_swap_wrapper(
         output_vault_account,
         &ctx.accounts.output_token_account,
         output_program,
-        amount_out,
+        included_transfer_fee_amount_out,
     )?;
 
     // send to referral
@@ -308,7 +247,27 @@ pub fn handle_swap_wrapper(
         }
     }
 
-    Ok((evt_swap.into(), evt_swap))
+    emit_cpi!(EvtSwap {
+        pool: ctx.accounts.pool.key(),
+        trade_direction: trade_direction.into(),
+        has_referral,
+        params: swap_in_parameters,
+        swap_result: swap_result.into(),
+        actual_amount_in: included_fee_input_amount,
+        current_timestamp
+    });
+
+    emit_cpi!(EvtSwap2 {
+        pool: ctx.accounts.pool.key(),
+        trade_direction: trade_direction.into(),
+        has_referral,
+        params,
+        swap_result,
+        actual_amount_in: included_fee_input_amount,
+        current_timestamp,
+    });
+
+    Ok(())
 }
 
 pub fn validate_single_swap_instruction<'c, 'info>(
