@@ -18,6 +18,8 @@ pub mod ix_close_claim_protocol_fee_operator;
 pub use ix_close_claim_protocol_fee_operator::*;
 pub mod ix_initialize_reward;
 pub use ix_initialize_reward::*;
+pub mod ix_update_fee;
+pub use ix_update_fee::*;
 pub mod ix_update_reward_funder;
 pub use ix_update_reward_funder::*;
 pub mod ix_update_reward_duration;

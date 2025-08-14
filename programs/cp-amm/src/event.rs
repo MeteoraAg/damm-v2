@@ -282,3 +282,10 @@ pub struct EvtSplitPosition {
     pub second_position_info: SplitPositionInfo,
     pub split_position_parameters: SplitPositionParameters,
 }
+
+#[event]
+pub struct EvtUpdateFee {
+    pub pool: Pubkey,
+    pub admin: Pubkey,
+    pub new_cliff_fee_numerator: u64,
+}

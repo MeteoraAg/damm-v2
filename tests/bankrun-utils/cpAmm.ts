@@ -116,7 +116,7 @@ export type BaseFee = {
 
 export type PoolFees = {
   baseFee: BaseFee;
-  padding: number[],
+  padding: number[];
   dynamicFee: DynamicFee | null;
 };
 
@@ -222,15 +222,9 @@ export async function createConfigIx(
   expect(Buffer.from(configState.poolFees.baseFee.secondFactor).toString()).eq(
     Buffer.from(params.poolFees.baseFee.secondFactor).toString()
   );
-  expect(configState.poolFees.protocolFeePercent).eq(
-    20
-  );
-  expect(configState.poolFees.partnerFeePercent).eq(
-    0
-  );
-  expect(configState.poolFees.referralFeePercent).eq(
-    20
-  );
+  expect(configState.poolFees.protocolFeePercent).eq(20);
+  expect(configState.poolFees.partnerFeePercent).eq(0);
+  expect(configState.poolFees.referralFeePercent).eq(20);
   expect(configState.configType).eq(0); // ConfigType: Static
 
   return config;
@@ -787,7 +781,7 @@ export async function setPoolStatus(
 
 export type PoolFeesParams = {
   baseFee: BaseFee;
-  padding: number[],
+  padding: number[];
   dynamicFee: DynamicFee | null;
 };
 
@@ -1832,6 +1826,26 @@ export async function splitPosition(
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(firstPositionOwner, secondPositionOwner);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+export type UpdateFeeParams = {
+  pool: PublicKey;
+  admin: Keypair;
+  newCliffFeeNumerator: BN;
+};
+export async function updateFee(
+  banksClient: BanksClient,
+  { pool, admin, newCliffFeeNumerator }: UpdateFeeParams
+) {
+  const program = createCpAmmProgram();
+  const transaction = await program.methods
+    .updateFee(newCliffFeeNumerator)
+    .accountsPartial({ pool, admin: admin.publicKey })
+    .transaction();
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(admin);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 }

@@ -32,7 +32,7 @@ pub struct BaseFeeParameters {
 }
 
 impl BaseFeeParameters {
-    fn validate(
+    pub fn validate(
         &self,
         collect_fee_mode: CollectFeeMode,
         activation_type: ActivationType,
@@ -49,7 +49,7 @@ impl BaseFeeParameters {
         Ok(())
     }
 
-    fn to_base_fee_struct(&self) -> BaseFeeStruct {
+    pub fn to_base_fee_struct(&self) -> BaseFeeStruct {
         BaseFeeStruct {
             cliff_fee_numerator: self.cliff_fee_numerator,
             first_factor: self.first_factor,

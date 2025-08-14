@@ -236,4 +236,8 @@ pub mod cp_amm {
     ) -> Result<()> {
         instructions::handle_split_position(ctx, params)
     }
+
+    pub fn update_fee(ctx: Context<UpdateFeeCtx>, new_cliff_fee_numerator: u64) -> Result<()> {
+        instructions::handle_update_fee(ctx, new_cliff_fee_numerator)
+    }
 }
