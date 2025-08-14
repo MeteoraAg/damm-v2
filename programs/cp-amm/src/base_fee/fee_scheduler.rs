@@ -61,6 +61,22 @@ impl FeeScheduler {
             }
         }
     }
+
+    pub fn get_base_fee_numerator(&self, current_point: u64, activation_point: u64) -> Result<u64> {
+        if self.period_frequency == 0 {
+            return Ok(self.cliff_fee_numerator);
+        }
+        // it means alpha-vault is buying
+        let period = if current_point < activation_point {
+            self.number_of_period.into()
+        } else {
+            let period = current_point
+                .safe_sub(activation_point)?
+                .safe_div(self.period_frequency)?;
+            period.min(self.number_of_period.into())
+        };
+        self.get_base_fee_numerator_by_period(period)
+    }
 }
 
 impl BaseFeeHandler for FeeScheduler {
@@ -95,19 +111,7 @@ impl BaseFeeHandler for FeeScheduler {
         _trade_direction: TradeDirection,
         _included_fee_amount: u64,
     ) -> Result<u64> {
-        if self.period_frequency == 0 {
-            return Ok(self.cliff_fee_numerator);
-        }
-        // it means alpha-vault is buying
-        let period = if current_point < activation_point {
-            self.number_of_period.into()
-        } else {
-            let period = current_point
-                .safe_sub(activation_point)?
-                .safe_div(self.period_frequency)?;
-            period.min(self.number_of_period.into())
-        };
-        self.get_base_fee_numerator_by_period(period)
+        self.get_base_fee_numerator(current_point, activation_point)
     }
 
     fn get_base_fee_numerator_from_excluded_fee_amount(
@@ -117,11 +121,6 @@ impl BaseFeeHandler for FeeScheduler {
         trade_direction: TradeDirection,
         excluded_fee_amount: u64,
     ) -> Result<u64> {
-        self.get_base_fee_numerator_from_included_fee_amount(
-            current_point,
-            activation_point,
-            trade_direction,
-            excluded_fee_amount,
-        )
+        self.get_base_fee_numerator(current_point, activation_point)
     }
 }
