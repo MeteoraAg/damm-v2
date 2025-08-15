@@ -909,7 +909,7 @@ impl Pool {
 
         require!(
             current_point >= self.activation_point,
-            PoolError::UnableToUpdateFeeDuringFeeSchedule
+            PoolError::PoolDisabled
         );
 
         let period: u16 = current_point
@@ -920,7 +920,7 @@ impl Pool {
         let number_of_period = self.pool_fees.base_fee.first_factor;
 
         require!(
-            period >= number_of_period,
+            period > number_of_period,
             PoolError::UnableToUpdateFeeDuringFeeSchedule
         );
 
