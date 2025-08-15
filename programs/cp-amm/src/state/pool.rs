@@ -894,14 +894,14 @@ impl Pool {
     }
 
     pub fn validate_to_update_fee(&self) -> Result<()> {
-        let period_frequency = u64::from_le_bytes(self.pool_fees.base_fee.second_factor);
-        if period_frequency == 0 {
-            return Ok(());
-        }
-
         let base_fee_mode = BaseFeeMode::try_from(self.pool_fees.base_fee.base_fee_mode)
             .map_err(|_| PoolError::InvalidBaseFeeMode)?;
         if base_fee_mode == BaseFeeMode::RateLimiter {
+            return Ok(());
+        }
+
+        let period_frequency = u64::from_le_bytes(self.pool_fees.base_fee.second_factor);
+        if period_frequency == 0 {
             return Ok(());
         }
 
@@ -916,7 +916,7 @@ impl Pool {
             .safe_sub(self.activation_point)?
             .safe_div(period_frequency)?
             .try_into()
-            .map_err(|_| PoolError::MathOverflow)?;
+            .map_err(|_| PoolError::TypeCastFailed)?;
         let number_of_period = self.pool_fees.base_fee.first_factor;
 
         require!(
