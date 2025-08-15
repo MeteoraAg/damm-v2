@@ -895,29 +895,34 @@ impl Pool {
 
     pub fn validate_to_update_fee(&mut self) -> Result<()> {
         let period_frequency = u64::from_le_bytes(self.pool_fees.base_fee.second_factor);
+        if period_frequency == 0 {
+            return Ok(());
+        }
+
         let base_fee_mode = BaseFeeMode::try_from(self.pool_fees.base_fee.base_fee_mode)
             .map_err(|_| PoolError::InvalidBaseFeeMode)?;
-
-        if period_frequency != 0 && base_fee_mode != BaseFeeMode::RateLimiter {
-            let current_point = ActivationHandler::get_current_point(self.activation_type)?;
-
-            require!(
-                current_point >= self.activation_point,
-                PoolError::UnableToUpdateFeeDuringFeeSchedule
-            );
-
-            let period: u16 = current_point
-                .safe_sub(self.activation_point)?
-                .safe_div(period_frequency)?
-                .try_into()
-                .map_err(|_| PoolError::MathOverflow)?;
-            let number_of_period = self.pool_fees.base_fee.first_factor;
-
-            require!(
-                period >= number_of_period,
-                PoolError::UnableToUpdateFeeDuringFeeSchedule
-            );
+        if base_fee_mode == BaseFeeMode::RateLimiter {
+            return Ok(());
         }
+
+        let current_point = ActivationHandler::get_current_point(self.activation_type)?;
+
+        require!(
+            current_point >= self.activation_point,
+            PoolError::UnableToUpdateFeeDuringFeeSchedule
+        );
+
+        let period: u16 = current_point
+            .safe_sub(self.activation_point)?
+            .safe_div(period_frequency)?
+            .try_into()
+            .map_err(|_| PoolError::MathOverflow)?;
+        let number_of_period = self.pool_fees.base_fee.first_factor;
+
+        require!(
+            period >= number_of_period,
+            PoolError::UnableToUpdateFeeDuringFeeSchedule
+        );
 
         Ok(())
     }
