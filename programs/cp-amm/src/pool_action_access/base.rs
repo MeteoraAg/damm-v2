@@ -19,7 +19,6 @@ pub trait PoolActionAccess {
     fn can_create_position(&self) -> bool;
     fn can_lock_position(&self) -> bool;
     fn can_split_position(&self) -> bool;
-    fn can_update_fee(&self) -> bool;
 }
 
 pub fn get_pool_access_validator<'a>(pool: &'a Pool) -> Result<Box<dyn PoolActionAccess + 'a>> {

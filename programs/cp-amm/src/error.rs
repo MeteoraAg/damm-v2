@@ -158,6 +158,6 @@ pub enum PoolError {
     #[msg("Invalid fee scheduler")]
     InvalidFeeScheduler,
 
-    #[msg("Unable to update fee before the activation point")]
-    UnableToUpdateFeeBeforeActivationPoint,
+    #[msg("Unable to update fee during the fee schedule")]
+    UnableToUpdateFeeDuringFeeSchedule,
 }

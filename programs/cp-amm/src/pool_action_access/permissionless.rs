@@ -68,8 +68,4 @@ impl PoolActionAccess for PermissionlessActionAccess {
     fn can_split_position(&self) -> bool {
         self.is_enabled
     }
-
-    fn can_update_fee(&self) -> bool {
-        self.current_point >= self.activation_point
-    }
 }
