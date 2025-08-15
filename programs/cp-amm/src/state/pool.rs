@@ -893,7 +893,7 @@ impl Pool {
         Ok(())
     }
 
-    pub fn validate_to_update_fee(&mut self) -> Result<()> {
+    pub fn validate_to_update_fee(&self) -> Result<()> {
         let period_frequency = u64::from_le_bytes(self.pool_fees.base_fee.second_factor);
         if period_frequency == 0 {
             return Ok(());
