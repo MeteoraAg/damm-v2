@@ -52,7 +52,7 @@ pub fn process_swap_partial_fill<'a, 'b, 'info>(
             minimum_amount_out,
         },
         included_transfer_fee_amount_in: transfer_fee_included_consumed_in_amount,
-        excluded_transfer_fee_amount_out,
         included_transfer_fee_amount_out: swap_result.output_amount,
+        excluded_transfer_fee_amount_out,
     })
 }

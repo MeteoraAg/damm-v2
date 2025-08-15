@@ -41,8 +41,8 @@ pub fn process_swap_exact_in<'a, 'b, 'info>(
             amount_in,
             minimum_amount_out,
         },
-        excluded_transfer_fee_amount_out,
-        included_transfer_fee_amount_out: swap_result.output_amount,
         included_transfer_fee_amount_in: amount_in,
+        included_transfer_fee_amount_out: swap_result.output_amount,
+        excluded_transfer_fee_amount_out,
     })
 }

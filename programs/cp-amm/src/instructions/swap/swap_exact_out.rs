@@ -22,6 +22,10 @@ pub fn process_swap_exact_out<'a, 'b, 'info>(
 
     let included_transfer_fee_amount_out =
         calculate_transfer_fee_included_amount(token_out_mint, amount_out)?.amount;
+    require!(
+        included_transfer_fee_amount_out > 0,
+        PoolError::AmountIsZero
+    );
 
     let swap_result = pool.get_swap_result_from_exact_output(
         included_transfer_fee_amount_out,
@@ -48,7 +52,7 @@ pub fn process_swap_exact_out<'a, 'b, 'info>(
             minimum_amount_out: amount_out,
         },
         included_transfer_fee_amount_in,
-        excluded_transfer_fee_amount_out: amount_out,
         included_transfer_fee_amount_out,
+        excluded_transfer_fee_amount_out: amount_out,
     })
 }

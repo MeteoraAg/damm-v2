@@ -6,7 +6,7 @@ use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::curve::get_next_sqrt_price_from_output;
-use crate::state::fee::FeeOnAmountResult;
+use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::{
     assert_eq_admin,
     constants::{
@@ -446,7 +446,7 @@ impl Pool {
 
         let max_fee_numerator = self.get_max_fee_numerator()?;
 
-        let actual_amount_out = if fee_mode.fees_on_input {
+        let included_fee_amount_out = if fee_mode.fees_on_input {
             amount_out
         } else {
             let trade_fee_numerator = self
@@ -462,7 +462,12 @@ impl Pool {
             let (included_fee_amount_out, fee_amount) =
                 PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, amount_out)?;
 
-            let (trading_fee, protocol_fee, referral_fee, partner_fee) = self
+            let SplitFees {
+                trading_fee,
+                protocol_fee,
+                referral_fee,
+                partner_fee,
+            } = self
                 .pool_fees
                 .split_fees(fee_amount, fee_mode.has_referral, self.has_partner())?;
 
@@ -478,11 +483,11 @@ impl Pool {
             input_amount,
             next_sqrt_price,
         } = match trade_direction {
-            TradeDirection::AtoB => self.calculate_a_to_b_from_amount_out(actual_amount_out),
-            TradeDirection::BtoA => self.calculate_b_to_a_from_amount_out(actual_amount_out),
+            TradeDirection::AtoB => self.calculate_a_to_b_from_amount_out(included_fee_amount_out),
+            TradeDirection::BtoA => self.calculate_b_to_a_from_amount_out(included_fee_amount_out),
         }?;
 
-        let actual_amount_in = if fee_mode.fees_on_input {
+        let included_fee_input_amount = if fee_mode.fees_on_input {
             let trade_fee_numerator = self
                 .pool_fees
                 .get_total_trading_fee_from_excluded_fee_amount(
@@ -493,10 +498,15 @@ impl Pool {
                     max_fee_numerator,
                 )?;
 
-            let (included_fee_amount_in, fee_amount) =
+            let (included_fee_input_amount, fee_amount) =
                 PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, input_amount)?;
 
-            let (trading_fee, protocol_fee, referral_fee, partner_fee) = self
+            let SplitFees {
+                trading_fee,
+                protocol_fee,
+                referral_fee,
+                partner_fee,
+            } = self
                 .pool_fees
                 .split_fees(fee_amount, fee_mode.has_referral, self.has_partner())?;
 
@@ -505,14 +515,14 @@ impl Pool {
             actual_referral_fee = referral_fee;
             actual_partner_fee = partner_fee;
 
-            included_fee_amount_in
+            included_fee_input_amount
         } else {
             input_amount
         };
 
         Ok(SwapResult2 {
             amount_left: 0,
-            included_fee_input_amount: actual_amount_in,
+            included_fee_input_amount,
             excluded_fee_input_amount: input_amount,
             output_amount: amount_out,
             next_sqrt_price,
@@ -597,9 +607,16 @@ impl Pool {
                 let (included_fee_amount_in, fee_amount) =
                     PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, actual_amount_in)?;
 
-                let (trading_fee, protocol_fee, referral_fee, partner_fee) = self
-                    .pool_fees
-                    .split_fees(fee_amount, fee_mode.has_referral, self.has_partner())?;
+                let SplitFees {
+                    trading_fee,
+                    protocol_fee,
+                    referral_fee,
+                    partner_fee,
+                } = self.pool_fees.split_fees(
+                    fee_amount,
+                    fee_mode.has_referral,
+                    self.has_partner(),
+                )?;
 
                 actual_protocol_fee = protocol_fee;
                 actual_trading_fee = trading_fee;
@@ -808,7 +825,7 @@ impl Pool {
             Rounding::Up,
         )?;
 
-        let (consumed_in_amount, next_sqrt_price) = if amount_in > max_amount_in {
+        let (consumed_in_amount, next_sqrt_price) = if amount_in >= max_amount_in {
             (max_amount_in, self.sqrt_max_price)
         } else {
             let next_sqrt_price =
@@ -843,12 +860,11 @@ impl Pool {
             Rounding::Up,
         )?;
 
-        let (consumed_in_amount, next_sqrt_price) = if amount_in > max_amount_in {
+        let (consumed_in_amount, next_sqrt_price) = if amount_in >= max_amount_in {
             (max_amount_in, self.sqrt_min_price)
         } else {
             let next_sqrt_price =
                 get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, true)?;
-
             (amount_in, next_sqrt_price)
         };
 
