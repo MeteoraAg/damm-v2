@@ -7,6 +7,7 @@ use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
+    activation_handler::ActivationHandler,
     assert_eq_admin,
     constants::{
         fee::{MAX_FEE_NUMERATOR_V0, MAX_FEE_NUMERATOR_V1},
@@ -19,7 +20,7 @@ use crate::{
     params::swap::TradeDirection,
     safe_math::SafeMath,
     state::{
-        fee::{DynamicFeeStruct, FeeOnAmountResult, PoolFeesStruct},
+        fee::{BaseFeeMode, DynamicFeeStruct, FeeOnAmountResult, PoolFeesStruct},
         Position, SplitFeeAmount,
     },
     u128x128_math::{shl_div_256, Rounding},
@@ -889,6 +890,35 @@ impl Pool {
         } else {
             require!(assert_eq_admin(signer), PoolError::InvalidAdmin);
         }
+        Ok(())
+    }
+
+    pub fn validate_to_update_fee(&mut self) -> Result<()> {
+        let period_frequency = u64::from_le_bytes(self.pool_fees.base_fee.second_factor);
+        let base_fee_mode = BaseFeeMode::try_from(self.pool_fees.base_fee.base_fee_mode)
+            .map_err(|_| PoolError::InvalidBaseFeeMode)?;
+
+        if period_frequency != 0 && base_fee_mode != BaseFeeMode::RateLimiter {
+            let current_point = ActivationHandler::get_current_point(self.activation_type)?;
+
+            require!(
+                current_point >= self.activation_point,
+                PoolError::UnableToUpdateFeeDuringFeeSchedule
+            );
+
+            let period: u16 = current_point
+                .safe_sub(self.activation_point)?
+                .safe_div(period_frequency)?
+                .try_into()
+                .map_err(|_| PoolError::MathOverflow)?;
+            let number_of_period = self.pool_fees.base_fee.first_factor;
+
+            require!(
+                period >= number_of_period,
+                PoolError::UnableToUpdateFeeDuringFeeSchedule
+            );
+        }
+
         Ok(())
     }
 

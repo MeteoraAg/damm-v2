@@ -286,6 +286,6 @@ pub struct EvtSplitPosition {
 #[event]
 pub struct EvtUpdateFee {
     pub pool: Pubkey,
-    pub admin: Pubkey,
+    pub old_cliff_fee_numerator: u64,
     pub new_cliff_fee_numerator: u64,
 }
