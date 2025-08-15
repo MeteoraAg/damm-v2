@@ -202,41 +202,12 @@ impl PoolFeesStruct {
         let (amount, trading_fee) =
             PoolFeesStruct::get_excluded_fee_amount(trade_fee_numerator, amount)?;
 
-        let protocol_fee = safe_mul_div_cast_u64(
+        let SplitFees {
             trading_fee,
-            self.protocol_fee_percent.into(),
-            100,
-            Rounding::Down,
-        )?;
-
-        // update trading fee
-        let trading_fee = trading_fee.safe_sub(protocol_fee)?;
-
-        let referral_fee = if has_referral {
-            safe_mul_div_cast_u64(
-                protocol_fee,
-                self.referral_fee_percent.into(),
-                100,
-                Rounding::Down,
-            )?
-        } else {
-            0
-        };
-
-        let protocol_fee_after_referral_fee = protocol_fee.safe_sub(referral_fee)?;
-
-        let partner_fee = if has_partner && self.partner_fee_percent > 0 {
-            safe_mul_div_cast_u64(
-                protocol_fee_after_referral_fee,
-                self.partner_fee_percent.into(),
-                100,
-                Rounding::Down,
-            )?
-        } else {
-            0
-        };
-
-        let protocol_fee = protocol_fee_after_referral_fee.safe_sub(partner_fee)?;
+            protocol_fee,
+            referral_fee,
+            partner_fee,
+        } = self.split_fees(trading_fee, has_referral, has_partner)?;
 
         Ok(FeeOnAmountResult {
             amount,
@@ -280,7 +251,7 @@ impl PoolFeesStruct {
         fee_amount: u64,
         has_referral: bool,
         has_partner: bool,
-    ) -> Result<(u64, u64, u64, u64)> {
+    ) -> Result<SplitFees> {
         let protocol_fee = safe_mul_div_cast_u64(
             fee_amount,
             self.protocol_fee_percent.into(),
@@ -317,7 +288,12 @@ impl PoolFeesStruct {
 
         let protocol_fee = protocol_fee_after_referral_fee.safe_sub(partner_fee)?;
 
-        Ok((trading_fee, protocol_fee, referral_fee, partner_fee))
+        Ok(SplitFees {
+            trading_fee,
+            protocol_fee,
+            referral_fee,
+            partner_fee,
+        })
     }
 }
 
@@ -460,6 +436,13 @@ impl FeeMode {
             has_referral,
         })
     }
+}
+
+pub struct SplitFees {
+    pub trading_fee: u64,
+    pub protocol_fee: u64,
+    pub referral_fee: u64,
+    pub partner_fee: u64,
 }
 
 #[cfg(test)]

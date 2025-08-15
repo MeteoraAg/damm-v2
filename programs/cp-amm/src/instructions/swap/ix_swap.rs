@@ -150,6 +150,7 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
         ),
     };
 
+    // redundant validation, but we can just keep it
     require!(amount_0 > 0, PoolError::AmountIsZero);
 
     let has_referral = ctx.accounts.referral_token_account.is_some();
@@ -193,8 +194,8 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
         included_transfer_fee_amount_out,
     } = match swap_mode {
         SwapMode::ExactIn => process_swap_exact_in(process_swap_params),
-        SwapMode::ExactOut => process_swap_exact_out(process_swap_params),
         SwapMode::PartialFill => process_swap_partial_fill(process_swap_params),
+        SwapMode::ExactOut => process_swap_exact_out(process_swap_params),
     }?;
 
     pool.apply_swap_result(&swap_result, &fee_mode, current_timestamp)?;
@@ -261,6 +262,7 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
     emit_cpi!(EvtSwap2 {
         pool: ctx.accounts.pool.key(),
         trade_direction: trade_direction.into(),
+        collect_fee_mode: pool.collect_fee_mode,
         has_referral,
         params,
         swap_result,

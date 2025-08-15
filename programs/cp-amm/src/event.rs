@@ -146,6 +146,7 @@ pub struct EvtSwap {
 pub struct EvtSwap2 {
     pub pool: Pubkey,
     pub trade_direction: u8,
+    pub collect_fee_mode: u8,
     pub has_referral: bool,
     pub params: SwapParameters2,
     // excluded_transfer_fee_amount_in is swap_result.included_fee_amount_in

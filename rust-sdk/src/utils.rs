@@ -20,7 +20,7 @@ pub fn get_current_point(
     Ok(current_point)
 }
 
-pub fn is_pool_open_for_swap(pool: &Pool, current_point: u64) -> Result<bool> {
+pub fn is_swap_enable(pool: &Pool, current_point: u64) -> Result<bool> {
     let pool_status = PoolStatus::try_from(pool.pool_status).context("invalid pool status")?;
     Ok(pool_status == PoolStatus::Enable && current_point >= pool.activation_point)
 }
