@@ -15,7 +15,7 @@ fn test_quote_partial_fill_in() {
 
     let amount_in = u64::MAX;
 
-    let (consumed_in_amount, swap_result) = quote_partial_fill_in::get_quote(
+    let swap_result = quote_partial_fill_in::get_quote(
         &pool,
         current_timestamp,
         current_slot,
@@ -31,7 +31,7 @@ fn test_quote_partial_fill_in() {
     );
 
     assert!(
-        consumed_in_amount < amount_in,
+        swap_result.included_fee_input_amount < amount_in,
         "Expected consumed input amount to be less than input amount"
     );
 
@@ -40,5 +40,8 @@ fn test_quote_partial_fill_in() {
         "Expected next sqrt price to match pool's max price"
     );
 
-    println!("swap_result {} {:?}", consumed_in_amount, swap_result);
+    println!(
+        "swap_result {} {:?}",
+        swap_result.included_fee_input_amount, swap_result
+    );
 }

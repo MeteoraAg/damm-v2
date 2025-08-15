@@ -15,7 +15,7 @@ fn test_quote_exact_out() {
 
     let actual_amount_out = 1_000_000;
 
-    let (amount_in, swap_result) = quote_exact_out::get_quote(
+    let swap_result = quote_exact_out::get_quote(
         &pool,
         current_timestamp,
         current_slot,
@@ -25,11 +25,17 @@ fn test_quote_exact_out() {
     )
     .unwrap();
 
-    assert!(amount_in > 0, "Expected amount 0 to be greater than 0");
+    assert!(
+        swap_result.included_fee_input_amount > 0,
+        "Expected amount 0 to be greater than 0"
+    );
     assert_eq!(
         swap_result.output_amount, actual_amount_out,
         "Expected output amount to be equals"
     );
 
-    println!("swap_result {} {:?}", amount_in, swap_result);
+    println!(
+        "swap_result {} {:?}",
+        swap_result.included_fee_input_amount, swap_result
+    );
 }
