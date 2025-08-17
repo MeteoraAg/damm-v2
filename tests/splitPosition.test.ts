@@ -25,8 +25,8 @@ import {
   permanentLockPosition,
   U64_MAX,
   addLiquidity,
-  swap,
-  convertToByteArray
+  swapExactIn,
+  convertToByteArray,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -220,7 +220,7 @@ describe("Split position", () => {
 
   it("Split position into two position", async () => {
     // swap
-    await swap(context.banksClient, {
+    await swapExactIn(context.banksClient, {
       payer: user,
       pool,
       inputTokenMint: tokenAMint,
@@ -230,7 +230,7 @@ describe("Split position", () => {
       referralTokenAccount: null,
     });
 
-    await swap(context.banksClient, {
+    await swapExactIn(context.banksClient, {
       payer: user,
       pool,
       inputTokenMint: tokenBMint,

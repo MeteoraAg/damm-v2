@@ -1,4 +1,4 @@
-use crate::{fee_math::get_fee_in_period, state::fee::BaseFeeStruct};
+use crate::fee_math::get_fee_in_period;
 use proptest::prelude::*;
 
 proptest! {
@@ -17,25 +17,4 @@ proptest! {
         let fee_numerator: u64 = get_fee_in_period(cliff_fee_numerator, reduction_factor, passed_period)?;
         assert_eq!(fee_numerator, cliff_fee_numerator)
     }
-}
-
-#[test]
-fn test_base_fee() {
-    let base_fee = BaseFeeStruct {
-        cliff_fee_numerator: 100_000,
-        base_fee_mode: 1,
-        first_factor: 50,
-        second_factor: 1u64.to_le_bytes(),
-        third_factor: 500, // 5% each second
-        ..Default::default()
-    };
-    let current_fee = base_fee
-        .get_current_base_fee_numerator(
-            100,
-            0,
-            1_000_000,
-            crate::params::swap::TradeDirection::AtoB,
-        )
-        .unwrap();
-    println!("{}", current_fee)
 }
