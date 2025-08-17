@@ -28,7 +28,7 @@ import {
   InitializePoolParams,
   initializePool,
   getPool,
-  swap,
+  swapExactIn,
   swapInstruction,
 } from "./bankrun-utils";
 import BN from "bn.js";
@@ -102,7 +102,10 @@ describe("Rate limiter", () => {
     let maxRateLimiterDuration = new BN(10);
     let maxFeeBps = new BN(5000);
 
-    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(maxRateLimiterDuration, maxFeeBps)
+    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(
+      maxRateLimiterDuration,
+      maxFeeBps
+    );
 
     const createConfigParams: CreateConfigParams = {
       poolFees: {
@@ -148,7 +151,7 @@ describe("Rate limiter", () => {
 
     // swap with 1 SOL
 
-    await swap(context.banksClient, {
+    await swapExactIn(context.banksClient, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -170,7 +173,7 @@ describe("Rate limiter", () => {
 
     // swap with 2 SOL
 
-    await swap(context.banksClient, {
+    await swapExactIn(context.banksClient, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -196,7 +199,7 @@ describe("Rate limiter", () => {
 
     // swap with 2 SOL
 
-    await swap(context.banksClient, {
+    await swapExactIn(context.banksClient, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -222,7 +225,10 @@ describe("Rate limiter", () => {
     let maxRateLimiterDuration = new BN(10);
     let maxFeeBps = new BN(5000);
 
-    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(maxRateLimiterDuration, maxFeeBps)
+    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(
+      maxRateLimiterDuration,
+      maxFeeBps
+    );
     const liquidity = new BN(MIN_LP_AMOUNT);
     const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
@@ -277,9 +283,11 @@ describe("Rate limiter", () => {
     )[0];
     transaction.sign(poolCreator);
 
-    const errorCode = getCpAmmProgramErrorCodeHexString("FailToValidateSingleSwapInstruction")
-    await expectThrowsAsync(async ()=>{
-      await processTransactionMaybeThrow(context.banksClient, transaction); 
-    }, errorCode)
+    const errorCode = getCpAmmProgramErrorCodeHexString(
+      "FailToValidateSingleSwapInstruction"
+    );
+    await expectThrowsAsync(async () => {
+      await processTransactionMaybeThrow(context.banksClient, transaction);
+    }, errorCode);
   });
 });

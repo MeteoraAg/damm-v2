@@ -3,10 +3,12 @@ use crate::{
     const_pda, get_pool_access_validator,
     instruction::Swap as SwapInstruction,
     params::swap::TradeDirection,
+    process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill,
     safe_math::SafeMath,
-    state::{fee::FeeMode, Pool},
-    token::{calculate_transfer_fee_excluded_amount, transfer_from_pool, transfer_from_user},
-    EvtSwap, PoolError,
+    state::{fee::FeeMode, Pool, SwapResult2},
+    swap::{ProcessSwapParams, ProcessSwapResult},
+    token::{transfer_from_pool, transfer_from_user},
+    EvtSwap, EvtSwap2, PoolError,
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_lang::{
@@ -14,11 +16,33 @@ use anchor_lang::{
     solana_program::instruction::{get_processed_sibling_instruction, get_stack_height},
 };
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use num_enum::{FromPrimitive, IntoPrimitive};
+
+#[repr(u8)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
+)]
+pub enum SwapMode {
+    #[num_enum(default)]
+    ExactIn,
+    PartialFill,
+    ExactOut,
+}
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SwapParameters {
     pub amount_in: u64,
     pub minimum_amount_out: u64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
+pub struct SwapParameters2 {
+    /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
+    pub amount_0: u64,
+    /// When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in
+    pub amount_1: u64,
+    /// Swap mode, refer [SwapMode]
+    pub swap_mode: u8,
 }
 
 #[event_cpi]
@@ -80,8 +104,14 @@ impl<'info> SwapCtx<'info> {
     }
 }
 
-// TODO impl swap exact out
-pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
+pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+    let SwapParameters2 {
+        amount_0,
+        amount_1,
+        swap_mode,
+        ..
+    } = params;
+
     {
         let pool = ctx.accounts.pool.load()?;
         let access_validator = get_pool_access_validator(&pool)?;
@@ -91,12 +121,9 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         );
     }
 
-    let SwapParameters {
-        amount_in,
-        minimum_amount_out,
-    } = params;
-
+    let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::InvalidInput)?;
     let trade_direction = ctx.accounts.get_trade_direction();
+
     let (
         token_in_mint,
         token_out_mint,
@@ -123,13 +150,10 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
         ),
     };
 
-    let transfer_fee_excluded_amount_in =
-        calculate_transfer_fee_excluded_amount(&token_in_mint, amount_in)?.amount;
-
-    require!(transfer_fee_excluded_amount_in > 0, PoolError::AmountIsZero);
+    // redundant validation, but we can just keep it
+    require!(amount_0 > 0, PoolError::AmountIsZero);
 
     let has_referral = ctx.accounts.referral_token_account.is_some();
-
     let mut pool = ctx.accounts.pool.load_mut()?;
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
@@ -149,42 +173,59 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     let current_timestamp = Clock::get()?.unix_timestamp as u64;
     pool.update_pre_swap(current_timestamp)?;
 
-    let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
+    let fee_mode = FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
 
-    let swap_result = pool.get_swap_result(
-        transfer_fee_excluded_amount_in,
-        fee_mode,
+    let process_swap_params = ProcessSwapParams {
+        pool: &pool,
+        token_in_mint,
+        token_out_mint,
+        amount_0,
+        amount_1,
+        fee_mode: &fee_mode,
         trade_direction,
         current_point,
-    )?;
+    };
 
-    let transfer_fee_excluded_amount_out =
-        calculate_transfer_fee_excluded_amount(&token_out_mint, swap_result.output_amount)?.amount;
-    require!(
-        transfer_fee_excluded_amount_out >= minimum_amount_out,
-        PoolError::ExceededSlippage
-    );
+    let ProcessSwapResult {
+        swap_in_parameters,
+        swap_result,
+        included_transfer_fee_amount_in,
+        excluded_transfer_fee_amount_out,
+        included_transfer_fee_amount_out,
+    } = match swap_mode {
+        SwapMode::ExactIn => process_swap_exact_in(process_swap_params),
+        SwapMode::PartialFill => process_swap_partial_fill(process_swap_params),
+        SwapMode::ExactOut => process_swap_exact_out(process_swap_params),
+    }?;
 
-    pool.apply_swap_result(&swap_result, fee_mode, current_timestamp)?;
+    pool.apply_swap_result(&swap_result, &fee_mode, current_timestamp)?;
+
+    let SwapResult2 {
+        included_fee_input_amount,
+        referral_fee,
+        ..
+    } = swap_result;
 
     // send to reserve
     transfer_from_user(
         &ctx.accounts.payer,
         token_in_mint,
         &ctx.accounts.input_token_account,
-        &input_vault_account,
+        input_vault_account,
         input_program,
-        amount_in,
+        included_transfer_fee_amount_in,
     )?;
+
     // send to user
     transfer_from_pool(
         ctx.accounts.pool_authority.to_account_info(),
-        &token_out_mint,
-        &output_vault_account,
+        token_out_mint,
+        output_vault_account,
         &ctx.accounts.output_token_account,
         output_program,
-        swap_result.output_amount,
+        included_transfer_fee_amount_out,
     )?;
+
     // send to referral
     if has_referral {
         if fee_mode.fees_on_token_a {
@@ -194,7 +235,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
                 &ctx.accounts.token_a_vault,
                 &ctx.accounts.referral_token_account.clone().unwrap(),
                 &ctx.accounts.token_a_program,
-                swap_result.referral_fee,
+                referral_fee,
             )?;
         } else {
             transfer_from_pool(
@@ -203,7 +244,7 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
                 &ctx.accounts.token_b_vault,
                 &ctx.accounts.referral_token_account.clone().unwrap(),
                 &ctx.accounts.token_b_program,
-                swap_result.referral_fee,
+                referral_fee,
             )?;
         }
     }
@@ -211,11 +252,24 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     emit_cpi!(EvtSwap {
         pool: ctx.accounts.pool.key(),
         trade_direction: trade_direction.into(),
+        has_referral,
+        params: swap_in_parameters,
+        swap_result: swap_result.into(),
+        actual_amount_in: included_fee_input_amount,
+        current_timestamp
+    });
+
+    emit_cpi!(EvtSwap2 {
+        pool: ctx.accounts.pool.key(),
+        trade_direction: trade_direction.into(),
+        collect_fee_mode: pool.collect_fee_mode,
+        has_referral,
         params,
         swap_result,
-        has_referral,
-        actual_amount_in: transfer_fee_excluded_amount_in,
         current_timestamp,
+        included_transfer_fee_amount_in,
+        included_transfer_fee_amount_out,
+        excluded_transfer_fee_amount_out,
     });
 
     Ok(())
