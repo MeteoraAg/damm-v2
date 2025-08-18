@@ -160,4 +160,7 @@ pub enum PoolError {
 
     #[msg("Unable to update fee during the fee schedule")]
     UnableToUpdateFeeDuringFeeSchedule,
+
+    #[msg("Undetermined error")]
+    UndeterminedError,
 }

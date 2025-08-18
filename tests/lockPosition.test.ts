@@ -23,7 +23,7 @@ import {
   mintSplTokenTo,
   permanentLockPosition,
   refreshVestings,
-  swap,
+  swapExactIn,
   SwapParams,
 } from "./bankrun-utils";
 import {
@@ -240,7 +240,7 @@ describe("Lock position", () => {
           referralTokenAccount: null,
         };
 
-        await swap(context.banksClient, swapParams);
+        await swapExactIn(context.banksClient, swapParams);
 
         const claimParams = {
           owner: user,
@@ -568,7 +568,7 @@ describe("Lock position", () => {
           referralTokenAccount: null,
         };
 
-        await swap(context.banksClient, swapParams);
+        await swapExactIn(context.banksClient, swapParams);
 
         const claimParams = {
           owner: user,
