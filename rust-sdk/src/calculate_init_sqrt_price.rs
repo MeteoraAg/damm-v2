@@ -1,5 +1,5 @@
 use anyhow::{ensure, Ok, Result};
-use cp_amm::{fee_math::pow, safe_math::SafeMath, utils_math::sqrt_u128};
+use cp_amm::{safe_math::SafeMath, utils_math::sqrt_u256};
 use ruint::aliases::U256;
 
 // a = L * (1/s - 1/pb)
@@ -20,53 +20,28 @@ pub fn calculate_init_price(
         "Token amounts must be non-zero"
     );
 
-    let xy_u256 = U256::from(token_b_amount)
+    let token_a_amount_u256 = U256::from(token_a_amount);
+    let token_b_amount_u256 = U256::from(token_b_amount)
         .safe_shl(128)
-        .map_err(|_| anyhow::anyhow!("Math overflow"))?
-        .safe_div(
-            U256::from(token_a_amount)
-                .safe_mul(U256::from(max_sqrt_price))
-                .map_err(|_| anyhow::anyhow!("Math overflow"))?,
-        )
         .map_err(|_| anyhow::anyhow!("Math overflow"))?;
+    let min_sqrt_price_u256 = U256::from(min_sqrt_price);
+    let max_sqrt_price_u256 = U256::from(max_sqrt_price);
 
-    let xy = u128::try_from(xy_u256).map_err(|_| anyhow::anyhow!("Type cast failed"))?;
+    let xy = token_b_amount_u256 / (token_a_amount_u256 * max_sqrt_price_u256);
 
-    let four_y_u256 = U256::from(token_b_amount)
-        .safe_shl(128)
-        .map_err(|_| anyhow::anyhow!("Math overflow"))?
-        .safe_div(U256::from(token_a_amount))
-        .map_err(|_| anyhow::anyhow!("Math overflow"))?
-        .safe_mul(U256::from(4))
-        .map_err(|_| anyhow::anyhow!("Math overflow"))?;
+    let four_y = U256::from(4) * token_b_amount_u256 / token_a_amount_u256;
 
-    let four_y = u128::try_from(four_y_u256).map_err(|_| anyhow::anyhow!("Type cast failed"))?;
-
-    let xy_minus_pa_abs = if xy > min_sqrt_price {
-        xy.safe_sub(min_sqrt_price)
-            .map_err(|_| anyhow::anyhow!("Math overflow"))?
+    let abs_xy_minus_pa = if xy > min_sqrt_price_u256 {
+        xy - min_sqrt_price_u256
     } else {
-        min_sqrt_price
-            .safe_sub(xy)
-            .map_err(|_| anyhow::anyhow!("Math overflow"))?
+        min_sqrt_price_u256 - xy
     };
 
-    let pow_xy_minus_pa =
-        pow(xy_minus_pa_abs, 2).ok_or_else(|| anyhow::anyhow!("Failed to calculate pow"))?;
-
-    let discriminant = pow_xy_minus_pa
-        .safe_add(four_y)
-        .map_err(|_| anyhow::anyhow!("Math overflow"))?;
+    let discriminant = abs_xy_minus_pa * abs_xy_minus_pa + four_y;
     let sqrt_discriminant =
-        sqrt_u128(discriminant).ok_or_else(|| anyhow::anyhow!("Math overflow"))?;
+        sqrt_u256(discriminant).ok_or_else(|| anyhow::anyhow!("Math overflow"))?;
 
-    let sqrt_price = sqrt_discriminant
-        .safe_sub(xy)
-        .map_err(|_| anyhow::anyhow!("Math overflow"))?
-        .safe_add(min_sqrt_price)
-        .map_err(|_| anyhow::anyhow!("Math overflow"))?
-        .safe_div(2)
-        .map_err(|_| anyhow::anyhow!("Math overflow"))?;
+    let sqrt_price = (sqrt_discriminant - xy + min_sqrt_price_u256) / U256::from(2);
 
-    Ok(sqrt_price)
+    Ok(u128::try_from(sqrt_price).map_err(|_| anyhow::anyhow!("Type cast failed"))?)
 }
