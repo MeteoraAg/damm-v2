@@ -1,6 +1,6 @@
 #![allow(unexpected_cfgs)]
 #![allow(deprecated)]
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program};
 
 #[macro_use]
 pub mod macros;

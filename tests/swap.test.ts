@@ -223,364 +223,382 @@ describe("Swap token", () => {
     let pool: PublicKey;
     let position: PublicKey;
 
-    let inputTokenMint: PublicKey;
-    let outputTokenMint: PublicKey;
+    //   let inputTokenMint: PublicKey;
+    //   let outputTokenMint: PublicKey;
 
-    beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+    //   beforeEach(async () => {
+    //     const root = Keypair.generate();
+    //     context = await startTest(root);
 
-      const inputTokenMintKeypair = Keypair.generate();
-      const outputTokenMintKeypair = Keypair.generate();
-      inputTokenMint = inputTokenMintKeypair.publicKey;
-      outputTokenMint = outputTokenMintKeypair.publicKey;
+    //     const inputTokenMintKeypair = Keypair.generate();
+    //     const outputTokenMintKeypair = Keypair.generate();
+    //     inputTokenMint = inputTokenMintKeypair.publicKey;
+    //     outputTokenMint = outputTokenMintKeypair.publicKey;
 
-      const inputMintExtension = [
-        createTransferFeeExtensionWithInstruction(inputTokenMint),
-      ];
-      const outputMintExtension = [
-        createTransferFeeExtensionWithInstruction(outputTokenMint),
-      ];
-      const extensions = [...inputMintExtension, ...outputMintExtension];
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(
-        context.banksClient,
-        context.payer
-      );
+    //     const inputMintExtension = [
+    //       createTransferFeeExtensionWithInstruction(inputTokenMint),
+    //     ];
+    //     const outputMintExtension = [
+    //       createTransferFeeExtensionWithInstruction(outputTokenMint),
+    //     ];
+    //     const extensions = [...inputMintExtension, ...outputMintExtension];
+    //     user = await generateKpAndFund(context.banksClient, context.payer);
+    //     admin = await generateKpAndFund(context.banksClient, context.payer);
+    //     creator = await generateKpAndFund(context.banksClient, context.payer);
 
-      await createToken2022(
-        context.banksClient,
-        context.payer,
-        inputMintExtension,
-        inputTokenMintKeypair
-      );
-      await createToken2022(
-        context.banksClient,
-        context.payer,
-        outputMintExtension,
-        outputTokenMintKeypair
-      );
+    //     await createToken2022(
+    //       context.banksClient,
+    //       context.payer,
+    //       inputMintExtension,
+    //       inputTokenMintKeypair
+    //     );
+    //     await createToken2022(
+    //       context.banksClient,
+    //       context.payer,
+    //       outputMintExtension,
+    //       outputTokenMintKeypair
+    //     );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+    //     await mintToToken2022(
+    //       context.banksClient,
+    //       context.payer,
+    //       inputTokenMint,
+    //       context.payer,
+    //       user.publicKey
+    //     );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+    //     await mintToToken2022(
+    //       context.banksClient,
+    //       context.payer,
+    //       outputTokenMint,
+    //       context.payer,
+    //       user.publicKey
+    //     );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        creator.publicKey
-      );
+    //     await mintToToken2022(
+    //       context.banksClient,
+    //       context.payer,
+    //       inputTokenMint,
+    //       context.payer,
+    //       creator.publicKey
+    //     );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        creator.publicKey
-      );
+    //     await mintToToken2022(
+    //       context.banksClient,
+    //       context.payer,
+    //       outputTokenMint,
+    //       context.payer,
+    //       creator.publicKey
+    //     );
 
-      const cliffFeeNumerator = new BN(2_500_000);
-      const numberOfPeriod = new BN(0);
-      const periodFrequency = new BN(0);
-      const reductionFactor = new BN(0);
-
-      const data = encodeFeeTimeSchedulerParams(
-        BigInt(cliffFeeNumerator.toString()),
-        numberOfPeriod.toNumber(),
-        BigInt(periodFrequency.toString()),
-        BigInt(reductionFactor.toString()),
-        BaseFeeMode.FeeTimeSchedulerLinear
-      );
-
-      // create config
-      const createConfigParams: CreateConfigParams = {
-        poolFees: {
-          baseFee: {
-            data: Array.from(data),
-          },
-          padding: [],
-          dynamicFee: null,
+    // create config
+    const createConfigParams: CreateConfigParams = {
+      poolFees: {
+        baseFee: {
+          cliffFeeNumerator: new BN(2_500_000),
+          firstFactor: 0,
+          secondFactor: convertToByteArray(new BN(0)),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
-        sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-        sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-        vaultConfigKey: PublicKey.default,
-        poolCreatorAuthority: PublicKey.default,
-        activationType: 0,
-        collectFeeMode: 0,
-      };
+        padding: [],
+        dynamicFee: null,
+      },
+      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+      vaultConfigKey: PublicKey.default,
+      poolCreatorAuthority: PublicKey.default,
+      activationType: 0,
+      collectFeeMode: 0,
+    };
 
-      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+    //     config = await createConfigIx(
+    //       context.banksClient,
+    //       admin,
+    //       new BN(randomID()),
+    //       createConfigParams
+    //     );
 
-      await createOperator(context.banksClient, {
-        admin,
-        whitelistAddress: whitelistedAccount.publicKey,
-        permission,
-      });
+    liquidity = new BN(MIN_LP_AMOUNT);
+    sqrtPrice = new BN(1).shln(OFFSET);
 
-      config = await createConfigIx(
-        context.banksClient,
-        whitelistedAccount,
-        new BN(randomID()),
-        createConfigParams
-      );
+    //     const initPoolParams: InitializePoolParams = {
+    //       payer: creator,
+    //       creator: creator.publicKey,
+    //       config,
+    //       tokenAMint: inputTokenMint,
+    //       tokenBMint: outputTokenMint,
+    //       liquidity,
+    //       sqrtPrice,
+    //       activationPoint: null,
+    //     };
 
-      liquidity = new BN(MIN_LP_AMOUNT);
-      sqrtPrice = new BN(1).shln(OFFSET);
+    //     const result = await initializePool(context.banksClient, initPoolParams);
+    //     pool = result.pool;
+    //     position = await createPosition(
+    //       context.banksClient,
+    //       user,
+    //       user.publicKey,
+    //       pool
+    //     );
+    //   });
 
-      const initPoolParams: InitializePoolParams = {
-        payer: creator,
-        creator: creator.publicKey,
-        config,
-        tokenAMint: inputTokenMint,
-        tokenBMint: outputTokenMint,
-        liquidity,
-        sqrtPrice,
-        activationPoint: null,
-      };
+    //   it("User swap A->B", async () => {
+    //     const addLiquidityParams: AddLiquidityParams = {
+    //       owner: user,
+    //       pool,
+    //       position,
+    //       liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
+    //       tokenAAmountThreshold: new BN(200),
+    //       tokenBAmountThreshold: new BN(200),
+    //     };
+    //     await addLiquidity(context.banksClient, addLiquidityParams);
 
-      const result = await initializePool(context.banksClient, initPoolParams);
-      pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
-    });
+    //     const swapParams: SwapParams = {
+    //       payer: user,
+    //       pool,
+    //       inputTokenMint,
+    //       outputTokenMint,
+    //       amountIn: new BN(10),
+    //       minimumAmountOut: new BN(0),
+    //       referralTokenAccount: null,
+    //     };
 
-    it("User swap A->B", async () => {
-      const addLiquidityParams: AddLiquidityParams = {
-        owner: user,
-        pool,
-        position,
-        liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
-        tokenAAmountThreshold: new BN(200),
-        tokenBAmountThreshold: new BN(200),
-      };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+    await swapExactIn(context.banksClient, swapParams);
+  });
 
-      const swapParams: SwapParams = {
-        payer: user,
-        pool,
-        inputTokenMint,
-        outputTokenMint,  
-        amountIn: new BN(10),
-        minimumAmountOut: new BN(0),
-        referralTokenAccount: null,
-      };
+  describe("Swap2", () => {
+    describe("SwapExactIn", () => {
+      it("Swap successfully", async () => {
+        const tokenPermutation = [
+          [inputTokenMint, outputTokenMint],
+          [outputTokenMint, inputTokenMint],
+        ];
 
-      await swapExactIn(context.banksClient, swapParams);
-    });
+        for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
+          const addLiquidityParams: AddLiquidityParams = {
+            owner: user,
+            pool,
+            position,
+            liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
+            tokenAAmountThreshold: new BN(200),
+            tokenBAmountThreshold: new BN(200),
+          };
+          await addLiquidity(context.banksClient, addLiquidityParams);
 
-    describe("Swap2", () => {
-      describe("SwapExactIn", () => {
-        it("Swap successfully", async () => {
-          const tokenPermutation = [
-            [inputTokenMint, outputTokenMint],
-            [outputTokenMint, inputTokenMint],
-          ];
+          const amountIn = new BN(10);
 
-          for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
-            const addLiquidityParams: AddLiquidityParams = {
-              owner: user,
-              pool,
-              position,
-              liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
-              tokenAAmountThreshold: new BN(200),
-              tokenBAmountThreshold: new BN(200),
-            };
-            await addLiquidity(context.banksClient, addLiquidityParams);
+          const userInputAta = getAssociatedTokenAddressSync(
+            inputTokenMint,
+            user.publicKey,
+            true,
+            TOKEN_2022_PROGRAM_ID
+          );
 
-            const amountIn = new BN(10);
+          const beforeUserInputRawAccount =
+            await context.banksClient.getAccount(userInputAta);
 
-            const userInputAta = getAssociatedTokenAddressSync(
-              inputTokenMint,
-              user.publicKey,
-              true,
-              TOKEN_2022_PROGRAM_ID
-            );
+          const beforeBalance = unpackAccount(
+            userInputAta,
+            // @ts-ignore
+            beforeUserInputRawAccount,
+            TOKEN_2022_PROGRAM_ID
+          ).amount;
 
-            const beforeUserInputRawAccount =
-              await context.banksClient.getAccount(userInputAta);
+          await swap2ExactIn(context.banksClient, {
+            payer: user,
+            pool,
+            inputTokenMint,
+            outputTokenMint,
+            amount0: amountIn,
+            amount1: new BN(0),
+            referralTokenAccount: null,
+          });
 
-            const beforeBalance = unpackAccount(
-              userInputAta,
-              // @ts-ignore
-              beforeUserInputRawAccount,
-              TOKEN_2022_PROGRAM_ID
-            ).amount;
+          const afterUserInputRawAccount =
+            await context.banksClient.getAccount(userInputAta);
 
-            await swap2ExactIn(context.banksClient, {
-              payer: user,
-              pool,
-              inputTokenMint,
-              outputTokenMint,
-              amount0: amountIn,
-              amount1: new BN(0),
-              referralTokenAccount: null,
-            });
+          const afterUserInputTokenAccount = unpackAccount(
+            userInputAta,
+            // @ts-ignore
+            afterUserInputRawAccount,
+            TOKEN_2022_PROGRAM_ID
+          );
 
-            const afterUserInputRawAccount =
-              await context.banksClient.getAccount(userInputAta);
-
-            const afterUserInputTokenAccount = unpackAccount(
-              userInputAta,
-              // @ts-ignore
-              afterUserInputRawAccount,
-              TOKEN_2022_PROGRAM_ID
-            );
-
-            const afterBalance = afterUserInputTokenAccount.amount;
-            const exactInputAmount = beforeBalance - afterBalance;
-            expect(Number(exactInputAmount)).to.be.equal(amountIn.toNumber());
-          }
-        });
-      });
-
-      describe("SwapPartialFill", () => {
-        it("Swap successfully", async () => {
-          const tokenPermutation = [
-            [inputTokenMint, outputTokenMint],
-            [outputTokenMint, inputTokenMint],
-          ];
-
-          for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
-            const addLiquidityParams: AddLiquidityParams = {
-              owner: user,
-              pool,
-              position,
-              liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
-              tokenAAmountThreshold: new BN(200),
-              tokenBAmountThreshold: new BN(200),
-            };
-            await addLiquidity(context.banksClient, addLiquidityParams);
-
-            const amountIn = new BN("10000000000000");
-
-            const userInputAta = getAssociatedTokenAddressSync(
-              inputTokenMint,
-              user.publicKey,
-              true,
-              TOKEN_2022_PROGRAM_ID
-            );
-
-            const beforeUserInputRawAccount =
-              await context.banksClient.getAccount(userInputAta);
-
-            const beforeBalance = unpackAccount(
-              userInputAta,
-              // @ts-ignore
-              beforeUserInputRawAccount,
-              TOKEN_2022_PROGRAM_ID
-            ).amount;
-
-            await swap2PartialFillIn(context.banksClient, {
-              payer: user,
-              pool,
-              inputTokenMint,
-              outputTokenMint,
-              amount0: amountIn,
-              amount1: new BN(0),
-              referralTokenAccount: null,
-            });
-
-            const afterUserInputRawAccount =
-              await context.banksClient.getAccount(userInputAta);
-
-            const afterUserInputTokenAccount = unpackAccount(
-              userInputAta,
-              // @ts-ignore
-              afterUserInputRawAccount,
-              TOKEN_2022_PROGRAM_ID
-            );
-
-            const afterBalance = afterUserInputTokenAccount.amount;
-            const exactInputAmount = beforeBalance - afterBalance;
-            expect(new BN(exactInputAmount.toString()).lt(amountIn)).to.be.true;
-          }
-        });
-      });
-
-      describe("SwapExactOut", () => {
-        it("Swap successfully", async () => {
-          const tokenPermutation = [
-            [inputTokenMint, outputTokenMint],
-            [outputTokenMint, inputTokenMint],
-          ];
-
-          for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
-            const addLiquidityParams: AddLiquidityParams = {
-              owner: user,
-              pool,
-              position,
-              liquidityDelta: new BN("10000000000").shln(OFFSET),
-              tokenAAmountThreshold: U64_MAX,
-              tokenBAmountThreshold: U64_MAX,
-            };
-            await addLiquidity(context.banksClient, addLiquidityParams);
-
-            const amountOut = new BN(1000);
-
-            const userOutputAta = getAssociatedTokenAddressSync(
-              outputTokenMint,
-              user.publicKey,
-              true,
-              TOKEN_2022_PROGRAM_ID
-            );
-
-            const beforeUserOutputRawAccount =
-              await context.banksClient.getAccount(userOutputAta);
-
-            const beforeBalance = unpackAccount(
-              userOutputAta,
-              // @ts-ignore
-              beforeUserOutputRawAccount,
-              TOKEN_2022_PROGRAM_ID
-            ).amount;
-
-            await swap2ExactOut(context.banksClient, {
-              payer: user,
-              pool,
-              inputTokenMint,
-              outputTokenMint,
-              amount0: amountOut,
-              amount1: new BN("100000000"),
-              referralTokenAccount: null,
-            });
-
-            const afterUserOutputRawAccount =
-              await context.banksClient.getAccount(userOutputAta);
-
-            const afterUserInputTokenAccount = unpackAccount(
-              userOutputAta,
-              // @ts-ignore
-              afterUserOutputRawAccount,
-              TOKEN_2022_PROGRAM_ID
-            );
-
-            const afterBalance = afterUserInputTokenAccount.amount;
-            const exactOutputAmount = afterBalance - beforeBalance;
-            expect(new BN(exactOutputAmount.toString()).eq(amountOut)).to.be
-              .true;
-          }
-        });
+          const afterBalance = afterUserInputTokenAccount.amount;
+          const exactInputAmount = beforeBalance - afterBalance;
+          expect(Number(exactInputAmount)).to.be.equal(amountIn.toNumber());
+        }
       });
     });
+
+    describe("SwapPartialFill", () => {
+      it("Swap successfully", async () => {
+        const tokenPermutation = [
+          [inputTokenMint, outputTokenMint],
+          [outputTokenMint, inputTokenMint],
+        ];
+        const extensions = [...inputMintExtension, ...outputMintExtension];
+        user = await generateKpAndFund(context.banksClient, context.payer);
+        admin = await generateKpAndFund(context.banksClient, context.payer);
+        creator = await generateKpAndFund(context.banksClient, context.payer);
+        whitelistedAccount = await generateKpAndFund(
+          context.banksClient,
+          context.payer
+        );
+
+        for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
+          const addLiquidityParams: AddLiquidityParams = {
+            owner: user,
+            pool,
+            position,
+            liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
+            tokenAAmountThreshold: new BN(200),
+            tokenBAmountThreshold: new BN(200),
+          };
+          await addLiquidity(context.banksClient, addLiquidityParams);
+
+          const amountIn = new BN("10000000000000");
+
+          const userInputAta = getAssociatedTokenAddressSync(
+            inputTokenMint,
+            user.publicKey,
+            true,
+            TOKEN_2022_PROGRAM_ID
+          );
+
+          const beforeUserInputRawAccount =
+            await context.banksClient.getAccount(userInputAta);
+
+          const beforeBalance = unpackAccount(
+            userInputAta,
+            // @ts-ignore
+            beforeUserInputRawAccount,
+            TOKEN_2022_PROGRAM_ID
+          ).amount;
+
+          const cliffFeeNumerator = new BN(2_500_000);
+          const numberOfPeriod = new BN(0);
+          const periodFrequency = new BN(0);
+          const reductionFactor = new BN(0);
+
+          const data = encodeFeeTimeSchedulerParams(
+            BigInt(cliffFeeNumerator.toString()),
+            numberOfPeriod.toNumber(),
+            BigInt(periodFrequency.toString()),
+            BigInt(reductionFactor.toString()),
+            BaseFeeMode.FeeTimeSchedulerLinear
+          );
+
+          // create config
+          const createConfigParams: CreateConfigParams = {
+            poolFees: {
+              baseFee: {
+                data: Array.from(data),
+              },
+              padding: [],
+              dynamicFee: null,
+            },
+            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+            vaultConfigKey: PublicKey.default,
+            poolCreatorAuthority: PublicKey.default,
+            activationType: 0,
+            collectFeeMode: 0,
+          };
+
+          let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+          await createOperator(context.banksClient, {
+            admin,
+            whitelistAddress: whitelistedAccount.publicKey,
+            permission,
+          });
+
+          config = await createConfigIx(
+            context.banksClient,
+            whitelistedAccount,
+            new BN(randomID()),
+            createConfigParams
+          );
+
+          const afterUserInputTokenAccount = unpackAccount(
+            userInputAta,
+            // @ts-ignore
+            afterUserInputRawAccount,
+            TOKEN_2022_PROGRAM_ID
+          );
+
+          const afterBalance = afterUserInputTokenAccount.amount;
+          const exactInputAmount = beforeBalance - afterBalance;
+          expect(new BN(exactInputAmount.toString()).lt(amountIn)).to.be.true;
+        }
+      });
+    });
+
+    describe("SwapExactOut", () => {
+      it("Swap successfully", async () => {
+        const tokenPermutation = [
+          [inputTokenMint, outputTokenMint],
+          [outputTokenMint, inputTokenMint],
+        ];
+
+        const swapParams: SwapParams = {
+          payer: user,
+          pool,
+          inputTokenMint,
+          outputTokenMint,
+          amountIn: new BN(10),
+          minimumAmountOut: new BN(0),
+          referralTokenAccount: null,
+        };
+
+        const amountOut = new BN(1000);
+
+        const userOutputAta = getAssociatedTokenAddressSync(
+          outputTokenMint,
+          user.publicKey,
+          true,
+          TOKEN_2022_PROGRAM_ID
+        );
+
+        const beforeUserOutputRawAccount =
+          await context.banksClient.getAccount(userOutputAta);
+
+        const beforeBalance = unpackAccount(
+          userOutputAta,
+          // @ts-ignore
+          beforeUserOutputRawAccount,
+          TOKEN_2022_PROGRAM_ID
+        ).amount;
+
+        await swap2ExactOut(context.banksClient, {
+          payer: user,
+          pool,
+          inputTokenMint,
+          outputTokenMint,
+          amount0: amountOut,
+          amount1: new BN("100000000"),
+          referralTokenAccount: null,
+        });
+
+        const afterUserOutputRawAccount =
+          await context.banksClient.getAccount(userOutputAta);
+
+        const afterUserInputTokenAccount = unpackAccount(
+          userOutputAta,
+          // @ts-ignore
+          afterUserOutputRawAccount,
+          TOKEN_2022_PROGRAM_ID
+        );
+
+        const afterBalance = afterUserInputTokenAccount.amount;
+        const exactOutputAmount = afterBalance - beforeBalance;
+        expect(new BN(exactOutputAmount.toString()).eq(amountOut)).to.be
+          .true;
+      }
+    });
+  });
+});
   });
 });
