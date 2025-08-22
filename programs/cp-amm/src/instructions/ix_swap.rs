@@ -214,12 +214,6 @@ pub fn get_trade_direction(
     TradeDirection::BtoA
 }
 
-const EVENT_AUTHORITY_SEEDS: &[u8] = b"__event_authority";
-pub const EVENT_AUTHORITY_AND_BUMP: (pinocchio::pubkey::Pubkey, u8) = {
-    let (address, bump) = const_crypto::ed25519::derive_program_address(&[EVENT_AUTHORITY_SEEDS], &crate::ID_CONST.to_bytes());
-    (address, bump)
-};
-
 /// A pinocchio equivalent of the above handle_swap
 /// 
 /// To be done
@@ -271,7 +265,7 @@ pub fn p_handle_swap(
     require!(token_a_mint.owner() == token_a_program.key(), PoolError::PoolDisabled);
     require!(token_a_mint.owner() == token_b_program.key(), PoolError::PoolDisabled);
 
-    require!(event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0, PoolError::PoolDisabled);
+    require!(event_authority.key() == &crate::EVENT_AUTHORITY_AND_BUMP.0, PoolError::PoolDisabled);
 
     {
         let access_validator = get_pool_access_validator(&pool)?;
@@ -513,5 +507,5 @@ fn p_emit_cpi(evt_swap: EvtSwap, authority_info: &pinocchio::account_info::Accou
         pinocchio::instruction::AccountMeta::new(authority_info.key(), false, true)
     ] };
 
-    pinocchio::cpi::invoke_signed(&instruction, &[authority_info], &[pinocchio::instruction::Signer::from(&pinocchio::seeds!(EVENT_AUTHORITY_SEEDS, &[EVENT_AUTHORITY_AND_BUMP.1]))])
+    pinocchio::cpi::invoke_signed(&instruction, &[authority_info], &[pinocchio::instruction::Signer::from(&pinocchio::seeds!(crate::EVENT_AUTHORITY_SEEDS, &[crate::EVENT_AUTHORITY_AND_BUMP.1]))])
 }
