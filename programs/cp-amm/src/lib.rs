@@ -1,6 +1,12 @@
 #![allow(unexpected_cfgs)]
 #![allow(deprecated)]
-use anchor_lang::{prelude::*, solana_program};
+use anchor_lang::{
+    prelude::{
+        event::{EVENT_IX_TAG, EVENT_IX_TAG_LE},
+        *,
+    },
+    solana_program,
+};
 
 #[macro_use]
 pub mod macros;
@@ -48,6 +54,20 @@ pub struct DummyParams {
     borsh_fee_rate_limiter_params: base_fee::fee_rate_limiter::BorshFeeRateLimiter,
     borsh_fee_market_cap_scheduler_params:
         base_fee::fee_market_cap_scheduler::BorshFeeMarketCapScheduler,
+}
+
+fn event_dispatch(
+    _program_id: &pinocchio::pubkey::Pubkey,
+    accounts: &[pinocchio::account_info::AccountInfo],
+    _data: &[u8],
+) -> Result<()> {
+    let given_event_authority = &accounts[0];
+    require!(given_event_authority.is_signer(), PoolError::PoolDisabled);
+    require!(
+        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
+        PoolError::PoolDisabled
+    );
+    Ok(())
 }
 
 #[program]
