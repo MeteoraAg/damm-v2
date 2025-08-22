@@ -1,6 +1,6 @@
 #![allow(unexpected_cfgs)]
 
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program};
 
 #[macro_use]
 pub mod macros;
@@ -27,6 +27,47 @@ pub use pool_action_access::*;
 pub mod params;
 
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
+
+const SWAP_IX_ACCOUNTS: usize = 14;
+
+/// Hot path pinocchio entrypoint with anchor fallback for cold path
+#[no_mangle]
+pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
+    const UNINIT: core::mem::MaybeUninit<pinocchio::account_info::AccountInfo> =
+        core::mem::MaybeUninit::<pinocchio::account_info::AccountInfo>::uninit();
+    // Create an array of uninitialized account infos.
+    let mut accounts = [UNINIT; SWAP_IX_ACCOUNTS];
+
+    let (program_id, count, instruction_data) =
+        pinocchio::entrypoint::deserialize::<SWAP_IX_ACCOUNTS>(input, &mut accounts);
+
+    if instruction_data.starts_with(crate::instruction::Swap::DISCRIMINATOR) {
+        // Call the program's entrypoint passing `count` account infos; we know that
+        // they are initialized so we cast the pointer to a slice of `[AccountInfo]`.
+        match p_handle_swap(
+            &program_id,
+            core::slice::from_raw_parts(accounts.as_ptr() as _, count),
+            &instruction_data,
+        )
+        .map_err(|e| {
+            e.log();
+            anchor_lang::solana_program::program_error::ProgramError::from(e)
+        }) {
+            Ok(()) => solana_program::entrypoint::SUCCESS,
+            Err(error) => error.into(),
+        }
+    } else {
+        let (program_id, accounts, instruction_data) =
+            unsafe { solana_program::entrypoint::deserialize(input) };
+
+        match entry(program_id, &accounts, instruction_data) {
+            Ok(()) => solana_program::entrypoint::SUCCESS,
+            Err(error) => error.into(),
+        }
+    }
+}
+solana_program::custom_heap_default!();
+solana_program::custom_panic_default!();
 
 #[program]
 pub mod cp_amm {
