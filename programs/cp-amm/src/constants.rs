@@ -123,6 +123,24 @@ pub mod fee {
     static_assertions::const_assert!(PROTOCOL_FEE_PERCENT <= 50);
     static_assertions::const_assert!(HOST_FEE_PERCENT <= 50);
     static_assertions::const_assert!(PARTNER_FEE_PERCENT <= 50);
+
+    pub const CURRENT_POOL_VERSION: u8 = 0;
+
+    pub const fn get_max_fee_numerator(pool_version: u8) -> u64 {
+        match pool_version {
+            0 => MAX_FEE_NUMERATOR_V0,
+            1 => MAX_FEE_NUMERATOR_V1,
+            _ => panic!("Invalid pool version"),
+        }
+    }
+
+    pub const fn get_max_fee_bps(pool_version: u8) -> u64 {
+        match pool_version {
+            0 => MAX_FEE_BPS_V0,
+            1 => MAX_FEE_BPS_V1,
+            _ => panic!("Invalid pool version"),
+        }
+    }
 }
 
 pub mod seeds {

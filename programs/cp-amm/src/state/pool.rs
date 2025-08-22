@@ -5,14 +5,12 @@ use std::cmp::min;
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use crate::constants::fee::CURRENT_POOL_VERSION;
 use crate::curve::get_next_sqrt_price_from_output;
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::{
     assert_eq_admin,
-    constants::{
-        fee::{MAX_FEE_NUMERATOR_V0, MAX_FEE_NUMERATOR_V1},
-        LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE,
-    },
+    constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
         get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
@@ -415,7 +413,7 @@ impl Pool {
         self.sqrt_price = sqrt_price;
         self.collect_fee_mode = collect_fee_mode;
         self.pool_type = pool_type;
-        self.version = PoolVersion::V0.into(); // still use v0 for now
+        self.version = CURRENT_POOL_VERSION; // still use v0 now, after notify integrators will pump to v1 to allow higher fee numerator constraint
     }
 
     pub fn pool_reward_initialized(&self) -> bool {
@@ -423,13 +421,7 @@ impl Pool {
     }
 
     pub fn get_max_fee_numerator(&self) -> Result<u64> {
-        let pool_version =
-            PoolVersion::try_from(self.version).map_err(|_| PoolError::TypeCastFailed)?;
-        if pool_version == PoolVersion::V0 {
-            Ok(MAX_FEE_NUMERATOR_V0)
-        } else {
-            Ok(MAX_FEE_NUMERATOR_V1)
-        }
+        Ok(crate::constants::fee::get_max_fee_numerator(self.version))
     }
 
     pub fn get_swap_result_from_exact_output(
