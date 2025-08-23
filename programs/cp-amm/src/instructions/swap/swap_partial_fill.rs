@@ -25,7 +25,7 @@ pub fn process_swap_partial_fill<'a, 'b, 'info>(
     require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
 
     let swap_result = pool.get_swap_result_from_partial_input(
-        amount_in,
+        excluded_transfer_fee_amount_in,
         fee_mode,
         trade_direction,
         current_point,
