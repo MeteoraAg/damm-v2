@@ -10,23 +10,6 @@ use ruint::aliases::{U256, U512};
 use crate::calculate_init_sqrt_price::calculate_init_price;
 use anyhow::{Ok, Result};
 
-// fn get_liquidity_delta_from_amount_b(
-//     amount_b: u64,
-//     low_sqrt_price: u128,
-//     upper_sqrt_price: u128,
-// ) -> u128 {
-//     let denominator = upper_sqrt_price.safe_sub(low_sqrt_price).unwrap();
-//     let liquidity_delta = safe_shl_div_cast(
-//         amount_b.into(),
-//         denominator,
-//         128,
-//         cp_amm::u128x128_math::Rounding::Down,
-//     )
-//     .unwrap();
-
-//     liquidity_delta
-// }
-
 // Δa = L * (1 / √P_lower - 1 / √P_upper) => L = Δa / (1 / √P_lower - 1 / √P_upper)
 fn get_initial_liquidity_from_amount_a(
     base_amount: u64,

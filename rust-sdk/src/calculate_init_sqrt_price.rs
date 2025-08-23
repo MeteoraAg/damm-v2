@@ -20,28 +20,26 @@ pub fn calculate_init_price(
         "Token amounts must be non-zero"
     );
 
-    let token_a_amount_u256 = U256::from(token_a_amount);
-    let token_b_amount_u256 = U256::from(token_b_amount)
+    let a = U256::from(token_a_amount);
+    let b = U256::from(token_b_amount)
         .safe_shl(128)
         .map_err(|_| anyhow::anyhow!("Math overflow"))?;
-    let min_sqrt_price_u256 = U256::from(min_sqrt_price);
-    let max_sqrt_price_u256 = U256::from(max_sqrt_price);
+    let pa = U256::from(min_sqrt_price);
+    let pb = U256::from(max_sqrt_price);
 
-    let xy = token_b_amount_u256 / (token_a_amount_u256 * max_sqrt_price_u256);
+    let four = U256::from(4);
+    let two = U256::from(2);
 
-    let four_y = U256::from(4) * token_b_amount_u256 / token_a_amount_u256;
-
-    let abs_xy_minus_pa = if xy > min_sqrt_price_u256 {
-        xy - min_sqrt_price_u256
+    let s = if b * a > pa * pb {
+        let delta = b / a / pb - pa;
+        let sqrt_value = sqrt_u256(delta * delta + four * b / a)
+            .ok_or_else(|| anyhow::anyhow!("Type cast failed"))?;
+        (sqrt_value - delta) / two
     } else {
-        min_sqrt_price_u256 - xy
+        let delta = pa - b / a / pb;
+        let sqrt_value = sqrt_u256(delta * delta + four * b / a)
+            .ok_or_else(|| anyhow::anyhow!("Type cast failed"))?;
+        (sqrt_value + delta) / two
     };
-
-    let discriminant = abs_xy_minus_pa * abs_xy_minus_pa + four_y;
-    let sqrt_discriminant =
-        sqrt_u256(discriminant).ok_or_else(|| anyhow::anyhow!("Math overflow"))?;
-
-    let sqrt_price = (sqrt_discriminant - xy + min_sqrt_price_u256) / U256::from(2);
-
-    Ok(u128::try_from(sqrt_price).map_err(|_| anyhow::anyhow!("Type cast failed"))?)
+    Ok(u128::try_from(s).map_err(|_| anyhow::anyhow!("Type cast failed"))?)
 }
