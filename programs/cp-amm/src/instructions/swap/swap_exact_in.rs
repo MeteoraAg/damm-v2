@@ -24,8 +24,12 @@ pub fn process_swap_exact_in<'a, 'b, 'info>(
 
     require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
 
-    let swap_result =
-        pool.get_swap_result_from_exact_input(amount_in, fee_mode, trade_direction, current_point)?;
+    let swap_result = pool.get_swap_result_from_exact_input(
+        excluded_transfer_fee_amount_in,
+        fee_mode,
+        trade_direction,
+        current_point,
+    )?;
 
     let excluded_transfer_fee_amount_out =
         calculate_transfer_fee_excluded_amount(token_out_mint, swap_result.output_amount)?.amount;
