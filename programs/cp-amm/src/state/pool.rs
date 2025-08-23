@@ -5,7 +5,7 @@ use std::cmp::min;
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::constants::fee::CURRENT_POOL_VERSION;
+use crate::constants::fee::{get_max_fee_numerator, CURRENT_POOL_VERSION};
 use crate::curve::get_next_sqrt_price_from_output;
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::{
@@ -420,10 +420,6 @@ impl Pool {
         self.reward_infos[0].initialized() || self.reward_infos[1].initialized()
     }
 
-    pub fn get_max_fee_numerator(&self) -> Result<u64> {
-        Ok(crate::constants::fee::get_max_fee_numerator(self.version))
-    }
-
     pub fn get_swap_result_from_exact_output(
         &self,
         amount_out: u64,
@@ -436,7 +432,7 @@ impl Pool {
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
 
-        let max_fee_numerator = self.get_max_fee_numerator()?;
+        let max_fee_numerator = get_max_fee_numerator(self.version)?;
 
         let included_fee_amount_out = if fee_mode.fees_on_input {
             amount_out
@@ -537,7 +533,7 @@ impl Pool {
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
 
-        let max_fee_numerator = self.get_max_fee_numerator()?;
+        let max_fee_numerator = get_max_fee_numerator(self.version)?;
 
         let trade_fee_numerator = self
             .pool_fees
@@ -672,7 +668,7 @@ impl Pool {
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
 
-        let max_fee_numerator = self.get_max_fee_numerator()?;
+        let max_fee_numerator = get_max_fee_numerator(self.version)?;
 
         // We can compute the trade_fee_numerator here. Instead of separately for amount_in, and amount_out.
         // This is because FeeRateLimiter (fee rate scale based on amount) only applied when fee_mode.fees_on_input
