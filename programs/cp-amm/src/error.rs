@@ -160,4 +160,7 @@ pub enum PoolError {
 
     #[msg("Undetermined error")]
     UndeterminedError,
+
+    #[msg("Invalid pool version")]
+    InvalidPoolVersion,
 }

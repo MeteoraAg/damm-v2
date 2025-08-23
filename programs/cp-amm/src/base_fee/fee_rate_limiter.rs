@@ -1,7 +1,10 @@
 use crate::{
     activation_handler::ActivationType,
     constants::{
-        fee::{FEE_DENOMINATOR, MAX_FEE_BPS_V1, MAX_FEE_NUMERATOR_V1, MIN_FEE_NUMERATOR},
+        fee::{
+            get_max_fee_bps, get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR,
+            MIN_FEE_NUMERATOR,
+        },
         MAX_RATE_LIMITER_DURATION_IN_SECONDS, MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     },
     params::{fee_parameters::to_numerator, swap::TradeDirection},
@@ -323,7 +326,7 @@ impl BaseFeeHandler for FeeRateLimiter {
         let max_fee_bps_u64 =
             u64::try_from(self.max_fee_bps).map_err(|_| PoolError::TypeCastFailed)?;
         require!(
-            max_fee_bps_u64 <= MAX_FEE_BPS_V1,
+            max_fee_bps_u64 <= get_max_fee_bps(CURRENT_POOL_VERSION)?,
             PoolError::InvalidFeeRateLimiter
         );
 
@@ -340,7 +343,8 @@ impl BaseFeeHandler for FeeRateLimiter {
         let min_fee_numerator = self.get_fee_numerator_from_included_fee_amount(0)?;
         let max_fee_numerator = self.get_fee_numerator_from_included_fee_amount(u64::MAX)?;
         require!(
-            min_fee_numerator >= MIN_FEE_NUMERATOR && max_fee_numerator <= MAX_FEE_NUMERATOR_V1,
+            min_fee_numerator >= MIN_FEE_NUMERATOR
+                && max_fee_numerator <= get_max_fee_numerator(CURRENT_POOL_VERSION)?,
             PoolError::InvalidFeeRateLimiter
         );
 
