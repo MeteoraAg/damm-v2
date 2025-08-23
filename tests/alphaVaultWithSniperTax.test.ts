@@ -63,10 +63,10 @@ describe("Alpha vault with sniper tax", () => {
 
     it("Alpha vault can buy before activation point with minimum fee", async () => {
       const baseFee = {
-        cliffFeeNumerator: new BN(990_000_000), // 99 %
+        cliffFeeNumerator: new BN(500_000_000), // 50 %
         firstFactor: 100, // 100 periods
         secondFactor: convertToByteArray(new BN(1)),
-        thirdFactor: new BN(9875000),
+        thirdFactor: new BN(4875000),
         baseFeeMode: 0, // fee scheduler Linear mode
       };
       const { pool, alphaVault } = await alphaVaultWithSniperTaxFullflow(
@@ -218,9 +218,7 @@ const alphaVaultWithSniperTaxFullflow = async (
     activationPoint,
     poolFees: {
       baseFee,
-      protocolFeePercent: 20,
-      partnerFeePercent: 0,
-      referralFeePercent: 20,
+      padding: [],
       dynamicFee: null,
     },
     activationType: 0, // slot
@@ -230,6 +228,7 @@ const alphaVaultWithSniperTaxFullflow = async (
     context.banksClient,
     params
   );
+
 
   console.log("setup prorata vault");
   let startVestingPoint = new BN(Number(currentSlot) + startVestingPointDiff);
