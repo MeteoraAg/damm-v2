@@ -1,10 +1,7 @@
 #![allow(unexpected_cfgs)]
 
 use anchor_lang::{
-    prelude::{
-        event::{EVENT_IX_TAG, EVENT_IX_TAG_LE},
-        *,
-    },
+    prelude::{event::EVENT_IX_TAG_LE, *},
     solana_program,
 };
 
@@ -30,11 +27,12 @@ pub mod tests;
 pub mod pool_action_access;
 pub use pool_action_access::*;
 
+mod entrypoint;
+pub use entrypoint::entrypoint;
+
 pub mod params;
 
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
-
-const SWAP_IX_ACCOUNTS: usize = 14;
 
 pub const EVENT_AUTHORITY_SEEDS: &[u8] = b"__event_authority";
 pub const EVENT_AUTHORITY_AND_BUMP: (pinocchio::pubkey::Pubkey, u8) = {
@@ -44,63 +42,6 @@ pub const EVENT_AUTHORITY_AND_BUMP: (pinocchio::pubkey::Pubkey, u8) = {
     );
     (address, bump)
 };
-
-/// Hot path pinocchio entrypoint with anchor fallback for cold path
-#[no_mangle]
-pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
-    const UNINIT: core::mem::MaybeUninit<pinocchio::account_info::AccountInfo> =
-        core::mem::MaybeUninit::<pinocchio::account_info::AccountInfo>::uninit();
-    // Create an array of uninitialized account infos.
-    let mut accounts = [UNINIT; SWAP_IX_ACCOUNTS];
-
-    let (program_id, count, instruction_data) =
-        pinocchio::entrypoint::deserialize::<SWAP_IX_ACCOUNTS>(input, &mut accounts);
-
-    // Call the program's entrypoint passing `count` account infos; we know that
-    // they are initialized so we cast the pointer to a slice of `[AccountInfo]`.
-    let accounts = core::slice::from_raw_parts(accounts.as_ptr() as _, count);
-    if instruction_data.starts_with(crate::instruction::Swap::DISCRIMINATOR) {
-        match p_handle_swap(&program_id, accounts, &instruction_data).map_err(|e| {
-            e.log();
-            anchor_lang::solana_program::program_error::ProgramError::from(e)
-        }) {
-            Ok(()) => solana_program::entrypoint::SUCCESS,
-            Err(error) => error.into(),
-        }
-    } else if instruction_data.starts_with(EVENT_IX_TAG_LE) {
-        match event_dispatch(&program_id, accounts, &instruction_data).map_err(|e| {
-            e.log();
-            anchor_lang::solana_program::program_error::ProgramError::from(e)
-        }) {
-            Ok(()) => solana_program::entrypoint::SUCCESS,
-            Err(error) => error.into(),
-        }
-    } else {
-        let (program_id, accounts, instruction_data) =
-            unsafe { solana_program::entrypoint::deserialize(input) };
-
-        match entry(program_id, &accounts, instruction_data) {
-            Ok(()) => solana_program::entrypoint::SUCCESS,
-            Err(error) => error.into(),
-        }
-    }
-}
-solana_program::custom_heap_default!();
-solana_program::custom_panic_default!();
-
-fn event_dispatch(
-    _program_id: &pinocchio::pubkey::Pubkey,
-    accounts: &[pinocchio::account_info::AccountInfo],
-    _data: &[u8],
-) -> Result<()> {
-    let given_event_authority = &accounts[0];
-    require!(given_event_authority.is_signer(), PoolError::PoolDisabled);
-    require!(
-        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
-        PoolError::PoolDisabled
-    );
-    Ok(())
-}
 
 #[program]
 pub mod cp_amm {
@@ -309,4 +250,18 @@ pub mod cp_amm {
     ) -> Result<()> {
         instructions::handle_split_position(ctx, params)
     }
+}
+
+fn p_event_dispatch(
+    _program_id: &pinocchio::pubkey::Pubkey,
+    accounts: &[pinocchio::account_info::AccountInfo],
+    _data: &[u8],
+) -> Result<()> {
+    let given_event_authority = &accounts[0];
+    require!(given_event_authority.is_signer(), PoolError::PoolDisabled);
+    require!(
+        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
+        PoolError::PoolDisabled
+    );
+    Ok(())
 }

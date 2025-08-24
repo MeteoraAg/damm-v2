@@ -8,6 +8,7 @@ import {
 import { BanksClient, ProgramTestContext, startAnchor } from "solana-bankrun";
 import { CP_AMM_PROGRAM_ID } from "./constants";
 import BN from "bn.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 export async function startTest(root: Keypair) {
   // Program name need to match fixtures program name
@@ -18,6 +19,11 @@ export async function startTest(root: Keypair) {
         name: "cp_amm",
         programId: new PublicKey(CP_AMM_PROGRAM_ID),
       },
+      // Use this to observe on p-token
+      // {
+      //   name: "pinocchio_token_program",
+      //   programId: TOKEN_PROGRAM_ID,
+      // },
     ],
     [
       {
@@ -288,5 +294,5 @@ export function randomID(min = 0, max = 10000) {
 
 export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
   const clock = await context.banksClient.getClock();
-   context.warpToSlot(clock.slot + BigInt(slots.toString()));
+  context.warpToSlot(clock.slot + BigInt(slots.toString()));
 }
