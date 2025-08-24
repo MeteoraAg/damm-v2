@@ -16,6 +16,9 @@ pub struct SwapParameters {
     pub minimum_amount_out: u64,
 }
 
+
+pub const SWAP_IX_ACCOUNTS: usize = 14;
+
 #[event_cpi]
 #[derive(Accounts)]
 pub struct SwapCtx<'info> {

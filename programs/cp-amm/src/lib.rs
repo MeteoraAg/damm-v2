@@ -1,10 +1,7 @@
 #![allow(unexpected_cfgs)]
 #![allow(deprecated)]
 use anchor_lang::{
-    prelude::{
-        event::{EVENT_IX_TAG, EVENT_IX_TAG_LE},
-        *,
-    },
+    prelude::{event::EVENT_IX_TAG_LE, *},
     solana_program,
 };
 
@@ -30,6 +27,9 @@ pub mod tests;
 
 pub mod pool_action_access;
 pub use pool_action_access::*;
+
+mod entrypoint;
+pub use entrypoint::entrypoint;
 
 pub mod params;
 
@@ -327,4 +327,18 @@ pub mod cp_amm {
     ) -> Result<()> {
         Ok(())
     }
+}
+
+fn p_event_dispatch(
+    _program_id: &pinocchio::pubkey::Pubkey,
+    accounts: &[pinocchio::account_info::AccountInfo],
+    _data: &[u8],
+) -> Result<()> {
+    let given_event_authority = &accounts[0];
+    require!(given_event_authority.is_signer(), PoolError::PoolDisabled);
+    require!(
+        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
+        PoolError::PoolDisabled
+    );
+    Ok(())
 }

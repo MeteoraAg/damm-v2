@@ -10,6 +10,7 @@ import { ALPHA_VAULT_PROGRAM_ID, CP_AMM_PROGRAM_ID } from "./constants";
 import BN from "bn.js";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 import CpAmmIdl from "../../target/idl/cp_amm.json";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 export async function startTest(root: Keypair) {
   // Program name need to match fixtures program name
@@ -28,6 +29,11 @@ export async function startTest(root: Keypair) {
         name: "alpha_vault",
         programId: new PublicKey(ALPHA_VAULT_PROGRAM_ID),
       },
+      // Use this to observe on p-token
+      // {
+      //   name: "pinocchio_token_program",
+      //   programId: TOKEN_PROGRAM_ID,
+      // },
     ],
     [
       {
@@ -132,6 +138,7 @@ export function randomID(min = 0, max = 10000) {
 export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
   const clock = await context.banksClient.getClock();
   context.warpToSlot(clock.slot + BigInt(slots.toString()));
+<<<<<<< HEAD
 }
 
 export function convertToByteArray(value: BN): number[] {
@@ -146,4 +153,6 @@ export function convertToRateLimiterSecondFactor(
   const buffer2 = maxFeeBps.toArrayLike(Buffer, "le", 4);
   const buffer = Buffer.concat([buffer1, buffer2]);
   return Array.from(buffer);
+=======
+>>>>>>> 33beb80 (Refactor entrypoint)
 }
