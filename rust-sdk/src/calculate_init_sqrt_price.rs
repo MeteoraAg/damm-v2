@@ -30,7 +30,7 @@ pub fn calculate_init_price(
     let four = U256::from(4);
     let two = U256::from(2);
 
-    let s = if b * a > pa * pb {
+    let s = if b / a > pa * pb {
         let delta = b / a / pb - pa;
         let sqrt_value = sqrt_u256(delta * delta + four * b / a)
             .ok_or_else(|| anyhow::anyhow!("Type cast failed"))?;
