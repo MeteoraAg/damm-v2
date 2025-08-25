@@ -1,12 +1,23 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::{
+    token_2022::spl_token_2022::{
+        self,
+        extension::{
+            self, transfer_fee::TransferFee, BaseStateWithExtensions, StateWithExtensions,
+        },
+    },
+    token_interface::{Mint, TokenAccount, TokenInterface},
+};
 
 use crate::{
     activation_handler::ActivationHandler,
     const_pda, get_pool_access_validator,
     params::swap::TradeDirection,
     state::{fee::FeeMode, Pool},
-    token::{calculate_transfer_fee_excluded_amount, transfer_from_pool, transfer_from_user},
+    token::{
+        calculate_transfer_fee_excluded_amount, transfer_from_pool, transfer_from_user,
+        TransferFeeExcludedAmount,
+    },
     EvtSwap, PoolError,
 };
 
@@ -15,7 +26,6 @@ pub struct SwapParameters {
     pub amount_in: u64,
     pub minimum_amount_out: u64,
 }
-
 
 pub const SWAP_IX_ACCOUNTS: usize = 14;
 
@@ -208,21 +218,21 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
 }
 
 pub fn get_trade_direction(
-    input_token_account: &pinocchio_token::state::TokenAccount,
+    input_token_account: &pinocchio::account_info::AccountInfo,
     token_a_mint: &pinocchio::account_info::AccountInfo,
 ) -> TradeDirection {
-    if input_token_account.mint() == token_a_mint.key() {
+    // There is no interface like deserialization in pinocchio crates, there is no validation of the input token account but it will fail on transfers
+    let input_token_account_mint: pinocchio::pubkey::Pubkey =
+        input_token_account.try_borrow_data().unwrap()[..32]
+            .try_into()
+            .unwrap();
+    if &input_token_account_mint == token_a_mint.key() {
         return TradeDirection::AtoB;
     }
     TradeDirection::BtoA
 }
 
 /// A pinocchio equivalent of the above handle_swap
-/// 
-/// To be done
-/// - Verify validation is sufficient
-/// - Support token 2022
-/// - ...
 pub fn p_handle_swap(
     _program_id: &pinocchio::pubkey::Pubkey,
     accounts: &[pinocchio::account_info::AccountInfo],
@@ -243,7 +253,7 @@ pub fn p_handle_swap(
         payer,
         token_a_program,
         token_b_program,
-        referral_token_account, 
+        referral_token_account,
         event_authority,
         _program,
         ..
@@ -251,24 +261,48 @@ pub fn p_handle_swap(
         return Err(ProgramError::NotEnoughAccountKeys.into());
     };
 
-    // We should return identical errors as anchor on constraints to keep it simple
+    //Should return identical errors as anchor on constraints to keep it simple, those are just placeholders
     require!(payer.is_signer(), PoolError::PoolDisabled);
 
+    require!(
+        pool.owner() == &crate::ID.to_bytes(),
+        PoolError::PoolDisabled
+    );
     let pool_key = pool.key();
     let mut pool_data = pool.try_borrow_mut_data().unwrap();
-    
-    require!(pool.owner() == &crate::ID.to_bytes(), PoolError::PoolDisabled);
+
     let pool = pool_load_mut(&mut pool_data).unwrap();
-    require!(&pool.token_a_vault.to_bytes() == token_a_vault.key(), PoolError::PoolDisabled);
-    require!(&pool.token_b_vault.to_bytes() == token_b_vault.key(), PoolError::PoolDisabled);
+    require!(
+        &pool.token_a_vault.to_bytes() == token_a_vault.key(),
+        PoolError::PoolDisabled
+    );
+    require!(
+        &pool.token_b_vault.to_bytes() == token_b_vault.key(),
+        PoolError::PoolDisabled
+    );
 
-    require!(&pool.token_a_mint.to_bytes() == token_a_mint.key(), PoolError::PoolDisabled);
-    require!(&pool.token_b_mint.to_bytes() == token_b_mint.key(), PoolError::PoolDisabled);
+    require!(
+        token_a_vault.owner() == token_a_program.key(),
+        PoolError::PoolDisabled
+    );
+    require!(
+        token_b_vault.owner() == token_b_program.key(),
+        PoolError::PoolDisabled
+    );
 
-    require!(token_a_mint.owner() == token_a_program.key(), PoolError::PoolDisabled);
-    require!(token_a_mint.owner() == token_b_program.key(), PoolError::PoolDisabled);
+    require!(
+        &pool.token_a_mint.to_bytes() == token_a_mint.key(),
+        PoolError::PoolDisabled
+    );
+    require!(
+        &pool.token_b_mint.to_bytes() == token_b_mint.key(),
+        PoolError::PoolDisabled
+    );
 
-    require!(event_authority.key() == &crate::EVENT_AUTHORITY_AND_BUMP.0, PoolError::PoolDisabled);
+    require!(
+        event_authority.key() == &crate::EVENT_AUTHORITY_AND_BUMP.0,
+        PoolError::PoolDisabled
+    );
 
     {
         let access_validator = get_pool_access_validator(&pool)?;
@@ -284,10 +318,10 @@ pub fn p_handle_swap(
         minimum_amount_out,
     } = params;
 
-    let p_input_token_account =
-        pinocchio_token::state::TokenAccount::from_account_info(input_token_account).unwrap();
-    let trade_direction = get_trade_direction(&p_input_token_account, token_a_mint);
-    drop(p_input_token_account);
+    let token_a_flag = pool.token_a_flag;
+    let token_b_flag = pool.token_b_flag;
+
+    let trade_direction = get_trade_direction(&input_token_account, token_a_mint);
     let (
         token_in_mint,
         token_out_mint,
@@ -295,6 +329,8 @@ pub fn p_handle_swap(
         output_vault_account,
         input_program,
         output_program,
+        input_token_flag,
+        output_token_flag,
     ) = match trade_direction {
         TradeDirection::AtoB => (
             token_a_mint,
@@ -303,6 +339,8 @@ pub fn p_handle_swap(
             token_b_vault,
             token_a_program,
             token_b_program,
+            token_a_flag,
+            token_b_flag,
         ),
         TradeDirection::BtoA => (
             token_b_mint,
@@ -311,12 +349,16 @@ pub fn p_handle_swap(
             token_a_vault,
             token_b_program,
             token_a_program,
+            token_b_flag,
+            token_a_flag,
         ),
     };
 
-    // let transfer_fee_excluded_amount_in =
-    //     calculate_transfer_fee_excluded_amount(&token_in_mint, amount_in)?.amount;
-    let transfer_fee_excluded_amount_in = amount_in;
+    let transfer_fee_excluded_amount_in = if input_token_flag == 0 {
+        amount_in
+    } else {
+        p_calculate_transfer_fee_excluded_amount(&token_in_mint, amount_in)?.amount
+    };
 
     require!(transfer_fee_excluded_amount_in > 0, PoolError::AmountIsZero);
 
@@ -336,9 +378,11 @@ pub fn p_handle_swap(
         current_point,
     )?;
 
-    // let transfer_fee_excluded_amount_out =
-    //     calculate_transfer_fee_excluded_amount(&token_out_mint, swap_result.output_amount)?.amount;
-    let transfer_fee_excluded_amount_out = swap_result.output_amount;
+    let transfer_fee_excluded_amount_out = if output_token_flag == 0 {
+        0
+    } else {
+        p_calculate_transfer_fee_excluded_amount(&token_out_mint, swap_result.output_amount)?.amount
+    };
     require!(
         transfer_fee_excluded_amount_out >= minimum_amount_out,
         PoolError::ExceededSlippage
@@ -354,6 +398,7 @@ pub fn p_handle_swap(
         input_vault_account,
         input_program,
         amount_in,
+        input_token_flag,
     )?;
     // send to user
     p_transfer_from_pool(
@@ -363,6 +408,7 @@ pub fn p_handle_swap(
         &output_token_account,
         output_program,
         swap_result.output_amount,
+        output_token_flag,
     )?;
     // send to referral
     if has_referral {
@@ -374,6 +420,7 @@ pub fn p_handle_swap(
                 referral_token_account,
                 token_a_program,
                 swap_result.referral_fee,
+                input_token_flag,
             )?;
         } else {
             p_transfer_from_pool(
@@ -383,19 +430,24 @@ pub fn p_handle_swap(
                 referral_token_account,
                 token_b_program,
                 swap_result.referral_fee,
+                output_token_flag,
             )?;
         }
     }
 
-    p_emit_cpi(EvtSwap {
-        pool: Pubkey::new_from_array(*pool_key),
-        trade_direction: trade_direction.into(),
-        params,
-        swap_result,
-        has_referral,
-        actual_amount_in: transfer_fee_excluded_amount_in,
-        current_timestamp,
-    }, event_authority).unwrap();
+    p_emit_cpi(
+        EvtSwap {
+            pool: Pubkey::new_from_array(*pool_key),
+            trade_direction: trade_direction.into(),
+            params,
+            swap_result,
+            has_referral,
+            actual_amount_in: transfer_fee_excluded_amount_in,
+            current_timestamp,
+        },
+        event_authority,
+    )
+    .unwrap();
 
     Ok(())
 }
@@ -421,34 +473,36 @@ pub fn p_transfer_from_user(
     destination_token_account: &pinocchio::account_info::AccountInfo,
     token_program: &pinocchio::account_info::AccountInfo,
     amount: u64,
+    token_flag: u8,
 ) -> Result<()> {
-    pinocchio_token::instructions::Transfer {
-        from: token_owner_account,
-        to: destination_token_account,
-        authority,
-        amount,
+    if token_flag == 0 {
+        pinocchio_token::instructions::Transfer {
+            from: token_owner_account,
+            to: destination_token_account,
+            authority,
+            amount,
+        }
+        .invoke()
+        .unwrap();
+    } else {
+        let decimals = {
+            let mint = unsafe {
+                pinocchio_token_2022::state::Mint::from_account_info_unchecked(token_mint).unwrap()
+            };
+            mint.decimals()
+        };
+        pinocchio_token_2022::instructions::TransferChecked {
+            from: token_owner_account,
+            mint: token_mint,
+            to: destination_token_account,
+            authority,
+            amount,
+            decimals,
+            token_program: token_program.key(),
+        }
+        .invoke()
+        .unwrap();
     }
-    .invoke()
-    .unwrap();
-    // let instruction = spl_token_2022::instruction::transfer_checked(
-    //     token_program.key,
-    //     &token_owner_account.key(),
-    //     &token_mint.key(),
-    //     destination_account.key,
-    //     authority.key,
-    //     &[],
-    //     amount,
-    //     token_mint.decimals,
-    // )?;
-
-    // let account_infos = vec![
-    //     token_owner_account.to_account_info(),
-    //     token_mint.to_account_info(),
-    //     destination_account.to_account_info(),
-    //     authority.to_account_info(),
-    // ];
-
-    // invoke_signed(&instruction, &account_infos, &[])?;
 
     Ok(())
 }
@@ -460,45 +514,50 @@ pub fn p_transfer_from_pool(
     token_owner_account: &pinocchio::account_info::AccountInfo,
     token_program: &pinocchio::account_info::AccountInfo,
     amount: u64,
+    token_flag: u8,
 ) -> Result<()> {
     let seeds = pinocchio::seeds!(
         crate::constants::seeds::POOL_AUTHORITY_PREFIX,
         &[crate::const_pda::pool_authority::BUMP]
     );
+    let signers = &[pinocchio::instruction::Signer::from(&seeds)];
 
-    pinocchio_token::instructions::Transfer {
-        from: token_vault,
-        to: token_owner_account,
-        authority: pool_authority,
-        amount,
+    if token_flag == 0 {
+        pinocchio_token::instructions::Transfer {
+            from: token_vault,
+            to: token_owner_account,
+            authority: pool_authority,
+            amount,
+        }
+        .invoke_signed(signers)
+        .unwrap();
+    } else {
+        let decimals = {
+            let mint = unsafe {
+                pinocchio_token_2022::state::Mint::from_account_info_unchecked(token_mint).unwrap()
+            };
+            mint.decimals()
+        };
+        pinocchio_token_2022::instructions::TransferChecked {
+            from: token_vault,
+            mint: token_mint,
+            to: token_owner_account,
+            authority: pool_authority,
+            amount,
+            decimals,
+            token_program: token_program.key(),
+        }
+        .invoke_signed(signers)
+        .unwrap();
     }
-    .invoke_signed(&[pinocchio::instruction::Signer::from(&seeds)])
-    .unwrap();
-
-    // let instruction = spl_token_2022::instruction::transfer_checked(
-    //     token_program.key,
-    //     &token_vault.key(),
-    //     &token_mint.key(),
-    //     &token_owner_account.key(),
-    //     &pool_authority.key(),
-    //     &[],
-    //     amount,
-    //     token_mint.decimals,
-    // )?;
-
-    // let account_infos = vec![
-    //     token_vault.to_account_info(),
-    //     token_mint.to_account_info(),
-    //     token_owner_account.to_account_info(),
-    //     pool_authority.to_account_info(),
-    // ];
-
-    // invoke_signed(&instruction, &account_infos, &[&signer_seeds[..]])?;
 
     Ok(())
 }
 
-fn p_emit_cpi(evt_swap: EvtSwap, authority_info: &pinocchio::account_info::AccountInfo) -> pinocchio::ProgramResult {
+fn p_emit_cpi(
+    evt_swap: EvtSwap,
+    authority_info: &pinocchio::account_info::AccountInfo,
+) -> pinocchio::ProgramResult {
     let disc = anchor_lang::event::EVENT_IX_TAG_LE;
     let inner_data = anchor_lang::Event::data(&evt_swap);
     let ix_data: Vec<u8> = disc
@@ -506,9 +565,61 @@ fn p_emit_cpi(evt_swap: EvtSwap, authority_info: &pinocchio::account_info::Accou
         .map(|b| *b)
         .chain(inner_data.into_iter())
         .collect();
-    let instruction = pinocchio::instruction::Instruction { program_id: &crate::ID.to_bytes(), data: &ix_data, accounts: &[
-        pinocchio::instruction::AccountMeta::new(authority_info.key(), false, true)
-    ] };
+    let instruction = pinocchio::instruction::Instruction {
+        program_id: &crate::ID.to_bytes(),
+        data: &ix_data,
+        accounts: &[pinocchio::instruction::AccountMeta::new(
+            authority_info.key(),
+            false,
+            true,
+        )],
+    };
 
-    pinocchio::cpi::invoke_signed(&instruction, &[authority_info], &[pinocchio::instruction::Signer::from(&pinocchio::seeds!(crate::EVENT_AUTHORITY_SEEDS, &[crate::EVENT_AUTHORITY_AND_BUMP.1]))])
+    pinocchio::cpi::invoke_signed(
+        &instruction,
+        &[authority_info],
+        &[pinocchio::instruction::Signer::from(&pinocchio::seeds!(
+            crate::EVENT_AUTHORITY_SEEDS,
+            &[crate::EVENT_AUTHORITY_AND_BUMP.1]
+        ))],
+    )
+}
+
+pub fn p_calculate_transfer_fee_excluded_amount<'info>(
+    token_mint: &pinocchio::account_info::AccountInfo,
+    transfer_fee_included_amount: u64,
+) -> Result<TransferFeeExcludedAmount> {
+    if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint)? {
+        let transfer_fee = epoch_transfer_fee
+            .calculate_fee(transfer_fee_included_amount)
+            .ok_or_else(|| PoolError::MathOverflow)?;
+        let transfer_fee_excluded_amount = transfer_fee_included_amount
+            .checked_sub(transfer_fee)
+            .ok_or_else(|| PoolError::MathOverflow)?;
+        return Ok(TransferFeeExcludedAmount {
+            amount: transfer_fee_excluded_amount,
+            transfer_fee,
+        });
+    }
+
+    Ok(TransferFeeExcludedAmount {
+        amount: transfer_fee_included_amount,
+        transfer_fee: 0,
+    })
+}
+
+pub fn get_epoch_transfer_fee<'info>(
+    token_mint: &pinocchio::account_info::AccountInfo,
+) -> Result<Option<TransferFee>> {
+    let token_mint_data = token_mint.try_borrow_data().unwrap();
+    let token_mint_unpacked =
+        StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
+    if let Ok(transfer_fee_config) =
+        token_mint_unpacked.get_extension::<extension::transfer_fee::TransferFeeConfig>()
+    {
+        let epoch = Clock::get()?.epoch;
+        return Ok(Some(transfer_fee_config.get_epoch_fee(epoch).clone()));
+    }
+
+    Ok(None)
 }

@@ -553,6 +553,134 @@ describe("Swap token", () => {
           referralTokenAccount: null,
         };
 
+        const amountIn = new BN(10);
+
+        const userInputAta = getAssociatedTokenAddressSync(
+          inputTokenMint,
+          user.publicKey,
+          true,
+          TOKEN_2022_PROGRAM_ID
+        );
+
+        const beforeUserInputRawAccount =
+          await context.banksClient.getAccount(userInputAta);
+
+        const beforeBalance = unpackAccount(
+          userInputAta,
+          // @ts-ignore
+          beforeUserInputRawAccount,
+          TOKEN_2022_PROGRAM_ID
+        ).amount;
+
+        await swap2ExactIn(context.banksClient, {
+          payer: user,
+          pool,
+          inputTokenMint,
+          outputTokenMint,
+          amount0: amountIn,
+          amount1: new BN(0),
+          referralTokenAccount: null,
+        });
+
+        const afterUserInputRawAccount =
+          await context.banksClient.getAccount(userInputAta);
+
+        const afterUserInputTokenAccount = unpackAccount(
+          userInputAta,
+          // @ts-ignore
+          afterUserInputRawAccount,
+          TOKEN_2022_PROGRAM_ID
+        );
+
+        const afterBalance = afterUserInputTokenAccount.amount;
+        const exactInputAmount = beforeBalance - afterBalance;
+        expect(Number(exactInputAmount)).to.be.equal(amountIn.toNumber());
+      }
+        });
+  });
+
+  describe("SwapPartialFill", () => {
+    it("Swap successfully", async () => {
+      const tokenPermutation = [
+        [inputTokenMint, outputTokenMint],
+        [outputTokenMint, inputTokenMint],
+      ];
+
+      for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
+        const addLiquidityParams: AddLiquidityParams = {
+          owner: user,
+          pool,
+          position,
+          liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
+          tokenAAmountThreshold: new BN(200),
+          tokenBAmountThreshold: new BN(200),
+        };
+        await addLiquidity(context.banksClient, addLiquidityParams);
+
+        const amountIn = new BN("10000000000000");
+
+        const userInputAta = getAssociatedTokenAddressSync(
+          inputTokenMint,
+          user.publicKey,
+          true,
+          TOKEN_2022_PROGRAM_ID
+        );
+
+        const beforeUserInputRawAccount =
+          await context.banksClient.getAccount(userInputAta);
+
+        const beforeBalance = unpackAccount(
+          userInputAta,
+          // @ts-ignore
+          beforeUserInputRawAccount,
+          TOKEN_2022_PROGRAM_ID
+        ).amount;
+
+        await swap2PartialFillIn(context.banksClient, {
+          payer: user,
+          pool,
+          inputTokenMint,
+          outputTokenMint,
+          amount0: amountIn,
+          amount1: new BN(0),
+          referralTokenAccount: null,
+        });
+
+        const afterUserInputRawAccount =
+          await context.banksClient.getAccount(userInputAta);
+
+        const afterUserInputTokenAccount = unpackAccount(
+          userInputAta,
+          // @ts-ignore
+          afterUserInputRawAccount,
+          TOKEN_2022_PROGRAM_ID
+        );
+
+        const afterBalance = afterUserInputTokenAccount.amount;
+        const exactInputAmount = beforeBalance - afterBalance;
+        expect(new BN(exactInputAmount.toString()).lt(amountIn)).to.be.true;
+      }
+    });
+  });
+
+  describe("SwapExactOut", () => {
+    it("Swap successfully", async () => {
+      const tokenPermutation = [
+        [inputTokenMint, outputTokenMint],
+        [outputTokenMint, inputTokenMint],
+      ];
+
+      for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
+        const addLiquidityParams: AddLiquidityParams = {
+          owner: user,
+          pool,
+          position,
+          liquidityDelta: new BN("10000000000").shln(OFFSET),
+          tokenAAmountThreshold: U64_MAX,
+          tokenBAmountThreshold: U64_MAX,
+        };
+        await addLiquidity(context.banksClient, addLiquidityParams);
+
         const amountOut = new BN(1000);
 
         const userOutputAta = getAssociatedTokenAddressSync(

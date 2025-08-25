@@ -1,9 +1,6 @@
 #![allow(unexpected_cfgs)]
 #![allow(deprecated)]
-use anchor_lang::{
-    prelude::{event::EVENT_IX_TAG_LE, *},
-    solana_program,
-};
+use anchor_lang::prelude::*;
 
 #[macro_use]
 pub mod macros;
