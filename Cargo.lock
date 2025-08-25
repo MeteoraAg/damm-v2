@@ -741,6 +741,7 @@ dependencies = [
  "num_enum",
  "pinocchio",
  "pinocchio-token",
+ "pinocchio-token-2022",
  "proptest",
  "ruint",
  "spl-token-metadata-interface",
@@ -1437,14 +1438,12 @@ dependencies = [
 [[package]]
 name = "pinocchio"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5123fe61ac87a327d434d530eaddaaf65069a37e33e5c9f798feaed29e4974c8"
+source = "git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed#17b0e862c01a868ea07ef81a2f8a9b4a504bdfed"
 
 [[package]]
 name = "pinocchio-pubkey"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb0225638cadcbebae8932cb7f49cb5da7c15c21beb19f048f05a5ca7d93f065"
+source = "git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed#17b0e862c01a868ea07ef81a2f8a9b4a504bdfed"
 dependencies = [
  "five8_const",
  "pinocchio",
@@ -1454,8 +1453,16 @@ dependencies = [
 [[package]]
 name = "pinocchio-token"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4eb3a10d04ea7a633c01c4fe68eb650b4606cee4a3977bd1a1259cba324abafb"
+source = "git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed#17b0e862c01a868ea07ef81a2f8a9b4a504bdfed"
+dependencies = [
+ "pinocchio",
+ "pinocchio-pubkey",
+]
+
+[[package]]
+name = "pinocchio-token-2022"
+version = "0.1.0"
+source = "git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed#17b0e862c01a868ea07ef81a2f8a9b4a504bdfed"
 dependencies = [
  "pinocchio",
  "pinocchio-pubkey",
