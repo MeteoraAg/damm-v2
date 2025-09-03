@@ -3,7 +3,10 @@ use anchor_spl::{
     token_2022::Token2022,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    u64,
+};
 
 use crate::{
     activation_handler::ActivationHandler,
@@ -19,7 +22,7 @@ use crate::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
-    EvtCreatePosition, EvtInitializePool, PoolError,
+    EvtCreatePosition, EvtInitializePool, EvtLiquidityChange, PoolError,
 };
 
 // To fix IDL generation: https://github.com/coral-xyz/anchor/issues/3209
@@ -357,6 +360,23 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         total_amount_a,
         total_amount_b,
         pool_type,
+    });
+
+    emit_cpi!(EvtLiquidityChange {
+        pool: ctx.accounts.pool.key(),
+        position: ctx.accounts.position.key(),
+        owner: ctx.accounts.creator.key(),
+        liquidity_delta: params.liquidity,
+        // Initialize pool doesn't have slippage
+        token_a_amount_threshold: u64::MAX,
+        token_b_amount_threshold: u64::MAX,
+        token_a_amount,
+        token_b_amount,
+        transfer_fee_included_token_a_amount: total_amount_a,
+        transfer_fee_included_token_b_amount: total_amount_b,
+        reserve_b_amount: total_amount_b,
+        reserve_a_amount: total_amount_a,
+        change_type: 0
     });
 
     Ok(())
