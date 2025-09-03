@@ -8,7 +8,7 @@ use crate::{
     state::{ModifyLiquidityResult, Pool, Position},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
-    EvtRemoveLiquidity, PoolError,
+    EvtPoolTokenAmountChange, EvtRemoveLiquidity, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -158,6 +158,14 @@ pub fn handle_remove_liquidity(
             token_a_amount_threshold,
             token_b_amount_threshold
         },
+        token_a_amount,
+        token_b_amount,
+    });
+
+    let (token_a_amount, token_b_amount) = pool.get_token_amount()?;
+
+    emit_cpi!(EvtPoolTokenAmountChange {
+        pool: ctx.accounts.pool.key(),
         token_a_amount,
         token_b_amount,
     });

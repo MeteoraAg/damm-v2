@@ -6,7 +6,7 @@ use crate::{
     state::{ModifyLiquidityResult, Pool, Position},
     token::{calculate_transfer_fee_included_amount, transfer_from_user},
     u128x128_math::Rounding,
-    EvtAddLiquidity, PoolError,
+    EvtAddLiquidity, EvtPoolTokenAmountChange, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -152,6 +152,14 @@ pub fn handle_add_liquidity(
         token_b_amount,
         total_amount_a,
         total_amount_b,
+    });
+
+    let (token_a_amount, token_b_amount) = pool.get_token_amount()?;
+
+    emit_cpi!(EvtPoolTokenAmountChange {
+        pool: ctx.accounts.pool.key(),
+        token_a_amount,
+        token_b_amount,
     });
 
     Ok(())

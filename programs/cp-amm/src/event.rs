@@ -130,6 +130,7 @@ pub struct EvtRemoveLiquidity {
     pub token_b_amount: u64,
 }
 
+#[deprecated = "Please migrate to EvtSwap2 instead. This event will be removed in the future."]
 #[event]
 pub struct EvtSwap {
     pub pool: Pubkey,
@@ -300,4 +301,11 @@ pub struct EvtSplitPosition {
     pub first_position_info: SplitPositionInfo,
     pub second_position_info: SplitPositionInfo,
     pub split_position_parameters: SplitPositionParameters,
+}
+
+#[event]
+pub struct EvtPoolTokenAmountChange {
+    pub pool: Pubkey,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
 }
