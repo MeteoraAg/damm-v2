@@ -1258,6 +1258,24 @@ impl Pool {
     pub fn has_partner(&self) -> bool {
         self.partner != Pubkey::default()
     }
+
+    pub fn get_token_amount(&self) -> Result<(u64, u64)> {
+        let token_b_amount = get_delta_amount_b_unsigned(
+            self.sqrt_min_price,
+            self.sqrt_price,
+            self.liquidity,
+            Rounding::Down,
+        )?;
+
+        let token_a_amount = get_delta_amount_a_unsigned(
+            self.sqrt_price,
+            self.sqrt_max_price,
+            self.liquidity,
+            Rounding::Down,
+        )?;
+
+        Ok((token_a_amount, token_b_amount))
+    }
 }
 
 /// Encodes all results of swapping

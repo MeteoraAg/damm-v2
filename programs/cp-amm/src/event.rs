@@ -155,6 +155,8 @@ pub struct EvtSwap2 {
     pub included_transfer_fee_amount_out: u64,
     pub excluded_transfer_fee_amount_out: u64,
     pub current_timestamp: u64,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
 }
 
 #[event]
