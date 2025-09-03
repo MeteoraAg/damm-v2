@@ -18,7 +18,7 @@ use crate::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
-    validate_quote_token, EvtCreatePosition, EvtInitializePool, EvtLiquidityChange, PoolError,
+    validate_quote_token, EvtCreatePosition, EvtInitializePool, PoolError,
 };
 
 use super::{max_key, min_key, InitializeCustomizablePoolParameters};
@@ -332,23 +332,6 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         total_amount_a,
         total_amount_b,
         pool_type,
-    });
-
-    emit_cpi!(EvtLiquidityChange {
-        pool: ctx.accounts.pool.key(),
-        position: ctx.accounts.position.key(),
-        owner: ctx.accounts.creator.key(),
-        liquidity_delta: params.liquidity,
-        // Initialize pool doesn't have slippage
-        token_a_amount_threshold: u64::MAX,
-        token_b_amount_threshold: u64::MAX,
-        token_a_amount,
-        token_b_amount,
-        transfer_fee_included_token_a_amount: total_amount_a,
-        transfer_fee_included_token_b_amount: total_amount_b,
-        reserve_b_amount: total_amount_b,
-        reserve_a_amount: total_amount_a,
-        change_type: 0
     });
 
     Ok(())
