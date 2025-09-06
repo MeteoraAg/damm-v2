@@ -90,7 +90,7 @@ pub fn get_delta_amount_b_unsigned_unchecked(
     round: Rounding,
 ) -> Result<U256> {
     let liquidity = U256::from(liquidity);
-    let delta_sqrt_price = U256::from(upper_sqrt_price - lower_sqrt_price);
+    let delta_sqrt_price = U256::from(upper_sqrt_price.safe_sub(lower_sqrt_price)?);
     let prod = liquidity.safe_mul(delta_sqrt_price)?;
 
     match round {
