@@ -2,6 +2,7 @@ use crate::{
     activation_handler::ActivationHandler,
     const_pda, get_pool_access_validator,
     instruction::Swap as SwapInstruction,
+    instruction::Swap2 as Swap2Instruction,
     params::swap::TradeDirection,
     process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill,
     safe_math::SafeMath,
@@ -13,7 +14,9 @@ use crate::{
 use anchor_lang::solana_program::sysvar;
 use anchor_lang::{
     prelude::*,
-    solana_program::instruction::{get_processed_sibling_instruction, get_stack_height},
+    solana_program::instruction::{
+        get_processed_sibling_instruction, get_stack_height, Instruction,
+    },
 };
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -300,12 +303,11 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         // check for any sibling instruction
         let mut sibling_index = 0;
         while let Some(sibling_instruction) = get_processed_sibling_instruction(sibling_index) {
-            if sibling_instruction.program_id == crate::ID
-                && sibling_instruction.data[..8].eq(SwapInstruction::DISCRIMINATOR)
-            {
-                if sibling_instruction.accounts[1].pubkey.eq(pool) {
-                    return Err(PoolError::FailToValidateSingleSwapInstruction.into());
-                }
+            if sibling_instruction.program_id == crate::ID {
+                require!(
+                    !is_instruction_include_pool_swap(&sibling_instruction, pool),
+                    PoolError::FailToValidateSingleSwapInstruction
+                );
             }
             sibling_index = sibling_index.safe_add(1)?;
         }
@@ -329,14 +331,23 @@ pub fn validate_single_swap_instruction<'c, 'info>(
                     return Err(PoolError::FailToValidateSingleSwapInstruction.into());
                 }
             }
-        } else if instruction.data[..8].eq(SwapInstruction::DISCRIMINATOR) {
-            if instruction.accounts[1].pubkey.eq(pool) {
-                // otherwise, we just need to search swap instruction discriminator, so creator can still bundle initialzing pool and swap at 1 tx
-                msg!("Multiple swaps not allowed");
-                return Err(PoolError::FailToValidateSingleSwapInstruction.into());
-            }
+        } else {
+            require!(
+                !is_instruction_include_pool_swap(&instruction, pool),
+                PoolError::FailToValidateSingleSwapInstruction
+            );
         }
     }
 
     Ok(())
+}
+
+fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) -> bool {
+    let instruction_discriminator = &instruction.data[..8];
+    if instruction_discriminator.eq(SwapInstruction::DISCRIMINATOR)
+        || instruction_discriminator.eq(Swap2Instruction::DISCRIMINATOR)
+    {
+        return instruction.accounts[1].pubkey.eq(pool);
+    }
+    false
 }
