@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use static_assertions::const_assert_eq;
+use static_assertions::{assert_eq_align, const_assert_eq};
 
 use crate::{
     activation_handler::ActivationType,
@@ -44,17 +44,21 @@ pub struct PoolFeesConfig {
     pub partner_fee_percent: u8,
     pub referral_fee_percent: u8,
     pub padding_0: [u8; 5],
-    pub padding_1: [u64; 5],
+    pub min_sqrt_price_index: u64,
+    pub max_sqrt_price_index: u64,
+    pub padding_1: [u64; 3],
 }
 
 const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
+assert_eq_align!(PoolFeesConfig, u128);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeConfig {
     pub cliff_fee_numerator: u64,
     // In fee scheduler first_factor: number_of_period, second_factor: period_frequency, third_factor: reduction_factor
-    // in rate limiter: first_factor: fee_increment_bps, second_factor: max_limiter_duration, max_fee_bps, third_factor: reference_amount
+    // In rate limiter: first_factor: fee_increment_bps, second_factor: max_limiter_duration, max_fee_bps, third_factor: reference_amount
+    // In market cap fee scheduler: first factor is sqrt_price_change_vbps, second_factor: scheduler_expiration_duration, third_factor: reduction_factor
     pub base_fee_mode: u8,
     pub padding: [u8; 5],
     pub first_factor: u16,
@@ -274,9 +278,11 @@ impl Config {
         sqrt_min_price: u128,
         sqrt_max_price: u128,
         collect_fee_mode: u8,
+        min_sqrt_price_index: u64,
+        max_sqrt_price_index: u64,
     ) {
         self.index = index;
-        self.pool_fees = pool_fees.to_pool_fees_config();
+        self.pool_fees = pool_fees.to_pool_fees_config(min_sqrt_price_index, max_sqrt_price_index);
         self.vault_config_key = vault_config_key;
         self.pool_creator_authority = pool_creator_authority;
         self.activation_type = activation_type;

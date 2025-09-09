@@ -145,6 +145,8 @@ describe("Frozen reward vault", () => {
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
       collectFeeMode: 0,
+      minSqrtPriceIndex: new BN(0),
+      maxSqrtPriceIndex: new BN(0),
     };
 
     let permission = encodePermissions([OperatorPermission.CreateConfigKey])
@@ -246,7 +248,9 @@ describe("Frozen reward vault", () => {
     expect(rewardVaultInfo.state).eq(2); // frozen
 
     // check error
-    const errorCode = getCpAmmProgramErrorCodeHexString("RewardVaultFrozenSkipRequired")
+    const errorCode = getCpAmmProgramErrorCodeHexString(
+      "RewardVaultFrozenSkipRequired"
+    );
     await expectThrowsAsync(async () => {
       await claimReward(context.banksClient, {
         index,
@@ -255,8 +259,7 @@ describe("Frozen reward vault", () => {
         position,
         skipReward: 0, // skip_reward is required in case reward vault frozen
       });
-    }, errorCode)
-
+    }, errorCode);
 
     // // claim reward
     await claimReward(context.banksClient, {
@@ -267,8 +270,8 @@ describe("Frozen reward vault", () => {
       skipReward: 1, // skip reward in case reward vault frozen
     });
 
-    const positionState = await getPosition(context.banksClient, position)
-    const rewardInfo = positionState.rewardInfos[index]
-    expect(rewardInfo.rewardPendings.toNumber()).eq(0)
+    const positionState = await getPosition(context.banksClient, position);
+    const rewardInfo = positionState.rewardInfos[index];
+    expect(rewardInfo.rewardPendings.toNumber()).eq(0);
   });
 });

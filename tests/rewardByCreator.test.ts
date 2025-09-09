@@ -149,6 +149,8 @@ describe("Reward by creator", () => {
         poolCreatorAuthority: PublicKey.default,
         activationType: 0,
         collectFeeMode: 0,
+        minSqrtPriceIndex: new BN(0),
+        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey])
@@ -462,6 +464,8 @@ describe("Reward by creator", () => {
         poolCreatorAuthority: PublicKey.default,
         activationType: 0,
         collectFeeMode: 0,
+        minSqrtPriceIndex: new BN(0),
+        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey])
@@ -652,7 +656,6 @@ describe("Reward by creator", () => {
       await expectThrowsAsync(async () => {
         await initializeReward(context.banksClient, initRewardParams);
       }, errorCode);
-
     });
   });
 });

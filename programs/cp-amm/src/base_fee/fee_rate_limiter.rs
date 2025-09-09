@@ -356,6 +356,7 @@ impl BaseFeeHandler for FeeRateLimiter {
         activation_point: u64,
         trade_direction: TradeDirection,
         included_fee_amount: u64,
+        _sqrt_price: u128,
     ) -> Result<u64> {
         if self.is_rate_limiter_applied(current_point, activation_point, trade_direction)? {
             self.get_fee_numerator_from_included_fee_amount(included_fee_amount)
@@ -370,6 +371,7 @@ impl BaseFeeHandler for FeeRateLimiter {
         activation_point: u64,
         trade_direction: TradeDirection,
         excluded_fee_amount: u64,
+        _sqrt_price: u128,
     ) -> Result<u64> {
         if self.is_rate_limiter_applied(current_point, activation_point, trade_direction)? {
             self.get_fee_numerator_from_excluded_fee_amount(excluded_fee_amount)

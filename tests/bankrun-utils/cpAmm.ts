@@ -123,6 +123,8 @@ export type CreateConfigParams = {
   poolCreatorAuthority: PublicKey;
   activationType: number; // 0: slot, 1: timestamp
   collectFeeMode: number; // 0: BothToken, 1: OnlyTokenB
+  minSqrtPriceIndex: BN;
+  maxSqrtPriceIndex: BN;
 };
 
 export type CreateDynamicConfigParams = {

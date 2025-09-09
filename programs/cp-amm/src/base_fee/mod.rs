@@ -1,7 +1,9 @@
-pub mod fee_scheduler;
-pub use fee_scheduler::*;
+pub mod time_fee_scheduler;
+pub use time_fee_scheduler::*;
 pub mod fee_rate_limiter;
 pub use fee_rate_limiter::*;
+pub mod market_cap_fee_scheduler;
+pub use market_cap_fee_scheduler::*;
 
 use anchor_lang::prelude::*;
 
@@ -24,6 +26,7 @@ pub trait BaseFeeHandler {
         activation_point: u64,
         trade_direction: TradeDirection,
         included_fee_amount: u64,
+        sqrt_price: u128,
     ) -> Result<u64>;
     fn get_base_fee_numerator_from_excluded_fee_amount(
         &self,
@@ -31,6 +34,7 @@ pub trait BaseFeeHandler {
         activation_point: u64,
         trade_direction: TradeDirection,
         excluded_fee_amount: u64,
+        sqrt_price: u128,
     ) -> Result<u64>;
 }
 
@@ -40,6 +44,8 @@ pub fn get_base_fee_handler(
     second_factor: [u8; 8],
     third_factor: u64,
     base_fee_mode: u8,
+    min_sqrt_price_index: u64,
+    max_sqrt_price_index: u64,
 ) -> Result<Box<dyn BaseFeeHandler>> {
     let base_fee_mode =
         BaseFeeMode::try_from(base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;
@@ -53,6 +59,21 @@ pub fn get_base_fee_handler(
                 fee_scheduler_mode: base_fee_mode.into(),
             };
             Ok(Box::new(fee_scheduler))
+        }
+        BaseFeeMode::MarketCapFeeSchedulerExponential
+        | BaseFeeMode::MarketCapFeeSchedulerLinear => {
+            let scheduler_expiration_duration = u64::from_le_bytes(second_factor);
+            let market_cap_fee_scheduler = MarketCapFeeScheduler::new(
+                cliff_fee_numerator,
+                min_sqrt_price_index,
+                max_sqrt_price_index,
+                first_factor,
+                third_factor,
+                scheduler_expiration_duration,
+                base_fee_mode.into(),
+            )?;
+
+            Ok(Box::new(market_cap_fee_scheduler))
         }
         BaseFeeMode::RateLimiter => {
             let fee_rate_limiter = FeeRateLimiter {

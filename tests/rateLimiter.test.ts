@@ -130,6 +130,8 @@ describe("Rate limiter", () => {
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
       collectFeeMode: 1, // onlyB
+      minSqrtPriceIndex: new BN(0),
+      maxSqrtPriceIndex: new BN(0),
     };
 
     let permission = encodePermissions([OperatorPermission.CreateConfigKey])

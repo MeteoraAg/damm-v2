@@ -1,5 +1,10 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  randomID,
+  startTest,
+} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   BASIS_POINT_MAX,
@@ -46,6 +51,8 @@ describe("Admin function: Create config", () => {
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
       collectFeeMode: 0,
+      minSqrtPriceIndex: new BN(0),
+      maxSqrtPriceIndex: new BN(0),
     };
     index = new BN(randomID())
     let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.RemoveConfigKey])
@@ -108,8 +115,15 @@ describe("Admin function: Create config", () => {
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
       collectFeeMode: 0,
+      minSqrtPriceIndex: new BN(0),
+      maxSqrtPriceIndex: new BN(0),
     };
 
-    await createConfigIx(context.banksClient, whitelistedAccount, new BN(Math.floor(Math.random() * 1000)), createConfigParams);
+    await createConfigIx(
+      context.banksClient,
+      admin,
+      new BN(Math.floor(Math.random() * 1000)),
+      createConfigParams
+    );
   });
 });

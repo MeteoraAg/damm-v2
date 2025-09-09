@@ -111,7 +111,7 @@ fn test_rate_limiter_from_pool_fee_params() {
         ..Default::default()
     };
 
-    let base_fee_struct = pool_fees.to_pool_fees_struct().base_fee;
+    let base_fee_struct = pool_fees.to_pool_fees_struct(0, 0).base_fee;
     let rate_limiter = base_fee_struct.get_fee_rate_limiter().unwrap();
 
     assert_eq!(rate_limiter.max_fee_bps, max_fee_bps);
@@ -186,7 +186,13 @@ fn test_rate_limiter_behavior() {
 
 fn calculate_output_amount(rate_limiter: &FeeRateLimiter, input_amount: u64) -> u64 {
     let trade_fee_numerator = rate_limiter
-        .get_base_fee_numerator_from_included_fee_amount(0, 0, TradeDirection::BtoA, input_amount)
+        .get_base_fee_numerator_from_included_fee_amount(
+            0,
+            0,
+            TradeDirection::BtoA,
+            input_amount,
+            0,
+        )
         .unwrap();
     let trading_fee: u64 = safe_mul_div_cast_u64(
         input_amount,
@@ -247,6 +253,7 @@ fn test_rate_limiter_base_fee_numerator() {
                 0,
                 TradeDirection::AtoB,
                 2_000_000_000,
+                0,
             )
             .unwrap();
 
@@ -261,6 +268,7 @@ fn test_rate_limiter_base_fee_numerator() {
                 0,
                 TradeDirection::BtoA,
                 2_000_000_000,
+                0,
             )
             .unwrap();
 
@@ -275,6 +283,7 @@ fn test_rate_limiter_base_fee_numerator() {
                 0,
                 TradeDirection::BtoA,
                 2_000_000_000,
+                0,
             )
             .unwrap();
 

@@ -1,6 +1,10 @@
 import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, startTest } from "./bankrun-utils/common";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  startTest,
+} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createConfigIx,
@@ -91,6 +95,8 @@ describe("Initialize pool", () => {
         poolCreatorAuthority: PublicKey.default,
         activationType: 0,
         collectFeeMode: 0,
+        minSqrtPriceIndex: new BN(0),
+        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])
@@ -222,6 +228,8 @@ describe("Initialize pool", () => {
         poolCreatorAuthority: PublicKey.default,
         activationType: 0,
         collectFeeMode: 0,
+        minSqrtPriceIndex: new BN(0),
+        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])

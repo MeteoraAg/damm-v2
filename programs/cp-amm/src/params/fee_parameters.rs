@@ -36,6 +36,8 @@ impl BaseFeeParameters {
         &self,
         collect_fee_mode: CollectFeeMode,
         activation_type: ActivationType,
+        min_sqrt_price_index: u64,
+        max_sqrt_price_index: u64,
     ) -> Result<()> {
         let base_fee_handler = get_base_fee_handler(
             self.cliff_fee_numerator,
@@ -43,7 +45,10 @@ impl BaseFeeParameters {
             self.second_factor,
             self.third_factor,
             self.base_fee_mode,
+            min_sqrt_price_index,
+            max_sqrt_price_index,
         )?;
+
         base_fee_handler.validate(collect_fee_mode, activation_type)?;
 
         Ok(())
@@ -73,7 +78,11 @@ impl BaseFeeParameters {
 }
 
 impl PoolFeeParameters {
-    pub fn to_pool_fees_config(&self) -> PoolFeesConfig {
+    pub fn to_pool_fees_config(
+        &self,
+        min_sqrt_price_index: u64,
+        max_sqrt_price_index: u64,
+    ) -> PoolFeesConfig {
         let &PoolFeeParameters {
             base_fee,
             padding: _,
@@ -86,6 +95,8 @@ impl PoolFeeParameters {
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
+                min_sqrt_price_index,
+                max_sqrt_price_index,
                 ..Default::default()
             }
         } else {
@@ -94,11 +105,17 @@ impl PoolFeeParameters {
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
+                min_sqrt_price_index,
+                max_sqrt_price_index,
                 ..Default::default()
             }
         }
     }
-    pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
+    pub fn to_pool_fees_struct(
+        &self,
+        min_sqrt_price_index: u64,
+        max_sqrt_price_index: u64,
+    ) -> PoolFeesStruct {
         let &PoolFeeParameters {
             base_fee,
             padding: _,
@@ -111,6 +128,8 @@ impl PoolFeeParameters {
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
+                min_sqrt_price_index,
+                max_sqrt_price_index,
                 ..Default::default()
             }
         } else {
@@ -119,6 +138,8 @@ impl PoolFeeParameters {
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
+                min_sqrt_price_index,
+                max_sqrt_price_index,
                 ..Default::default()
             }
         }
@@ -249,8 +270,15 @@ impl PoolFeeParameters {
         &self,
         collect_fee_mode: CollectFeeMode,
         activation_type: ActivationType,
+        min_sqrt_price_index: u64,
+        max_sqrt_price_index: u64,
     ) -> Result<()> {
-        self.base_fee.validate(collect_fee_mode, activation_type)?;
+        self.base_fee.validate(
+            collect_fee_mode,
+            activation_type,
+            min_sqrt_price_index,
+            max_sqrt_price_index,
+        )?;
         if let Some(dynamic_fee) = self.dynamic_fee {
             dynamic_fee.validate()?;
         }

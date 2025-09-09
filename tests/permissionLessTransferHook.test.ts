@@ -119,6 +119,8 @@ describe("Permissionless transfer hook", () => {
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
       collectFeeMode: 0,
+      minSqrtPriceIndex: new BN(0),
+      maxSqrtPriceIndex: new BN(0),
     };
 
     let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])
