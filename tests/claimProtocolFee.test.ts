@@ -24,7 +24,6 @@ import {
   approveWhitelistProtocolFeeReceiver,
 } from "./bankrun-utils";
 import BN from "bn.js";
-import fs from "fs";
 
 describe.skip("Whitelist protocol fee receiver", () => {
   let context: ProgramTestContext;
@@ -32,20 +31,13 @@ describe.skip("Whitelist protocol fee receiver", () => {
   let user: Keypair;
   let creator: Keypair;
   let protocolFeeReceiver: Keypair;
+  let admin: Keypair;
   let config: PublicKey;
   let pool: PublicKey;
   let position: PublicKey;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
   const configId = Math.floor(Math.random() * 1000);
-
-  const res = fs.readFileSync(
-  process.cwd() +
-    "/keys/localnet/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json",
-  "utf8"
-);
-
- const admin = Keypair.fromSecretKey(new Uint8Array(JSON.parse(res)));
 
   before(async () => {
     const root = Keypair.generate();
@@ -54,6 +46,7 @@ describe.skip("Whitelist protocol fee receiver", () => {
     user = await generateKpAndFund(context.banksClient, context.payer);
     creator = await generateKpAndFund(context.banksClient, context.payer);
     protocolFeeReceiver = await generateKpAndFund(context.banksClient, context.payer);
+    admin = await generateKpAndFund(context.banksClient, context.payer);
 
     tokenAMint = await createToken(
       context.banksClient,

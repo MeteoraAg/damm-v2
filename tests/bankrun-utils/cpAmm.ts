@@ -452,6 +452,8 @@ export async function claimProtocolFee(
       operator: operator.publicKey,
       tokenAProgram,
       tokenBProgram,
+      whitelistProtocolFeeReceiverA: null,
+      whitelistProtocolFeeReceiverB: null
     })
     .transaction();
 
