@@ -227,6 +227,12 @@ export async function createConfigIx(
   expect(configState.poolFees.partnerFeePercent).eq(0);
   expect(configState.poolFees.referralFeePercent).eq(20);
   expect(configState.configType).eq(0); // ConfigType: Static
+  expect(configState.poolFees.minSqrtPriceIndex.toString()).eq(
+    params.minSqrtPriceIndex.toString()
+  );
+  expect(configState.poolFees.maxSqrtPriceIndex.toString()).eq(
+    params.maxSqrtPriceIndex.toString()
+  );
 
   return config;
 }
@@ -856,6 +862,8 @@ export type InitializeCustomizablePoolParams = {
   activationType: number;
   collectFeeMode: number;
   activationPoint: BN | null;
+  minSqrtPriceIndex: BN;
+  maxSqrtPriceIndex: BN;
 };
 
 export async function initializeCustomizablePool(
@@ -876,6 +884,8 @@ export async function initializeCustomizablePool(
     collectFeeMode,
     activationPoint,
     activationType,
+    minSqrtPriceIndex,
+    maxSqrtPriceIndex,
   } = params;
   const program = createCpAmmProgram();
 
@@ -911,7 +921,7 @@ export async function initializeCustomizablePool(
   }
 
   const transaction = await program.methods
-    .initializeCustomizablePool({
+    .initializeCustomizablePool2({
       poolFees,
       sqrtMinPrice,
       sqrtMaxPrice,
@@ -921,6 +931,9 @@ export async function initializeCustomizablePool(
       activationType,
       collectFeeMode,
       activationPoint,
+      minSqrtPriceIndex,
+      maxSqrtPriceIndex,
+      padding: new Array(6).fill(new BN(0)),
     })
     .accountsPartial({
       creator,
@@ -964,6 +977,16 @@ export async function initializeCustomizablePool(
 
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
+
+  expect(poolState.poolFees.maxSqrtPriceIndex.toString()).eq(
+    maxSqrtPriceIndex.toString()
+  );
+  expect(poolState.poolFees.minSqrtPriceIndex.toString()).eq(
+    minSqrtPriceIndex.toString()
+  );
+  expect(poolState.poolFees.baseFee.baseFeeMode).eq(
+    poolFees.baseFee.baseFeeMode
+  );
 
   return { pool, position: position };
 }

@@ -49,20 +49,23 @@ pub fn get_base_fee_handler(
 ) -> Result<Box<dyn BaseFeeHandler>> {
     let base_fee_mode =
         BaseFeeMode::try_from(base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;
+
     match base_fee_mode {
         BaseFeeMode::FeeSchedulerLinear | BaseFeeMode::FeeSchedulerExponential => {
+            let fee_scheduler_mode: FeeSchedulerMode = base_fee_mode.into();
             let fee_scheduler = FeeScheduler {
                 cliff_fee_numerator,
                 number_of_period: first_factor,
                 period_frequency: u64::from_le_bytes(second_factor),
                 reduction_factor: third_factor,
-                fee_scheduler_mode: base_fee_mode.into(),
+                fee_scheduler_mode: fee_scheduler_mode.into(),
             };
             Ok(Box::new(fee_scheduler))
         }
         BaseFeeMode::MarketCapFeeSchedulerExponential
         | BaseFeeMode::MarketCapFeeSchedulerLinear => {
             let scheduler_expiration_duration = u64::from_le_bytes(second_factor);
+            let fee_scheduler_mode: FeeSchedulerMode = base_fee_mode.into();
             let market_cap_fee_scheduler = MarketCapFeeScheduler::new(
                 cliff_fee_numerator,
                 min_sqrt_price_index,
@@ -70,7 +73,7 @@ pub fn get_base_fee_handler(
                 first_factor,
                 third_factor,
                 scheduler_expiration_duration,
-                base_fee_mode.into(),
+                fee_scheduler_mode.into(),
             )?;
 
             Ok(Box::new(market_cap_fee_scheduler))

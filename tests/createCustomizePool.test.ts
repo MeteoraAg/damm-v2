@@ -1,5 +1,9 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, startTest } from "./bankrun-utils/common";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  startTest,
+} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   InitializeCustomizablePoolParams,
@@ -85,6 +89,8 @@ describe("Initialize customizable pool", () => {
         },
         activationType: 0,
         collectFeeMode: 0,
+        minSqrtPriceIndex: new BN(0),
+        maxSqrtPriceIndex: new BN(0),
       };
 
       await initializeCustomizablePool(context.banksClient, params);
@@ -170,9 +176,14 @@ describe("Initialize customizable pool", () => {
         },
         activationType: 0,
         collectFeeMode: 0,
+        minSqrtPriceIndex: new BN(0),
+        maxSqrtPriceIndex: new BN(0),
       };
 
-      const { pool } = await initializeCustomizablePool(context.banksClient, params);
+      const { pool } = await initializeCustomizablePool(
+        context.banksClient,
+        params
+      );
       const poolState = await getPool(context.banksClient, pool);
       expect(poolState.version).eq(0);
     });

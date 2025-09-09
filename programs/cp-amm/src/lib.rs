@@ -167,6 +167,13 @@ pub mod cp_amm {
         instructions::handle_initialize_customizable_pool(ctx, params.into())
     }
 
+    pub fn initialize_customizable_pool2<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, InitializeCustomizablePoolCtx<'info>>,
+        params: InitializeCustomizablePoolParameters2,
+    ) -> Result<()> {
+        instructions::handle_initialize_customizable_pool(ctx, params)
+    }
+
     pub fn create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
         instructions::handle_create_position(ctx)
     }

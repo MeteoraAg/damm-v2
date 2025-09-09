@@ -3,7 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
+    base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter, FeeSchedulerMode},
     constants::{fee::FEE_DENOMINATOR, BASIS_POINT_MAX, ONE_Q64},
     params::swap::TradeDirection,
     safe_math::SafeMath,
@@ -46,6 +46,18 @@ pub enum BaseFeeMode {
     RateLimiter,
     MarketCapFeeSchedulerLinear,
     MarketCapFeeSchedulerExponential,
+}
+
+impl From<BaseFeeMode> for FeeSchedulerMode {
+    fn from(value: BaseFeeMode) -> Self {
+        match value {
+            BaseFeeMode::FeeSchedulerLinear => FeeSchedulerMode::Linear,
+            BaseFeeMode::FeeSchedulerExponential => FeeSchedulerMode::Exponential,
+            BaseFeeMode::MarketCapFeeSchedulerLinear => FeeSchedulerMode::Linear,
+            BaseFeeMode::MarketCapFeeSchedulerExponential => FeeSchedulerMode::Exponential,
+            _ => unreachable!("Invalid base fee mode for fee scheduler"),
+        }
+    }
 }
 
 #[zero_copy]

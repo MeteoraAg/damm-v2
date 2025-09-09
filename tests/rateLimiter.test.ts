@@ -271,6 +271,8 @@ describe("Rate limiter", () => {
       activationType: 0,
       collectFeeMode: 1, // onlyB
       activationPoint: null,
+      minSqrtPriceIndex: new BN(0),
+      maxSqrtPriceIndex: new BN(0),
     };
     const { pool } = await initializeCustomizablePool(
       context.banksClient,

@@ -98,6 +98,7 @@ impl MarketCapFeeScheduler {
     ) -> Result<u64> {
         let scheduler_expiration_point =
             activation_point.safe_add(self.scheduler_expiration_duration)?;
+
         // Expired or alpha vault is buying
         if current_point > scheduler_expiration_point || current_point < activation_point {
             return self.get_min_base_fee_numerator();

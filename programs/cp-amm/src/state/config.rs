@@ -139,6 +139,8 @@ impl PoolFeesConfig {
             partner_fee_percent,
             referral_fee_percent,
             dynamic_fee,
+            min_sqrt_price_index,
+            max_sqrt_price_index,
             ..
         } = self;
 
@@ -148,6 +150,8 @@ impl PoolFeesConfig {
             partner_fee_percent,
             referral_fee_percent,
             dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
+            min_sqrt_price_index,
+            max_sqrt_price_index,
             ..Default::default()
         }
     }

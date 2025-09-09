@@ -223,12 +223,13 @@ const alphaVaultWithSniperTaxFullflow = async (
     },
     activationType: 0, // slot
     collectFeeMode: 1, // onlyB
+    minSqrtPriceIndex: new BN(0),
+    maxSqrtPriceIndex: new BN(0),
   };
   const { pool } = await initializeCustomizablePool(
     context.banksClient,
     params
   );
-
 
   console.log("setup prorata vault");
   let startVestingPoint = new BN(Number(currentSlot) + startVestingPointDiff);

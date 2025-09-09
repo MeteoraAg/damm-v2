@@ -126,4 +126,47 @@ describe("Admin function: Create config", () => {
       createConfigParams
     );
   });
+
+  it("Admin create config with market cap based fee scheduler", async () => {
+    // params
+    const minSqrtPrice = new BN("4880549731789001291");
+    const maxSqrtPrice = new BN("12236185739241331242");
+
+    const minSqrtPriceIndex = minSqrtPrice.div(MIN_SQRT_PRICE);
+    const maxSqrtPriceIndex = maxSqrtPrice.div(MIN_SQRT_PRICE);
+
+    const maxSqrtPriceDeltaVbps = new BN(10000);
+    const reductionFactor = new BN(10);
+    const schedulerExpirationDuration = new BN(3600);
+
+    //
+    const createConfigParams: CreateConfigParams = {
+      poolFees: {
+        baseFee: {
+          cliffFeeNumerator: new BN(2_500_000),
+          firstFactor: maxSqrtPriceDeltaVbps.toNumber(),
+          secondFactor: schedulerExpirationDuration.toArray("le", 8),
+          thirdFactor: reductionFactor,
+          baseFeeMode: 3, // Linear market cap based fee scheduler
+        },
+        padding: [],
+        dynamicFee: null,
+      },
+      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+      vaultConfigKey: PublicKey.default,
+      poolCreatorAuthority: PublicKey.default,
+      activationType: 0,
+      collectFeeMode: 0,
+      minSqrtPriceIndex,
+      maxSqrtPriceIndex,
+    };
+
+    await createConfigIx(
+      context.banksClient,
+      admin,
+      new BN(Math.floor(Math.random() * 1000)),
+      createConfigParams
+    );
+  });
 });
