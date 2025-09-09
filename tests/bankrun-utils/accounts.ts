@@ -96,3 +96,13 @@ export function derivePositionNftAccount(
     CP_AMM_PROGRAM_ID
   )[0];
 }
+
+export function deriveWhitelistProtocolFeeReceiver(
+  feeReceiver: PublicKey,
+): PublicKey {
+
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("pf_receiver"), feeReceiver.toBuffer()],
+    CP_AMM_PROGRAM_ID
+  )[0];
+}

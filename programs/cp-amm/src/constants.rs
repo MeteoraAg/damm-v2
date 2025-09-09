@@ -156,6 +156,7 @@ pub mod seeds {
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
     pub const REWARD_VAULT_PREFIX: &[u8] = b"reward_vault";
     pub const CLAIM_FEE_OPERATOR_PREFIX: &[u8] = b"cf_operator";
+    pub const WHITELISTED_PROTOCOL_FEE_RECEIVER: &[u8] = b"pf_receiver";
 }
 
 pub mod treasury {

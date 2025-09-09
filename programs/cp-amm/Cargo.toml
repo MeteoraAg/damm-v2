@@ -17,6 +17,7 @@ default = []
 local = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 devnet = []
+local_admin = []
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["event-cpi"] }

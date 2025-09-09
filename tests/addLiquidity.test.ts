@@ -1,11 +1,9 @@
 import { AccountLayout } from "@solana/spl-token";
 import { expect } from "chai";
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
+import {  ProgramTestContext } from "solana-bankrun";
 import { convertToByteArray, generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
-import { expect } from "chai";
-import { ProgramTestContext } from "solana-bankrun";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -22,7 +20,6 @@ import {
   mintSplTokenTo,
   U64_MAX,
 } from "./bankrun-utils";
-import { generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
