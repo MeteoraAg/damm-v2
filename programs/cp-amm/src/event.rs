@@ -83,6 +83,7 @@ pub struct EvtInitializePool {
     pub pool_type: u8,
 }
 
+#[deprecated = "Please migrate to EvtLiquidityChange instead. This event will be removed in the future."]
 #[event]
 pub struct EvtAddLiquidity {
     pub pool: Pubkey,
@@ -120,6 +121,7 @@ pub struct EvtClosePosition {
     pub position_nft_mint: Pubkey,
 }
 
+#[deprecated = "Please migrate to EvtLiquidityChange instead. This event will be removed in the future."]
 #[event]
 pub struct EvtRemoveLiquidity {
     pub pool: Pubkey,
@@ -130,6 +132,7 @@ pub struct EvtRemoveLiquidity {
     pub token_b_amount: u64,
 }
 
+#[deprecated = "Please migrate to EvtSwap2 instead. This event will be removed in the future."]
 #[event]
 pub struct EvtSwap {
     pub pool: Pubkey,
@@ -155,6 +158,8 @@ pub struct EvtSwap2 {
     pub included_transfer_fee_amount_out: u64,
     pub excluded_transfer_fee_amount_out: u64,
     pub current_timestamp: u64,
+    pub reserve_a_amount: u64,
+    pub reserve_b_amount: u64,
 }
 
 #[event]
@@ -298,4 +303,22 @@ pub struct EvtSplitPosition {
     pub first_position_info: SplitPositionInfo,
     pub second_position_info: SplitPositionInfo,
     pub split_position_parameters: SplitPositionParameters,
+}
+
+#[event]
+pub struct EvtLiquidityChange {
+    pub pool: Pubkey,
+    pub position: Pubkey,
+    pub owner: Pubkey,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
+    pub transfer_fee_included_token_a_amount: u64,
+    pub transfer_fee_included_token_b_amount: u64,
+    pub reserve_a_amount: u64,
+    pub reserve_b_amount: u64,
+    pub liquidity_delta: u128,
+    pub token_a_amount_threshold: u64,
+    pub token_b_amount_threshold: u64,
+    // 0: add, 1: remove
+    pub change_type: u8,
 }
