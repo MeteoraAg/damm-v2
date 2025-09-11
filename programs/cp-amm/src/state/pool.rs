@@ -1258,6 +1258,24 @@ impl Pool {
     pub fn has_partner(&self) -> bool {
         self.partner != Pubkey::default()
     }
+
+    pub fn get_reserves_amount(&self) -> Result<(u64, u64)> {
+        let reserve_b_amount = get_delta_amount_b_unsigned(
+            self.sqrt_min_price,
+            self.sqrt_price,
+            self.liquidity,
+            Rounding::Down,
+        )?;
+
+        let reserve_a_amount = get_delta_amount_a_unsigned(
+            self.sqrt_price,
+            self.sqrt_max_price,
+            self.liquidity,
+            Rounding::Down,
+        )?;
+
+        Ok((reserve_a_amount, reserve_b_amount))
+    }
 }
 
 /// Encodes all results of swapping

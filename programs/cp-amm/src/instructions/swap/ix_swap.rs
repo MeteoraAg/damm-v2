@@ -252,6 +252,8 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
         }
     }
 
+    let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
+
     emit_cpi!(EvtSwap {
         pool: ctx.accounts.pool.key(),
         trade_direction: trade_direction.into(),
@@ -273,6 +275,8 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
         included_transfer_fee_amount_in,
         included_transfer_fee_amount_out,
         excluded_transfer_fee_amount_out,
+        reserve_a_amount,
+        reserve_b_amount
     });
 
     Ok(())
