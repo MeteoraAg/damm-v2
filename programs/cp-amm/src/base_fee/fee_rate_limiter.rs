@@ -296,6 +296,14 @@ impl BaseFeeHandler for FeeRateLimiter {
             collect_fee_mode == CollectFeeMode::OnlyB,
             PoolError::InvalidFeeRateLimiter
         );
+        let max_fee_numerator_from_bps =
+            to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
+
+        require!(
+            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
+                && self.cliff_fee_numerator <= max_fee_numerator_from_bps,
+            PoolError::InvalidFeeRateLimiter
+        );
 
         if self.is_zero_rate_limiter() {
             return Ok(());
@@ -327,15 +335,6 @@ impl BaseFeeHandler for FeeRateLimiter {
             u64::try_from(self.max_fee_bps).map_err(|_| PoolError::TypeCastFailed)?;
         require!(
             max_fee_bps_u64 <= get_max_fee_bps(CURRENT_POOL_VERSION)?,
-            PoolError::InvalidFeeRateLimiter
-        );
-
-        let max_fee_numerator_from_bps =
-            to_numerator(self.max_fee_bps.into(), FEE_DENOMINATOR.into())?;
-        // this condition is redundant, but is is safe to add this
-        require!(
-            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
-                && self.cliff_fee_numerator <= max_fee_numerator_from_bps,
             PoolError::InvalidFeeRateLimiter
         );
 
