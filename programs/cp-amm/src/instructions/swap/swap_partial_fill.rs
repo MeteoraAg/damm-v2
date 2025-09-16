@@ -22,6 +22,7 @@ pub fn process_swap_partial_fill<'a, 'b, 'info>(
     let excluded_transfer_fee_amount_in =
         calculate_transfer_fee_excluded_amount(token_in_mint, amount_in)?.amount;
 
+    // redundant check, but it is fine to keep it
     require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
 
     let swap_result = pool.get_swap_result_from_partial_input(
@@ -30,6 +31,12 @@ pub fn process_swap_partial_fill<'a, 'b, 'info>(
         trade_direction,
         current_point,
     )?;
+
+    // require in amount is non-zero
+    require!(
+        swap_result.included_fee_input_amount > 0,
+        PoolError::AmountIsZero
+    );
 
     let excluded_transfer_fee_amount_out =
         calculate_transfer_fee_excluded_amount(token_out_mint, swap_result.output_amount)?.amount;
