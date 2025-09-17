@@ -39,6 +39,5 @@ pub fn handle_create_operator(
 
     let mut operator = ctx.accounts.operator.load_init()?;
     operator.initialize(ctx.accounts.whitelisted_address.key(), permission);
-    // TODO emit event
     Ok(())
 }

@@ -34,7 +34,17 @@ pub mod cp_amm {
     use super::*;
 
     /// ADMIN FUNCTIONS /////
+    pub fn create_operator_account(
+        ctx: Context<CreateOperatorAccountCtx>,
+        permission: u128,
+    ) -> Result<()> {
+        instructions::handle_create_operator(ctx, permission)
+    }
+    pub fn close_operator_account(_ctx: Context<CloseOperatorAccountCtx>) -> Result<()> {
+        Ok(())
+    }
 
+    /// OPERATOR FUNCTIONS /////
     // create static config
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,

@@ -44,7 +44,6 @@ impl Operator {
         self.permission = permission;
     }
 
-    // TODO test this function
     pub fn is_permission_allow(&self, permission: OperatorPermission) -> bool {
         let result: u128 = self
             .permission
