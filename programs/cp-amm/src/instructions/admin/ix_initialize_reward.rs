@@ -8,7 +8,7 @@ use crate::{
     },
     error::PoolError,
     event::EvtInitializeReward,
-    state::Pool,
+    state::{Operator, OperatorPermission, Pool},
     token::{get_token_program_flags, is_supported_mint, is_token_badge_initialized},
 };
 
@@ -43,6 +43,8 @@ pub struct InitializeRewardCtx<'info> {
     pub token_program: Interface<'info, TokenInterface>,
 
     pub system_program: Program<'info, System>,
+
+    pub operator: Option<AccountLoader<'info, Operator>>,
 }
 
 impl<'info> InitializeRewardCtx<'info> {
@@ -59,7 +61,12 @@ impl<'info> InitializeRewardCtx<'info> {
         let reward_info = &pool.reward_infos[reward_index];
         require!(!reward_info.initialized(), PoolError::RewardInitialized);
 
-        pool.validate_authority_to_edit_reward(reward_index, self.signer.key())?;
+        pool.validate_authority_to_edit_reward(
+            reward_index,
+            self.signer.key(),
+            &self.operator,
+            OperatorPermission::InitializeReward,
+        )?;
 
         Ok(())
     }

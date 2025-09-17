@@ -24,3 +24,7 @@ pub mod ix_update_reward_duration;
 pub use ix_update_reward_duration::*;
 pub mod ix_close_token_badge;
 pub use ix_close_token_badge::*;
+pub mod ix_create_operator_account;
+pub use ix_create_operator_account::*;
+pub mod ix_remove_operator_account;
+pub use ix_remove_operator_account::*;

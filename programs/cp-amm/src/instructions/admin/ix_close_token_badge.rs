@@ -1,4 +1,7 @@
-use crate::{assert_eq_admin, state::TokenBadge, PoolError};
+use crate::{
+    state::{Operator, OperatorPermission, TokenBadge},
+    PoolError,
+};
 use anchor_lang::prelude::*;
 
 #[event_cpi]
@@ -11,12 +14,22 @@ pub struct CloseTokenBadgeCtx<'info> {
     pub token_badge: AccountLoader<'info, TokenBadge>,
 
     #[account(
-        mut,
-        constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
+        has_one = whitelisted_address,
     )]
-    pub admin: Signer<'info>,
+    pub operator: AccountLoader<'info, Operator>,
+
+    pub whitelisted_address: Signer<'info>,
 
     /// CHECK: Account to receive closed account rental SOL
     #[account(mut)]
     pub rent_receiver: UncheckedAccount<'info>,
+}
+
+pub fn handle_close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
+    let operator = ctx.accounts.operator.load()?;
+    require!(
+        operator.is_permission_allow(OperatorPermission::CloseTokenBadge),
+        PoolError::InvalidAuthority
+    );
+    Ok(())
 }

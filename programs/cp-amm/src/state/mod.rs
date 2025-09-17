@@ -11,3 +11,5 @@ pub mod vesting;
 pub use vesting::*;
 pub mod claim_fee_operator;
 pub use claim_fee_operator::*;
+pub mod operator;
+pub use operator::*;

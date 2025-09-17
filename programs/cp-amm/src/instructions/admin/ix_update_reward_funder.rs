@@ -1,6 +1,10 @@
 use anchor_lang::prelude::*;
 
-use crate::{constants::NUM_REWARDS, state::Pool, EvtUpdateRewardFunder, PoolError};
+use crate::{
+    constants::NUM_REWARDS,
+    state::{Operator, OperatorPermission, Pool},
+    EvtUpdateRewardFunder, PoolError,
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -9,6 +13,8 @@ pub struct UpdateRewardFunderCtx<'info> {
     pub pool: AccountLoader<'info, Pool>,
 
     pub signer: Signer<'info>,
+
+    pub operator: Option<AccountLoader<'info, Operator>>,
 }
 
 impl<'info> UpdateRewardFunderCtx<'info> {
@@ -22,7 +28,12 @@ impl<'info> UpdateRewardFunderCtx<'info> {
 
         require!(reward_info.funder != new_funder, PoolError::IdenticalFunder);
 
-        pool.validate_authority_to_edit_reward(reward_index, self.signer.key())?;
+        pool.validate_authority_to_edit_reward(
+            reward_index,
+            self.signer.key(),
+            &self.operator,
+            OperatorPermission::UpdateRewardFunder,
+        )?;
 
         Ok(())
     }

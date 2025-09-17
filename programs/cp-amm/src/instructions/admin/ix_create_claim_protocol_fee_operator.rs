@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    assert_eq_admin, constants::seeds::CLAIM_FEE_OPERATOR_PREFIX, state::ClaimFeeOperator,
+    constants::seeds::CLAIM_FEE_OPERATOR_PREFIX,
+    state::{ClaimFeeOperator, Operator, OperatorPermission},
     EvtCreateClaimFeeOperator, PoolError,
 };
 
@@ -10,7 +11,7 @@ use crate::{
 pub struct CreateClaimFeeOperatorCtx<'info> {
     #[account(
         init,
-        payer = admin,
+        payer = payer,
         seeds = [
             CLAIM_FEE_OPERATOR_PREFIX.as_ref(),
             operator.key().as_ref(),
@@ -21,18 +22,28 @@ pub struct CreateClaimFeeOperatorCtx<'info> {
     pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
 
     /// CHECK: operator
-    pub operator: UncheckedAccount<'info>,
+    pub claim_fee_operator_address: UncheckedAccount<'info>,
 
     #[account(
-        mut,
-        constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
+        has_one = whitelisted_address,
     )]
-    pub admin: Signer<'info>,
+    pub operator: AccountLoader<'info, Operator>,
+
+    pub whitelisted_address: Signer<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }
 
 pub fn handle_create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>) -> Result<()> {
+    let operator = ctx.accounts.operator.load()?;
+    require!(
+        operator.is_permission_allow(OperatorPermission::CreateClaimProtocolFeeOperator),
+        PoolError::InvalidAuthority
+    );
+
     let mut claim_fee_operator = ctx.accounts.claim_fee_operator.load_init()?;
     claim_fee_operator.initialize(ctx.accounts.operator.key())?;
 

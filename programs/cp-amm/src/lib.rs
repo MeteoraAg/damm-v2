@@ -130,8 +130,8 @@ pub mod cp_amm {
         instructions::handle_claim_partner_fee(ctx, max_amount_a, max_amount_b)
     }
 
-    pub fn close_token_badge(_ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
-        Ok(())
+    pub fn close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
+        instructions::handle_close_token_badge(ctx)
     }
 
     /// USER FUNCTIONS ////

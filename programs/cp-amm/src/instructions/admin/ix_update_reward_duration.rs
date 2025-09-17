@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::{
     constants::{MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS},
-    state::Pool,
+    state::{Operator, OperatorPermission, Pool},
     EvtUpdateRewardDuration, PoolError,
 };
 
@@ -13,6 +13,8 @@ pub struct UpdateRewardDurationCtx<'info> {
     pub pool: AccountLoader<'info, Pool>,
 
     pub signer: Signer<'info>,
+
+    pub operator: Option<AccountLoader<'info, Operator>>,
 }
 
 impl<'info> UpdateRewardDurationCtx<'info> {
@@ -41,7 +43,12 @@ impl<'info> UpdateRewardDurationCtx<'info> {
             PoolError::RewardCampaignInProgress
         );
 
-        pool.validate_authority_to_edit_reward(reward_index, self.signer.key())?;
+        pool.validate_authority_to_edit_reward(
+            reward_index,
+            self.signer.key(),
+            &self.operator,
+            OperatorPermission::UpdateRewardDuration,
+        )?;
 
         Ok(())
     }

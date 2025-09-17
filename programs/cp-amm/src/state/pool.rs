@@ -8,8 +8,8 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use crate::constants::fee::{get_max_fee_numerator, CURRENT_POOL_VERSION};
 use crate::curve::get_next_sqrt_price_from_output;
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
+use crate::state::{Operator, OperatorPermission};
 use crate::{
-    assert_eq_admin,
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
@@ -254,7 +254,7 @@ impl RewardInfo {
     }
 
     pub fn is_valid_funder(&self, funder: Pubkey) -> bool {
-        assert_eq_admin(funder) || funder.eq(&self.funder)
+        funder.eq(&self.funder)
     }
 
     pub fn init_reward(
@@ -1245,12 +1245,24 @@ impl Pool {
         &self,
         reward_index: usize,
         signer: Pubkey,
+        operator: &Option<AccountLoader<Operator>>,
+        permission: OperatorPermission,
     ) -> Result<()> {
         // pool creator is allowed to initialize reward with only index 0
         if signer == self.creator {
             require!(reward_index == 0, PoolError::InvalidRewardIndex)
         } else {
-            require!(assert_eq_admin(signer), PoolError::InvalidAdmin);
+            match operator {
+                Some(operator_loader) => {
+                    let operator = operator_loader.load()?;
+                    require!(
+                        operator.whitelisted_address.eq(&signer)
+                            && operator.is_permission_allow(permission),
+                        PoolError::InvalidAuthority
+                    );
+                }
+                None => return Err(PoolError::InvalidAuthority.into()),
+            }
         }
         Ok(())
     }
