@@ -37,6 +37,8 @@ pub const MIN_REWARD_DURATION: u64 = 24 * 60 * 60; // 1 day
 
 pub const MAX_REWARD_DURATION: u64 = 31536000; // 1 year = 365 * 24 * 3600
 
+pub const SPLIT_POSITION_DENOMINATOR: u32 = 1_000_000_000; // 1b
+
 pub mod activation {
     #[cfg(not(feature = "local"))]
     pub const SLOT_BUFFER: u64 = 9000; // 1 slot = 400 mls => 1 hour

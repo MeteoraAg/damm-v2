@@ -4,10 +4,11 @@ use static_assertions::const_assert_eq;
 use std::{cell::RefMut, u64};
 
 use crate::{
-    constants::{LIQUIDITY_SCALE, NUM_REWARDS, TOTAL_REWARD_SCALE},
+    constants::{LIQUIDITY_SCALE, NUM_REWARDS, SPLIT_POSITION_DENOMINATOR, TOTAL_REWARD_SCALE},
     safe_math::SafeMath,
     state::Pool,
-    utils_math::safe_mul_shr_256_cast,
+    u128x128_math::Rounding,
+    utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
     PoolError,
 };
 
@@ -325,53 +326,66 @@ impl Position {
         Ok(self.get_total_liquidity()? == 0 && self.fee_a_pending == 0 && self.fee_b_pending == 0)
     }
 
-    pub fn get_unlocked_liquidity_by_percentage(&self, percentage: u8) -> Result<u128> {
-        let liquidity_delta = self
-            .unlocked_liquidity
-            .safe_mul(percentage.into())?
-            .safe_div(100)?;
+    pub fn get_unlocked_liquidity_by_numerator(&self, numerator: u32) -> Result<u128> {
+        let liquidity_delta = safe_mul_div_cast_u128(
+            self.unlocked_liquidity,
+            numerator.into(),
+            SPLIT_POSITION_DENOMINATOR.into(),
+            Rounding::Down,
+        )?;
 
         Ok(liquidity_delta)
     }
 
-    pub fn get_permanent_locked_liquidity_by_percentage(&self, percentage: u8) -> Result<u128> {
-        let permanent_locked_liquidity_delta = self
-            .permanent_locked_liquidity
-            .safe_mul(percentage.into())?
-            .safe_div(100)?;
+    pub fn get_permanent_locked_liquidity_by_numerator(&self, numerator: u32) -> Result<u128> {
+        let permanent_locked_liquidity_delta = safe_mul_div_cast_u128(
+            self.permanent_locked_liquidity,
+            numerator.into(),
+            SPLIT_POSITION_DENOMINATOR.into(),
+            Rounding::Down,
+        )?;
 
         Ok(permanent_locked_liquidity_delta)
     }
 
-    pub fn get_pending_fee_by_percentage(
+    pub fn get_pending_fee_by_numerator(
         &self,
-        fee_a_percentage: u8,
-        fee_b_percentage: u8,
+        fee_a_numerator: u32,
+        fee_b_numerator: u32,
     ) -> Result<SplitFeeAmount> {
-        let fee_a_split = u128::from(self.fee_a_pending)
-            .safe_mul(fee_a_percentage.into())?
-            .safe_div(100)?;
-        let fee_b_split = u128::from(self.fee_b_pending)
-            .safe_mul(fee_b_percentage.into())?
-            .safe_div(100)?;
+        let fee_a_split = safe_mul_div_cast_u64(
+            self.fee_a_pending,
+            fee_a_numerator.into(),
+            SPLIT_POSITION_DENOMINATOR.into(),
+            Rounding::Down,
+        )?;
+        let fee_b_split = safe_mul_div_cast_u64(
+            self.fee_b_pending,
+            fee_b_numerator.into(),
+            SPLIT_POSITION_DENOMINATOR.into(),
+            Rounding::Down,
+        )?;
 
         Ok(SplitFeeAmount {
-            fee_a_amount: u64::try_from(fee_a_split).map_err(|_| PoolError::MathOverflow)?,
-            fee_b_amount: u64::try_from(fee_b_split).map_err(|_| PoolError::MathOverflow)?,
+            fee_a_amount: fee_a_split,
+            fee_b_amount: fee_b_split,
         })
     }
 
-    pub fn get_pending_reward_by_percentage(
+    pub fn get_pending_reward_by_numerator(
         &self,
         reward_index: usize,
-        reward_percentage: u8,
+        reward_numerator: u32,
     ) -> Result<u64> {
         let position_reward = self.reward_infos[reward_index];
-        let reward_split = u128::from(position_reward.reward_pendings)
-            .safe_mul(reward_percentage.into())?
-            .safe_div(100)?;
+        let reward_split = safe_mul_div_cast_u64(
+            position_reward.reward_pendings,
+            reward_numerator.into(),
+            SPLIT_POSITION_DENOMINATOR.into(),
+            Rounding::Down,
+        )?;
 
-        Ok(u64::try_from(reward_split).map_err(|_| PoolError::MathOverflow)?)
+        Ok(reward_split)
     }
 }
 

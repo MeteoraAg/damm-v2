@@ -44,6 +44,25 @@ pub fn safe_mul_div_cast_u64<T: FromPrimitive>(
     T::from_u128(result).ok_or_else(|| PoolError::TypeCastFailed.into())
 }
 
+pub fn safe_mul_div_cast_u128(
+    x: u128,
+    y: u128,
+    denominator: u128,
+    rounding: Rounding,
+) -> Result<u128> {
+    let prod = U256::from(x).safe_mul(U256::from(y))?;
+    let denominator = U256::from(denominator);
+
+    let result = match rounding {
+        Rounding::Up => prod.div_ceil(denominator),
+        Rounding::Down => prod.safe_div(denominator)?,
+    };
+
+    result
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed.into())
+}
+
 #[inline]
 pub fn safe_shl_div_cast<T: FromPrimitive>(
     x: u128,

@@ -2,10 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::TokenAccount;
 
 use crate::{
-    constants::{REWARD_INDEX_0, REWARD_INDEX_1},
-    get_pool_access_validator,
-    state::{Pool, Position, SplitAmountInfo, SplitPositionInfo},
-    EvtSplitPosition, PoolError,
+    constants::SPLIT_POSITION_DENOMINATOR,
+    safe_math::SafeMath,
+    state::{Pool, Position},
+    PoolError, SplitPositionParameters2,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -27,6 +27,22 @@ pub struct SplitPositionParameters {
 }
 
 impl SplitPositionParameters {
+    pub fn get_split_position_parameters2(&self) -> Result<SplitPositionParameters2> {
+        self.validate()?;
+        let numerator_factor = SPLIT_POSITION_DENOMINATOR.safe_div(100)?;
+
+        Ok(SplitPositionParameters2 {
+            unlocked_liquidity_numerator: numerator_factor
+                .safe_mul(self.unlocked_liquidity_percentage.into())?,
+            permanent_locked_liquidity_numerator: numerator_factor
+                .safe_mul(self.permanent_locked_liquidity_percentage.into())?,
+            fee_a_numerator: numerator_factor.safe_mul(self.fee_a_percentage.into())?,
+            fee_b_numerator: numerator_factor.safe_mul(self.fee_b_percentage.into())?,
+            reward_0_numerator: numerator_factor.safe_mul(self.reward_0_percentage.into())?,
+            reward_1_numerator: numerator_factor.safe_mul(self.reward_1_percentage.into())?,
+        })
+    }
+
     pub fn validate(&self) -> Result<()> {
         require!(
             self.permanent_locked_liquidity_percentage <= 100,
@@ -109,104 +125,4 @@ pub struct SplitPositionCtx<'info> {
 
     /// Owner of second position
     pub second_owner: Signer<'info>,
-}
-
-pub fn handle_split_position(
-    ctx: Context<SplitPositionCtx>,
-    params: SplitPositionParameters,
-) -> Result<()> {
-    {
-        let pool = ctx.accounts.pool.load()?;
-        let access_validator = get_pool_access_validator(&pool)?;
-        require!(
-            access_validator.can_split_position(),
-            PoolError::PoolDisabled
-        );
-    }
-
-    // validate params
-    params.validate()?;
-
-    let SplitPositionParameters {
-        unlocked_liquidity_percentage,
-        permanent_locked_liquidity_percentage,
-        fee_a_percentage,
-        fee_b_percentage,
-        reward_0_percentage,
-        reward_1_percentage,
-        ..
-    } = params;
-
-    let mut pool = ctx.accounts.pool.load_mut()?;
-
-    let mut first_position = ctx.accounts.first_position.load_mut()?;
-    let mut second_position = ctx.accounts.second_position.load_mut()?;
-
-    // Require positions without vested liquidity to avoid complex logic.
-    // Because a position can have multiple vested locks with different vesting time.
-    require!(
-        first_position.vested_liquidity == 0,
-        PoolError::UnsupportPositionHasVestingLock
-    );
-
-    let current_time = Clock::get()?.unix_timestamp as u64;
-    // update current pool reward
-    pool.update_rewards(current_time)?;
-    // update first and second position reward
-    first_position.update_position_reward(&pool)?;
-    second_position.update_position_reward(&pool)?;
-
-    let split_amount_info: SplitAmountInfo = pool.apply_split_position(
-        &mut first_position,
-        &mut second_position,
-        unlocked_liquidity_percentage,
-        permanent_locked_liquidity_percentage,
-        fee_a_percentage,
-        fee_b_percentage,
-        reward_0_percentage,
-        reward_1_percentage,
-    )?;
-
-    emit_cpi!(EvtSplitPosition {
-        pool: ctx.accounts.pool.key(),
-        first_owner: ctx.accounts.first_owner.key(),
-        second_owner: ctx.accounts.second_owner.key(),
-        first_position: ctx.accounts.first_position.key(),
-        second_position: ctx.accounts.second_position.key(),
-        amount_splits: split_amount_info,
-        current_sqrt_price: pool.sqrt_price,
-        first_position_info: SplitPositionInfo {
-            liquidity: first_position.get_total_liquidity()?,
-            fee_a: first_position.fee_a_pending,
-            fee_b: first_position.fee_b_pending,
-            reward_0: first_position
-                .reward_infos
-                .get(REWARD_INDEX_0)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-            reward_1: first_position
-                .reward_infos
-                .get(REWARD_INDEX_1)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-        },
-        second_position_info: SplitPositionInfo {
-            liquidity: second_position.get_total_liquidity()?,
-            fee_a: second_position.fee_a_pending,
-            fee_b: second_position.fee_b_pending,
-            reward_0: second_position
-                .reward_infos
-                .get(REWARD_INDEX_0)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-            reward_1: second_position
-                .reward_infos
-                .get(REWARD_INDEX_1)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-        },
-        split_position_parameters: params
-    });
-
-    Ok(())
 }

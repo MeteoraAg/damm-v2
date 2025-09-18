@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## cp_amm [0.1.4] 
+### Added
+- Add new endpoint `split_position2` that allows position's owner to split position with better resolution
+
+### Breaking Changes
+- `split_position` will not emit event `EvtSplitPosition`, instead of emitting event `EvtSplitPosition2`
 
 ## cp_amm [0.1.3]
 

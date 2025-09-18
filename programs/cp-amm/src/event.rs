@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 use crate::{
     params::fee_parameters::PoolFeeParameters,
     state::{SplitAmountInfo, SplitPositionInfo, SwapResult},
-    AddLiquidityParameters, RemoveLiquidityParameters, SplitPositionParameters, SwapParameters,
+    AddLiquidityParameters, RemoveLiquidityParameters, SplitPositionParameters2, SwapParameters,
 };
 
 /// Close config
@@ -270,7 +270,7 @@ pub struct EvtWithdrawIneligibleReward {
 }
 
 #[event]
-pub struct EvtSplitPosition {
+pub struct EvtSplitPosition2 {
     pub pool: Pubkey,
     pub first_owner: Pubkey,
     pub second_owner: Pubkey,
@@ -280,5 +280,5 @@ pub struct EvtSplitPosition {
     pub amount_splits: SplitAmountInfo,
     pub first_position_info: SplitPositionInfo,
     pub second_position_info: SplitPositionInfo,
-    pub split_position_parameters: SplitPositionParameters,
+    pub split_position_parameters: SplitPositionParameters2,
 }

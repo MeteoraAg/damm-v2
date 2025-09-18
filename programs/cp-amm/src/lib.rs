@@ -233,6 +233,13 @@ pub mod cp_amm {
         ctx: Context<SplitPositionCtx>,
         params: SplitPositionParameters,
     ) -> Result<()> {
-        instructions::handle_split_position(ctx, params)
+        instructions::handle_split_position2(ctx, params.get_split_position_parameters2()?)
+    }
+
+    pub fn split_position2(
+        ctx: Context<SplitPositionCtx>,
+        params: SplitPositionParameters2,
+    ) -> Result<()> {
+        instructions::handle_split_position2(ctx, params)
     }
 }

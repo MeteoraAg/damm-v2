@@ -629,12 +629,12 @@ impl Pool {
         &self,
         first_position: &mut Position,
         second_position: &mut Position,
-        unlocked_liquidity_percentage: u8,
-        permanent_locked_liquidity_percentage: u8,
-        fee_a_percentage: u8,
-        fee_b_percentage: u8,
-        reward_0_percentage: u8,
-        reward_1_percentage: u8,
+        unlocked_liquidity_numerator: u32,
+        permanent_locked_liquidity_numerator: u32,
+        fee_a_numerator: u32,
+        fee_b_numerator: u32,
+        reward_0_numerator: u32,
+        reward_1_numerator: u32,
     ) -> Result<SplitAmountInfo> {
         // update current fee for first position
         first_position.update_fee(self.fee_a_per_liquidity(), self.fee_b_per_liquidity())?;
@@ -649,9 +649,9 @@ impl Pool {
         let mut reward_1_split = 0;
 
         // split unlocked liquidity by percentage
-        if unlocked_liquidity_percentage > 0 {
-            let unlocked_liquidity_delta = first_position
-                .get_unlocked_liquidity_by_percentage(unlocked_liquidity_percentage)?;
+        if unlocked_liquidity_numerator > 0 {
+            let unlocked_liquidity_delta =
+                first_position.get_unlocked_liquidity_by_numerator(unlocked_liquidity_numerator)?;
 
             first_position.remove_unlocked_liquidity(unlocked_liquidity_delta)?;
             second_position.add_liquidity(unlocked_liquidity_delta)?;
@@ -660,10 +660,10 @@ impl Pool {
         }
 
         // split permanent locked liquidity by percentage
-        if permanent_locked_liquidity_percentage > 0 {
+        if permanent_locked_liquidity_numerator > 0 {
             let permanent_locked_liquidity_delta = first_position
-                .get_permanent_locked_liquidity_by_percentage(
-                    permanent_locked_liquidity_percentage,
+                .get_permanent_locked_liquidity_by_numerator(
+                    permanent_locked_liquidity_numerator,
                 )?;
 
             first_position.remove_permanent_locked_liquidity(permanent_locked_liquidity_delta)?;
@@ -673,11 +673,11 @@ impl Pool {
         }
 
         // split pending lp fee  by percentage
-        if fee_a_percentage > 0 || fee_b_percentage > 0 {
+        if fee_a_numerator > 0 || fee_b_numerator > 0 {
             let SplitFeeAmount {
                 fee_a_amount,
                 fee_b_amount,
-            } = first_position.get_pending_fee_by_percentage(fee_a_percentage, fee_b_percentage)?;
+            } = first_position.get_pending_fee_by_numerator(fee_a_numerator, fee_b_numerator)?;
 
             first_position.remove_fee_pending(fee_a_amount, fee_b_amount)?;
             second_position.add_fee_pending(fee_a_amount, fee_b_amount)?;
@@ -688,11 +688,11 @@ impl Pool {
 
         // split pending reward by percentage
         if self.pool_reward_initialized() {
-            if reward_0_percentage > 0 {
+            if reward_0_numerator > 0 {
                 let pool_reward_info = self.reward_infos[REWARD_INDEX_0];
                 if pool_reward_info.initialized() {
                     let split_reward = first_position
-                        .get_pending_reward_by_percentage(REWARD_INDEX_0, reward_0_percentage)?;
+                        .get_pending_reward_by_numerator(REWARD_INDEX_0, reward_0_numerator)?;
 
                     first_position.remove_reward_pending(REWARD_INDEX_0, split_reward)?;
                     second_position.add_reward_pending(REWARD_INDEX_0, split_reward)?;
@@ -701,11 +701,11 @@ impl Pool {
                 }
             }
 
-            if reward_1_percentage > 0 {
+            if reward_1_numerator > 0 {
                 let pool_reward_info = self.reward_infos[REWARD_INDEX_1];
                 if pool_reward_info.initialized() {
                     let split_reward = first_position
-                        .get_pending_reward_by_percentage(REWARD_INDEX_1, reward_1_percentage)?;
+                        .get_pending_reward_by_numerator(REWARD_INDEX_1, reward_1_numerator)?;
 
                     first_position.remove_reward_pending(REWARD_INDEX_1, split_reward)?;
                     second_position.add_reward_pending(REWARD_INDEX_1, split_reward)?;
