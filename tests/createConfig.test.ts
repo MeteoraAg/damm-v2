@@ -6,9 +6,12 @@ import {
   closeConfigIx,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
+  encodePermissions,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
   OFFSET,
+  OperatorPermission,
 } from "./bankrun-utils";
 import { shlDiv } from "./bankrun-utils/math";
 import { BN } from "bn.js";
@@ -16,6 +19,7 @@ import { BN } from "bn.js";
 describe("Admin function: Create config", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
+  let whitelistedAccount: Keypair;
   let createConfigParams: CreateConfigParams;
   let index;
 
@@ -23,6 +27,7 @@ describe("Admin function: Create config", () => {
     const root = Keypair.generate();
     context = await startTest(root);
     admin = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
     createConfigParams = {
       poolFees: {
         baseFee: {
@@ -43,20 +48,27 @@ describe("Admin function: Create config", () => {
       collectFeeMode: 0,
     };
     index = new BN(randomID())
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.RemoveConfigKey])
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission
+    })
   });
 
   it("Admin create config", async () => {
-    await createConfigIx(context.banksClient, admin, index, createConfigParams);
+    await createConfigIx(context.banksClient, whitelistedAccount, index, createConfigParams);
   });
 
   it("Admin close config", async () => {
     const config = await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       index,
       createConfigParams
     );
-    await closeConfigIx(context.banksClient, admin, config);
+    await closeConfigIx(context.banksClient, whitelistedAccount, config);
   });
 
   it("Admin create config with dynamic fee", async () => {
@@ -98,6 +110,6 @@ describe("Admin function: Create config", () => {
       collectFeeMode: 0,
     };
 
-    await createConfigIx(context.banksClient, admin, new BN(Math.floor(Math.random() * 1000)), createConfigParams);
+    await createConfigIx(context.banksClient, whitelistedAccount, new BN(Math.floor(Math.random() * 1000)), createConfigParams);
   });
 });

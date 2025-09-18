@@ -29,6 +29,9 @@ import {
   getCpAmmProgramErrorCodeHexString,
   getPosition,
   convertToByteArray,
+  encodePermissions,
+  OperatorPermission,
+  createOperator,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { describe } from "mocha";
@@ -41,6 +44,7 @@ describe("Frozen reward vault", () => {
   let config: PublicKey;
   let funder: Keypair;
   let user: Keypair;
+  let whitelistedAccount: Keypair;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
   let rewardMint: PublicKey;
@@ -56,6 +60,7 @@ describe("Frozen reward vault", () => {
     funder = await generateKpAndFund(context.banksClient, context.payer);
     creator = await generateKpAndFund(context.banksClient, context.payer);
     admin = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
     tokenAMint = await createToken(
       context.banksClient,
@@ -142,9 +147,17 @@ describe("Frozen reward vault", () => {
       collectFeeMode: 0,
     };
 
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission
+    })
+
     config = await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(configId),
       createConfigParams
     );
@@ -193,6 +206,7 @@ describe("Frozen reward vault", () => {
       rewardDuration: new BN(24 * 60 * 60),
       pool,
       rewardMint,
+      funder: funder.publicKey
     };
     await initializeReward(context.banksClient, initRewardParams);
 

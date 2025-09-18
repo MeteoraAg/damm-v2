@@ -8,8 +8,10 @@ import {
   claimPositionFee,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
   createPosition,
   createToken,
+  encodePermissions,
   getPool,
   getPosition,
   getVesting,
@@ -21,6 +23,7 @@ import {
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
   mintSplTokenTo,
+  OperatorPermission,
   permanentLockPosition,
   refreshVestings,
   swapExactIn,
@@ -43,6 +46,7 @@ describe("Lock position", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
+    let whitelistedAccount: Keypair;
     let creator: Keypair;
     let config: PublicKey;
     let liquidity: BN;
@@ -63,6 +67,7 @@ describe("Lock position", () => {
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       tokenAMint = await createToken(
         context.banksClient,
@@ -127,9 +132,17 @@ describe("Lock position", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(configId),
         createConfigParams
       );
@@ -356,6 +369,7 @@ describe("Lock position", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
+    let whitelistedAccount: Keypair;
     let creator: Keypair;
     let config: PublicKey;
     let liquidity: BN;
@@ -388,6 +402,7 @@ describe("Lock position", () => {
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       await createToken2022(
         context.banksClient,
@@ -455,9 +470,17 @@ describe("Lock position", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(configId),
         createConfigParams
       );

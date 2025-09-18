@@ -30,15 +30,19 @@ import {
   getPool,
   swapExactIn,
   swapInstruction,
+  OperatorPermission,
+  encodePermissions,
+  createOperator,
 } from "./bankrun-utils";
 import BN from "bn.js";
-import { assert, expect } from "chai";
+import {  expect } from "chai";
 
 describe("Rate limiter", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
+  let whitelistedAccount: Keypair;
   let user: Keypair;
   let poolCreator: Keypair;
   let tokenA: PublicKey;
@@ -52,6 +56,7 @@ describe("Rate limiter", () => {
     partner = await generateKpAndFund(context.banksClient, context.payer);
     user = await generateKpAndFund(context.banksClient, context.payer);
     poolCreator = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
     tokenA = await createToken(
       context.banksClient,
@@ -127,9 +132,17 @@ describe("Rate limiter", () => {
       collectFeeMode: 1, // onlyB
     };
 
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission
+    })
+
     let config = await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(randomID()),
       createConfigParams
     );

@@ -14,6 +14,9 @@ import {
   setPoolStatus,
   createToken,
   mintSplTokenTo,
+  encodePermissions,
+  createOperator,
+  OperatorPermission,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { ExtensionType } from "@solana/spl-token";
@@ -28,6 +31,7 @@ describe("Initialize pool", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let config: PublicKey;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
@@ -40,6 +44,7 @@ describe("Initialize pool", () => {
       context = await startTest(root);
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       tokenAMint = await createToken(
         context.banksClient,
@@ -88,9 +93,17 @@ describe("Initialize pool", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(configId),
         createConfigParams
       );
@@ -118,7 +131,7 @@ describe("Initialize pool", () => {
 
       const newStatus = 1;
       await setPoolStatus(context.banksClient, {
-        admin,
+        whitelistedAddress: whitelistedAccount,
         pool,
         status: newStatus,
       });
@@ -139,6 +152,7 @@ describe("Initialize pool", () => {
     let liquidity: BN;
     let sqrtPrice: BN;
     let admin: Keypair;
+    let whitelistedAccount: Keypair;
     const configId = Math.floor(Math.random() * 1000);
 
     beforeEach(async () => {
@@ -159,6 +173,7 @@ describe("Initialize pool", () => {
       ];
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       await createToken2022(
         context.banksClient,
@@ -209,9 +224,17 @@ describe("Initialize pool", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(configId),
         createConfigParams
       );
@@ -239,7 +262,7 @@ describe("Initialize pool", () => {
 
       const newStatus = 1;
       await setPoolStatus(context.banksClient, {
-        admin,
+        whitelistedAddress: whitelistedAccount,
         pool,
         status: newStatus,
       });
