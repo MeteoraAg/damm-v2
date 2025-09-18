@@ -14,7 +14,7 @@ pub struct CreateClaimFeeOperatorCtx<'info> {
         payer = payer,
         seeds = [
             CLAIM_FEE_OPERATOR_PREFIX.as_ref(),
-            operator.key().as_ref(),
+            claim_fee_operator_address.key().as_ref(),
         ],
         bump,
         space = 8 + ClaimFeeOperator::INIT_SPACE

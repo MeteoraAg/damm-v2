@@ -1,4 +1,9 @@
-use crate::{assert_eq_admin, constants::seeds::OPERATOR_PREFIX, state::Operator, PoolError};
+use crate::{
+    assert_eq_admin,
+    constants::{seeds::OPERATOR_PREFIX, MAX_OPERATION},
+    state::Operator,
+    PoolError,
+};
 use anchor_lang::prelude::*;
 
 #[event_cpi]
@@ -35,7 +40,10 @@ pub fn handle_create_operator(
     permission: u128,
 ) -> Result<()> {
     // validate permission, only support 10 operations for now
-    require!(permission < 1 << 10, PoolError::InvalidPermission);
+    require!(
+        permission > 0 && permission < 1 << MAX_OPERATION,
+        PoolError::InvalidPermission
+    );
 
     let mut operator = ctx.accounts.operator.load_init()?;
     operator.initialize(ctx.accounts.whitelisted_address.key(), permission);
