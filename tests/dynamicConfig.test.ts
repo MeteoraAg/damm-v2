@@ -12,6 +12,9 @@ import {
   InitializePoolWithCustomizeConfigParams,
   initializePoolWithCustomizeConfig,
   getPool,
+  encodePermissions,
+  createOperator,
+  OperatorPermission,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { expect } from "chai";
@@ -20,11 +23,10 @@ describe("Dynamic config test", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let creator: Keypair;
+  let whitelistedAccount: Keypair;
   let config: PublicKey;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
-  let liquidity: BN;
-  let sqrtPrice: BN;
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
@@ -32,6 +34,7 @@ describe("Dynamic config test", () => {
     context = await startTest(root);
     creator = await generateKpAndFund(context.banksClient, context.payer);
     admin = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
     tokenAMint = await createToken(
       context.banksClient,
@@ -64,9 +67,17 @@ describe("Dynamic config test", () => {
       poolCreatorAuthority: creator.publicKey,
     };
 
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission
+    })
+
     config = await createDynamicConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(configId),
       createDynamicConfigParams
     );

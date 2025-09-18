@@ -45,7 +45,7 @@ pub fn handle_create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>)
     );
 
     let mut claim_fee_operator = ctx.accounts.claim_fee_operator.load_init()?;
-    claim_fee_operator.initialize(ctx.accounts.operator.key())?;
+    claim_fee_operator.initialize(ctx.accounts.claim_fee_operator_address.key())?;
 
     emit_cpi!(EvtCreateClaimFeeOperator {
         operator: ctx.accounts.operator.key(),
