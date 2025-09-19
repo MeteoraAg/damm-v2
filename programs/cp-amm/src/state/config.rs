@@ -45,8 +45,7 @@ pub struct PoolFeesConfig {
     pub referral_fee_percent: u8,
     pub padding_0: [u8; 5],
     pub min_sqrt_price_index: u64,
-    pub max_sqrt_price_index: u64,
-    pub padding_1: [u64; 3],
+    pub padding_1: [u64; 4],
 }
 
 const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
@@ -55,7 +54,7 @@ assert_eq_align!(PoolFeesConfig, u128);
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeConfig {
-    pub cliff_fee_numerator: u64,
+    pub zero_factor: [u8; 8],
     // In fee scheduler first_factor: number_of_period, second_factor: period_frequency, third_factor: reduction_factor
     // In rate limiter: first_factor: fee_increment_bps, second_factor: max_limiter_duration, max_fee_bps, third_factor: reference_amount
     // In market cap fee scheduler: first factor is sqrt_price_change_vbps, second_factor: scheduler_expiration_duration, third_factor: reduction_factor
@@ -71,7 +70,7 @@ const_assert_eq!(BaseFeeConfig::INIT_SPACE, 32);
 impl BaseFeeConfig {
     fn to_base_fee_parameters(&self) -> BaseFeeParameters {
         BaseFeeParameters {
-            cliff_fee_numerator: self.cliff_fee_numerator,
+            zero_factor: self.zero_factor,
             first_factor: self.first_factor,
             second_factor: self.second_factor,
             third_factor: self.third_factor,
@@ -81,7 +80,7 @@ impl BaseFeeConfig {
 
     fn to_base_fee_struct(&self) -> BaseFeeStruct {
         BaseFeeStruct {
-            cliff_fee_numerator: self.cliff_fee_numerator,
+            zero_factor: self.zero_factor,
             first_factor: self.first_factor,
             second_factor: self.second_factor,
             third_factor: self.third_factor,
@@ -140,7 +139,6 @@ impl PoolFeesConfig {
             referral_fee_percent,
             dynamic_fee,
             min_sqrt_price_index,
-            max_sqrt_price_index,
             ..
         } = self;
 
@@ -151,7 +149,6 @@ impl PoolFeesConfig {
             referral_fee_percent,
             dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
             min_sqrt_price_index,
-            max_sqrt_price_index,
             ..Default::default()
         }
     }
@@ -283,10 +280,9 @@ impl Config {
         sqrt_max_price: u128,
         collect_fee_mode: u8,
         min_sqrt_price_index: u64,
-        max_sqrt_price_index: u64,
     ) {
         self.index = index;
-        self.pool_fees = pool_fees.to_pool_fees_config(min_sqrt_price_index, max_sqrt_price_index);
+        self.pool_fees = pool_fees.to_pool_fees_config(min_sqrt_price_index);
         self.vault_config_key = vault_config_key;
         self.pool_creator_authority = pool_creator_authority;
         self.activation_type = activation_type;

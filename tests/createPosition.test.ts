@@ -90,7 +90,7 @@ describe("Create position", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -106,7 +106,6 @@ describe("Create position", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       const config = await createConfigIx(
@@ -212,7 +211,7 @@ describe("Create position", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -228,7 +227,6 @@ describe("Create position", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       const config = await createConfigIx(

@@ -96,22 +96,6 @@ export async function expectThrowsAsync(
   throw new Error("Expected an error but didn't get one");
 }
 
-export function getCpAmmProgramErrorCodeHexString(errorMessage: String) {
-  const error = CpAmmIdl.errors.find(
-    (e) =>
-      e.name.toLowerCase() === errorMessage.toLowerCase() ||
-      e.msg.toLowerCase() === errorMessage.toLowerCase()
-  );
-
-  if (!error) {
-    throw new Error(
-      `Unknown stake for fee error message / name: ${errorMessage}`
-    );
-  }
-
-  return "0x" + error.code.toString(16);
-}
-
 export async function generateKpAndFund(
   banksClient: BanksClient,
   rootKeypair: Keypair

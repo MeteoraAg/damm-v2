@@ -7,19 +7,21 @@ use anchor_spl::{
 use crate::{
     activation_handler::ActivationHandler,
     const_pda,
-    constants::seeds::{
-        POOL_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX,
+    constants::{
+        seeds::{POOL_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX},
+        MIN_SQRT_PRICE,
     },
     create_position_nft,
     curve::get_initialize_amounts,
     get_whitelisted_alpha_vault,
+    safe_math::SafeMath,
     state::{Config, ConfigType, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
     validate_quote_token, EvtCreatePosition, EvtInitializePool,
-    InitializeCustomizablePoolParameters2, PoolError,
+    InitializeCustomizablePoolParameters, PoolError,
 };
 
 use super::{max_key, min_key};
@@ -167,7 +169,7 @@ pub struct InitializePoolWithDynamicConfigCtx<'info> {
 
 pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializePoolWithDynamicConfigCtx<'info>>,
-    params: InitializeCustomizablePoolParameters2,
+    params: InitializeCustomizablePoolParameters,
 ) -> Result<()> {
     params.validate()?;
     if !is_supported_mint(&ctx.accounts.token_a_mint)? {
@@ -194,7 +196,7 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         )
     }
 
-    let InitializeCustomizablePoolParameters2 {
+    let InitializeCustomizablePoolParameters {
         pool_fees,
         liquidity,
         sqrt_price,
@@ -204,8 +206,6 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         activation_type,
         collect_fee_mode,
         has_alpha_vault,
-        min_sqrt_price_index,
-        max_sqrt_price_index,
         ..
     } = params;
 
@@ -244,9 +244,15 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         has_alpha_vault,
     );
     let pool_type: u8 = PoolType::Customizable.into();
+
+    let min_sqrt_price_index: u64 = sqrt_price
+        .safe_div(MIN_SQRT_PRICE)?
+        .try_into()
+        .map_err(|_| PoolError::MathOverflow)?;
+
     pool.initialize(
         ctx.accounts.creator.key(),
-        pool_fees.to_pool_fees_struct(min_sqrt_price_index, max_sqrt_price_index),
+        pool_fees.to_pool_fees_struct(min_sqrt_price_index),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),

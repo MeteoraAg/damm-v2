@@ -17,23 +17,23 @@ use crate::{
 use anchor_lang::prelude::*;
 
 pub struct MarketCapFeeScheduler {
-    pub cliff_fee_numerator: u64,
+    pub cliff_fee_numerator: u32,
     pub min_sqrt_price: u128,
     pub max_sqrt_price: u128,
     pub max_sqrt_price_delta_vbps: u16,
     pub reduction_factor: u64,
-    pub scheduler_expiration_duration: u64,
+    pub scheduler_expiration_duration: u32,
     pub fee_scheduler_mode: u8,
 }
 
 impl MarketCapFeeScheduler {
     pub fn new(
-        cliff_fee_numerator: u64,
+        cliff_fee_numerator: u32,
         min_sqrt_price_index: u64,
         max_sqrt_price_index: u64,
         max_sqrt_price_delta_vbps: u16,
         reduction_factor: u64,
-        scheduler_expiration_duration: u64,
+        scheduler_expiration_duration: u32,
         fee_scheduler_mode: u8,
     ) -> Result<Self> {
         let min_sqrt_price = MIN_SQRT_PRICE.safe_mul(min_sqrt_price_index.into())?;
@@ -50,7 +50,7 @@ impl MarketCapFeeScheduler {
     }
 
     pub fn get_max_base_fee_numerator(&self) -> u64 {
-        self.cliff_fee_numerator
+        self.cliff_fee_numerator.into()
     }
 
     pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
@@ -73,7 +73,7 @@ impl MarketCapFeeScheduler {
 
         match base_fee_mode {
             FeeSchedulerMode::Linear => {
-                let fee_numerator = self.cliff_fee_numerator.safe_sub(
+                let fee_numerator = u64::from(self.cliff_fee_numerator).safe_sub(
                     self.reduction_factor
                         .safe_mul(sqrt_price_delta_vbps.into())?,
                 )?;
@@ -81,7 +81,7 @@ impl MarketCapFeeScheduler {
             }
             FeeSchedulerMode::Exponential => {
                 let fee_numerator = get_fee_in_period(
-                    self.cliff_fee_numerator,
+                    self.cliff_fee_numerator.into(),
                     self.reduction_factor,
                     sqrt_price_delta_vbps,
                 )?;
@@ -97,7 +97,7 @@ impl MarketCapFeeScheduler {
         sqrt_price: u128,
     ) -> Result<u64> {
         let scheduler_expiration_point =
-            activation_point.safe_add(self.scheduler_expiration_duration)?;
+            activation_point.safe_add(self.scheduler_expiration_duration.into())?;
 
         // Expired or alpha vault is buying
         if current_point > scheduler_expiration_point || current_point < activation_point {

@@ -1,13 +1,9 @@
+import { Keypair, PublicKey } from "@solana/web3.js";
+import { BN } from "bn.js";
 import { ProgramTestContext } from "solana-bankrun";
 import {
-  convertToByteArray,
-  generateKpAndFund,
-  randomID,
-  startTest,
-} from "./bankrun-utils/common";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import {
   BASIS_POINT_MAX,
+  buildMarketCapBaseFeeParams,
   closeConfigIx,
   createConfigIx,
   CreateConfigParams,
@@ -18,8 +14,13 @@ import {
   OFFSET,
   OperatorPermission,
 } from "./bankrun-utils";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  randomID,
+  startTest,
+} from "./bankrun-utils/common";
 import { shlDiv } from "./bankrun-utils/math";
-import { BN } from "bn.js";
 
 describe("Admin function: Create config", () => {
   let context: ProgramTestContext;
@@ -36,7 +37,7 @@ describe("Admin function: Create config", () => {
     createConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
+          zeroFactor: new BN(2_500_000).toArray("le", 8),
           firstFactor: 0,
           secondFactor: convertToByteArray(new BN(0)),
           thirdFactor: new BN(0),
@@ -52,7 +53,6 @@ describe("Admin function: Create config", () => {
       activationType: 0,
       collectFeeMode: 0,
       minSqrtPriceIndex: new BN(0),
-      maxSqrtPriceIndex: new BN(0),
     };
     index = new BN(randomID())
     let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.RemoveConfigKey])
@@ -92,7 +92,7 @@ describe("Admin function: Create config", () => {
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
+          zeroFactor: new BN(2_500_000).toArray("le", 8),
           firstFactor: 0,
           secondFactor: convertToByteArray(new BN(0)),
           thirdFactor: new BN(0),
@@ -116,7 +116,6 @@ describe("Admin function: Create config", () => {
       activationType: 0,
       collectFeeMode: 0,
       minSqrtPriceIndex: new BN(0),
-      maxSqrtPriceIndex: new BN(0),
     };
 
     await createConfigIx(
@@ -139,16 +138,20 @@ describe("Admin function: Create config", () => {
     const reductionFactor = new BN(10);
     const schedulerExpirationDuration = new BN(3600);
 
-    //
+    const cliffFeeNumerator = new BN(2_500_000);
+
+    const baseFee = buildMarketCapBaseFeeParams(
+      cliffFeeNumerator,
+      maxSqrtPriceDeltaVbps,
+      maxSqrtPriceIndex,
+      schedulerExpirationDuration,
+      reductionFactor,
+      3
+    );
+
     const createConfigParams: CreateConfigParams = {
       poolFees: {
-        baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: maxSqrtPriceDeltaVbps.toNumber(),
-          secondFactor: schedulerExpirationDuration.toArray("le", 8),
-          thirdFactor: reductionFactor,
-          baseFeeMode: 3, // Linear market cap based fee scheduler
-        },
+        baseFee,
         padding: [],
         dynamicFee: null,
       },
@@ -159,7 +162,6 @@ describe("Admin function: Create config", () => {
       activationType: 0,
       collectFeeMode: 0,
       minSqrtPriceIndex,
-      maxSqrtPriceIndex,
     };
 
     await createConfigIx(

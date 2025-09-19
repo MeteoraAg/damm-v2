@@ -115,7 +115,7 @@ describe("Lock position", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(10_000_000),
+            zeroFactor: new BN(10_000_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -131,7 +131,6 @@ describe("Lock position", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey])
@@ -455,7 +454,7 @@ describe("Lock position", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(10_000_000),
+            zeroFactor: new BN(10_000_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -471,7 +470,6 @@ describe("Lock position", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey])

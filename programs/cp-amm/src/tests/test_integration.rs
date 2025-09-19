@@ -25,7 +25,7 @@ proptest! {
 
         let pool_fees = PoolFeesStruct {
             base_fee: BaseFeeStruct{
-                cliff_fee_numerator: 1_000_000,
+                zero_factor: 1_000_000u64.to_le_bytes(),
                 ..Default::default()
             }, //1%
             protocol_fee_percent: 20,
@@ -88,7 +88,7 @@ fn test_reserve_wont_lost_single() {
 
     let pool_fees = PoolFeesStruct {
         base_fee: BaseFeeStruct {
-            cliff_fee_numerator: 1_000_000,
+            zero_factor: 1_000_000u64.to_le_bytes(),
             ..Default::default()
         }, //1%
         protocol_fee_percent: 20,

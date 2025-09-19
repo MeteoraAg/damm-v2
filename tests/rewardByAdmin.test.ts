@@ -130,7 +130,7 @@ describe("Reward by admin", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -146,7 +146,6 @@ describe("Reward by admin", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.InitializeReward, OperatorPermission.UpdateRewardDuration, OperatorPermission.UpdateRewardFunder])
@@ -464,7 +463,7 @@ describe("Reward by admin", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -480,7 +479,6 @@ describe("Reward by admin", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.InitializeReward, OperatorPermission.UpdateRewardDuration, OperatorPermission.UpdateRewardFunder])

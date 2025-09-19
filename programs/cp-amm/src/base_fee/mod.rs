@@ -39,13 +39,12 @@ pub trait BaseFeeHandler {
 }
 
 pub fn get_base_fee_handler(
-    cliff_fee_numerator: u64,
+    zero_factor: [u8; 8],
     first_factor: u16,
     second_factor: [u8; 8],
     third_factor: u64,
     base_fee_mode: u8,
     min_sqrt_price_index: u64,
-    max_sqrt_price_index: u64,
 ) -> Result<Box<dyn BaseFeeHandler>> {
     let base_fee_mode =
         BaseFeeMode::try_from(base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;
@@ -54,7 +53,7 @@ pub fn get_base_fee_handler(
         BaseFeeMode::FeeSchedulerLinear | BaseFeeMode::FeeSchedulerExponential => {
             let fee_scheduler_mode: FeeSchedulerMode = base_fee_mode.into();
             let fee_scheduler = FeeScheduler {
-                cliff_fee_numerator,
+                cliff_fee_numerator: u64::from_le_bytes(zero_factor),
                 number_of_period: first_factor,
                 period_frequency: u64::from_le_bytes(second_factor),
                 reduction_factor: third_factor,
@@ -64,8 +63,22 @@ pub fn get_base_fee_handler(
         }
         BaseFeeMode::MarketCapFeeSchedulerExponential
         | BaseFeeMode::MarketCapFeeSchedulerLinear => {
-            let scheduler_expiration_duration = u64::from_le_bytes(second_factor);
+            let mut cliff_fee_numerator_bytes = [0u8; 4];
+            cliff_fee_numerator_bytes.copy_from_slice(&zero_factor[0..4]);
+            let cliff_fee_numerator = u32::from_le_bytes(cliff_fee_numerator_bytes);
+
+            let mut max_sqrt_price_index_bytes = [0u8; 8];
+            max_sqrt_price_index_bytes[0..4].copy_from_slice(&zero_factor[4..8]);
+            max_sqrt_price_index_bytes[4..8].copy_from_slice(&second_factor[0..4]);
+            let max_sqrt_price_index = u64::from_le_bytes(max_sqrt_price_index_bytes);
+
+            let mut scheduler_expiration_duration_bytes = [0u8; 4];
+            scheduler_expiration_duration_bytes.copy_from_slice(&second_factor[4..8]);
+            let scheduler_expiration_duration =
+                u32::from_le_bytes(scheduler_expiration_duration_bytes);
+
             let fee_scheduler_mode: FeeSchedulerMode = base_fee_mode.into();
+
             let market_cap_fee_scheduler = MarketCapFeeScheduler::new(
                 cliff_fee_numerator,
                 min_sqrt_price_index,
@@ -80,7 +93,7 @@ pub fn get_base_fee_handler(
         }
         BaseFeeMode::RateLimiter => {
             let fee_rate_limiter = FeeRateLimiter {
-                cliff_fee_numerator,
+                cliff_fee_numerator: u64::from_le_bytes(zero_factor),
                 fee_increment_bps: first_factor,
                 max_limiter_duration: u32::from_le_bytes(
                     second_factor[0..4]

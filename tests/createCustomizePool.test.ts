@@ -1,28 +1,27 @@
+import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
+import {
+  createToken,
+  getPool,
+  initializeCustomizablePool,
+  InitializeCustomizablePoolParams,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
+  MIN_SQRT_PRICE,
+  mintSplTokenTo,
+} from "./bankrun-utils";
 import {
   convertToByteArray,
   generateKpAndFund,
   startTest,
 } from "./bankrun-utils/common";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  InitializeCustomizablePoolParams,
-  initializeCustomizablePool,
-  MIN_LP_AMOUNT,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  mintSplTokenTo,
-  createToken,
-  getPool,
-} from "./bankrun-utils";
-import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./bankrun-utils/token2022";
-import { expect } from "chai";
 
 describe("Initialize customizable pool", () => {
   describe("SPL-Token", () => {
@@ -64,7 +63,7 @@ describe("Initialize customizable pool", () => {
       );
     });
 
-    it("Initialize customizeable pool with spl token", async () => {
+    it("Initialize customizable pool with spl token", async () => {
       const params: InitializeCustomizablePoolParams = {
         payer: creator,
         creator: creator.publicKey,
@@ -78,7 +77,7 @@ describe("Initialize customizable pool", () => {
         activationPoint: null,
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -89,8 +88,6 @@ describe("Initialize customizable pool", () => {
         },
         activationType: 0,
         collectFeeMode: 0,
-        minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       await initializeCustomizablePool(context.banksClient, params);
@@ -165,7 +162,7 @@ describe("Initialize customizable pool", () => {
         activationPoint: null,
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -176,8 +173,6 @@ describe("Initialize customizable pool", () => {
         },
         activationType: 0,
         collectFeeMode: 0,
-        minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       const { pool } = await initializeCustomizablePool(

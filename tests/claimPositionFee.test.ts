@@ -1,10 +1,6 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  startTest,
-} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { ProgramTestContext } from "solana-bankrun";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -12,20 +8,24 @@ import {
   createConfigIx,
   CreateConfigParams,
   createPosition,
+  createToken,
   initializePool,
   InitializePoolParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
+  mintSplTokenTo,
   swapExactIn,
   SwapParams,
-  createToken,
-  mintSplTokenTo,
   encodePermissions,
   OperatorPermission,
   createOperator,
 } from "./bankrun-utils";
-import BN from "bn.js";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  startTest,
+} from "./bankrun-utils/common";
 
 describe("Claim position fee", () => {
   let context: ProgramTestContext;
@@ -96,7 +96,7 @@ describe("Claim position fee", () => {
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
+          zeroFactor: new BN(2_500_000).toArray("le", 8),
           firstFactor: 0,
           secondFactor: convertToByteArray(new BN(0)),
           thirdFactor: new BN(0),
@@ -112,7 +112,6 @@ describe("Claim position fee", () => {
       activationType: 0,
       collectFeeMode: 0,
       minSqrtPriceIndex: new BN(0),
-      maxSqrtPriceIndex: new BN(0),
     };
 
     let permission = encodePermissions([OperatorPermission.CreateConfigKey])

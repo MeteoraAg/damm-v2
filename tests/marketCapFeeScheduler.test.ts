@@ -8,6 +8,7 @@ import {
   MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
+  buildMarketCapBaseFeeParams,
   createConfigIx,
   createToken,
   getPool,
@@ -92,15 +93,20 @@ describe("Market cap fee scheduler", () => {
   });
 
   it("Initialize customizable pool with market cap fee scheduler", async () => {
+    const cliffFeeNumerator = new BN(100_000_000); // 10%
+
+    const baseFee = buildMarketCapBaseFeeParams(
+      cliffFeeNumerator,
+      maxSqrtPriceDeltaVbps,
+      maxSqrtPriceIndex,
+      schedulerExpirationDuration,
+      reductionFactor,
+      3
+    );
+
     await initializeCustomizablePool(context.banksClient, {
       poolFees: {
-        baseFee: {
-          cliffFeeNumerator: new BN(100_000_000), // 10%
-          firstFactor: maxSqrtPriceDeltaVbps.toNumber(),
-          secondFactor: schedulerExpirationDuration.toArray("le", 8),
-          thirdFactor: reductionFactor,
-          baseFeeMode: 3,
-        },
+        baseFee,
         padding: [],
         dynamicFee: null,
       },
@@ -112,8 +118,6 @@ describe("Market cap fee scheduler", () => {
       collectFeeMode: 1, // onlyB
       activationPoint: null,
       hasAlphaVault: false,
-      minSqrtPriceIndex: minSqrtPriceIndex,
-      maxSqrtPriceIndex: maxSqrtPriceIndex,
       payer: poolCreator,
       creator: poolCreator.publicKey,
       tokenAMint: tokenA,
@@ -122,15 +126,18 @@ describe("Market cap fee scheduler", () => {
   });
 
   it("Happy flow market cap fee scheduler with static config", async () => {
+    const baseFee = buildMarketCapBaseFeeParams(
+      new BN(100_000_000), // 10%
+      maxSqrtPriceDeltaVbps,
+      maxSqrtPriceIndex,
+      schedulerExpirationDuration,
+      reductionFactor,
+      3
+    );
+
     const createConfigParams: CreateConfigParams = {
       poolFees: {
-        baseFee: {
-          cliffFeeNumerator: new BN(100_000_000), // 10%
-          firstFactor: maxSqrtPriceDeltaVbps.toNumber(),
-          secondFactor: schedulerExpirationDuration.toArray("le", 8),
-          thirdFactor: reductionFactor,
-          baseFeeMode: 3,
-        },
+        baseFee,
         padding: [],
         dynamicFee: null,
       },
@@ -141,7 +148,6 @@ describe("Market cap fee scheduler", () => {
       activationType: 0,
       collectFeeMode: 1, // onlyB
       minSqrtPriceIndex: minSqrtPriceIndex,
-      maxSqrtPriceIndex: maxSqrtPriceIndex,
     };
 
     let config = await createConfigIx(

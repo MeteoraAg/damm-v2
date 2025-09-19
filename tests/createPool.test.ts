@@ -1,29 +1,28 @@
+import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
+import {
+  createConfigIx,
+  CreateConfigParams,
+  createOperator,
+  createToken,
+  encodePermissions,
+  getPool,
+  initializePool,
+  InitializePoolParams,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
+  MIN_SQRT_PRICE,
+  mintSplTokenTo,
+  OperatorPermission,
+  setPoolStatus,
+} from "./bankrun-utils";
 import {
   convertToByteArray,
   generateKpAndFund,
   startTest,
 } from "./bankrun-utils/common";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  createConfigIx,
-  CreateConfigParams,
-  getPool,
-  initializePool,
-  InitializePoolParams,
-  MIN_LP_AMOUNT,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  setPoolStatus,
-  createToken,
-  mintSplTokenTo,
-  encodePermissions,
-  createOperator,
-  OperatorPermission,
-} from "./bankrun-utils";
-import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
@@ -80,7 +79,7 @@ describe("Initialize pool", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -96,7 +95,6 @@ describe("Initialize pool", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])
@@ -213,7 +211,7 @@ describe("Initialize pool", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -229,7 +227,6 @@ describe("Initialize pool", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])

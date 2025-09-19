@@ -18,6 +18,7 @@ use crate::{
     create_position_nft,
     curve::get_initialize_amounts,
     params::{activation::ActivationParams, fee_parameters::PoolFeeParameters},
+    safe_math::SafeMath,
     state::{CollectFeeMode, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
@@ -40,7 +41,7 @@ pub struct InitializeCustomizablePoolParameters {
     pub has_alpha_vault: bool,
     /// initialize liquidity
     pub liquidity: u128,
-    /// The init price of the pool as a sqrt(token_b/token_a) Q64.64 value
+    /// The init price of the pool as a sqrt(token_b/token_a) Q64.64 value. Market cap fee scheduler minimum price will be derived from this value
     pub sqrt_price: u128,
     /// activation type
     pub activation_type: u8,
@@ -50,51 +51,7 @@ pub struct InitializeCustomizablePoolParameters {
     pub activation_point: Option<u64>,
 }
 
-impl From<InitializeCustomizablePoolParameters> for InitializeCustomizablePoolParameters2 {
-    fn from(value: InitializeCustomizablePoolParameters) -> Self {
-        Self {
-            pool_fees: value.pool_fees,
-            sqrt_min_price: value.sqrt_min_price,
-            sqrt_max_price: value.sqrt_max_price,
-            has_alpha_vault: value.has_alpha_vault,
-            liquidity: value.liquidity,
-            sqrt_price: value.sqrt_price,
-            activation_type: value.activation_type,
-            collect_fee_mode: value.collect_fee_mode,
-            activation_point: value.activation_point,
-            min_sqrt_price_index: 0,
-            max_sqrt_price_index: 0,
-            padding: [0; 6],
-        }
-    }
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct InitializeCustomizablePoolParameters2 {
-    /// pool fees
-    pub pool_fees: PoolFeeParameters,
-    /// sqrt min price
-    pub sqrt_min_price: u128,
-    /// sqrt max price
-    pub sqrt_max_price: u128,
-    /// has alpha vault
-    pub has_alpha_vault: bool,
-    /// initialize liquidity
-    pub liquidity: u128,
-    /// The init price of the pool as a sqrt(token_b/token_a) Q64.64 value
-    pub sqrt_price: u128,
-    /// activation type
-    pub activation_type: u8,
-    /// collect fee mode
-    pub collect_fee_mode: u8,
-    /// activation point
-    pub activation_point: Option<u64>,
-    pub min_sqrt_price_index: u64,
-    pub max_sqrt_price_index: u64,
-    pub padding: [u64; 6],
-}
-
-impl InitializeCustomizablePoolParameters2 {
+impl InitializeCustomizablePoolParameters {
     pub fn validate(&self) -> Result<()> {
         require!(
             self.sqrt_min_price >= MIN_SQRT_PRICE && self.sqrt_max_price <= MAX_SQRT_PRICE,
@@ -117,12 +74,15 @@ impl InitializeCustomizablePoolParameters2 {
         // validate fee
         let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-        self.pool_fees.validate(
-            collect_fee_mode,
-            activation_type,
-            self.min_sqrt_price_index,
-            self.max_sqrt_price_index,
-        )?;
+
+        let min_sqrt_price_index: u64 = self
+            .sqrt_price
+            .safe_div(MIN_SQRT_PRICE)?
+            .try_into()
+            .map_err(|_| PoolError::MathOverflow)?;
+
+        self.pool_fees
+            .validate(collect_fee_mode, activation_type, min_sqrt_price_index)?;
 
         // validate activation
         let activation_params = ActivationParams {
@@ -271,7 +231,7 @@ pub struct InitializeCustomizablePoolCtx<'info> {
 
 pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializeCustomizablePoolCtx<'info>>,
-    params: InitializeCustomizablePoolParameters2,
+    params: InitializeCustomizablePoolParameters,
 ) -> Result<()> {
     params.validate()?;
     if !is_supported_mint(&ctx.accounts.token_a_mint)? {
@@ -298,7 +258,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         )
     }
 
-    let InitializeCustomizablePoolParameters2 {
+    let InitializeCustomizablePoolParameters {
         pool_fees,
         liquidity,
         sqrt_price,
@@ -308,8 +268,6 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         activation_type,
         collect_fee_mode,
         has_alpha_vault,
-        min_sqrt_price_index,
-        max_sqrt_price_index,
         ..
     } = params;
 
@@ -340,9 +298,15 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         has_alpha_vault,
     );
     let pool_type: u8 = PoolType::Customizable.into();
+
+    let min_sqrt_price_index: u64 = sqrt_price
+        .safe_div(MIN_SQRT_PRICE)?
+        .try_into()
+        .map_err(|_| PoolError::MathOverflow)?;
+
     pool.initialize(
         ctx.accounts.creator.key(),
-        pool_fees.to_pool_fees_struct(min_sqrt_price_index, max_sqrt_price_index),
+        pool_fees.to_pool_fees_struct(min_sqrt_price_index),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),

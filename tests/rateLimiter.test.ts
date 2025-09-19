@@ -1,41 +1,39 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToRateLimiterSecondFactor,
-  expectThrowsAsync,
-  generateKpAndFund,
-  getCpAmmProgramErrorCodeHexString,
-  processTransactionMaybeThrow,
-  randomID,
-  startTest,
-  warpSlotBy,
-} from "./bankrun-utils/common";
 import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
   Transaction,
 } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { ProgramTestContext } from "solana-bankrun";
 import {
-  InitializeCustomizablePoolParams,
-  initializeCustomizablePool,
-  MIN_LP_AMOUNT,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  mintSplTokenTo,
-  createToken,
   CreateConfigParams,
-  createConfigIx,
+  InitializeCustomizablePoolParams,
   InitializePoolParams,
-  initializePool,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
+  MIN_SQRT_PRICE,
+  createConfigIx,
+  createToken,
+  getCpAmmProgramErrorCodeHexString,
   getPool,
+  initializeCustomizablePool,
+  initializePool,
+  mintSplTokenTo,
   swapExactIn,
   swapInstruction,
   OperatorPermission,
   encodePermissions,
   createOperator,
+  generateKpAndFund,
+  startTest,
+  convertToRateLimiterSecondFactor,
+  randomID,
+  warpSlotBy,
+  processTransactionMaybeThrow,
+  expectThrowsAsync,
 } from "./bankrun-utils";
-import BN from "bn.js";
-import {  expect } from "chai";
 
 describe("Rate limiter", () => {
   let context: ProgramTestContext;
@@ -115,7 +113,7 @@ describe("Rate limiter", () => {
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(10_000_000), // 100bps
+          zeroFactor: new BN(10_000_000).toArray("le", 8), // 100bps
           firstFactor: 10, // 10 bps
           secondFactor: rateLimiterSecondFactor, // combined(maxRateLimiterDuration, maxFeeBps)
           thirdFactor: referenceAmount, // 1 sol
@@ -131,7 +129,6 @@ describe("Rate limiter", () => {
       activationType: 0,
       collectFeeMode: 1, // onlyB
       minSqrtPriceIndex: new BN(0),
-      maxSqrtPriceIndex: new BN(0),
     };
 
     let permission = encodePermissions([OperatorPermission.CreateConfigKey])
@@ -254,7 +251,7 @@ describe("Rate limiter", () => {
       tokenBMint: tokenB,
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(10_000_000), // 100bps
+          zeroFactor: new BN(10_000_000).toArray("le", 8), // 100bps
           firstFactor: 10, // 10 bps
           secondFactor: rateLimiterSecondFactor,
           thirdFactor: referenceAmount, // 1 sol
@@ -271,8 +268,6 @@ describe("Rate limiter", () => {
       activationType: 0,
       collectFeeMode: 1, // onlyB
       activationPoint: null,
-      minSqrtPriceIndex: new BN(0),
-      maxSqrtPriceIndex: new BN(0),
     };
     const { pool } = await initializeCustomizablePool(
       context.banksClient,

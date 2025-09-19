@@ -1,4 +1,26 @@
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
+import { NATIVE_MINT } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { ProgramTestContext } from "solana-bankrun";
+import {
+  BaseFee,
+  FEE_DENOMINATOR,
+  InitializeCustomizablePoolParams,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
+  MIN_SQRT_PRICE,
+  createToken,
+  getPool,
+  initializeCustomizablePool,
+  mintSplTokenTo,
+} from "./bankrun-utils";
+import {
+  depositAlphaVault,
+  fillDammV2,
+  getVaultState,
+  setupProrataAlphaVault,
+} from "./bankrun-utils/alphaVault";
 import {
   convertToByteArray,
   convertToRateLimiterSecondFactor,
@@ -6,29 +28,7 @@ import {
   startTest,
   warpSlotBy,
 } from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import {
-  MIN_LP_AMOUNT,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  createToken,
-  mintSplTokenTo,
-  InitializeCustomizablePoolParams,
-  initializeCustomizablePool,
-  getPool,
-  FEE_DENOMINATOR,
-  BaseFee,
-} from "./bankrun-utils";
-import BN from "bn.js";
-import {
-  depositAlphaVault,
-  fillDammV2,
-  getVaultState,
-  setupProrataAlphaVault,
-} from "./bankrun-utils/alphaVault";
-import { NATIVE_MINT } from "@solana/spl-token";
-import { mulDiv, Rounding } from "./bankrun-utils/math";
-import { expect } from "chai";
+import { Rounding, mulDiv } from "./bankrun-utils/math";
 
 describe("Alpha vault with sniper tax", () => {
   describe("Fee Scheduler", () => {
@@ -63,7 +63,7 @@ describe("Alpha vault with sniper tax", () => {
 
     it("Alpha vault can buy before activation point with minimum fee", async () => {
       const baseFee = {
-        cliffFeeNumerator: new BN(500_000_000), // 50 %
+        zeroFactor: new BN(500_000_000).toArray("le", 8), // 50 %
         firstFactor: 100, // 100 periods
         secondFactor: convertToByteArray(new BN(1)),
         thirdFactor: new BN(4875000),
@@ -90,7 +90,11 @@ describe("Alpha vault with sniper tax", () => {
 
       // flat base fee
       // linear fee scheduler
-      const feeNumerator = poolState.poolFees.baseFee.cliffFeeNumerator.sub(
+      const cliffFeeNumerator = new BN(
+        poolState.poolFees.baseFee.zeroFactor,
+        "le"
+      );
+      const feeNumerator = cliffFeeNumerator.sub(
         new BN(poolState.poolFees.baseFee.firstFactor).mul(
           poolState.poolFees.baseFee.thirdFactor
         )
@@ -149,7 +153,7 @@ describe("Alpha vault with sniper tax", () => {
       );
 
       const baseFee = {
-        cliffFeeNumerator: new BN(10_000_000), // 100bps
+        zeroFactor: new BN(10_000_000).toArray("le", 8), // 100bps
         firstFactor: 10, // 10 bps
         secondFactor: rateLimiterSecondFactor,
         thirdFactor: referenceAmount, // 1 sol
@@ -173,7 +177,7 @@ describe("Alpha vault with sniper tax", () => {
         poolState.metrics.totalProtocolBFee
       );
       const totalDeposit = new BN(alphaVaultState.totalDeposit);
-      const feeNumerator = poolState.poolFees.baseFee.cliffFeeNumerator;
+      const feeNumerator = new BN(poolState.poolFees.baseFee.zeroFactor, "le");
 
       const lpFee = mulDiv(
         totalDeposit,
@@ -223,8 +227,6 @@ const alphaVaultWithSniperTaxFullflow = async (
     },
     activationType: 0, // slot
     collectFeeMode: 1, // onlyB
-    minSqrtPriceIndex: new BN(0),
-    maxSqrtPriceIndex: new BN(0),
   };
   const { pool } = await initializeCustomizablePool(
     context.banksClient,

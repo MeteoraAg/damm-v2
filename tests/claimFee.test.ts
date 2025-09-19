@@ -1,36 +1,36 @@
+import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import { ProgramTestContext } from "solana-bankrun";
+import {
+  addLiquidity,
+  AddLiquidityParams,
+  claimPartnerFee,
+  claimProtocolFee,
+  closeClaimFeeOperator,
+  createClaimFeeOperator,
+  createConfigIx,
+  CreateConfigParams,
+  createOperator,
+  createPosition,
+  createToken,
+  encodePermissions,
+  initializePool,
+  InitializePoolParams,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
+  MIN_SQRT_PRICE,
+  mintSplTokenTo,
+  OperatorPermission,
+  swapExactIn,
+  SwapParams,
+  TREASURY,
+} from "./bankrun-utils";
 import {
   convertToByteArray,
   generateKpAndFund,
   randomID,
   startTest,
 } from "./bankrun-utils/common";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  addLiquidity,
-  AddLiquidityParams,
-  createConfigIx,
-  CreateConfigParams,
-  createPosition,
-  initializePool,
-  InitializePoolParams,
-  MIN_LP_AMOUNT,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  swapExactIn,
-  SwapParams,
-  createClaimFeeOperator,
-  claimProtocolFee,
-  TREASURY,
-  claimPartnerFee,
-  closeClaimFeeOperator,
-  mintSplTokenTo,
-  createToken,
-  encodePermissions,
-  OperatorPermission,
-  createOperator,
-} from "./bankrun-utils";
-import BN from "bn.js";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
@@ -110,7 +110,7 @@ describe("Claim fee", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -126,7 +126,6 @@ describe("Claim fee", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.CreateClaimProtocolFeeOperator, OperatorPermission.CloseClaimProtocolFeeOperator])
@@ -310,7 +309,7 @@ describe("Claim fee", () => {
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
+            zeroFactor: new BN(2_500_000).toArray("le", 8),
             firstFactor: 0,
             secondFactor: convertToByteArray(new BN(0)),
             thirdFactor: new BN(0),
@@ -326,7 +325,6 @@ describe("Claim fee", () => {
         activationType: 0,
         collectFeeMode: 0,
         minSqrtPriceIndex: new BN(0),
-        maxSqrtPriceIndex: new BN(0),
       };
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.CreateClaimProtocolFeeOperator, OperatorPermission.CloseClaimProtocolFeeOperator])

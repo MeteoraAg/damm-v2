@@ -49,7 +49,7 @@ import {
   deriveTokenVaultAddress,
 } from "./accounts";
 import { processTransactionMaybeThrow } from "./common";
-import { CP_AMM_PROGRAM_ID } from "./constants";
+import { CP_AMM_PROGRAM_ID, MIN_SQRT_PRICE } from "./constants";
 import { expect } from "chai";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
@@ -102,7 +102,7 @@ export type DynamicFee = {
 };
 
 export type BaseFee = {
-  cliffFeeNumerator: BN;
+  zeroFactor: number[];
   firstFactor: number;
   secondFactor: number[];
   thirdFactor: BN;
@@ -124,7 +124,6 @@ export type CreateConfigParams = {
   activationType: number; // 0: slot, 1: timestamp
   collectFeeMode: number; // 0: BothToken, 1: OnlyTokenB
   minSqrtPriceIndex: BN;
-  maxSqrtPriceIndex: BN;
 };
 
 export type CreateDynamicConfigParams = {
@@ -207,9 +206,20 @@ export async function createConfigIx(
   expect(configState.sqrtMaxPrice.toString()).eq(
     params.sqrtMaxPrice.toString()
   );
-  expect(configState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(
-    params.poolFees.baseFee.cliffFeeNumerator.toNumber()
-  );
+
+  for (const [idx, num] of configState.poolFees.baseFee.zeroFactor.entries()) {
+    const paramNum = params.poolFees.baseFee.zeroFactor[idx];
+    expect(num).eq(paramNum);
+  }
+
+  for (const [
+    idx,
+    num,
+  ] of configState.poolFees.baseFee.secondFactor.entries()) {
+    const paramNum = params.poolFees.baseFee.secondFactor[idx];
+    expect(num).eq(paramNum);
+  }
+
   expect(configState.poolFees.baseFee.firstFactor).eq(
     params.poolFees.baseFee.firstFactor
   );
@@ -227,12 +237,6 @@ export async function createConfigIx(
   expect(configState.poolFees.partnerFeePercent).eq(0);
   expect(configState.poolFees.referralFeePercent).eq(20);
   expect(configState.configType).eq(0); // ConfigType: Static
-  expect(configState.poolFees.minSqrtPriceIndex.toString()).eq(
-    params.minSqrtPriceIndex.toString()
-  );
-  expect(configState.poolFees.maxSqrtPriceIndex.toString()).eq(
-    params.maxSqrtPriceIndex.toString()
-  );
 
   return config;
 }
@@ -862,8 +866,6 @@ export type InitializeCustomizablePoolParams = {
   activationType: number;
   collectFeeMode: number;
   activationPoint: BN | null;
-  minSqrtPriceIndex: BN;
-  maxSqrtPriceIndex: BN;
 };
 
 export async function initializeCustomizablePool(
@@ -884,8 +886,6 @@ export async function initializeCustomizablePool(
     collectFeeMode,
     activationPoint,
     activationType,
-    minSqrtPriceIndex,
-    maxSqrtPriceIndex,
   } = params;
   const program = createCpAmmProgram();
 
@@ -921,7 +921,7 @@ export async function initializeCustomizablePool(
   }
 
   const transaction = await program.methods
-    .initializeCustomizablePool2({
+    .initializeCustomizablePool({
       poolFees,
       sqrtMinPrice,
       sqrtMaxPrice,
@@ -931,9 +931,6 @@ export async function initializeCustomizablePool(
       activationType,
       collectFeeMode,
       activationPoint,
-      minSqrtPriceIndex,
-      maxSqrtPriceIndex,
-      padding: new Array(6).fill(new BN(0)),
     })
     .accountsPartial({
       creator,
@@ -978,12 +975,20 @@ export async function initializeCustomizablePool(
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
 
-  expect(poolState.poolFees.maxSqrtPriceIndex.toString()).eq(
-    maxSqrtPriceIndex.toString()
-  );
   expect(poolState.poolFees.minSqrtPriceIndex.toString()).eq(
-    minSqrtPriceIndex.toString()
+    sqrtPrice.div(MIN_SQRT_PRICE).toString()
   );
+
+  for (const [idx, num] of poolState.poolFees.baseFee.zeroFactor.entries()) {
+    const paramNum = poolFees.baseFee.zeroFactor[idx];
+    expect(num).eq(paramNum);
+  }
+
+  for (const [idx, num] of poolState.poolFees.baseFee.secondFactor.entries()) {
+    const paramNum = poolFees.baseFee.secondFactor[idx];
+    expect(num).eq(paramNum);
+  }
+
   expect(poolState.poolFees.baseFee.baseFeeMode).eq(
     poolFees.baseFee.baseFeeMode
   );
@@ -2126,4 +2131,35 @@ export async function getTokenBadge(
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(tokenBadge);
   return program.coder.accounts.decode("tokenBadge", Buffer.from(account.data));
+}
+
+export function buildMarketCapBaseFeeParams(
+  cliffFeeNumerator: BN,
+  maxSqrtPriceDeltaVbps: BN,
+  maxSqrtPriceIndex: BN,
+  schedulerExpirationDuration: BN,
+  reductionFactor: BN,
+  baseFeeMode: number = 3 | 4
+): BaseFee {
+  const cliffFeeNumeratorBytes = cliffFeeNumerator.toArray("le", 4);
+  const schedulerExpirationDurationBytes = schedulerExpirationDuration.toArray(
+    "le",
+    4
+  );
+  const maxSqrtPriceIndexBytes = maxSqrtPriceIndex.toArray("le", 8);
+  const maxSqrtPriceIndexBytes0 = maxSqrtPriceIndexBytes.slice(0, 4);
+  const maxSqrtPriceIndexBytes1 = maxSqrtPriceIndexBytes.slice(4, 8);
+
+  const zeroFactor = cliffFeeNumeratorBytes.concat(maxSqrtPriceIndexBytes0);
+  const secondFactor = maxSqrtPriceIndexBytes1.concat(
+    schedulerExpirationDurationBytes
+  );
+
+  return {
+    zeroFactor,
+    firstFactor: maxSqrtPriceDeltaVbps.toNumber(),
+    secondFactor,
+    thirdFactor: reductionFactor,
+    baseFeeMode,
+  };
 }

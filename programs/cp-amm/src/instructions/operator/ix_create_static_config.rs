@@ -19,7 +19,6 @@ pub struct StaticConfigParameters {
     pub activation_type: u8,
     pub collect_fee_mode: u8,
     pub min_sqrt_price_index: u64,
-    pub max_sqrt_price_index: u64,
 }
 
 #[event_cpi]
@@ -68,7 +67,6 @@ pub fn handle_create_static_config(
         sqrt_max_price,
         collect_fee_mode,
         min_sqrt_price_index,
-        max_sqrt_price_index,
     } = config_parameters;
 
     require!(
@@ -104,7 +102,6 @@ pub fn handle_create_static_config(
         pool_collect_fee_mode,
         pool_activation_type,
         min_sqrt_price_index,
-        max_sqrt_price_index,
     )?;
 
     let mut config = ctx.accounts.config.load_init()?;
@@ -118,7 +115,6 @@ pub fn handle_create_static_config(
         sqrt_max_price,
         collect_fee_mode,
         min_sqrt_price_index,
-        max_sqrt_price_index,
     );
 
     emit_cpi!(event::EvtCreateConfig {

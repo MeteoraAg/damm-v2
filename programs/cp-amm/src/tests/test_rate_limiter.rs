@@ -98,7 +98,7 @@ fn test_rate_limiter_from_pool_fee_params() {
     second_factor[4..8].copy_from_slice(&max_fee_bps.to_le_bytes());
 
     let base_fee = BaseFeeParameters {
-        cliff_fee_numerator: 10_0000,
+        zero_factor: 10_0000u64.to_le_bytes(),
         first_factor: 10, // fee increasement bps
         second_factor,
         third_factor: 1_000_000_000, // reference_amount 1SOL
@@ -111,7 +111,7 @@ fn test_rate_limiter_from_pool_fee_params() {
         ..Default::default()
     };
 
-    let base_fee_struct = pool_fees.to_pool_fees_struct(0, 0).base_fee;
+    let base_fee_struct = pool_fees.to_pool_fees_struct(0).base_fee;
     let rate_limiter = base_fee_struct.get_fee_rate_limiter().unwrap();
 
     assert_eq!(rate_limiter.max_fee_bps, max_fee_bps);
