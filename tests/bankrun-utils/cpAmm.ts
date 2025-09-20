@@ -1780,7 +1780,6 @@ export async function splitPosition(
     reward1Percentage,
   } = params;
   const program = createCpAmmProgram();
-  const poolAuthority = derivePoolAuthority();
   const transaction = await program.methods
     .splitPosition({
       permanentLockedLiquidityPercentage,
@@ -1790,6 +1789,66 @@ export async function splitPosition(
       reward0Percentage,
       reward1Percentage,
       padding: new Array(16).fill(0),
+    })
+    .accountsPartial({
+      pool,
+      firstPosition,
+      firstPositionNftAccount,
+      secondPosition,
+      secondPositionNftAccount,
+      firstOwner: firstPositionOwner.publicKey,
+      secondOwner: secondPositionOwner.publicKey,
+    })
+    .transaction();
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(firstPositionOwner, secondPositionOwner);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+export type SplitPosition2Params = {
+  firstPositionOwner: Keypair;
+  secondPositionOwner: Keypair;
+  pool: PublicKey;
+  firstPosition: PublicKey;
+  firstPositionNftAccount: PublicKey;
+  secondPosition: PublicKey;
+  secondPositionNftAccount: PublicKey;
+  permanentLockedLiquidityNumerator: number;
+  unlockedLiquidityNumerator: number;
+  feeANumerator: number;
+  feeBNumerator: number;
+  reward0Numerator: number;
+  reward1Numerator: number;
+};
+export async function splitPosition2(
+  banksClient: BanksClient,
+  params: SplitPosition2Params
+) {
+  const {
+    pool,
+    firstPositionOwner,
+    secondPositionOwner,
+    firstPosition,
+    secondPosition,
+    firstPositionNftAccount,
+    secondPositionNftAccount,
+    permanentLockedLiquidityNumerator,
+    unlockedLiquidityNumerator,
+    feeANumerator,
+    feeBNumerator,
+    reward0Numerator,
+    reward1Numerator,
+  } = params;
+  const program = createCpAmmProgram();
+  const transaction = await program.methods
+    .splitPosition2({
+      permanentLockedLiquidityNumerator,
+      unlockedLiquidityNumerator,
+      feeANumerator,
+      feeBNumerator,
+      reward0Numerator,
+      reward1Numerator
     })
     .accountsPartial({
       pool,

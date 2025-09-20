@@ -26,3 +26,5 @@ export const MAX_FEE = BigInt(9 * Math.pow(10, DECIMALS)); // 9 tokens
 export const TEST_TRANSFER_HOOK_PROGRAM_ID = new PublicKey(
   "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"
 );
+
+export const SPLIT_POSITION_DENOMINATOR = 1_000_000_000;
