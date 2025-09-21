@@ -143,14 +143,7 @@ describe("Split position 2", () => {
   it("Cannot split two same position", async () => {
     const positionState = await getPosition(context.banksClient, position);
 
-    const splitParams = {
-      unlockedLiquidityNumerator: SPLIT_POSITION_DENOMINATOR / 2,
-      permanentLockedLiquidityNumerator: 0,
-      feeANumerator: 0,
-      feeBNumerator: 0,
-      reward0Numerator: 0,
-      reward1Numerator: 0,
-    };
+    const numerator = SPLIT_POSITION_DENOMINATOR / 2;
 
     const errorCode = getCpAmmProgramErrorCodeHexString("SamePosition");
 
@@ -167,7 +160,7 @@ describe("Split position 2", () => {
         secondPositionNftAccount: derivePositionNftAccount(
           positionState.nftMint
         ),
-        ...splitParams,
+        numerator,
       });
     }, errorCode);
   });
@@ -186,14 +179,7 @@ describe("Split position 2", () => {
       secondPosition
     );
 
-    const splitParams = {
-      unlockedLiquidityNumerator: 0,
-      permanentLockedLiquidityNumerator: 0,
-      feeANumerator: 0,
-      feeBNumerator: 0,
-      reward0Numerator: 0,
-      reward1Numerator: 0,
-    };
+    const numerator = 0;
 
     const errorCode = getCpAmmProgramErrorCodeHexString(
       "InvalidSplitPositionParameters"
@@ -212,7 +198,7 @@ describe("Split position 2", () => {
         secondPositionNftAccount: derivePositionNftAccount(
           secondPositionState.nftMint
         ),
-        ...splitParams,
+        numerator
       });
     }, errorCode);
   });
@@ -249,14 +235,6 @@ describe("Split position 2", () => {
     const firstPositionState = await getPosition(context.banksClient, position);
 
     const numerator = SPLIT_POSITION_DENOMINATOR / 2;
-    const splitParams = {
-      unlockedLiquidityNumerator: numerator,
-      permanentLockedLiquidityNumerator: 0,
-      feeANumerator: numerator,
-      feeBNumerator: numerator,
-      reward0Numerator: 0,
-      reward1Numerator: 0,
-    };
 
     const newLiquidityDelta = firstPositionState.unlockedLiquidity
       .mul(new BN(numerator))
@@ -284,7 +262,7 @@ describe("Split position 2", () => {
       secondPositionNftAccount: derivePositionNftAccount(
         secondPositionState.nftMint
       ),
-      ...splitParams,
+      numerator,
     });
 
     poolState = await getPool(context.banksClient, pool);
@@ -319,18 +297,10 @@ describe("Split position 2", () => {
     );
     const firstPositionState = await getPosition(context.banksClient, position);
     const numerator = SPLIT_POSITION_DENOMINATOR / 2;
-    const splitParams = {
-      unlockedLiquidityNumerator: 0,
-      permanentLockedLiquidityNumerator: numerator,
-      feeANumerator: 0,
-      feeBNumerator: 0,
-      reward0Numerator: 0,
-      reward1Numerator: 0,
-    };
 
     const permanentLockedLiquidityDelta =
       firstPositionState.permanentLockedLiquidity
-        .mul(new BN(splitParams.permanentLockedLiquidityNumerator))
+        .mul(new BN(numerator))
         .div(new BN(SPLIT_POSITION_DENOMINATOR));
     let secondPositionState = await getPosition(
       context.banksClient,
@@ -354,7 +324,7 @@ describe("Split position 2", () => {
       secondPositionNftAccount: derivePositionNftAccount(
         secondPositionState.nftMint
       ),
-      ...splitParams,
+      numerator,
     });
 
     poolState = await getPool(context.banksClient, pool);
@@ -403,15 +373,6 @@ describe("Split position 2", () => {
       secondPosition
     );
 
-    const splitParams = {
-      unlockedLiquidityNumerator: SPLIT_POSITION_DENOMINATOR,
-      permanentLockedLiquidityNumerator: SPLIT_POSITION_DENOMINATOR,
-      feeANumerator: SPLIT_POSITION_DENOMINATOR,
-      feeBNumerator: SPLIT_POSITION_DENOMINATOR,
-      reward0Numerator: SPLIT_POSITION_DENOMINATOR,
-      reward1Numerator: SPLIT_POSITION_DENOMINATOR,
-    };
-
     await splitPosition2(context.banksClient, {
       firstPositionOwner: creator,
       secondPositionOwner: user,
@@ -424,7 +385,7 @@ describe("Split position 2", () => {
       secondPositionNftAccount: derivePositionNftAccount(
         beforeSeconPositionState.nftMint
       ),
-      ...splitParams,
+      numerator: SPLIT_POSITION_DENOMINATOR
     });
 
     const afterFirstPositionState = await getPosition(

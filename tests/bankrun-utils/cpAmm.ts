@@ -1814,12 +1814,7 @@ export type SplitPosition2Params = {
   firstPositionNftAccount: PublicKey;
   secondPosition: PublicKey;
   secondPositionNftAccount: PublicKey;
-  permanentLockedLiquidityNumerator: number;
-  unlockedLiquidityNumerator: number;
-  feeANumerator: number;
-  feeBNumerator: number;
-  reward0Numerator: number;
-  reward1Numerator: number;
+  numerator: number;
 };
 export async function splitPosition2(
   banksClient: BanksClient,
@@ -1833,23 +1828,11 @@ export async function splitPosition2(
     secondPosition,
     firstPositionNftAccount,
     secondPositionNftAccount,
-    permanentLockedLiquidityNumerator,
-    unlockedLiquidityNumerator,
-    feeANumerator,
-    feeBNumerator,
-    reward0Numerator,
-    reward1Numerator,
+    numerator
   } = params;
   const program = createCpAmmProgram();
   const transaction = await program.methods
-    .splitPosition2({
-      permanentLockedLiquidityNumerator,
-      unlockedLiquidityNumerator,
-      feeANumerator,
-      feeBNumerator,
-      reward0Numerator,
-      reward1Numerator
-    })
+    .splitPosition2(numerator)
     .accountsPartial({
       pool,
       firstPosition,
