@@ -104,16 +104,16 @@ pub mod cp_amm {
         instructions::handle_withdraw_ineligible_reward(ctx, reward_index)
     }
 
-    pub fn update_reward_funder(
-        ctx: Context<UpdateRewardFunderCtx>,
+    pub fn update_reward_funder<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, UpdateRewardFunderCtx<'info>>,
         reward_index: u8,
         new_funder: Pubkey,
     ) -> Result<()> {
         instructions::handle_update_reward_funder(ctx, reward_index, new_funder)
     }
 
-    pub fn update_reward_duration(
-        ctx: Context<UpdateRewardDurationCtx>,
+    pub fn update_reward_duration<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, UpdateRewardDurationCtx<'info>>,
         reward_index: u8,
         new_duration: u64,
     ) -> Result<()> {

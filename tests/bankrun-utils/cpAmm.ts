@@ -987,7 +987,13 @@ export async function initializeReward(
   const rewardVault = deriveRewardVaultAddress(pool, index);
 
   const tokenProgram = (await banksClient.getAccount(rewardMint)).owner;
-
+  let remainingAccounts = operator == null ? [] : [
+    {
+      pubkey: operator,
+      isSigner: false,
+      isWritable: false,
+    }
+  ];
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
@@ -999,8 +1005,7 @@ export async function initializeReward(
       signer: payer.publicKey,
       tokenProgram,
       systemProgram: SystemProgram.programId,
-      operator: operator ?? CP_AMM_PROGRAM_ID
-    })
+    }).remainingAccounts(remainingAccounts)
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(payer);
@@ -1023,7 +1028,7 @@ export type UpdateRewardDurationParams = {
   signer: Keypair;
   pool: PublicKey;
   newDuration: BN;
-  operator? : PublicKey;
+  operator?: PublicKey;
 };
 
 export async function updateRewardDuration(
@@ -1032,13 +1037,19 @@ export async function updateRewardDuration(
 ): Promise<void> {
   const { pool, signer, index, newDuration, operator } = params;
   const program = createCpAmmProgram();
+  let remainingAccounts = operator == null ? [] : [
+    {
+      pubkey: operator,
+      isSigner: false,
+      isWritable: false,
+    }
+  ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
       pool,
       signer: signer.publicKey,
-      operator: operator ?? CP_AMM_PROGRAM_ID
-    })
+    }).remainingAccounts(remainingAccounts)
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(signer);
@@ -1065,13 +1076,19 @@ export async function updateRewardFunder(
 ): Promise<void> {
   const { pool, signer, index, newFunder, operator } = params;
   const program = createCpAmmProgram();
+  let remainingAccounts = operator == null ? [] : [
+    {
+      pubkey: operator,
+      isSigner: false,
+      isWritable: false,
+    }
+  ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
       pool,
       signer: signer.publicKey,
-      operator: operator ?? CP_AMM_PROGRAM_ID
-    })
+    }).remainingAccounts(remainingAccounts)
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(signer);

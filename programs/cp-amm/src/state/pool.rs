@@ -1241,28 +1241,28 @@ impl Pool {
         U256::from_le_bytes(self.fee_b_per_liquidity)
     }
 
-    pub fn validate_authority_to_edit_reward(
+    pub fn validate_authority_to_edit_reward<'c: 'info, 'info>(
         &self,
         reward_index: usize,
         signer: Pubkey,
-        operator: &Option<AccountLoader<Operator>>,
+        remaining_accounts: &'c [AccountInfo<'info>],
         permission: OperatorPermission,
     ) -> Result<()> {
         // pool creator is allowed to initialize reward with only index 0
         if signer == self.creator {
             require!(reward_index == 0, PoolError::InvalidRewardIndex)
         } else {
-            match operator {
-                Some(operator_loader) => {
-                    let operator = operator_loader.load()?;
-                    require!(
-                        operator.whitelisted_address.eq(&signer)
-                            && operator.is_permission_allow(permission),
-                        PoolError::InvalidAuthority
-                    );
-                }
-                None => return Err(PoolError::InvalidAuthority.into()),
-            }
+            let operator_account = remaining_accounts
+                .get(0)
+                .ok_or_else(|| PoolError::InvalidAuthority)?;
+            let operator_loader: AccountLoader<'_, Operator> =
+                AccountLoader::try_from(operator_account)?;
+            let operator = operator_loader.load()?;
+            require!(
+                operator.whitelisted_address.eq(&signer)
+                    && operator.is_permission_allow(permission),
+                PoolError::InvalidAuthority
+            );
         }
         Ok(())
     }
