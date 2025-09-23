@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::{
     constants::{MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS},
-    state::Pool,
+    state::{OperatorPermission, Pool},
     EvtUpdateRewardDuration, PoolError,
 };
 
@@ -41,14 +41,12 @@ impl<'info> UpdateRewardDurationCtx<'info> {
             PoolError::RewardCampaignInProgress
         );
 
-        pool.validate_authority_to_edit_reward(reward_index, self.signer.key())?;
-
         Ok(())
     }
 }
 
-pub fn handle_update_reward_duration(
-    ctx: Context<UpdateRewardDurationCtx>,
+pub fn handle_update_reward_duration<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, UpdateRewardDurationCtx<'info>>,
     reward_index: u8,
     new_reward_duration: u64,
 ) -> Result<()> {
@@ -59,6 +57,14 @@ pub fn handle_update_reward_duration(
     ctx.accounts.validate(index, new_reward_duration)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
+
+    pool.validate_authority_to_edit_reward(
+        index,
+        ctx.accounts.signer.key(),
+        ctx.remaining_accounts,
+        OperatorPermission::UpdateRewardDuration,
+    )?;
+
     let reward_info = &mut pool.reward_infos[index];
 
     let old_reward_duration = reward_info.reward_duration;

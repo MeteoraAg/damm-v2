@@ -34,7 +34,17 @@ pub mod cp_amm {
     use super::*;
 
     /// ADMIN FUNCTIONS /////
+    pub fn create_operator_account(
+        ctx: Context<CreateOperatorAccountCtx>,
+        permission: u128,
+    ) -> Result<()> {
+        instructions::handle_create_operator(ctx, permission)
+    }
+    pub fn close_operator_account(_ctx: Context<CloseOperatorAccountCtx>) -> Result<()> {
+        Ok(())
+    }
 
+    /// OPERATOR FUNCTIONS /////
     // create static config
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,
@@ -94,16 +104,16 @@ pub mod cp_amm {
         instructions::handle_withdraw_ineligible_reward(ctx, reward_index)
     }
 
-    pub fn update_reward_funder(
-        ctx: Context<UpdateRewardFunderCtx>,
+    pub fn update_reward_funder<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, UpdateRewardFunderCtx<'info>>,
         reward_index: u8,
         new_funder: Pubkey,
     ) -> Result<()> {
         instructions::handle_update_reward_funder(ctx, reward_index, new_funder)
     }
 
-    pub fn update_reward_duration(
-        ctx: Context<UpdateRewardDurationCtx>,
+    pub fn update_reward_duration<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, UpdateRewardDurationCtx<'info>>,
         reward_index: u8,
         new_duration: u64,
     ) -> Result<()> {
@@ -130,8 +140,8 @@ pub mod cp_amm {
         instructions::handle_claim_partner_fee(ctx, max_amount_a, max_amount_b)
     }
 
-    pub fn close_token_badge(_ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
-        Ok(())
+    pub fn close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
+        instructions::handle_close_token_badge(ctx)
     }
 
     /// USER FUNCTIONS ////

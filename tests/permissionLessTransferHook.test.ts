@@ -20,6 +20,9 @@ import {
   createToken,
   mintSplTokenTo,
   getCpAmmProgramErrorCodeHexString,
+  OperatorPermission,
+  createOperator,
+  encodePermissions,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import {
@@ -33,6 +36,7 @@ import { createExtraAccountMetaListAndCounter } from "./bankrun-utils/transferHo
 describe("Permissionless transfer hook", () => {
   let context: ProgramTestContext;
   let creator: Keypair;
+  let whitelistedAccount: Keypair;
   let config: PublicKey;
 
   let tokenAMint: PublicKey;
@@ -61,6 +65,7 @@ describe("Permissionless transfer hook", () => {
 
     creator = await generateKpAndFund(context.banksClient, context.payer);
     admin = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
     await createToken2022(
       context.banksClient,
@@ -116,9 +121,17 @@ describe("Permissionless transfer hook", () => {
       collectFeeMode: 0,
     };
 
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission
+    })
+
     config = await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(configId),
       createConfigParams
     );
@@ -156,7 +169,7 @@ describe("Permissionless transfer hook", () => {
 
     const newStatus = 1;
     await setPoolStatus(context.banksClient, {
-      admin,
+      whitelistedAddress: whitelistedAccount,
       pool,
       status: newStatus,
     });

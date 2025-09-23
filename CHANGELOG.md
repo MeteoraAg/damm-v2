@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add new endpoint `swap2`, that includes 3 `swap_mode`: 0 (ExactIn), 1 (PartialFill) and 2 (ExactOut)
 - Emit new event in 2 swap endpoints `EvtSwap2`, that includes more information about `reserve_a_amount`, `reserve_b_amount`
 - Emit new event `EvtLiquidityChange` when user add or remove liquidity
+- Add new endpoint `create_operator_account` and `close_operator_account`that allows admin to manage different operator accounts
+- Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
 
 ### Changed
 - Support permissionless for token2022 with transfer hook extension if both transfer hook program and transfer hook authority have been revoked
@@ -41,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking Changes
 - In swap instruction, if rate limiter is enable, user need to submit `instruction_sysvar_account` in remaining account, otherwise transaction will be failed
 - Quote function can be changed by rate limiter
+- All admin endpoints now will requires `whitelisted_address` and `operator` instead of raw admin account. Those affected endpoints: `close_claim_fee_operator`, `close_config`, `create_claim_fee_operator`, `close_token_badge`, `create_dynamic_config`, `create_static_config`, `create_token_badge`, `initialize_reward`, `set_pool_status`, `update_reward_duration`, `update_reward_funder`
 
 
 ## cp_amm [0.1.3]

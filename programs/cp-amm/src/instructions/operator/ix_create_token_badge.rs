@@ -2,8 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::Mint;
 
 use crate::{
-    assert_eq_admin, constants::seeds::TOKEN_BADGE_PREFIX, state::TokenBadge,
-    token::is_supported_mint, EvtCreateTokenBadge, PoolError,
+    constants::seeds::TOKEN_BADGE_PREFIX,
+    state::{Operator, OperatorPermission, TokenBadge},
+    token::is_supported_mint,
+    EvtCreateTokenBadge, PoolError,
 };
 
 #[event_cpi]
@@ -11,7 +13,7 @@ use crate::{
 pub struct CreateTokenBadgeCtx<'info> {
     #[account(
         init,
-        payer = admin,
+        payer = payer,
         seeds = [
             TOKEN_BADGE_PREFIX.as_ref(),
             token_mint.key().as_ref(),
@@ -24,15 +26,25 @@ pub struct CreateTokenBadgeCtx<'info> {
     pub token_mint: InterfaceAccount<'info, Mint>,
 
     #[account(
-        mut,
-        constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
+        has_one = whitelisted_address
     )]
-    pub admin: Signer<'info>,
+    pub operator: AccountLoader<'info, Operator>,
+
+    pub whitelisted_address: Signer<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }
 
 pub fn handle_create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
+    let operator = ctx.accounts.operator.load()?;
+    require!(
+        operator.is_permission_allow(OperatorPermission::CreateTokenBadge),
+        PoolError::InvalidAuthority
+    );
+
     require!(
         !is_supported_mint(&ctx.accounts.token_mint)?,
         PoolError::CannotCreateTokenBadgeOnSupportedMint

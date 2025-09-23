@@ -12,9 +12,11 @@ import {
   MIN_SQRT_PRICE,
   createToken,
   mintSplTokenTo,
+  encodePermissions,
+  OperatorPermission,
+  createOperator,
 } from "./bankrun-utils";
 import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
@@ -27,6 +29,7 @@ describe("Create position", () => {
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let liquidity: BN;
     let sqrtPrice: BN;
     let tokenAMint: PublicKey;
@@ -39,6 +42,7 @@ describe("Create position", () => {
       creator = await generateKpAndFund(context.banksClient, context.payer);
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       tokenAMint = await createToken(
         context.banksClient,
@@ -66,6 +70,14 @@ describe("Create position", () => {
         context.payer,
         creator.publicKey
       );
+
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
     });
 
     it("User create a position", async () => {
@@ -92,7 +104,7 @@ describe("Create position", () => {
 
       const config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -124,6 +136,7 @@ describe("Create position", () => {
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let liquidity: BN;
     let sqrtPrice: BN;
     let tokenAMint: PublicKey;
@@ -148,6 +161,7 @@ describe("Create position", () => {
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       user = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       await createToken2022(
         context.banksClient,
@@ -177,6 +191,13 @@ describe("Create position", () => {
         context.payer,
         creator.publicKey
       );
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
     });
 
     it("User create a position", async () => {
@@ -203,7 +224,7 @@ describe("Create position", () => {
 
       const config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
