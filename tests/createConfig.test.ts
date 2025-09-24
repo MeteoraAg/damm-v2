@@ -120,7 +120,7 @@ describe("Admin function: Create config", () => {
 
     await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(Math.floor(Math.random() * 1000)),
       createConfigParams
     );
@@ -166,7 +166,7 @@ describe("Admin function: Create config", () => {
 
     await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(Math.floor(Math.random() * 1000)),
       createConfigParams
     );

@@ -8,9 +8,12 @@ import {
   MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
+  OperatorPermission,
   buildMarketCapBaseFeeParams,
   createConfigIx,
+  createOperator,
   createToken,
+  encodePermissions,
   getPool,
   initializeCustomizablePool,
   initializePool,
@@ -38,6 +41,7 @@ describe("Market cap fee scheduler", () => {
   let poolCreator: Keypair;
   let tokenA: PublicKey;
   let tokenB: PublicKey;
+  let whitelistedAccount: Keypair;
 
   before(async () => {
     const root = Keypair.generate();
@@ -47,7 +51,7 @@ describe("Market cap fee scheduler", () => {
     partner = await generateKpAndFund(context.banksClient, context.payer);
     user = await generateKpAndFund(context.banksClient, context.payer);
     poolCreator = await generateKpAndFund(context.banksClient, context.payer);
-
+    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
     tokenA = await createToken(
       context.banksClient,
       context.payer,
@@ -90,6 +94,14 @@ describe("Market cap fee scheduler", () => {
       context.payer,
       poolCreator.publicKey
     );
+
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.RemoveConfigKey])
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission
+    })
   });
 
   it("Initialize customizable pool with market cap fee scheduler", async () => {
@@ -152,7 +164,7 @@ describe("Market cap fee scheduler", () => {
 
     let config = await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(randomID()),
       createConfigParams
     );
