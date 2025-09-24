@@ -3,7 +3,7 @@ use crate::{
     base_fee::{BaseFeeHandler, FeeRateLimiter},
     constants::fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR_V1, MIN_FEE_NUMERATOR},
     params::{
-        fee_parameters::{to_bps, to_numerator, BaseFeeParameters, PoolFeeParameters},
+        fee_parameters::{to_bps, to_numerator},
         swap::TradeDirection,
     },
     state::CollectFeeMode,
@@ -89,34 +89,6 @@ fn test_validate_rate_limiter() {
     }
 }
 
-#[test]
-fn test_rate_limiter_from_pool_fee_params() {
-    let max_limiter_duration: u32 = 60u32;
-    let max_fee_bps: u32 = 5000u32;
-    let mut second_factor = [0u8; 8];
-    second_factor[0..4].copy_from_slice(&max_limiter_duration.to_le_bytes());
-    second_factor[4..8].copy_from_slice(&max_fee_bps.to_le_bytes());
-
-    let base_fee = BaseFeeParameters {
-        zero_factor: 10_0000u64.to_le_bytes(),
-        first_factor: 10, // fee increasement bps
-        second_factor,
-        third_factor: 1_000_000_000, // reference_amount 1SOL
-        base_fee_mode: 2,
-    };
-
-    let pool_fees = PoolFeeParameters {
-        base_fee,
-        dynamic_fee: None,
-        ..Default::default()
-    };
-
-    let base_fee_struct = pool_fees.to_pool_fees_struct(0).base_fee;
-    let rate_limiter = base_fee_struct.get_fee_rate_limiter().unwrap();
-
-    assert_eq!(rate_limiter.max_fee_bps, max_fee_bps);
-    assert_eq!(rate_limiter.max_limiter_duration, max_limiter_duration);
-}
 // that test show that more amount, then more fee numerator
 #[test]
 fn test_rate_limiter_behavior() {

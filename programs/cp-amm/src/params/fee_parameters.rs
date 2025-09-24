@@ -1,6 +1,6 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
-use crate::base_fee::get_base_fee_handler;
+use crate::base_fee::{BaseFeeHandlerBuilder, BaseFeeSerde};
 use crate::constants::fee::{
     HOST_FEE_PERCENT, MAX_BASIS_POINT, PARTNER_FEE_PERCENT, PROTOCOL_FEE_PERCENT,
 };
@@ -16,19 +16,13 @@ use anchor_lang::prelude::*;
 pub struct PoolFeeParameters {
     /// Base fee
     pub base_fee: BaseFeeParameters,
-    /// padding
-    pub padding: [u8; 3],
     /// dynamic fee
     pub dynamic_fee: Option<DynamicFeeParameters>,
 }
 
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
 pub struct BaseFeeParameters {
-    pub zero_factor: [u8; 8],
-    pub first_factor: u16,
-    pub second_factor: [u8; 8],
-    pub third_factor: u64,
-    pub base_fee_mode: u8,
+    pub data: [u8; 30],
 }
 
 impl BaseFeeParameters {
@@ -38,39 +32,20 @@ impl BaseFeeParameters {
         activation_type: ActivationType,
         min_sqrt_price_index: u64,
     ) -> Result<()> {
-        let base_fee_handler = get_base_fee_handler(
-            self.zero_factor,
-            self.first_factor,
-            self.second_factor,
-            self.third_factor,
-            self.base_fee_mode,
-            min_sqrt_price_index,
-        )?;
-
+        let base_fee_handler = self.get_base_fee_handler(min_sqrt_price_index)?;
         base_fee_handler.validate(collect_fee_mode, activation_type)?;
-
         Ok(())
     }
-
     fn to_base_fee_struct(&self) -> BaseFeeStruct {
         BaseFeeStruct {
-            zero_factor: self.zero_factor,
-            first_factor: self.first_factor,
-            second_factor: self.second_factor,
-            third_factor: self.third_factor,
-            base_fee_mode: self.base_fee_mode,
+            data: self.to_base_fee_struct_data(),
             ..Default::default()
         }
     }
 
     pub fn to_base_fee_config(&self) -> BaseFeeConfig {
         BaseFeeConfig {
-            zero_factor: self.zero_factor,
-            first_factor: self.first_factor,
-            second_factor: self.second_factor,
-            third_factor: self.third_factor,
-            base_fee_mode: self.base_fee_mode,
-            ..Default::default()
+            data: self.to_base_fee_struct_data(),
         }
     }
 }
@@ -79,7 +54,7 @@ impl PoolFeeParameters {
     pub fn to_pool_fees_config(&self, min_sqrt_price_index: u64) -> PoolFeesConfig {
         let &PoolFeeParameters {
             base_fee,
-            padding: _,
+            // padding: _,
             dynamic_fee,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
@@ -106,7 +81,7 @@ impl PoolFeeParameters {
     pub fn to_pool_fees_struct(&self, min_sqrt_price_index: u64) -> PoolFeesStruct {
         let &PoolFeeParameters {
             base_fee,
-            padding: _,
+            // padding: _,
             dynamic_fee,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {

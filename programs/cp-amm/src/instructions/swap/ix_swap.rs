@@ -1,8 +1,8 @@
 use crate::{
     activation_handler::ActivationHandler,
+    base_fee::BaseFeeSerde,
     const_pda, get_pool_access_validator,
-    instruction::Swap as SwapInstruction,
-    instruction::Swap2 as Swap2Instruction,
+    instruction::{Swap as SwapInstruction, Swap2 as Swap2Instruction},
     params::swap::TradeDirection,
     process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill,
     safe_math::SafeMath,
@@ -162,7 +162,7 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
 
     // another validation to prevent snipers to craft multiple swap instructions in 1 tx
     // (if we dont do this, they are able to concat 16 swap instructions in 1 tx)
-    if let Ok(rate_limiter) = pool.pool_fees.base_fee.get_fee_rate_limiter() {
+    if let Ok(rate_limiter) = pool.pool_fees.base_fee.to_fee_rate_limiter() {
         if rate_limiter.is_rate_limiter_applied(
             current_point,
             pool.activation_point,

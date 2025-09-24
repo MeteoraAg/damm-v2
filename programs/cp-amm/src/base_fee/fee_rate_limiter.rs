@@ -1,3 +1,4 @@
+use super::BaseFeeHandler;
 use crate::{
     activation_handler::ActivationType,
     constants::{
@@ -14,8 +15,6 @@ use crate::{
     utils_math::{safe_mul_div_cast_u64, sqrt_u256},
     PoolError,
 };
-
-use super::BaseFeeHandler;
 use anchor_lang::prelude::*;
 use num::Integer;
 use ruint::aliases::U256;
@@ -31,7 +30,7 @@ use ruint::aliases::U256;
 /// if a >= max_index
 /// if a = max_index + d, input_amount = x0 + max_index * x0 + (d * x0 + b)
 /// then fee = x0 * (c + c*max_index + i*max_index*(max_index+1)/2) + (d * x0 + b) * MAX_FEE
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct FeeRateLimiter {
     pub cliff_fee_numerator: u64,
     pub fee_increment_bps: u16,

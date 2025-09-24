@@ -1,6 +1,6 @@
 use crate::{
     activation_handler::ActivationType,
-    base_fee::{BaseFeeHandler, FeeSchedulerMode},
+    base_fee::{BaseFeeHandler, FeeTimeSchedulerMode},
     constants::{
         fee::{
             get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR, MAX_BASIS_POINT,
@@ -16,7 +16,8 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 
-pub struct MarketCapFeeScheduler {
+#[derive(Debug, Default, PartialEq)]
+pub struct FeeMarketCapScheduler {
     pub cliff_fee_numerator: u32,
     pub min_sqrt_price: u128,
     pub max_sqrt_price: u128,
@@ -26,7 +27,7 @@ pub struct MarketCapFeeScheduler {
     pub fee_scheduler_mode: u8,
 }
 
-impl MarketCapFeeScheduler {
+impl FeeMarketCapScheduler {
     pub fn new(
         cliff_fee_numerator: u32,
         min_sqrt_price_index: u64,
@@ -68,18 +69,18 @@ impl MarketCapFeeScheduler {
             .safe_div(total_sqrt_price_delta)?
             .try_into()?;
 
-        let base_fee_mode = FeeSchedulerMode::try_from(self.fee_scheduler_mode)
+        let base_fee_mode = FeeTimeSchedulerMode::try_from(self.fee_scheduler_mode)
             .map_err(|_| PoolError::TypeCastFailed)?;
 
         match base_fee_mode {
-            FeeSchedulerMode::Linear => {
+            FeeTimeSchedulerMode::Linear => {
                 let fee_numerator = u64::from(self.cliff_fee_numerator).safe_sub(
                     self.reduction_factor
                         .safe_mul(sqrt_price_delta_vbps.into())?,
                 )?;
                 Ok(fee_numerator)
             }
-            FeeSchedulerMode::Exponential => {
+            FeeTimeSchedulerMode::Exponential => {
                 let fee_numerator = get_fee_in_period(
                     self.cliff_fee_numerator.into(),
                     self.reduction_factor,
@@ -108,7 +109,7 @@ impl MarketCapFeeScheduler {
     }
 }
 
-impl BaseFeeHandler for MarketCapFeeScheduler {
+impl BaseFeeHandler for FeeMarketCapScheduler {
     fn validate(
         &self,
         _collect_fee_mode: CollectFeeMode,
@@ -116,16 +117,19 @@ impl BaseFeeHandler for MarketCapFeeScheduler {
     ) -> Result<()> {
         require!(
             self.min_sqrt_price < self.max_sqrt_price,
-            PoolError::InvalidFeeScheduler
+            PoolError::InvalidFeeTimeScheduler
         );
 
         require!(
             u64::from(self.max_sqrt_price_delta_vbps) >= MAX_BASIS_POINT,
-            PoolError::InvalidFeeScheduler
+            PoolError::InvalidFeeTimeScheduler
         );
-        require!(self.reduction_factor > 0, PoolError::InvalidFeeScheduler);
+        require!(
+            self.reduction_factor > 0,
+            PoolError::InvalidFeeTimeScheduler
+        );
 
-        let fee_scheduler_mode = FeeSchedulerMode::try_from(self.fee_scheduler_mode);
+        let fee_scheduler_mode = FeeTimeSchedulerMode::try_from(self.fee_scheduler_mode);
         require!(fee_scheduler_mode.is_ok(), PoolError::InvalidBaseFeeMode);
 
         let min_fee_numerator = self.get_min_base_fee_numerator()?;

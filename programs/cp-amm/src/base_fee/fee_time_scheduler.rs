@@ -1,3 +1,4 @@
+use super::BaseFeeHandler;
 use crate::{
     activation_handler::ActivationType,
     constants::fee::{
@@ -12,20 +13,18 @@ use crate::{
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use super::BaseFeeHandler;
-
 // https://www.desmos.com/calculator/oxdndn2xdx
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, IntoPrimitive, TryFromPrimitive)]
-pub enum FeeSchedulerMode {
+pub enum FeeTimeSchedulerMode {
     // fee = cliff_fee_numerator - passed_period * reduction_factor
     Linear,
     // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
     Exponential,
 }
 
-#[derive(Debug, Default)]
-pub struct FeeScheduler {
+#[derive(Debug, Default, PartialEq)]
+pub struct FeeTimeScheduler {
     pub cliff_fee_numerator: u64,
     pub number_of_period: u16,
     pub period_frequency: u64,
@@ -33,7 +32,7 @@ pub struct FeeScheduler {
     pub fee_scheduler_mode: u8,
 }
 
-impl FeeScheduler {
+impl FeeTimeScheduler {
     pub fn get_max_base_fee_numerator(&self) -> u64 {
         self.cliff_fee_numerator
     }
@@ -45,17 +44,17 @@ impl FeeScheduler {
     fn get_base_fee_numerator_by_period(&self, period: u64) -> Result<u64> {
         let period = period.min(self.number_of_period.into());
 
-        let base_fee_mode = FeeSchedulerMode::try_from(self.fee_scheduler_mode)
+        let base_fee_mode = FeeTimeSchedulerMode::try_from(self.fee_scheduler_mode)
             .map_err(|_| PoolError::TypeCastFailed)?;
 
         match base_fee_mode {
-            FeeSchedulerMode::Linear => {
+            FeeTimeSchedulerMode::Linear => {
                 let fee_numerator = self
                     .cliff_fee_numerator
                     .safe_sub(self.reduction_factor.safe_mul(period)?)?;
                 Ok(fee_numerator)
             }
-            FeeSchedulerMode::Exponential => {
+            FeeTimeSchedulerMode::Exponential => {
                 let period = u16::try_from(period).map_err(|_| PoolError::MathOverflow)?;
                 let fee_numerator =
                     get_fee_in_period(self.cliff_fee_numerator, self.reduction_factor, period)?;
@@ -81,7 +80,7 @@ impl FeeScheduler {
     }
 }
 
-impl BaseFeeHandler for FeeScheduler {
+impl BaseFeeHandler for FeeTimeScheduler {
     fn validate(
         &self,
         _collect_fee_mode: CollectFeeMode,
@@ -92,7 +91,7 @@ impl BaseFeeHandler for FeeScheduler {
                 self.number_of_period != 0
                     && self.period_frequency != 0
                     && self.reduction_factor != 0,
-                PoolError::InvalidFeeScheduler
+                PoolError::InvalidFeeTimeScheduler
             );
         }
         let min_fee_numerator = self.get_min_base_fee_numerator()?;

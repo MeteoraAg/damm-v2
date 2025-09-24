@@ -1,7 +1,4 @@
-use anchor_lang::prelude::*;
-use num_enum::{IntoPrimitive, TryFromPrimitive};
-use static_assertions::{assert_eq_align, const_assert_eq};
-
+use crate::base_fee::base_fee_serde::BaseFeeSerde;
 use crate::{
     activation_handler::ActivationType,
     alpha_vault::alpha_vault,
@@ -13,6 +10,9 @@ use crate::{
     safe_math::SafeMath,
     state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
 };
+use anchor_lang::prelude::*;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+use static_assertions::{assert_eq_align, const_assert_eq};
 
 /// collect fee mode
 #[repr(u8)]
@@ -54,15 +54,7 @@ assert_eq_align!(PoolFeesConfig, u128);
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeConfig {
-    pub zero_factor: [u8; 8],
-    // In fee scheduler first_factor: number_of_period, second_factor: period_frequency, third_factor: reduction_factor
-    // In rate limiter: first_factor: fee_increment_bps, second_factor: max_limiter_duration, max_fee_bps, third_factor: reference_amount
-    // In market cap fee scheduler: first factor is sqrt_price_change_vbps, second_factor: scheduler_expiration_duration, third_factor: reduction_factor
-    pub base_fee_mode: u8,
-    pub padding: [u8; 5],
-    pub first_factor: u16,
-    pub second_factor: [u8; 8],
-    pub third_factor: u64,
+    pub data: [u8; 32],
 }
 
 const_assert_eq!(BaseFeeConfig::INIT_SPACE, 32);
@@ -70,21 +62,13 @@ const_assert_eq!(BaseFeeConfig::INIT_SPACE, 32);
 impl BaseFeeConfig {
     fn to_base_fee_parameters(&self) -> BaseFeeParameters {
         BaseFeeParameters {
-            zero_factor: self.zero_factor,
-            first_factor: self.first_factor,
-            second_factor: self.second_factor,
-            third_factor: self.third_factor,
-            base_fee_mode: self.base_fee_mode,
+            data: self.to_base_fee_parameters_data(),
         }
     }
 
     fn to_base_fee_struct(&self) -> BaseFeeStruct {
         BaseFeeStruct {
-            zero_factor: self.zero_factor,
-            first_factor: self.first_factor,
-            second_factor: self.second_factor,
-            third_factor: self.third_factor,
-            base_fee_mode: self.base_fee_mode,
+            data: self.data,
             ..Default::default()
         }
     }
@@ -111,7 +95,6 @@ impl PoolFeesConfig {
         if initialized == 1 {
             PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters(),
-                padding: [0; 3],
                 dynamic_fee: Some(DynamicFeeParameters {
                     bin_step,
                     bin_step_u128,
@@ -125,7 +108,6 @@ impl PoolFeesConfig {
         } else {
             PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters(),
-                padding: [0; 3],
                 ..Default::default()
             }
         }

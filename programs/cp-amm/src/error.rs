@@ -156,7 +156,7 @@ pub enum PoolError {
     FailToValidateSingleSwapInstruction,
 
     #[msg("Invalid fee scheduler")]
-    InvalidFeeScheduler,
+    InvalidFeeTimeScheduler,
 
     #[msg("Undetermined error")]
     UndeterminedError,

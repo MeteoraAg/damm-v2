@@ -1,4 +1,7 @@
-use crate::state::{Config, Pool};
+use crate::{
+    base_fee::BaseFeeSerde,
+    state::{Config, Pool},
+};
 
 use std::fs;
 
@@ -11,20 +14,24 @@ fn config_account_layout_backward_compatible() {
     let mut data_without_discriminator = config_account_data[8..].to_vec();
     let config_state: &mut Config = bytemuck::from_bytes_mut(&mut data_without_discriminator);
 
+    let fee_scheduler = config_state
+        .pool_fees
+        .base_fee
+        .to_fee_time_scheduler()
+        .unwrap();
+
     // Test backward compatibility
     // https://solscan.io/account/TBuzuEMMQizTjpZhRLaUPavALhZmD8U1hwiw1pWSCSq#anchorData
+    let cliff_fee_numerator = 500000000;
+    let fee_scheduler_mode = 1;
+    let number_of_period = 120;
     let period_frequency = 60u64;
-    let period_frequency_from_bytes =
-        u64::from_le_bytes(config_state.pool_fees.base_fee.second_factor);
-    assert_eq!(
-        period_frequency, period_frequency_from_bytes,
-        "Second factor layout should be backward compatible"
-    );
-    let period_to_bytes = period_frequency.to_le_bytes();
-    assert_eq!(
-        period_to_bytes,
-        config_state.pool_fees.base_fee.second_factor,
-    );
+    let reduction_factor = 417;
+    assert_eq!(cliff_fee_numerator, fee_scheduler.cliff_fee_numerator);
+    assert_eq!(fee_scheduler_mode, fee_scheduler.fee_scheduler_mode);
+    assert_eq!(number_of_period, fee_scheduler.number_of_period);
+    assert_eq!(period_frequency, fee_scheduler.period_frequency);
+    assert_eq!(reduction_factor, fee_scheduler.reduction_factor);
 }
 
 #[test]
@@ -36,17 +43,22 @@ fn pool_account_layout_backward_compatible() {
     let mut data_without_discriminator = pool_account_data[8..].to_vec();
     let pool_state: &mut Pool = bytemuck::from_bytes_mut(&mut data_without_discriminator);
 
+    let fee_scheduler = pool_state
+        .pool_fees
+        .base_fee
+        .to_fee_time_scheduler()
+        .unwrap();
+
     // Test backward compatibility
     // https://solscan.io/account/E8zRkDw3UdzRc8qVWmqyQ9MLj7jhgZDHSroYud5t25A7#anchorData
+    let cliff_fee_numerator = 500000000;
+    let fee_scheduler_mode = 1;
+    let number_of_period = 120;
     let period_frequency = 60u64;
-    let period_frequency_from_bytes =
-        u64::from_le_bytes(pool_state.pool_fees.base_fee.second_factor);
-
-    assert_eq!(
-        period_frequency, period_frequency_from_bytes,
-        "Second factor layout should be backward compatible"
-    );
-
-    let period_to_bytes = period_frequency.to_le_bytes();
-    assert_eq!(period_to_bytes, pool_state.pool_fees.base_fee.second_factor,);
+    let reduction_factor = 265;
+    assert_eq!(cliff_fee_numerator, fee_scheduler.cliff_fee_numerator);
+    assert_eq!(fee_scheduler_mode, fee_scheduler.fee_scheduler_mode);
+    assert_eq!(number_of_period, fee_scheduler.number_of_period);
+    assert_eq!(period_frequency, fee_scheduler.period_frequency);
+    assert_eq!(reduction_factor, fee_scheduler.reduction_factor);
 }
