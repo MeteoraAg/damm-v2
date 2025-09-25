@@ -1,7 +1,7 @@
-use crate::base_fee::base_fee_serde::BaseFeeSerde;
 use crate::{
     activation_handler::ActivationType,
     alpha_vault::alpha_vault,
+    base_fee::base_fee_info_struct_to_params,
     constants::activation::*,
     error::PoolError,
     params::fee_parameters::{
@@ -38,7 +38,7 @@ pub enum ConfigType {
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct PoolFeesConfig {
-    pub base_fee: BaseFeeConfig,
+    pub base_fee: BaseFeeInfo,
     pub dynamic_fee: DynamicFeeConfig,
     pub protocol_fee_percent: u8,
     pub partner_fee_percent: u8,
@@ -54,29 +54,27 @@ assert_eq_align!(PoolFeesConfig, u128);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
-pub struct BaseFeeConfig {
+pub struct BaseFeeInfo {
     pub data: [u8; 32],
 }
 
-const_assert_eq!(BaseFeeConfig::INIT_SPACE, 32);
+const_assert_eq!(BaseFeeInfo::INIT_SPACE, 32);
 
-impl BaseFeeConfig {
-    fn to_base_fee_parameters(&self) -> BaseFeeParameters {
-        BaseFeeParameters {
-            data: self.to_base_fee_parameters_data(),
-        }
+impl BaseFeeInfo {
+    fn to_base_fee_parameters(&self) -> Result<BaseFeeParameters> {
+        base_fee_info_struct_to_params(self)
     }
 
     fn to_base_fee_struct(&self) -> BaseFeeStruct {
         BaseFeeStruct {
-            data: self.data,
+            base_fee_info: *self,
             ..Default::default()
         }
     }
 }
 
 impl PoolFeesConfig {
-    pub fn to_pool_fee_parameters(&self) -> PoolFeeParameters {
+    pub fn to_pool_fee_parameters(&self) -> Result<PoolFeeParameters> {
         let &PoolFeesConfig {
             base_fee,
             dynamic_fee:
@@ -94,8 +92,8 @@ impl PoolFeesConfig {
             ..
         } = self;
         if initialized == 1 {
-            PoolFeeParameters {
-                base_fee: base_fee.to_base_fee_parameters(),
+            Ok(PoolFeeParameters {
+                base_fee: base_fee.to_base_fee_parameters()?,
                 dynamic_fee: Some(DynamicFeeParameters {
                     bin_step,
                     bin_step_u128,
@@ -105,12 +103,12 @@ impl PoolFeesConfig {
                     max_volatility_accumulator,
                     variable_fee_control,
                 }),
-            }
+            })
         } else {
-            PoolFeeParameters {
-                base_fee: base_fee.to_base_fee_parameters(),
+            Ok(PoolFeeParameters {
+                base_fee: base_fee.to_base_fee_parameters()?,
                 ..Default::default()
-            }
+            })
         }
     }
 
@@ -262,9 +260,9 @@ impl Config {
         sqrt_min_price: u128,
         sqrt_max_price: u128,
         collect_fee_mode: u8,
-    ) {
+    ) -> Result<()> {
         self.index = index;
-        self.pool_fees = pool_fees.to_pool_fees_config(0);
+        self.pool_fees = pool_fees.to_pool_fees_config(0)?;
         self.vault_config_key = vault_config_key;
         self.pool_creator_authority = pool_creator_authority;
         self.activation_type = activation_type;
@@ -272,6 +270,7 @@ impl Config {
         self.sqrt_max_price = sqrt_max_price;
         self.collect_fee_mode = collect_fee_mode;
         self.config_type = ConfigType::Static.into();
+        Ok(())
     }
 
     pub fn get_config_type(&self) -> Result<ConfigType> {

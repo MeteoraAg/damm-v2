@@ -2,7 +2,8 @@ use crate::{
     activation_handler::ActivationType,
     base_fee::BaseFeeHandler,
     constants::fee::{
-        get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR, MIN_FEE_NUMERATOR,
+        get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR, MAX_BASIS_POINT,
+        MIN_FEE_NUMERATOR,
     },
     fee_math::get_fee_in_period,
     params::{fee_parameters::validate_fee_fraction, swap::TradeDirection},
@@ -71,11 +72,14 @@ impl FeeMarketCapScheduler {
                 } else {
                     let current_sqrt_price = U256::from(current_sqrt_price);
                     let init_sqrt_price = U256::from(init_sqrt_price);
-                    let max_bps = U256::from(10_000);
+                    let max_bps = U256::from(MAX_BASIS_POINT);
                     let price_step_bps = U256::from(self.price_step_bps);
-                    let passed_period = (current_sqrt_price - init_sqrt_price) * max_bps
-                        / init_sqrt_price
-                        / price_step_bps;
+                    let passed_period = current_sqrt_price
+                        .safe_sub(init_sqrt_price)?
+                        .safe_mul(max_bps)?
+                        .safe_div(init_sqrt_price)?
+                        .safe_div(price_step_bps)?;
+
                     if passed_period > U256::from(self.number_of_period) {
                         self.number_of_period.into()
                     } else {

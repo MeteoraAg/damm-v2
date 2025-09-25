@@ -1,6 +1,8 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
-use crate::base_fee::{BaseFeeHandlerBuilder, BaseFeeSerde};
+use crate::base_fee::{
+    base_fee_params_to_info_struct, BaseFeeHandlerBuilder, BorshBaseFeeSerde, BorshFeeTimeScheduler,
+};
 use crate::constants::fee::{
     HOST_FEE_PERCENT, MAX_BASIS_POINT, PARTNER_FEE_PERCENT, PROTOCOL_FEE_PERCENT,
 };
@@ -8,7 +10,7 @@ use crate::constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
 use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
-use crate::state::{BaseFeeConfig, CollectFeeMode, DynamicFeeConfig, PoolFeesConfig};
+use crate::state::{BaseFeeInfo, CollectFeeMode, DynamicFeeConfig, PoolFeesConfig};
 use anchor_lang::prelude::*;
 
 /// Information regarding fee charges
@@ -35,71 +37,70 @@ impl BaseFeeParameters {
         base_fee_handler.validate(collect_fee_mode, activation_type)?;
         Ok(())
     }
-    fn to_base_fee_struct(&self) -> BaseFeeStruct {
-        BaseFeeStruct {
-            data: self.to_base_fee_struct_data(),
+
+    fn to_base_fee_struct(&self) -> Result<BaseFeeStruct> {
+        Ok(BaseFeeStruct {
+            base_fee_info: self.to_base_fee_config()?,
             ..Default::default()
-        }
+        })
     }
 
-    pub fn to_base_fee_config(&self) -> BaseFeeConfig {
-        BaseFeeConfig {
-            data: self.to_base_fee_struct_data(),
-        }
+    pub fn to_base_fee_config(&self) -> Result<BaseFeeInfo> {
+        base_fee_params_to_info_struct(self)
     }
 }
 
 impl PoolFeeParameters {
-    pub fn to_pool_fees_config(&self, init_sqrt_price: u128) -> PoolFeesConfig {
+    pub fn to_pool_fees_config(&self, init_sqrt_price: u128) -> Result<PoolFeesConfig> {
         let &PoolFeeParameters {
             base_fee,
             dynamic_fee,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
-            PoolFeesConfig {
-                base_fee: base_fee.to_base_fee_config(),
+            Ok(PoolFeesConfig {
+                base_fee: base_fee.to_base_fee_config()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
                 init_sqrt_price,
                 ..Default::default()
-            }
+            })
         } else {
-            PoolFeesConfig {
-                base_fee: base_fee.to_base_fee_config(),
+            Ok(PoolFeesConfig {
+                base_fee: base_fee.to_base_fee_config()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 init_sqrt_price,
                 ..Default::default()
-            }
+            })
         }
     }
-    pub fn to_pool_fees_struct(&self, init_sqrt_price: u128) -> PoolFeesStruct {
+    pub fn to_pool_fees_struct(&self, init_sqrt_price: u128) -> Result<PoolFeesStruct> {
         let &PoolFeeParameters {
             base_fee,
             dynamic_fee,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
-            PoolFeesStruct {
-                base_fee: base_fee.to_base_fee_struct(),
+            Ok(PoolFeesStruct {
+                base_fee: base_fee.to_base_fee_struct()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
                 init_sqrt_price,
                 ..Default::default()
-            }
+            })
         } else {
-            PoolFeesStruct {
-                base_fee: base_fee.to_base_fee_struct(),
+            Ok(PoolFeesStruct {
+                base_fee: base_fee.to_base_fee_struct()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 init_sqrt_price,
                 ..Default::default()
-            }
+            })
         }
     }
 }

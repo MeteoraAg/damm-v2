@@ -3,10 +3,13 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::BaseFeeHandlerBuilder,
+    base_fee::{
+        BaseFeeEnumReader, BaseFeeHandlerBuilder, FeeRateLimiter, PodAlignedFeeRateLimiter,
+    },
     constants::{fee::FEE_DENOMINATOR, BASIS_POINT_MAX, ONE_Q64},
     params::swap::TradeDirection,
     safe_math::SafeMath,
+    state::BaseFeeInfo,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u64, safe_shl_div_cast},
     PoolError,
@@ -89,8 +92,36 @@ const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeStruct {
-    pub data: [u8; 32],
+    pub base_fee_info: BaseFeeInfo,
     pub padding_1: u64,
+}
+
+impl BaseFeeStruct {
+    pub fn to_fee_rate_limiter(&self) -> Result<FeeRateLimiter> {
+        let base_fee_mode = self.get_base_fee_mode()?;
+        require!(
+            base_fee_mode == BaseFeeMode::RateLimiter,
+            PoolError::InvalidBaseFeeMode
+        );
+
+        let &PodAlignedFeeRateLimiter {
+            cliff_fee_numerator,
+            fee_increment_bps,
+            max_fee_bps,
+            max_limiter_duration,
+            reference_amount,
+            ..
+        } = bytemuck::try_from_bytes(&self.base_fee_info.data)
+            .map_err(|_| PoolError::UndeterminedError)?;
+
+        Ok(FeeRateLimiter {
+            cliff_fee_numerator,
+            fee_increment_bps,
+            max_limiter_duration,
+            max_fee_bps,
+            reference_amount,
+        })
+    }
 }
 
 const_assert_eq!(BaseFeeStruct::INIT_SPACE, 40);
