@@ -44,8 +44,9 @@ pub struct PoolFeesConfig {
     pub partner_fee_percent: u8,
     pub referral_fee_percent: u8,
     pub padding_0: [u8; 5],
-    pub min_sqrt_price_index: u64,
-    pub padding_1: [u64; 4],
+    pub padding_1: u64,
+    pub init_sqrt_price: u128,
+    pub padding_3: [u64; 2],
 }
 
 const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
@@ -120,7 +121,7 @@ impl PoolFeesConfig {
             partner_fee_percent,
             referral_fee_percent,
             dynamic_fee,
-            min_sqrt_price_index,
+            init_sqrt_price,
             ..
         } = self;
 
@@ -130,7 +131,7 @@ impl PoolFeesConfig {
             partner_fee_percent,
             referral_fee_percent,
             dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
-            min_sqrt_price_index,
+            init_sqrt_price,
             ..Default::default()
         }
     }
@@ -261,10 +262,9 @@ impl Config {
         sqrt_min_price: u128,
         sqrt_max_price: u128,
         collect_fee_mode: u8,
-        min_sqrt_price_index: u64,
     ) {
         self.index = index;
-        self.pool_fees = pool_fees.to_pool_fees_config(min_sqrt_price_index);
+        self.pool_fees = pool_fees.to_pool_fees_config(0);
         self.vault_config_key = vault_config_key;
         self.pool_creator_authority = pool_creator_authority;
         self.activation_type = activation_type;

@@ -18,7 +18,6 @@ use crate::{
     create_position_nft,
     curve::get_initialize_amounts,
     params::{activation::ActivationParams, fee_parameters::PoolFeeParameters},
-    safe_math::SafeMath,
     state::{CollectFeeMode, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
@@ -75,14 +74,7 @@ impl InitializeCustomizablePoolParameters {
         let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
 
-        let min_sqrt_price_index: u64 = self
-            .sqrt_price
-            .safe_div(MIN_SQRT_PRICE)?
-            .try_into()
-            .map_err(|_| PoolError::MathOverflow)?;
-
-        self.pool_fees
-            .validate(collect_fee_mode, activation_type, min_sqrt_price_index)?;
+        self.pool_fees.validate(collect_fee_mode, activation_type)?;
 
         // validate activation
         let activation_params = ActivationParams {
@@ -299,14 +291,9 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
     );
     let pool_type: u8 = PoolType::Customizable.into();
 
-    let min_sqrt_price_index: u64 = sqrt_price
-        .safe_div(MIN_SQRT_PRICE)?
-        .try_into()
-        .map_err(|_| PoolError::MathOverflow)?;
-
     pool.initialize(
         ctx.accounts.creator.key(),
-        pool_fees.to_pool_fees_struct(min_sqrt_price_index),
+        pool_fees.to_pool_fees_struct(sqrt_price),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),

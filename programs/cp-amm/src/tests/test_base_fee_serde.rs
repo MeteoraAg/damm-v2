@@ -1,6 +1,5 @@
 use crate::base_fee::base_fee_serde::BaseFeeSerde;
-use crate::base_fee::{FeeMarketCapScheduler, FeeTimeScheduler, FeeTimeSchedulerMode};
-use crate::constants::MIN_SQRT_PRICE;
+use crate::base_fee::{FeeMarketCapScheduler, FeeTimeScheduler};
 use crate::state::fee::{BaseFeeMode, BaseFeeStruct};
 use crate::{base_fee::FeeRateLimiter, params::fee_parameters::BaseFeeParameters};
 #[test]
@@ -18,7 +17,7 @@ fn test_base_fee_serde_rate_limiter() {
         data: fee.to_base_fee_parameters_data(),
     };
     assert!(base_fee_params.to_fee_time_scheduler().is_err());
-    assert!(base_fee_params.to_fee_market_cap_scheduler(0).is_err());
+    assert!(base_fee_params.to_fee_market_cap_scheduler().is_err());
 
     // convert back
     let reverse_fee = base_fee_params.to_fee_rate_limiter().unwrap();
@@ -30,7 +29,7 @@ fn test_base_fee_serde_rate_limiter() {
         ..Default::default()
     };
     assert!(base_fee_struct.to_fee_time_scheduler().is_err());
-    assert!(base_fee_struct.to_fee_market_cap_scheduler(0).is_err());
+    assert!(base_fee_struct.to_fee_market_cap_scheduler().is_err());
     let reverse_fee = base_fee_struct.to_fee_rate_limiter().unwrap();
     assert_eq!(fee, reverse_fee);
 
@@ -49,7 +48,7 @@ fn test_base_fee_serde_time_scheduler() {
         number_of_period: 20,
         period_frequency: 300,
         reduction_factor: 271,
-        fee_scheduler_mode: FeeTimeSchedulerMode::Exponential.into(),
+        fee_scheduler_mode: BaseFeeMode::FeeTimeSchedulerExponential.into(),
     };
 
     // convert to base fee params
@@ -57,7 +56,7 @@ fn test_base_fee_serde_time_scheduler() {
         data: fee.to_base_fee_parameters_data(),
     };
     assert!(base_fee_params.to_fee_rate_limiter().is_err());
-    assert!(base_fee_params.to_fee_market_cap_scheduler(0).is_err());
+    assert!(base_fee_params.to_fee_market_cap_scheduler().is_err());
 
     // convert back
     let reverse_fee = base_fee_params.to_fee_time_scheduler().unwrap();
@@ -69,7 +68,7 @@ fn test_base_fee_serde_time_scheduler() {
         ..Default::default()
     };
     assert!(base_fee_struct.to_fee_rate_limiter().is_err());
-    assert!(base_fee_struct.to_fee_market_cap_scheduler(0).is_err());
+    assert!(base_fee_struct.to_fee_market_cap_scheduler().is_err());
     let reverse_fee = base_fee_struct.to_fee_time_scheduler().unwrap();
     assert_eq!(fee, reverse_fee);
 
@@ -83,21 +82,12 @@ fn test_base_fee_serde_time_scheduler() {
 
 #[test]
 fn test_base_fee_serde_market_cap_scheduler() {
-    let min_sqrt_price_index = 300u64;
-    let max_sqrt_price_index = 1000u64;
-    let min_sqrt_price = MIN_SQRT_PRICE
-        .checked_mul(min_sqrt_price_index.into())
-        .unwrap();
-    let max_sqrt_price = MIN_SQRT_PRICE
-        .checked_mul(max_sqrt_price_index.into())
-        .unwrap();
     let fee = FeeMarketCapScheduler {
         cliff_fee_numerator: 1_000_000,
-        min_sqrt_price,
-        max_sqrt_price,
-        max_sqrt_price_delta_vbps: 350,
+        number_of_period: 20,
+        price_step_bps: 300,
         reduction_factor: 271,
-        scheduler_expiration_duration: 300,
+        scheduler_expiration_duration: 800,
         fee_scheduler_mode: BaseFeeMode::FeeMarketCapSchedulerExponential.into(),
     };
 
@@ -110,9 +100,7 @@ fn test_base_fee_serde_market_cap_scheduler() {
     assert!(base_fee_params.to_fee_time_scheduler().is_err());
 
     // convert back
-    let reverse_fee = base_fee_params
-        .to_fee_market_cap_scheduler(min_sqrt_price_index)
-        .unwrap();
+    let reverse_fee = base_fee_params.to_fee_market_cap_scheduler().unwrap();
     assert_eq!(fee, reverse_fee);
 
     // convert to base fee struct
@@ -123,9 +111,7 @@ fn test_base_fee_serde_market_cap_scheduler() {
 
     assert!(base_fee_struct.to_fee_rate_limiter().is_err());
     assert!(base_fee_struct.to_fee_time_scheduler().is_err());
-    let reverse_fee = base_fee_struct
-        .to_fee_market_cap_scheduler(min_sqrt_price_index)
-        .unwrap();
+    let reverse_fee = base_fee_struct.to_fee_market_cap_scheduler().unwrap();
     assert_eq!(fee, reverse_fee);
 
     // convert between base fee params and base fee struct

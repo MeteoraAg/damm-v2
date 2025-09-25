@@ -25,7 +25,8 @@ pub trait BaseFeeHandler {
         activation_point: u64,
         trade_direction: TradeDirection,
         included_fee_amount: u64,
-        sqrt_price: u128,
+        init_sqrt_price: u128,
+        current_sqrt_price: u128,
     ) -> Result<u64>;
     fn get_base_fee_numerator_from_excluded_fee_amount(
         &self,
@@ -33,6 +34,7 @@ pub trait BaseFeeHandler {
         activation_point: u64,
         trade_direction: TradeDirection,
         excluded_fee_amount: u64,
-        sqrt_price: u128,
+        init_sqrt_price: u128,
+        current_sqrt_price: u128,
     ) -> Result<u64>;
 }

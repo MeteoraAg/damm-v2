@@ -1,9 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::base_fee::{BaseFeeHandler, FeeMarketCapScheduler, FeeTimeScheduler};
-use crate::constants::MIN_SQRT_PRICE;
 use crate::math::from_bytes::FromBytesExt;
-use crate::safe_math::SafeMath;
 use crate::state::BaseFeeConfig;
 use crate::{
     base_fee::FeeRateLimiter,
@@ -18,10 +16,7 @@ pub trait BaseFeeSerde {
     fn to_base_fee_struct_data(&self) -> [u8; 32];
     fn to_fee_time_scheduler(&self) -> Result<FeeTimeScheduler>;
     fn to_fee_rate_limiter(&self) -> Result<FeeRateLimiter>;
-    fn to_fee_market_cap_scheduler(
-        &self,
-        min_sqrt_price_index: u64,
-    ) -> Result<FeeMarketCapScheduler>;
+    fn to_fee_market_cap_scheduler(&self) -> Result<FeeMarketCapScheduler>;
 }
 
 impl BaseFeeSerde for BaseFeeParameters {
@@ -83,10 +78,7 @@ impl BaseFeeSerde for BaseFeeParameters {
         })
     }
 
-    fn to_fee_market_cap_scheduler(
-        &self,
-        min_sqrt_price_index: u64,
-    ) -> Result<FeeMarketCapScheduler> {
+    fn to_fee_market_cap_scheduler(&self) -> Result<FeeMarketCapScheduler> {
         let base_fee_mode = BaseFeeMode::try_from(self.data[Self::BASE_FEE_MODE_INDEX])
             .map_err(|_| PoolError::InvalidBaseFeeMode)?;
         require!(
@@ -95,24 +87,13 @@ impl BaseFeeSerde for BaseFeeParameters {
             PoolError::InvalidBaseFeeMode
         );
 
-        let cliff_fee_numerator = u32::from_bytes(&self.data[..4]);
-        let scheduler_expiration_duration = u32::from_bytes(&self.data[4..8]);
-        let max_sqrt_price_delta_vbps = u16::from_bytes(&self.data[8..10]);
-        let max_sqrt_price_index = u64::from_bytes(&self.data[10..18]);
-        let reduction_factor = u64::from_bytes(&self.data[18..26]);
-        let fee_scheduler_mode = self.data[Self::BASE_FEE_MODE_INDEX];
-
-        let min_sqrt_price = MIN_SQRT_PRICE.safe_mul(min_sqrt_price_index.into())?;
-        let max_sqrt_price = MIN_SQRT_PRICE.safe_mul(max_sqrt_price_index.into())?;
-
         Ok(FeeMarketCapScheduler {
-            cliff_fee_numerator,
-            min_sqrt_price,
-            max_sqrt_price,
-            max_sqrt_price_delta_vbps,
-            reduction_factor,
-            scheduler_expiration_duration,
-            fee_scheduler_mode,
+            cliff_fee_numerator: u64::from_bytes(&self.data[..8]),
+            number_of_period: u16::from_bytes(&self.data[8..10]),
+            price_step_bps: u32::from_bytes(&self.data[10..14]),
+            scheduler_expiration_duration: u32::from_bytes(&self.data[14..18]),
+            reduction_factor: u64::from_bytes(&self.data[18..26]),
+            fee_scheduler_mode: self.data[Self::BASE_FEE_MODE_INDEX],
         })
     }
 }
@@ -189,10 +170,7 @@ impl<T: BorrowData> BaseFeeSerde for T {
         })
     }
 
-    fn to_fee_market_cap_scheduler(
-        &self,
-        min_sqrt_price_index: u64,
-    ) -> Result<FeeMarketCapScheduler> {
+    fn to_fee_market_cap_scheduler(&self) -> Result<FeeMarketCapScheduler> {
         let base_fee_mode = BaseFeeMode::try_from(self.borrow_data()[Self::BASE_FEE_MODE_INDEX])
             .map_err(|_| PoolError::InvalidBaseFeeMode)?;
         require!(
@@ -201,33 +179,29 @@ impl<T: BorrowData> BaseFeeSerde for T {
             PoolError::InvalidBaseFeeMode
         );
 
-        let cliff_fee_numerator = u32::from_bytes(&self.borrow_data()[..4]);
-        let scheduler_expiration_duration = u32::from_bytes(&self.borrow_data()[4..8]);
-        let max_sqrt_price_delta_vbps = u16::from_bytes(&self.borrow_data()[14..16]);
-        let max_sqrt_price_index = u64::from_bytes(&self.borrow_data()[16..24]);
-        let reduction_factor = u64::from_bytes(&self.borrow_data()[24..32]);
-        let fee_scheduler_mode = self.borrow_data()[Self::BASE_FEE_MODE_INDEX];
-        let min_sqrt_price = MIN_SQRT_PRICE.safe_mul(min_sqrt_price_index.into())?;
-        let max_sqrt_price = MIN_SQRT_PRICE.safe_mul(max_sqrt_price_index.into())?;
-
         Ok(FeeMarketCapScheduler {
-            cliff_fee_numerator,
-            min_sqrt_price,
-            max_sqrt_price,
-            max_sqrt_price_delta_vbps,
-            reduction_factor,
-            scheduler_expiration_duration,
-            fee_scheduler_mode,
+            cliff_fee_numerator: u64::from_bytes(&self.borrow_data()[..8]),
+            number_of_period: u16::from_bytes(&self.borrow_data()[14..16]),
+            price_step_bps: u32::from_bytes(&self.borrow_data()[16..20]),
+            scheduler_expiration_duration: u32::from_bytes(&self.borrow_data()[20..24]),
+            reduction_factor: u64::from_bytes(&self.borrow_data()[24..32]),
+            fee_scheduler_mode: self.borrow_data()[Self::BASE_FEE_MODE_INDEX],
         })
     }
 }
 
 pub trait BaseFeeHandlerBuilder {
-    fn get_base_fee_handler(&self, min_sqrt_price_index: u64) -> Result<Box<dyn BaseFeeHandler>>;
+    fn get_base_fee_mode(&self) -> Result<BaseFeeMode>;
+    fn get_base_fee_handler(&self) -> Result<Box<dyn BaseFeeHandler>>;
 }
 
 impl<T: BaseFeeSerde> BaseFeeHandlerBuilder for T {
-    fn get_base_fee_handler(&self, min_sqrt_price_index: u64) -> Result<Box<dyn BaseFeeHandler>> {
+    fn get_base_fee_mode(&self) -> Result<BaseFeeMode> {
+        let base_fee_mode = BaseFeeMode::try_from(self.borrow_data()[Self::BASE_FEE_MODE_INDEX])
+            .map_err(|_| PoolError::InvalidBaseFeeMode)?;
+        Ok(base_fee_mode)
+    }
+    fn get_base_fee_handler(&self) -> Result<Box<dyn BaseFeeHandler>> {
         let base_fee_mode = BaseFeeMode::try_from(self.borrow_data()[Self::BASE_FEE_MODE_INDEX])
             .map_err(|_| PoolError::InvalidBaseFeeMode)?;
 
@@ -236,9 +210,9 @@ impl<T: BaseFeeSerde> BaseFeeHandlerBuilder for T {
                 Ok(Box::new(self.to_fee_time_scheduler()?))
             }
             BaseFeeMode::FeeMarketCapSchedulerExponential
-            | BaseFeeMode::FeeMarketCapSchedulerLinear => Ok(Box::new(
-                self.to_fee_market_cap_scheduler(min_sqrt_price_index)?,
-            )),
+            | BaseFeeMode::FeeMarketCapSchedulerLinear => {
+                Ok(Box::new(self.to_fee_market_cap_scheduler()?))
+            }
             BaseFeeMode::RateLimiter => Ok(Box::new(self.to_fee_rate_limiter()?)),
         }
     }

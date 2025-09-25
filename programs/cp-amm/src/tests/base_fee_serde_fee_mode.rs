@@ -1,6 +1,5 @@
 use crate::{
     base_fee::{BaseFeeSerde, FeeMarketCapScheduler, FeeRateLimiter, FeeTimeScheduler},
-    constants::MIN_SQRT_PRICE,
     params::fee_parameters::BaseFeeParameters,
     state::fee::{BaseFeeMode, BaseFeeStruct},
 };
@@ -45,10 +44,7 @@ impl BaseFeeSerde for FeeTimeScheduler {
     fn to_fee_time_scheduler(&self) -> Result<FeeTimeScheduler> {
         panic!("No need to implement this")
     }
-    fn to_fee_market_cap_scheduler(
-        &self,
-        _min_sqrt_price_index: u64,
-    ) -> Result<FeeMarketCapScheduler> {
+    fn to_fee_market_cap_scheduler(&self) -> Result<FeeMarketCapScheduler> {
         panic!("No need to implement this")
     }
 }
@@ -86,10 +82,7 @@ impl BaseFeeSerde for FeeRateLimiter {
     fn to_fee_time_scheduler(&self) -> Result<FeeTimeScheduler> {
         panic!("No need to implement this")
     }
-    fn to_fee_market_cap_scheduler(
-        &self,
-        _min_sqrt_price_index: u64,
-    ) -> Result<FeeMarketCapScheduler> {
+    fn to_fee_market_cap_scheduler(&self) -> Result<FeeMarketCapScheduler> {
         panic!("No need to implement this")
     }
 }
@@ -101,29 +94,23 @@ impl BaseFeeSerde for FeeMarketCapScheduler {
     }
     fn to_base_fee_parameters_data(&self) -> [u8; 30] {
         let mut data: [u8; 30] = [0u8; 30];
-        data[..4].copy_from_slice(&self.cliff_fee_numerator.to_le_bytes());
+        data[..8].copy_from_slice(&self.cliff_fee_numerator.to_le_bytes());
         // base fee mode
         data[BaseFeeParameters::BASE_FEE_MODE_INDEX] = self.fee_scheduler_mode;
-        data[4..8].copy_from_slice(&self.scheduler_expiration_duration.to_le_bytes());
-
-        data[8..10].copy_from_slice(&self.max_sqrt_price_delta_vbps.to_le_bytes());
-        let max_sqrt_price_index =
-            u64::try_from(self.max_sqrt_price.checked_div(MIN_SQRT_PRICE).unwrap()).unwrap();
-        data[10..18].copy_from_slice(&max_sqrt_price_index.to_le_bytes());
+        data[8..10].copy_from_slice(&self.number_of_period.to_le_bytes());
+        data[10..14].copy_from_slice(&self.price_step_bps.to_le_bytes());
+        data[14..18].copy_from_slice(&self.scheduler_expiration_duration.to_le_bytes());
         data[18..26].copy_from_slice(&self.reduction_factor.to_le_bytes());
-
         data
     }
     fn to_base_fee_struct_data(&self) -> [u8; 32] {
         let mut data: [u8; 32] = [0u8; 32];
-        data[..4].copy_from_slice(&self.cliff_fee_numerator.to_le_bytes());
+        data[..8].copy_from_slice(&self.cliff_fee_numerator.to_le_bytes());
         // base fee mode
         data[BaseFeeStruct::BASE_FEE_MODE_INDEX] = self.fee_scheduler_mode;
-        data[4..8].copy_from_slice(&self.scheduler_expiration_duration.to_le_bytes());
-        data[14..16].copy_from_slice(&self.max_sqrt_price_delta_vbps.to_le_bytes());
-        let max_sqrt_price_index =
-            u64::try_from(self.max_sqrt_price.checked_div(MIN_SQRT_PRICE).unwrap()).unwrap();
-        data[16..24].copy_from_slice(&max_sqrt_price_index.to_le_bytes());
+        data[14..16].copy_from_slice(&self.number_of_period.to_le_bytes());
+        data[16..20].copy_from_slice(&self.price_step_bps.to_le_bytes());
+        data[20..24].copy_from_slice(&self.scheduler_expiration_duration.to_le_bytes());
         data[24..32].copy_from_slice(&self.reduction_factor.to_le_bytes());
         data
     }
@@ -133,10 +120,7 @@ impl BaseFeeSerde for FeeMarketCapScheduler {
     fn to_fee_time_scheduler(&self) -> Result<FeeTimeScheduler> {
         panic!("No need to implement this")
     }
-    fn to_fee_market_cap_scheduler(
-        &self,
-        _min_sqrt_price_index: u64,
-    ) -> Result<FeeMarketCapScheduler> {
+    fn to_fee_market_cap_scheduler(&self) -> Result<FeeMarketCapScheduler> {
         panic!("No need to implement this")
     }
 }

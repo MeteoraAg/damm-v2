@@ -164,6 +164,7 @@ fn calculate_output_amount(rate_limiter: &FeeRateLimiter, input_amount: u64) -> 
             TradeDirection::BtoA,
             input_amount,
             0,
+            0,
         )
         .unwrap();
     let trading_fee: u64 = safe_mul_div_cast_u64(
@@ -226,6 +227,7 @@ fn test_rate_limiter_base_fee_numerator() {
                 TradeDirection::AtoB,
                 2_000_000_000,
                 0,
+                0,
             )
             .unwrap();
 
@@ -241,6 +243,7 @@ fn test_rate_limiter_base_fee_numerator() {
                 TradeDirection::BtoA,
                 2_000_000_000,
                 0,
+                0,
             )
             .unwrap();
 
@@ -255,6 +258,7 @@ fn test_rate_limiter_base_fee_numerator() {
                 0,
                 TradeDirection::BtoA,
                 2_000_000_000,
+                0,
                 0,
             )
             .unwrap();

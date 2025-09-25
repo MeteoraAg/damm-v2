@@ -3,7 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::{BaseFeeHandlerBuilder, FeeTimeSchedulerMode},
+    base_fee::BaseFeeHandlerBuilder,
     constants::{fee::FEE_DENOMINATOR, BASIS_POINT_MAX, ONE_Q64},
     params::swap::TradeDirection,
     safe_math::SafeMath,
@@ -39,25 +39,18 @@ pub struct FeeOnAmountResult {
 // https://www.desmos.com/calculator/oxdndn2xdx
 pub enum BaseFeeMode {
     // fee = cliff_fee_numerator - passed_period * reduction_factor
+    // passed_period = (current_point - activation_point) / period_frequency
     FeeTimeSchedulerLinear,
     // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
     FeeTimeSchedulerExponential,
     // rate limiter
     RateLimiter,
+    // fee = cliff_fee_numerator - passed_price * reduction_factor
+    // passed_price = changed_price / price_step_bps
+    // passed_price = (current_sqrt_price - init_sqrt_price) * 10_000 * init_sqrt_price / price_step_bps
     FeeMarketCapSchedulerLinear,
+    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_price
     FeeMarketCapSchedulerExponential,
-}
-
-impl From<BaseFeeMode> for FeeTimeSchedulerMode {
-    fn from(value: BaseFeeMode) -> Self {
-        match value {
-            BaseFeeMode::FeeTimeSchedulerLinear => FeeTimeSchedulerMode::Linear,
-            BaseFeeMode::FeeTimeSchedulerExponential => FeeTimeSchedulerMode::Exponential,
-            BaseFeeMode::FeeMarketCapSchedulerLinear => FeeTimeSchedulerMode::Linear,
-            BaseFeeMode::FeeMarketCapSchedulerExponential => FeeTimeSchedulerMode::Exponential,
-            _ => unreachable!("Invalid base fee mode for fee scheduler"),
-        }
-    }
 }
 
 #[zero_copy]
@@ -88,9 +81,7 @@ pub struct PoolFeesStruct {
     /// dynamic fee
     pub dynamic_fee: DynamicFeeStruct,
 
-    pub min_sqrt_price_index: u64,
-    /// padding
-    pub padding_1: u64,
+    pub init_sqrt_price: u128,
 }
 
 const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
@@ -133,15 +124,14 @@ impl PoolFeesStruct {
         max_fee_numerator: u64,
         sqrt_price: u128,
     ) -> Result<u64> {
-        let base_fee_handler = self
-            .base_fee
-            .get_base_fee_handler(self.min_sqrt_price_index)?;
+        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
 
         let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
             current_point,
             activation_point,
             trade_direction,
             included_fee_amount,
+            self.init_sqrt_price,
             sqrt_price,
         )?;
 
@@ -157,15 +147,14 @@ impl PoolFeesStruct {
         max_fee_numerator: u64,
         sqrt_price: u128,
     ) -> Result<u64> {
-        let base_fee_handler = self
-            .base_fee
-            .get_base_fee_handler(self.min_sqrt_price_index)?;
+        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
 
         let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
             current_point,
             activation_point,
             trade_direction,
             excluded_fee_amount,
+            self.init_sqrt_price,
             sqrt_price,
         )?;
 

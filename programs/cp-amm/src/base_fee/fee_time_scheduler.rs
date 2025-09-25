@@ -7,21 +7,10 @@ use crate::{
     fee_math::get_fee_in_period,
     math::safe_math::SafeMath,
     params::{fee_parameters::validate_fee_fraction, swap::TradeDirection},
-    state::CollectFeeMode,
+    state::{fee::BaseFeeMode, CollectFeeMode},
     PoolError,
 };
 use anchor_lang::prelude::*;
-use num_enum::{IntoPrimitive, TryFromPrimitive};
-
-// https://www.desmos.com/calculator/oxdndn2xdx
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, IntoPrimitive, TryFromPrimitive)]
-pub enum FeeTimeSchedulerMode {
-    // fee = cliff_fee_numerator - passed_period * reduction_factor
-    Linear,
-    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
-    Exponential,
-}
 
 #[derive(Debug, Default, PartialEq)]
 pub struct FeeTimeScheduler {
@@ -44,22 +33,23 @@ impl FeeTimeScheduler {
     fn get_base_fee_numerator_by_period(&self, period: u64) -> Result<u64> {
         let period = period.min(self.number_of_period.into());
 
-        let base_fee_mode = FeeTimeSchedulerMode::try_from(self.fee_scheduler_mode)
+        let base_fee_mode = BaseFeeMode::try_from(self.fee_scheduler_mode)
             .map_err(|_| PoolError::TypeCastFailed)?;
 
         match base_fee_mode {
-            FeeTimeSchedulerMode::Linear => {
+            BaseFeeMode::FeeTimeSchedulerLinear => {
                 let fee_numerator = self
                     .cliff_fee_numerator
                     .safe_sub(self.reduction_factor.safe_mul(period)?)?;
                 Ok(fee_numerator)
             }
-            FeeTimeSchedulerMode::Exponential => {
+            BaseFeeMode::FeeTimeSchedulerExponential => {
                 let period = u16::try_from(period).map_err(|_| PoolError::MathOverflow)?;
                 let fee_numerator =
                     get_fee_in_period(self.cliff_fee_numerator, self.reduction_factor, period)?;
                 Ok(fee_numerator)
             }
+            _ => Err(PoolError::UndeterminedError.into()),
         }
     }
 
@@ -112,7 +102,8 @@ impl BaseFeeHandler for FeeTimeScheduler {
         activation_point: u64,
         _trade_direction: TradeDirection,
         _included_fee_amount: u64,
-        _sqrt_price: u128,
+        _init_sqrt_price: u128,
+        _current_sqrt_price: u128,
     ) -> Result<u64> {
         self.get_base_fee_numerator(current_point, activation_point)
     }
@@ -123,7 +114,8 @@ impl BaseFeeHandler for FeeTimeScheduler {
         activation_point: u64,
         _trade_direction: TradeDirection,
         _excluded_fee_amount: u64,
-        _sqrt_price: u128,
+        _init_sqrt_price: u128,
+        _current_sqrt_price: u128,
     ) -> Result<u64> {
         self.get_base_fee_numerator(current_point, activation_point)
     }
