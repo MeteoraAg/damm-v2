@@ -4,7 +4,9 @@ use crate::state::BaseFeeInfo;
 use crate::{params::fee_parameters::BaseFeeParameters, PoolError};
 use anchor_lang::prelude::*;
 
-#[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
+#[derive(
+    Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default, PartialEq, Eq,
+)]
 pub struct BorshFeeTimeScheduler {
     pub cliff_fee_numerator: u64,
     pub number_of_period: u16,
@@ -20,7 +22,9 @@ static_assertions::const_assert_eq!(
     BaseFeeParameters::INIT_SPACE
 );
 
-#[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
+#[derive(
+    Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default, PartialEq, Eq,
+)]
 pub struct BorshFeeRateLimiter {
     pub cliff_fee_numerator: u64,
     pub fee_increment_bps: u16,
@@ -36,7 +40,9 @@ static_assertions::const_assert_eq!(
     BaseFeeParameters::INIT_SPACE
 );
 
-#[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
+#[derive(
+    Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default, PartialEq, Eq,
+)]
 pub struct BorshFeeMarketCapScheduler {
     pub cliff_fee_numerator: u64,
     pub number_of_period: u16,
