@@ -1,10 +1,11 @@
 use crate::base_fee::{
-    self, base_fee_info_struct_to_params, base_fee_params_to_info_struct,
+    self, base_fee_info_struct_to_params, base_fee_params_to_info_struct, BaseFeeEnumReader,
     BorshFeeMarketCapScheduler, BorshFeeRateLimiter, BorshFeeTimeScheduler,
     PodAlignedFeeMarketCapScheduler, PodAlignedFeeRateLimiter, PodAlignedFeeTimeScheduler,
 };
 use crate::params::fee_parameters::BaseFeeParameters;
 use crate::state::fee::BaseFeeMode;
+use anchor_lang::prelude::borsh;
 use anchor_lang::{AnchorDeserialize, AnchorSerialize};
 
 #[test]
@@ -195,4 +196,40 @@ fn test_base_fee_serde_market_cap_scheduler() {
 
     let reverse_base_fee_params = reverse_base_fee_params.unwrap();
     assert_eq!(base_fee_params.data, reverse_base_fee_params.data);
+}
+
+#[test]
+fn test_base_fee_params_base_fee_mode_offset_valid() {
+    let borsh_fee_params_0 = BorshFeeMarketCapScheduler {
+        base_fee_mode: BaseFeeMode::FeeMarketCapSchedulerExponential.into(),
+        ..Default::default()
+    };
+
+    let mut base_fee_params_0 = BaseFeeParameters::default();
+    borsh::to_writer(base_fee_params_0.data.as_mut_slice(), &borsh_fee_params_0).unwrap();
+
+    let base_fee_mode_0: u8 = base_fee_params_0.get_base_fee_mode().unwrap().into();
+    assert_eq!(base_fee_mode_0, borsh_fee_params_0.base_fee_mode);
+
+    let borsh_fee_params_1 = BorshFeeRateLimiter {
+        base_fee_mode: BaseFeeMode::RateLimiter.into(),
+        ..Default::default()
+    };
+
+    let mut base_fee_params_1 = BaseFeeParameters::default();
+    borsh::to_writer(base_fee_params_1.data.as_mut_slice(), &borsh_fee_params_1).unwrap();
+
+    let base_fee_mode_1: u8 = base_fee_params_1.get_base_fee_mode().unwrap().into();
+    assert_eq!(base_fee_mode_1, borsh_fee_params_1.base_fee_mode);
+
+    let borsh_fee_params_2 = BorshFeeTimeScheduler {
+        base_fee_mode: BaseFeeMode::FeeTimeSchedulerLinear.into(),
+        ..Default::default()
+    };
+
+    let mut base_fee_params_2 = BaseFeeParameters::default();
+    borsh::to_writer(base_fee_params_2.data.as_mut_slice(), &borsh_fee_params_2).unwrap();
+
+    let base_fee_mode_2: u8 = base_fee_params_2.get_base_fee_mode().unwrap().into();
+    assert_eq!(base_fee_mode_2, borsh_fee_params_2.base_fee_mode);
 }
