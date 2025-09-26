@@ -1,6 +1,7 @@
 use super::BaseFeeHandler;
 use crate::{
     activation_handler::ActivationType,
+    base_fee::PodAlignedFeeTimeScheduler,
     constants::fee::{
         get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR, MIN_FEE_NUMERATOR,
     },
@@ -12,16 +13,7 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 
-#[derive(Debug, Default, PartialEq)]
-pub struct FeeTimeScheduler {
-    pub cliff_fee_numerator: u64,
-    pub number_of_period: u16,
-    pub period_frequency: u64,
-    pub reduction_factor: u64,
-    pub fee_scheduler_mode: u8,
-}
-
-impl FeeTimeScheduler {
+impl PodAlignedFeeTimeScheduler {
     pub fn get_max_base_fee_numerator(&self) -> u64 {
         self.cliff_fee_numerator
     }
@@ -33,8 +25,8 @@ impl FeeTimeScheduler {
     fn get_base_fee_numerator_by_period(&self, period: u64) -> Result<u64> {
         let period = period.min(self.number_of_period.into());
 
-        let base_fee_mode = BaseFeeMode::try_from(self.fee_scheduler_mode)
-            .map_err(|_| PoolError::TypeCastFailed)?;
+        let base_fee_mode =
+            BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::TypeCastFailed)?;
 
         match base_fee_mode {
             BaseFeeMode::FeeTimeSchedulerLinear => {
@@ -70,7 +62,7 @@ impl FeeTimeScheduler {
     }
 }
 
-impl BaseFeeHandler for FeeTimeScheduler {
+impl BaseFeeHandler for PodAlignedFeeTimeScheduler {
     fn validate(
         &self,
         _collect_fee_mode: CollectFeeMode,

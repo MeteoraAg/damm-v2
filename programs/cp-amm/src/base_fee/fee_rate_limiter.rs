@@ -1,6 +1,7 @@
 use super::BaseFeeHandler;
 use crate::{
     activation_handler::ActivationType,
+    base_fee::PodAlignedFeeRateLimiter,
     constants::{
         fee::{
             get_max_fee_bps, get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR,
@@ -30,16 +31,8 @@ use ruint::aliases::U256;
 /// if a >= max_index
 /// if a = max_index + d, input_amount = x0 + max_index * x0 + (d * x0 + b)
 /// then fee = x0 * (c + c*max_index + i*max_index*(max_index+1)/2) + (d * x0 + b) * MAX_FEE
-#[derive(Debug, Default, PartialEq)]
-pub struct FeeRateLimiter {
-    pub cliff_fee_numerator: u64,
-    pub fee_increment_bps: u16,
-    pub max_limiter_duration: u32,
-    pub max_fee_bps: u32,
-    pub reference_amount: u64,
-}
 
-impl FeeRateLimiter {
+impl PodAlignedFeeRateLimiter {
     pub fn is_rate_limiter_applied(
         &self,
         current_point: u64,
@@ -284,7 +277,7 @@ impl FeeRateLimiter {
     }
 }
 
-impl BaseFeeHandler for FeeRateLimiter {
+impl BaseFeeHandler for PodAlignedFeeRateLimiter {
     fn validate(
         &self,
         collect_fee_mode: CollectFeeMode,

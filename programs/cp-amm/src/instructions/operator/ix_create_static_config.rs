@@ -108,7 +108,7 @@ pub fn handle_create_static_config(
         sqrt_min_price,
         sqrt_max_price,
         collect_fee_mode,
-    );
+    )?;
 
     emit_cpi!(event::EvtCreateConfig {
         pool_fees,

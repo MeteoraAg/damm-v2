@@ -1,8 +1,6 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
-use crate::base_fee::{
-    base_fee_params_to_info_struct, BaseFeeHandlerBuilder, BorshBaseFeeSerde, BorshFeeTimeScheduler,
-};
+use crate::base_fee::{base_fee_params_to_info_struct, BaseFeeHandlerBuilder};
 use crate::constants::fee::{
     HOST_FEE_PERCENT, MAX_BASIS_POINT, PARTNER_FEE_PERCENT, PROTOCOL_FEE_PERCENT,
 };

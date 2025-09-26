@@ -1,6 +1,6 @@
 use crate::{
     activation_handler::ActivationType,
-    base_fee::BaseFeeHandler,
+    base_fee::{BaseFeeHandler, PodAlignedFeeMarketCapScheduler},
     constants::fee::{
         get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR, MAX_BASIS_POINT,
         MIN_FEE_NUMERATOR,
@@ -14,17 +14,7 @@ use crate::{
 use anchor_lang::prelude::*;
 use ruint::aliases::U256;
 
-#[derive(Debug, Default, PartialEq)]
-pub struct FeeMarketCapScheduler {
-    pub cliff_fee_numerator: u64,
-    pub number_of_period: u16,
-    pub price_step_bps: u32, // similar to period_frequency in fee time scheduler
-    pub scheduler_expiration_duration: u32,
-    pub reduction_factor: u64,
-    pub fee_scheduler_mode: u8,
-}
-
-impl FeeMarketCapScheduler {
+impl PodAlignedFeeMarketCapScheduler {
     pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
         self.get_base_fee_numerator_by_period(self.number_of_period.into())
     }
@@ -32,8 +22,8 @@ impl FeeMarketCapScheduler {
     fn get_base_fee_numerator_by_period(&self, period: u64) -> Result<u64> {
         let period = period.min(self.number_of_period.into());
 
-        let base_fee_mode = BaseFeeMode::try_from(self.fee_scheduler_mode)
-            .map_err(|_| PoolError::TypeCastFailed)?;
+        let base_fee_mode =
+            BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::TypeCastFailed)?;
 
         match base_fee_mode {
             BaseFeeMode::FeeMarketCapSchedulerLinear => {
@@ -95,7 +85,7 @@ impl FeeMarketCapScheduler {
     }
 }
 
-impl BaseFeeHandler for FeeMarketCapScheduler {
+impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
     fn validate(
         &self,
         _collect_fee_mode: CollectFeeMode,
@@ -103,13 +93,19 @@ impl BaseFeeHandler for FeeMarketCapScheduler {
     ) -> Result<()> {
         require!(
             self.reduction_factor > 0,
-            PoolError::InvalidFeeTimeScheduler
+            PoolError::InvalidFeeMarketCapScheduler
         );
 
         let min_fee_numerator = self.get_min_base_fee_numerator()?;
         let max_fee_numerator = self.cliff_fee_numerator;
         validate_fee_fraction(min_fee_numerator, FEE_DENOMINATOR)?;
         validate_fee_fraction(max_fee_numerator, FEE_DENOMINATOR)?;
+
+        require!(
+            self.price_step_bps > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
         require!(
             min_fee_numerator >= MIN_FEE_NUMERATOR
                 && max_fee_numerator <= get_max_fee_numerator(CURRENT_POOL_VERSION)?,
