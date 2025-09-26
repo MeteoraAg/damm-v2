@@ -22,6 +22,10 @@ import {
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { expect } from "chai";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Dynamic config test", () => {
   let context: ProgramTestContext;
@@ -38,7 +42,10 @@ describe("Dynamic config test", () => {
     context = await startTest(root);
     creator = await generateKpAndFund(context.banksClient, context.payer);
     admin = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(
+      context.banksClient,
+      context.payer
+    );
 
     tokenAMint = await createToken(
       context.banksClient,
@@ -71,13 +78,13 @@ describe("Dynamic config test", () => {
       poolCreatorAuthority: creator.publicKey,
     };
 
-    let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
     await createOperator(context.banksClient, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
-      permission
-    })
+      permission,
+    });
 
     config = await createDynamicConfigIx(
       context.banksClient,
@@ -88,6 +95,19 @@ describe("Dynamic config test", () => {
   });
 
   it("create pool with dynamic config", async () => {
+    const cliffFeeNumerator = new BN(2_500_000);
+    const numberOfPeriod = new BN(0);
+    const periodFrequency = new BN(0);
+    const reductionFactor = new BN(0);
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod.toNumber(),
+      BigInt(periodFrequency.toString()),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeTimeSchedulerLinear
+    );
+
     const params: InitializePoolWithCustomizeConfigParams = {
       payer: creator,
       creator: creator.publicKey,
@@ -103,11 +123,7 @@ describe("Dynamic config test", () => {
       activationPoint: null,
       poolFees: {
         baseFee: {
-          zeroFactor: new BN(2_500_000).toArray("le", 8),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,

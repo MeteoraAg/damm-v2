@@ -44,9 +44,7 @@ pub struct PoolFeesConfig {
     pub partner_fee_percent: u8,
     pub referral_fee_percent: u8,
     pub padding_0: [u8; 5],
-    pub padding_1: u64,
-    pub init_sqrt_price: u128,
-    pub padding_3: [u64; 2],
+    pub padding_1: [u64; 5],
 }
 
 const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
@@ -112,14 +110,13 @@ impl PoolFeesConfig {
         }
     }
 
-    pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
+    pub fn to_pool_fees_struct(&self, init_sqrt_price: u128) -> PoolFeesStruct {
         let &PoolFeesConfig {
             base_fee,
             protocol_fee_percent,
             partner_fee_percent,
             referral_fee_percent,
             dynamic_fee,
-            init_sqrt_price,
             ..
         } = self;
 
@@ -262,7 +259,7 @@ impl Config {
         collect_fee_mode: u8,
     ) -> Result<()> {
         self.index = index;
-        self.pool_fees = pool_fees.to_pool_fees_config(0)?;
+        self.pool_fees = pool_fees.to_pool_fees_config()?;
         self.vault_config_key = vault_config_key;
         self.pool_creator_authority = pool_creator_authority;
         self.activation_type = activation_type;

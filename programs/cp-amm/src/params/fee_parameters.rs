@@ -49,7 +49,7 @@ impl BaseFeeParameters {
 }
 
 impl PoolFeeParameters {
-    pub fn to_pool_fees_config(&self, init_sqrt_price: u128) -> Result<PoolFeesConfig> {
+    pub fn to_pool_fees_config(&self) -> Result<PoolFeesConfig> {
         let &PoolFeeParameters {
             base_fee,
             dynamic_fee,
@@ -61,7 +61,6 @@ impl PoolFeeParameters {
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
-                init_sqrt_price,
                 ..Default::default()
             })
         } else {
@@ -70,7 +69,6 @@ impl PoolFeeParameters {
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
-                init_sqrt_price,
                 ..Default::default()
             })
         }

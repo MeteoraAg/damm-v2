@@ -58,7 +58,7 @@ static_assertions::const_assert_eq!(
     BaseFeeParameters::INIT_SPACE
 );
 
-#[zero_copy]
+#[account(zero_copy)]
 #[derive(Default, Debug)]
 pub struct PodAlignedFeeTimeScheduler {
     pub cliff_fee_numerator: u64,
@@ -74,7 +74,7 @@ static_assertions::const_assert_eq!(
     std::mem::size_of::<PodAlignedFeeTimeScheduler>()
 );
 
-#[zero_copy]
+#[account(zero_copy)]
 #[derive(Default, Debug)]
 pub struct PodAlignedFeeRateLimiter {
     pub cliff_fee_numerator: u64,
@@ -91,7 +91,7 @@ static_assertions::const_assert_eq!(
     std::mem::size_of::<PodAlignedFeeRateLimiter>()
 );
 
-#[zero_copy]
+#[account(zero_copy)]
 #[derive(Default, Debug)]
 pub struct PodAlignedFeeMarketCapScheduler {
     pub cliff_fee_numerator: u64,
