@@ -34,6 +34,7 @@ import {
   processTransactionMaybeThrow,
   expectThrowsAsync,
 } from "./bankrun-utils";
+import { encodeFeeRateLimiterParams } from "./bankrun-utils/feeCodec";
 
 describe("Rate limiter", () => {
   let context: ProgramTestContext;
@@ -54,7 +55,10 @@ describe("Rate limiter", () => {
     partner = await generateKpAndFund(context.banksClient, context.payer);
     user = await generateKpAndFund(context.banksClient, context.payer);
     poolCreator = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(
+      context.banksClient,
+      context.payer
+    );
 
     tokenA = await createToken(
       context.banksClient,
@@ -101,23 +105,25 @@ describe("Rate limiter", () => {
   });
 
   it("Rate limiter", async () => {
-    let referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
-    let maxRateLimiterDuration = new BN(10);
-    let maxFeeBps = new BN(5000);
+    const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
+    const maxRateLimiterDuration = new BN(10);
+    const maxFeeBps = new BN(5000);
 
-    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(
-      maxRateLimiterDuration,
-      maxFeeBps
+    const cliffFeeNumerator = new BN(10_000_000);
+    const feeIncrementBps = 10;
+
+    const data = encodeFeeRateLimiterParams(
+      BigInt(cliffFeeNumerator.toString()),
+      feeIncrementBps,
+      maxRateLimiterDuration.toNumber(),
+      maxFeeBps.toNumber(),
+      BigInt(referenceAmount.toString())
     );
 
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          zeroFactor: new BN(10_000_000).toArray("le", 8), // 100bps
-          firstFactor: 10, // 10 bps
-          secondFactor: rateLimiterSecondFactor, // combined(maxRateLimiterDuration, maxFeeBps)
-          thirdFactor: referenceAmount, // 1 sol
-          baseFeeMode: 2, // rate limiter mode
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -128,16 +134,15 @@ describe("Rate limiter", () => {
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
       collectFeeMode: 1, // onlyB
-      minSqrtPriceIndex: new BN(0),
     };
 
-    let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
     await createOperator(context.banksClient, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
-      permission
-    })
+      permission,
+    });
 
     let config = await createConfigIx(
       context.banksClient,
@@ -233,16 +238,23 @@ describe("Rate limiter", () => {
   });
 
   it("Try to send multiple instructions", async () => {
-    let referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
-    let maxRateLimiterDuration = new BN(10);
-    let maxFeeBps = new BN(5000);
+    const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
+    const maxRateLimiterDuration = new BN(10);
+    const maxFeeBps = new BN(5000);
 
-    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(
-      maxRateLimiterDuration,
-      maxFeeBps
-    );
     const liquidity = new BN(MIN_LP_AMOUNT);
     const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
+
+    const cliffFeeNumerator = new BN(10_000_000);
+    const feeIncrementBps = 10;
+
+    const data = encodeFeeRateLimiterParams(
+      BigInt(cliffFeeNumerator.toString()),
+      feeIncrementBps,
+      maxRateLimiterDuration.toNumber(),
+      maxFeeBps.toNumber(),
+      BigInt(referenceAmount.toString())
+    );
 
     const initPoolParams: InitializeCustomizablePoolParams = {
       payer: poolCreator,
@@ -251,11 +263,7 @@ describe("Rate limiter", () => {
       tokenBMint: tokenB,
       poolFees: {
         baseFee: {
-          zeroFactor: new BN(10_000_000).toArray("le", 8), // 100bps
-          firstFactor: 10, // 10 bps
-          secondFactor: rateLimiterSecondFactor,
-          thirdFactor: referenceAmount, // 1 sol
-          baseFeeMode: 2, // rate limiter mode
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,

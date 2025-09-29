@@ -51,6 +51,15 @@ import {
 import { processTransactionMaybeThrow } from "./common";
 import { CP_AMM_PROGRAM_ID, MIN_SQRT_PRICE } from "./constants";
 import { expect } from "chai";
+import {
+  BaseFeeMode,
+  decodePodAlignedFeeMarketCapScheduler,
+  decodeFeeMarketCapSchedulerParams,
+  decodePodAlignedFeeRateLimiter,
+  decodeFeeRateLimiterParams,
+  decodePodAlignedFeeTimeScheduler,
+  decodeFeeTimeSchedulerParams,
+} from "./feeCodec";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
 export type Position = IdlAccounts<CpAmm>["position"];
@@ -102,11 +111,7 @@ export type DynamicFee = {
 };
 
 export type BaseFee = {
-  zeroFactor: number[];
-  firstFactor: number;
-  secondFactor: number[];
-  thirdFactor: BN;
-  baseFeeMode: number;
+  data: number[];
 };
 
 export type PoolFees = {
@@ -123,7 +128,6 @@ export type CreateConfigParams = {
   poolCreatorAuthority: PublicKey;
   activationType: number; // 0: slot, 1: timestamp
   collectFeeMode: number; // 0: BothToken, 1: OnlyTokenB
-  minSqrtPriceIndex: BN;
 };
 
 export type CreateDynamicConfigParams = {
@@ -174,6 +178,7 @@ export async function createConfigIx(
   const program = createCpAmmProgram();
 
   const config = deriveConfigAddress(index);
+
   const transaction = await program.methods
     .createConfig(index, params)
     .accountsPartial({
@@ -207,32 +212,99 @@ export async function createConfigIx(
     params.sqrtMaxPrice.toString()
   );
 
-  for (const [idx, num] of configState.poolFees.baseFee.zeroFactor.entries()) {
-    const paramNum = params.poolFees.baseFee.zeroFactor[idx];
-    expect(num).eq(paramNum);
+  // Check the offset at base_fee_serde.rs
+  const baseFeeModeInParams = params.poolFees.baseFee.data[26];
+  const baseFeeModeInConfig = configState.poolFees.baseFee.data[8];
+
+  expect(baseFeeModeInConfig).eq(baseFeeModeInParams);
+  const baseFeeMode: BaseFeeMode = baseFeeModeInParams;
+
+  switch (baseFeeMode) {
+    case BaseFeeMode.FeeTimeSchedulerLinear:
+    case BaseFeeMode.FeeTimeSchedulerExponential:
+      const feeTimeSchedulerParams = decodeFeeTimeSchedulerParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedFeeTimeScheduler = decodePodAlignedFeeTimeScheduler(
+        Buffer.from(configState.poolFees.baseFee.data)
+      );
+
+      expect(feeTimeSchedulerParams.baseFeeMode).eq(
+        podAlignedFeeTimeScheduler.baseFeeMode
+      );
+      expect(feeTimeSchedulerParams.cliffFeeNumerator.toString()).eq(
+        podAlignedFeeTimeScheduler.cliffFeeNumerator.toString()
+      );
+      expect(feeTimeSchedulerParams.numberOfPeriod).eq(
+        podAlignedFeeTimeScheduler.numberOfPeriod
+      );
+      expect(feeTimeSchedulerParams.periodFrequency.toString()).eq(
+        podAlignedFeeTimeScheduler.periodFrequency.toString()
+      );
+      expect(feeTimeSchedulerParams.reductionFactor.toString()).eq(
+        podAlignedFeeTimeScheduler.reductionFactor.toString()
+      );
+      break;
+    case BaseFeeMode.FeeMarketCapSchedulerExponential:
+    case BaseFeeMode.FeeMarketCapSchedulerLinear:
+      const marketCapSchedulerParams = decodeFeeMarketCapSchedulerParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedMarketCapScheduler =
+        decodePodAlignedFeeMarketCapScheduler(
+          Buffer.from(configState.poolFees.baseFee.data)
+        );
+
+      expect(marketCapSchedulerParams.baseFeeMode).eq(
+        podAlignedMarketCapScheduler.baseFeeMode
+      );
+      expect(marketCapSchedulerParams.cliffFeeNumerator.toString()).eq(
+        podAlignedMarketCapScheduler.cliffFeeNumerator.toString()
+      );
+      expect(marketCapSchedulerParams.numberOfPeriod).eq(
+        podAlignedMarketCapScheduler.numberOfPeriod
+      );
+      expect(marketCapSchedulerParams.priceStepBps).eq(
+        podAlignedMarketCapScheduler.priceStepBps
+      );
+      expect(marketCapSchedulerParams.schedulerExpirationDuration).eq(
+        podAlignedMarketCapScheduler.schedulerExpirationDuration
+      );
+      expect(marketCapSchedulerParams.reductionFactor.toString()).eq(
+        podAlignedMarketCapScheduler.reductionFactor.toString()
+      );
+
+      break;
+    case BaseFeeMode.RateLimiter:
+      const rateLimiterParams = decodeFeeRateLimiterParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedRateLimiter = decodePodAlignedFeeRateLimiter(
+        Buffer.from(configState.poolFees.baseFee.data)
+      );
+
+      expect(rateLimiterParams.baseFeeMode).eq(
+        podAlignedRateLimiter.baseFeeMode
+      );
+      expect(rateLimiterParams.cliffFeeNumerator.toString()).eq(
+        podAlignedRateLimiter.cliffFeeNumerator.toString()
+      );
+      expect(rateLimiterParams.feeIncrementBps).eq(
+        podAlignedRateLimiter.feeIncrementBps
+      );
+      expect(rateLimiterParams.maxLimiterDuration).eq(
+        podAlignedRateLimiter.maxLimiterDuration
+      );
+      expect(rateLimiterParams.referenceAmount.toString()).eq(
+        podAlignedRateLimiter.referenceAmount.toString()
+      );
+      break;
+    default:
+      throw new Error("Unreachable");
   }
-
-  for (const [
-    idx,
-    num,
-  ] of configState.poolFees.baseFee.secondFactor.entries()) {
-    const paramNum = params.poolFees.baseFee.secondFactor[idx];
-    expect(num).eq(paramNum);
-  }
-
-  expect(configState.poolFees.baseFee.firstFactor).eq(
-    params.poolFees.baseFee.firstFactor
-  );
-  expect(configState.poolFees.baseFee.thirdFactor.toNumber()).eq(
-    params.poolFees.baseFee.thirdFactor.toNumber()
-  );
-  expect(configState.poolFees.baseFee.baseFeeMode).eq(
-    params.poolFees.baseFee.baseFeeMode
-  );
-
-  expect(Buffer.from(configState.poolFees.baseFee.secondFactor).toString()).eq(
-    Buffer.from(params.poolFees.baseFee.secondFactor).toString()
-  );
   expect(configState.poolFees.protocolFeePercent).eq(20);
   expect(configState.poolFees.partnerFeePercent).eq(0);
   expect(configState.poolFees.referralFeePercent).eq(20);
@@ -338,7 +410,9 @@ export async function createClaimFeeOperator(
   const program = createCpAmmProgram();
   const { whitelistedAddress, claimFeeOperatorAddress } = params;
 
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(claimFeeOperatorAddress);
+  const claimFeeOperator = deriveClaimFeeOperatorAddress(
+    claimFeeOperatorAddress
+  );
   const transaction = await program.methods
     .createClaimFeeOperator()
     .accountsPartial({
@@ -358,16 +432,16 @@ export async function createClaimFeeOperator(
 }
 
 export enum OperatorPermission {
-  CreateConfigKey,                // 0
-  RemoveConfigKey,                // 1
-  CreateTokenBadge,               // 2
-  CloseTokenBadge,                // 3
-  SetPoolStatus,                  // 4
+  CreateConfigKey, // 0
+  RemoveConfigKey, // 1
+  CreateTokenBadge, // 2
+  CloseTokenBadge, // 3
+  SetPoolStatus, // 4
   CreateClaimProtocolFeeOperator, // 5
-  CloseClaimProtocolFeeOperator,  // 6
-  InitializeReward,               // 7
-  UpdateRewardDuration,           // 8
-  UpdateRewardFunder,             // 9
+  CloseClaimProtocolFeeOperator, // 6
+  InitializeReward, // 7
+  UpdateRewardDuration, // 8
+  UpdateRewardFunder, // 9
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -379,7 +453,7 @@ export function encodePermissions(permissions: OperatorPermission[]): BN {
 export type CreateOperatorParams = {
   admin: Keypair;
   whitelistAddress: PublicKey;
-  permission: BN
+  permission: BN;
 };
 export async function createOperator(
   banksClient: BanksClient,
@@ -449,7 +523,9 @@ export async function claimProtocolFee(
   const program = createCpAmmProgram();
   const { claimFeeOperator, pool, treasury } = params;
   const poolAuthority = derivePoolAuthority();
-  const claimFeeOperatorAddress = deriveClaimFeeOperatorAddress(claimFeeOperator.publicKey);
+  const claimFeeOperatorAddress = deriveClaimFeeOperatorAddress(
+    claimFeeOperator.publicKey
+  );
   const poolState = await getPool(banksClient, pool);
 
   const tokenAProgram = (await banksClient.getAccount(poolState.tokenAMint))
@@ -683,6 +759,7 @@ export async function initializePool(
 
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
+  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
 
   return { pool, position: position };
 }
@@ -814,6 +891,8 @@ export async function initializePoolWithCustomizeConfig(
 
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
+
+  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
 
   return { pool, position: position };
 }
@@ -975,23 +1054,101 @@ export async function initializeCustomizablePool(
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
 
-  expect(poolState.poolFees.minSqrtPriceIndex.toString()).eq(
-    sqrtPrice.div(MIN_SQRT_PRICE).toString()
-  );
+  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
 
-  for (const [idx, num] of poolState.poolFees.baseFee.zeroFactor.entries()) {
-    const paramNum = poolFees.baseFee.zeroFactor[idx];
-    expect(num).eq(paramNum);
+  // Check the offset at base_fee_serde.rs
+  const baseFeeModeInParams = params.poolFees.baseFee.data[26];
+  const baseFeeModeInConfig = poolState.poolFees.baseFee.baseFeeInfo.data[8];
+
+  expect(baseFeeModeInConfig).eq(baseFeeModeInParams);
+  const baseFeeMode: BaseFeeMode = baseFeeModeInParams;
+
+  switch (baseFeeMode) {
+    case BaseFeeMode.FeeTimeSchedulerLinear:
+    case BaseFeeMode.FeeTimeSchedulerExponential:
+      const feeTimeSchedulerParams = decodeFeeTimeSchedulerParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedFeeTimeScheduler = decodePodAlignedFeeTimeScheduler(
+        Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+
+      expect(feeTimeSchedulerParams.baseFeeMode).eq(
+        podAlignedFeeTimeScheduler.baseFeeMode
+      );
+      expect(feeTimeSchedulerParams.cliffFeeNumerator.toString()).eq(
+        podAlignedFeeTimeScheduler.cliffFeeNumerator.toString()
+      );
+      expect(feeTimeSchedulerParams.numberOfPeriod).eq(
+        podAlignedFeeTimeScheduler.numberOfPeriod
+      );
+      expect(feeTimeSchedulerParams.periodFrequency.toString()).eq(
+        podAlignedFeeTimeScheduler.periodFrequency.toString()
+      );
+      expect(feeTimeSchedulerParams.reductionFactor.toString()).eq(
+        podAlignedFeeTimeScheduler.reductionFactor.toString()
+      );
+      break;
+    case BaseFeeMode.FeeMarketCapSchedulerExponential:
+    case BaseFeeMode.FeeMarketCapSchedulerLinear:
+      const marketCapSchedulerParams = decodeFeeMarketCapSchedulerParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedMarketCapScheduler =
+        decodePodAlignedFeeMarketCapScheduler(
+          Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+        );
+
+      expect(marketCapSchedulerParams.baseFeeMode).eq(
+        podAlignedMarketCapScheduler.baseFeeMode
+      );
+      expect(marketCapSchedulerParams.cliffFeeNumerator.toString()).eq(
+        podAlignedMarketCapScheduler.cliffFeeNumerator.toString()
+      );
+      expect(marketCapSchedulerParams.numberOfPeriod).eq(
+        podAlignedMarketCapScheduler.numberOfPeriod
+      );
+      expect(marketCapSchedulerParams.priceStepBps).eq(
+        podAlignedMarketCapScheduler.priceStepBps
+      );
+      expect(marketCapSchedulerParams.schedulerExpirationDuration).eq(
+        podAlignedMarketCapScheduler.schedulerExpirationDuration
+      );
+      expect(marketCapSchedulerParams.reductionFactor.toString()).eq(
+        podAlignedMarketCapScheduler.reductionFactor.toString()
+      );
+
+      break;
+    case BaseFeeMode.RateLimiter:
+      const rateLimiterParams = decodeFeeRateLimiterParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedRateLimiter = decodePodAlignedFeeRateLimiter(
+        Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+
+      expect(rateLimiterParams.baseFeeMode).eq(
+        podAlignedRateLimiter.baseFeeMode
+      );
+      expect(rateLimiterParams.cliffFeeNumerator.toString()).eq(
+        podAlignedRateLimiter.cliffFeeNumerator.toString()
+      );
+      expect(rateLimiterParams.feeIncrementBps).eq(
+        podAlignedRateLimiter.feeIncrementBps
+      );
+      expect(rateLimiterParams.maxLimiterDuration).eq(
+        podAlignedRateLimiter.maxLimiterDuration
+      );
+      expect(rateLimiterParams.referenceAmount.toString()).eq(
+        podAlignedRateLimiter.referenceAmount.toString()
+      );
+      break;
+    default:
+      throw new Error("Unreachable");
   }
-
-  for (const [idx, num] of poolState.poolFees.baseFee.secondFactor.entries()) {
-    const paramNum = poolFees.baseFee.secondFactor[idx];
-    expect(num).eq(paramNum);
-  }
-
-  expect(poolState.poolFees.baseFee.baseFeeMode).eq(
-    poolFees.baseFee.baseFeeMode
-  );
 
   return { pool, position: position };
 }
@@ -1010,20 +1167,24 @@ export async function initializeReward(
   banksClient: BanksClient,
   params: InitializeRewardParams
 ): Promise<void> {
-  const { index, rewardDuration, pool, rewardMint, payer, funder, operator } = params;
+  const { index, rewardDuration, pool, rewardMint, payer, funder, operator } =
+    params;
   const program = createCpAmmProgram();
 
   const poolAuthority = derivePoolAuthority();
   const rewardVault = deriveRewardVaultAddress(pool, index);
 
   const tokenProgram = (await banksClient.getAccount(rewardMint)).owner;
-  let remainingAccounts = operator == null ? [] : [
-    {
-      pubkey: operator,
-      isSigner: false,
-      isWritable: false,
-    }
-  ];
+  let remainingAccounts =
+    operator == null
+      ? []
+      : [
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
@@ -1035,7 +1196,8 @@ export async function initializeReward(
       signer: payer.publicKey,
       tokenProgram,
       systemProgram: SystemProgram.programId,
-    }).remainingAccounts(remainingAccounts)
+    })
+    .remainingAccounts(remainingAccounts)
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(payer);
@@ -1067,19 +1229,23 @@ export async function updateRewardDuration(
 ): Promise<void> {
   const { pool, signer, index, newDuration, operator } = params;
   const program = createCpAmmProgram();
-  let remainingAccounts = operator == null ? [] : [
-    {
-      pubkey: operator,
-      isSigner: false,
-      isWritable: false,
-    }
-  ];
+  let remainingAccounts =
+    operator == null
+      ? []
+      : [
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
       pool,
       signer: signer.publicKey,
-    }).remainingAccounts(remainingAccounts)
+    })
+    .remainingAccounts(remainingAccounts)
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(signer);
@@ -1097,7 +1263,7 @@ export type UpdateRewardFunderParams = {
   signer: Keypair;
   pool: PublicKey;
   newFunder: PublicKey;
-  operator?: PublicKey
+  operator?: PublicKey;
 };
 
 export async function updateRewardFunder(
@@ -1106,19 +1272,23 @@ export async function updateRewardFunder(
 ): Promise<void> {
   const { pool, signer, index, newFunder, operator } = params;
   const program = createCpAmmProgram();
-  let remainingAccounts = operator == null ? [] : [
-    {
-      pubkey: operator,
-      isSigner: false,
-      isWritable: false,
-    }
-  ];
+  let remainingAccounts =
+    operator == null
+      ? []
+      : [
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
       pool,
       signer: signer.publicKey,
-    }).remainingAccounts(remainingAccounts)
+    })
+    .remainingAccounts(remainingAccounts)
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(signer);
@@ -2131,35 +2301,4 @@ export async function getTokenBadge(
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(tokenBadge);
   return program.coder.accounts.decode("tokenBadge", Buffer.from(account.data));
-}
-
-export function buildMarketCapBaseFeeParams(
-  cliffFeeNumerator: BN,
-  maxSqrtPriceDeltaVbps: BN,
-  maxSqrtPriceIndex: BN,
-  schedulerExpirationDuration: BN,
-  reductionFactor: BN,
-  baseFeeMode: number = 3 | 4
-): BaseFee {
-  const cliffFeeNumeratorBytes = cliffFeeNumerator.toArray("le", 4);
-  const schedulerExpirationDurationBytes = schedulerExpirationDuration.toArray(
-    "le",
-    4
-  );
-  const maxSqrtPriceIndexBytes = maxSqrtPriceIndex.toArray("le", 8);
-  const maxSqrtPriceIndexBytes0 = maxSqrtPriceIndexBytes.slice(0, 4);
-  const maxSqrtPriceIndexBytes1 = maxSqrtPriceIndexBytes.slice(4, 8);
-
-  const zeroFactor = cliffFeeNumeratorBytes.concat(maxSqrtPriceIndexBytes0);
-  const secondFactor = maxSqrtPriceIndexBytes1.concat(
-    schedulerExpirationDurationBytes
-  );
-
-  return {
-    zeroFactor,
-    firstFactor: maxSqrtPriceDeltaVbps.toNumber(),
-    secondFactor,
-    thirdFactor: reductionFactor,
-    baseFeeMode,
-  };
 }

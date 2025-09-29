@@ -156,7 +156,7 @@ pub enum PoolError {
     FailToValidateSingleSwapInstruction,
 
     #[msg("Invalid fee scheduler")]
-    InvalidFeeScheduler,
+    InvalidFeeTimeScheduler,
 
     #[msg("Undetermined error")]
     UndeterminedError,
@@ -169,4 +169,7 @@ pub enum PoolError {
 
     #[msg("Invalid permission")]
     InvalidPermission,
+
+    #[msg("Invalid fee market cap scheduler")]
+    InvalidFeeMarketCapScheduler,
 }

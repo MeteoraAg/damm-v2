@@ -10,8 +10,6 @@ import { ALPHA_VAULT_PROGRAM_ID, CP_AMM_PROGRAM_ID } from "./constants";
 import BN from "bn.js";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 
-import CpAmmIdl from "../../target/idl/cp_amm.json";
-
 export async function startTest(root: Keypair) {
   // Program name need to match fixtures program name
   return startAnchor(

@@ -9,7 +9,6 @@ import {
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
   OperatorPermission,
-  buildMarketCapBaseFeeParams,
   createConfigIx,
   createOperator,
   createToken,
@@ -21,14 +20,14 @@ import {
   swapExactIn,
 } from "./bankrun-utils";
 import { generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+import {
+  BaseFeeMode,
+  encodeFeeMarketCapSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
-const minSqrtPrice = new BN("4880549731789001291");
-const maxSqrtPrice = new BN("12236185739241331242");
-
-const minSqrtPriceIndex = minSqrtPrice.div(MIN_SQRT_PRICE);
-const maxSqrtPriceIndex = maxSqrtPrice.div(MIN_SQRT_PRICE);
-
-const maxSqrtPriceDeltaVbps = new BN(10000);
+const sqrtPrice = new BN("4880549731789001291");
+const numberOfPeriod = 100;
+const priceStepBps = 10;
 const reductionFactor = new BN(10);
 const schedulerExpirationDuration = new BN(3600);
 
@@ -51,7 +50,10 @@ describe("Market cap fee scheduler", () => {
     partner = await generateKpAndFund(context.banksClient, context.payer);
     user = await generateKpAndFund(context.banksClient, context.payer);
     poolCreator = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(
+      context.banksClient,
+      context.payer
+    );
     tokenA = await createToken(
       context.banksClient,
       context.payer,
@@ -95,30 +97,35 @@ describe("Market cap fee scheduler", () => {
       poolCreator.publicKey
     );
 
-    let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.RemoveConfigKey])
+    let permission = encodePermissions([
+      OperatorPermission.CreateConfigKey,
+      OperatorPermission.RemoveConfigKey,
+    ]);
 
     await createOperator(context.banksClient, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
-      permission
-    })
+      permission,
+    });
   });
 
   it("Initialize customizable pool with market cap fee scheduler", async () => {
     const cliffFeeNumerator = new BN(100_000_000); // 10%
 
-    const baseFee = buildMarketCapBaseFeeParams(
-      cliffFeeNumerator,
-      maxSqrtPriceDeltaVbps,
-      maxSqrtPriceIndex,
-      schedulerExpirationDuration,
-      reductionFactor,
-      3
+    const data = encodeFeeMarketCapSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod,
+      priceStepBps,
+      schedulerExpirationDuration.toNumber(),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeMarketCapSchedulerLinear
     );
 
     await initializeCustomizablePool(context.banksClient, {
       poolFees: {
-        baseFee,
+        baseFee: {
+          data: Array.from(data),
+        },
         padding: [],
         dynamicFee: null,
       },
@@ -138,18 +145,22 @@ describe("Market cap fee scheduler", () => {
   });
 
   it("Happy flow market cap fee scheduler with static config", async () => {
-    const baseFee = buildMarketCapBaseFeeParams(
-      new BN(100_000_000), // 10%
-      maxSqrtPriceDeltaVbps,
-      maxSqrtPriceIndex,
-      schedulerExpirationDuration,
-      reductionFactor,
-      3
+    const cliffFeeNumerator = new BN(100_000_000); // 10%
+
+    const data = encodeFeeMarketCapSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod,
+      priceStepBps,
+      schedulerExpirationDuration.toNumber(),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeMarketCapSchedulerLinear
     );
 
     const createConfigParams: CreateConfigParams = {
       poolFees: {
-        baseFee,
+        baseFee: {
+          data: Array.from(data),
+        },
         padding: [],
         dynamicFee: null,
       },
@@ -159,7 +170,6 @@ describe("Market cap fee scheduler", () => {
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
       collectFeeMode: 1, // onlyB
-      minSqrtPriceIndex: minSqrtPriceIndex,
     };
 
     let config = await createConfigIx(
@@ -177,7 +187,7 @@ describe("Market cap fee scheduler", () => {
       tokenAMint: tokenA,
       tokenBMint: tokenB,
       liquidity,
-      sqrtPrice: minSqrtPrice,
+      sqrtPrice,
       activationPoint: null,
     };
     const { pool } = await initializePool(context.banksClient, initPoolParams);
@@ -199,7 +209,6 @@ describe("Market cap fee scheduler", () => {
     const feePoint0 = poolState.metrics.totalLpBFee;
 
     // Market cap increase
-
     await swapExactIn(context.banksClient, {
       payer: poolCreator,
       pool,

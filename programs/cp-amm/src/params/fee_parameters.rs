@@ -1,6 +1,6 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
-use crate::base_fee::get_base_fee_handler;
+use crate::base_fee::{base_fee_params_to_info_struct, BaseFeeHandlerBuilder};
 use crate::constants::fee::{
     HOST_FEE_PERCENT, MAX_BASIS_POINT, PARTNER_FEE_PERCENT, PROTOCOL_FEE_PERCENT,
 };
@@ -8,7 +8,7 @@ use crate::constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
 use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
-use crate::state::{BaseFeeConfig, CollectFeeMode, DynamicFeeConfig, PoolFeesConfig};
+use crate::state::{BaseFeeInfo, CollectFeeMode, DynamicFeeConfig, PoolFeesConfig};
 use anchor_lang::prelude::*;
 
 /// Information regarding fee charges
@@ -16,19 +16,13 @@ use anchor_lang::prelude::*;
 pub struct PoolFeeParameters {
     /// Base fee
     pub base_fee: BaseFeeParameters,
-    /// padding
-    pub padding: [u8; 3],
     /// dynamic fee
     pub dynamic_fee: Option<DynamicFeeParameters>,
 }
 
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
 pub struct BaseFeeParameters {
-    pub zero_factor: [u8; 8],
-    pub first_factor: u16,
-    pub second_factor: [u8; 8],
-    pub third_factor: u64,
-    pub base_fee_mode: u8,
+    pub data: [u8; 30],
 }
 
 impl BaseFeeParameters {
@@ -36,98 +30,73 @@ impl BaseFeeParameters {
         &self,
         collect_fee_mode: CollectFeeMode,
         activation_type: ActivationType,
-        min_sqrt_price_index: u64,
     ) -> Result<()> {
-        let base_fee_handler = get_base_fee_handler(
-            self.zero_factor,
-            self.first_factor,
-            self.second_factor,
-            self.third_factor,
-            self.base_fee_mode,
-            min_sqrt_price_index,
-        )?;
-
+        let base_fee_handler = self.get_base_fee_handler()?;
         base_fee_handler.validate(collect_fee_mode, activation_type)?;
-
         Ok(())
     }
 
-    fn to_base_fee_struct(&self) -> BaseFeeStruct {
-        BaseFeeStruct {
-            zero_factor: self.zero_factor,
-            first_factor: self.first_factor,
-            second_factor: self.second_factor,
-            third_factor: self.third_factor,
-            base_fee_mode: self.base_fee_mode,
+    fn to_base_fee_struct(&self) -> Result<BaseFeeStruct> {
+        Ok(BaseFeeStruct {
+            base_fee_info: self.to_base_fee_config()?,
             ..Default::default()
-        }
+        })
     }
 
-    pub fn to_base_fee_config(&self) -> BaseFeeConfig {
-        BaseFeeConfig {
-            zero_factor: self.zero_factor,
-            first_factor: self.first_factor,
-            second_factor: self.second_factor,
-            third_factor: self.third_factor,
-            base_fee_mode: self.base_fee_mode,
-            ..Default::default()
-        }
+    pub fn to_base_fee_config(&self) -> Result<BaseFeeInfo> {
+        base_fee_params_to_info_struct(self)
     }
 }
 
 impl PoolFeeParameters {
-    pub fn to_pool_fees_config(&self, min_sqrt_price_index: u64) -> PoolFeesConfig {
+    pub fn to_pool_fees_config(&self) -> Result<PoolFeesConfig> {
         let &PoolFeeParameters {
             base_fee,
-            padding: _,
             dynamic_fee,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
-            PoolFeesConfig {
-                base_fee: base_fee.to_base_fee_config(),
+            Ok(PoolFeesConfig {
+                base_fee: base_fee.to_base_fee_config()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
-                min_sqrt_price_index,
                 ..Default::default()
-            }
+            })
         } else {
-            PoolFeesConfig {
-                base_fee: base_fee.to_base_fee_config(),
+            Ok(PoolFeesConfig {
+                base_fee: base_fee.to_base_fee_config()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
-                min_sqrt_price_index,
                 ..Default::default()
-            }
+            })
         }
     }
-    pub fn to_pool_fees_struct(&self, min_sqrt_price_index: u64) -> PoolFeesStruct {
+    pub fn to_pool_fees_struct(&self, init_sqrt_price: u128) -> Result<PoolFeesStruct> {
         let &PoolFeeParameters {
             base_fee,
-            padding: _,
             dynamic_fee,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
-            PoolFeesStruct {
-                base_fee: base_fee.to_base_fee_struct(),
+            Ok(PoolFeesStruct {
+                base_fee: base_fee.to_base_fee_struct()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
-                min_sqrt_price_index,
+                init_sqrt_price,
                 ..Default::default()
-            }
+            })
         } else {
-            PoolFeesStruct {
-                base_fee: base_fee.to_base_fee_struct(),
+            Ok(PoolFeesStruct {
+                base_fee: base_fee.to_base_fee_struct()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
                 partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
-                min_sqrt_price_index,
+                init_sqrt_price,
                 ..Default::default()
-            }
+            })
         }
     }
 }
@@ -256,10 +225,8 @@ impl PoolFeeParameters {
         &self,
         collect_fee_mode: CollectFeeMode,
         activation_type: ActivationType,
-        min_sqrt_price_index: u64,
     ) -> Result<()> {
-        self.base_fee
-            .validate(collect_fee_mode, activation_type, min_sqrt_price_index)?;
+        self.base_fee.validate(collect_fee_mode, activation_type)?;
         if let Some(dynamic_fee) = self.dynamic_fee {
             dynamic_fee.validate()?;
         }
