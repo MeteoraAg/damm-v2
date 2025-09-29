@@ -1,7 +1,7 @@
 use super::BaseFeeHandler;
 use crate::{
     activation_handler::ActivationType,
-    base_fee::PodAlignedFeeRateLimiter,
+    base_fee::{BaseFeeEnumReader, BorshBaseFeeSerde, PodAlignedBaseFeeSerde},
     constants::{
         fee::{
             get_max_fee_bps, get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR,
@@ -9,9 +9,12 @@ use crate::{
         },
         MAX_RATE_LIMITER_DURATION_IN_SECONDS, MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     },
-    params::{fee_parameters::to_numerator, swap::TradeDirection},
+    params::{
+        fee_parameters::{to_numerator, BaseFeeParameters},
+        swap::TradeDirection,
+    },
     safe_math::SafeMath,
-    state::{fee::PoolFeesStruct, CollectFeeMode},
+    state::{fee::PoolFeesStruct, BaseFeeInfo, CollectFeeMode},
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u64, sqrt_u256},
     PoolError,
@@ -31,6 +34,88 @@ use ruint::aliases::U256;
 /// if a >= max_index
 /// if a = max_index + d, input_amount = x0 + max_index * x0 + (d * x0 + b)
 /// then fee = x0 * (c + c*max_index + i*max_index*(max_index+1)/2) + (d * x0 + b) * MAX_FEE
+
+#[derive(
+    Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default, PartialEq, Eq,
+)]
+pub struct BorshFeeRateLimiter {
+    pub cliff_fee_numerator: u64,
+    pub fee_increment_bps: u16,
+    pub max_limiter_duration: u32,
+    pub max_fee_bps: u32,
+    pub reference_amount: u64,
+    pub base_fee_mode: u8,
+    pub padding: [u8; 3],
+}
+static_assertions::const_assert_eq!(
+    BaseFeeParameters::INIT_SPACE,
+    BorshFeeRateLimiter::INIT_SPACE
+);
+
+static_assertions::const_assert_eq!(
+    BaseFeeParameters::BASE_FEE_MODE_OFFSET,
+    std::mem::offset_of!(BorshFeeRateLimiter, base_fee_mode)
+);
+
+impl BorshBaseFeeSerde for BorshFeeRateLimiter {
+    fn to_pod_aligned_bytes(&self) -> Result<[u8; BaseFeeInfo::INIT_SPACE]> {
+        let pod_aligned_struct = PodAlignedFeeRateLimiter {
+            cliff_fee_numerator: self.cliff_fee_numerator,
+            base_fee_mode: self.base_fee_mode,
+            fee_increment_bps: self.fee_increment_bps,
+            max_limiter_duration: self.max_limiter_duration,
+            max_fee_bps: self.max_fee_bps,
+            reference_amount: self.reference_amount,
+            ..Default::default()
+        };
+        let aligned_bytes = bytemuck::bytes_of(&pod_aligned_struct);
+        // Shall not happen
+        Ok(aligned_bytes
+            .try_into()
+            .map_err(|_| PoolError::UndeterminedError)?)
+    }
+}
+
+#[account(zero_copy)]
+#[derive(Default, Debug, InitSpace)]
+pub struct PodAlignedFeeRateLimiter {
+    pub cliff_fee_numerator: u64,
+    pub base_fee_mode: u8,
+    pub padding: [u8; 5],
+    pub fee_increment_bps: u16,
+    pub max_limiter_duration: u32,
+    pub max_fee_bps: u32,
+    pub reference_amount: u64,
+}
+
+static_assertions::const_assert_eq!(
+    BaseFeeInfo::INIT_SPACE,
+    PodAlignedFeeRateLimiter::INIT_SPACE
+);
+
+static_assertions::const_assert_eq!(
+    BaseFeeInfo::BASE_FEE_MODE_OFFSET,
+    std::mem::offset_of!(PodAlignedFeeRateLimiter, base_fee_mode)
+);
+
+impl PodAlignedBaseFeeSerde for PodAlignedFeeRateLimiter {
+    fn to_borsh_bytes(&self) -> Result<[u8; BaseFeeParameters::INIT_SPACE]> {
+        let borsh_struct = BorshFeeRateLimiter {
+            cliff_fee_numerator: self.cliff_fee_numerator,
+            fee_increment_bps: self.fee_increment_bps,
+            max_limiter_duration: self.max_limiter_duration,
+            max_fee_bps: self.max_fee_bps,
+            reference_amount: self.reference_amount,
+            base_fee_mode: self.base_fee_mode,
+            ..Default::default()
+        };
+        let mut bytes = [0u8; BaseFeeParameters::INIT_SPACE];
+        // Shall not happen
+        borsh::to_writer(&mut bytes[..], &borsh_struct)
+            .map_err(|_| PoolError::UndeterminedError)?;
+        Ok(bytes)
+    }
+}
 
 impl PodAlignedFeeRateLimiter {
     pub fn is_rate_limiter_applied(

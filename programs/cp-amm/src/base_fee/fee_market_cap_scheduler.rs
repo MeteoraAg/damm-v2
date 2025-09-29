@@ -1,18 +1,104 @@
 use crate::{
     activation_handler::ActivationType,
-    base_fee::{BaseFeeHandler, PodAlignedFeeMarketCapScheduler},
+    base_fee::{BaseFeeEnumReader, BaseFeeHandler, BorshBaseFeeSerde, PodAlignedBaseFeeSerde},
     constants::fee::{
         get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR, MAX_BASIS_POINT,
         MIN_FEE_NUMERATOR,
     },
     fee_math::get_fee_in_period,
-    params::{fee_parameters::validate_fee_fraction, swap::TradeDirection},
+    params::{
+        fee_parameters::{validate_fee_fraction, BaseFeeParameters},
+        swap::TradeDirection,
+    },
     safe_math::SafeMath,
-    state::{fee::BaseFeeMode, CollectFeeMode},
+    state::{fee::BaseFeeMode, BaseFeeInfo, CollectFeeMode},
     PoolError,
 };
 use anchor_lang::prelude::*;
 use ruint::aliases::U256;
+
+#[derive(
+    Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default, PartialEq, Eq,
+)]
+pub struct BorshFeeMarketCapScheduler {
+    pub cliff_fee_numerator: u64,
+    pub number_of_period: u16,
+    pub price_step_bps: u32, // similar to period_frequency in fee time scheduler
+    pub scheduler_expiration_duration: u32,
+    pub reduction_factor: u64,
+    pub base_fee_mode: u8,
+    pub padding: [u8; 3],
+}
+
+static_assertions::const_assert_eq!(
+    BaseFeeParameters::INIT_SPACE,
+    BorshFeeMarketCapScheduler::INIT_SPACE
+);
+
+static_assertions::const_assert_eq!(
+    BaseFeeParameters::BASE_FEE_MODE_OFFSET,
+    std::mem::offset_of!(BorshFeeMarketCapScheduler, base_fee_mode)
+);
+
+impl BorshBaseFeeSerde for BorshFeeMarketCapScheduler {
+    fn to_pod_aligned_bytes(&self) -> Result<[u8; BaseFeeInfo::INIT_SPACE]> {
+        let pod_aligned_struct = PodAlignedFeeMarketCapScheduler {
+            cliff_fee_numerator: self.cliff_fee_numerator,
+            base_fee_mode: self.base_fee_mode,
+            number_of_period: self.number_of_period,
+            price_step_bps: self.price_step_bps,
+            scheduler_expiration_duration: self.scheduler_expiration_duration,
+            reduction_factor: self.reduction_factor,
+            ..Default::default()
+        };
+        let aligned_bytes = bytemuck::bytes_of(&pod_aligned_struct);
+        // Shall not happen
+        Ok(aligned_bytes
+            .try_into()
+            .map_err(|_| PoolError::UndeterminedError)?)
+    }
+}
+
+#[account(zero_copy)]
+#[derive(Default, Debug, InitSpace)]
+pub struct PodAlignedFeeMarketCapScheduler {
+    pub cliff_fee_numerator: u64,
+    pub base_fee_mode: u8,
+    pub padding: [u8; 5],
+    pub number_of_period: u16,
+    pub price_step_bps: u32,
+    pub scheduler_expiration_duration: u32,
+    pub reduction_factor: u64,
+}
+
+static_assertions::const_assert_eq!(
+    BaseFeeInfo::INIT_SPACE,
+    PodAlignedFeeMarketCapScheduler::INIT_SPACE
+);
+
+static_assertions::const_assert_eq!(
+    BaseFeeInfo::BASE_FEE_MODE_OFFSET,
+    std::mem::offset_of!(PodAlignedFeeMarketCapScheduler, base_fee_mode)
+);
+
+impl PodAlignedBaseFeeSerde for PodAlignedFeeMarketCapScheduler {
+    fn to_borsh_bytes(&self) -> Result<[u8; BaseFeeParameters::INIT_SPACE]> {
+        let borsh_struct = BorshFeeMarketCapScheduler {
+            cliff_fee_numerator: self.cliff_fee_numerator,
+            number_of_period: self.number_of_period,
+            price_step_bps: self.price_step_bps,
+            scheduler_expiration_duration: self.scheduler_expiration_duration,
+            reduction_factor: self.reduction_factor,
+            base_fee_mode: self.base_fee_mode,
+            ..Default::default()
+        };
+        let mut bytes = [0u8; BaseFeeParameters::INIT_SPACE];
+        // Shall not happen
+        borsh::to_writer(&mut bytes[..], &borsh_struct)
+            .map_err(|_| PoolError::UndeterminedError)?;
+        Ok(bytes)
+    }
+}
 
 impl PodAlignedFeeMarketCapScheduler {
     pub fn get_min_base_fee_numerator(&self) -> Result<u64> {

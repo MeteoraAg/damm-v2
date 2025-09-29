@@ -1,6 +1,6 @@
 use crate::{
     activation_handler::ActivationType,
-    base_fee::{BaseFeeHandler, PodAlignedFeeRateLimiter},
+    base_fee::{fee_rate_limiter::PodAlignedFeeRateLimiter, BaseFeeHandler},
     constants::fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR_V1, MIN_FEE_NUMERATOR},
     params::{
         fee_parameters::{to_bps, to_numerator},

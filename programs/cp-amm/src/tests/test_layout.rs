@@ -1,5 +1,5 @@
 use crate::{
-    base_fee::PodAlignedFeeTimeScheduler,
+    base_fee::fee_time_scheduler::PodAlignedFeeTimeScheduler,
     state::{Config, Pool},
 };
 

@@ -1,5 +1,5 @@
-use crate::base_fee::PodAlignedFeeTimeScheduler;
 use crate::{
+    base_fee::fee_time_scheduler::PodAlignedFeeTimeScheduler,
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::swap::TradeDirection,
     state::{

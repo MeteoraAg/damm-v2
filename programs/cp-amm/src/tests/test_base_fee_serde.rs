@@ -1,13 +1,16 @@
+use crate::base_fee::fee_market_cap_scheduler::{
+    BorshFeeMarketCapScheduler, PodAlignedFeeMarketCapScheduler,
+};
+use crate::base_fee::fee_rate_limiter::{BorshFeeRateLimiter, PodAlignedFeeRateLimiter};
+use crate::base_fee::fee_time_scheduler::BorshFeeTimeScheduler;
+use crate::base_fee::fee_time_scheduler::PodAlignedFeeTimeScheduler;
 use crate::base_fee::{
-    self, base_fee_info_struct_to_params, base_fee_params_to_info_struct, BaseFeeEnumReader,
-    BorshFeeMarketCapScheduler, BorshFeeRateLimiter, BorshFeeTimeScheduler,
-    PodAlignedFeeMarketCapScheduler, PodAlignedFeeRateLimiter, PodAlignedFeeTimeScheduler,
+    base_fee_info_struct_to_params, base_fee_params_to_info_struct, BaseFeeEnumReader,
 };
 use crate::params::fee_parameters::BaseFeeParameters;
 use crate::state::fee::BaseFeeMode;
 use anchor_lang::prelude::borsh;
 use anchor_lang::{AnchorDeserialize, AnchorSerialize};
-
 #[test]
 fn test_base_fee_serde_rate_limiter() {
     let fee = BorshFeeRateLimiter {
@@ -42,18 +45,14 @@ fn test_base_fee_serde_rate_limiter() {
         base_fee_info_struct.data.as_slice()
     )
     .is_ok());
-    assert!(
-        bytemuck::try_from_bytes::<base_fee::PodAlignedFeeMarketCapScheduler>(
-            base_fee_info_struct.data.as_slice()
-        )
-        .is_ok()
-    );
-    assert!(
-        bytemuck::try_from_bytes::<base_fee::PodAlignedFeeTimeScheduler>(
-            base_fee_info_struct.data.as_slice()
-        )
-        .is_ok()
-    );
+    assert!(bytemuck::try_from_bytes::<PodAlignedFeeMarketCapScheduler>(
+        base_fee_info_struct.data.as_slice()
+    )
+    .is_ok());
+    assert!(bytemuck::try_from_bytes::<PodAlignedFeeTimeScheduler>(
+        base_fee_info_struct.data.as_slice()
+    )
+    .is_ok());
 
     let deserialized =
         *bytemuck::from_bytes::<PodAlignedFeeRateLimiter>(base_fee_info_struct.data.as_slice());
@@ -105,18 +104,14 @@ fn test_base_fee_serde_time_scheduler() {
         base_fee_info_struct.data.as_slice()
     )
     .is_ok());
-    assert!(
-        bytemuck::try_from_bytes::<base_fee::PodAlignedFeeMarketCapScheduler>(
-            base_fee_info_struct.data.as_slice()
-        )
-        .is_ok()
-    );
-    assert!(
-        bytemuck::try_from_bytes::<base_fee::PodAlignedFeeTimeScheduler>(
-            base_fee_info_struct.data.as_slice()
-        )
-        .is_ok()
-    );
+    assert!(bytemuck::try_from_bytes::<PodAlignedFeeMarketCapScheduler>(
+        base_fee_info_struct.data.as_slice()
+    )
+    .is_ok());
+    assert!(bytemuck::try_from_bytes::<PodAlignedFeeTimeScheduler>(
+        base_fee_info_struct.data.as_slice()
+    )
+    .is_ok());
 
     let deserialized =
         *bytemuck::from_bytes::<PodAlignedFeeTimeScheduler>(base_fee_info_struct.data.as_slice());
@@ -168,18 +163,14 @@ fn test_base_fee_serde_market_cap_scheduler() {
         base_fee_info_struct.data.as_slice()
     )
     .is_ok());
-    assert!(
-        bytemuck::try_from_bytes::<base_fee::PodAlignedFeeMarketCapScheduler>(
-            base_fee_info_struct.data.as_slice()
-        )
-        .is_ok()
-    );
-    assert!(
-        bytemuck::try_from_bytes::<base_fee::PodAlignedFeeTimeScheduler>(
-            base_fee_info_struct.data.as_slice()
-        )
-        .is_ok()
-    );
+    assert!(bytemuck::try_from_bytes::<PodAlignedFeeMarketCapScheduler>(
+        base_fee_info_struct.data.as_slice()
+    )
+    .is_ok());
+    assert!(bytemuck::try_from_bytes::<PodAlignedFeeTimeScheduler>(
+        base_fee_info_struct.data.as_slice()
+    )
+    .is_ok());
 
     let deserialized = *bytemuck::from_bytes::<PodAlignedFeeMarketCapScheduler>(
         base_fee_info_struct.data.as_slice(),

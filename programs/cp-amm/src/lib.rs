@@ -33,18 +33,21 @@ declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
 #[cfg(feature = "idl-build")]
 #[derive(Accounts)]
 pub struct ForIdlTypeGenerationDoNotCallThis<'info> {
-    pod_aligned_fee_time_scheduler: AccountLoader<'info, base_fee::PodAlignedFeeTimeScheduler>,
+    pod_aligned_fee_time_scheduler:
+        AccountLoader<'info, base_fee::fee_time_scheduler::PodAlignedFeeTimeScheduler>,
+    pod_aligned_fee_rate_limiter:
+        AccountLoader<'info, base_fee::fee_rate_limiter::PodAlignedFeeRateLimiter>,
     pod_aligned_fee_market_cap_scheduler:
-        AccountLoader<'info, base_fee::PodAlignedFeeMarketCapScheduler>,
-    pod_aligned_fee_rate_limiter: AccountLoader<'info, base_fee::PodAlignedFeeRateLimiter>,
+        AccountLoader<'info, base_fee::fee_market_cap_scheduler::PodAlignedFeeMarketCapScheduler>,
 }
 
 #[cfg(feature = "idl-build")]
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct DummyParams {
-    borsh_fee_time_scheduler_params: base_fee::BorshFeeTimeScheduler,
-    borsh_fee_market_cap_scheduler_params: base_fee::BorshFeeMarketCapScheduler,
-    borsh_fee_rate_limiter_params: base_fee::BorshFeeRateLimiter,
+    borsh_fee_time_scheduler_params: base_fee::fee_time_scheduler::BorshFeeTimeScheduler,
+    borsh_fee_rate_limiter_params: base_fee::fee_rate_limiter::BorshFeeRateLimiter,
+    borsh_fee_market_cap_scheduler_params:
+        base_fee::fee_market_cap_scheduler::BorshFeeMarketCapScheduler,
 }
 
 #[program]

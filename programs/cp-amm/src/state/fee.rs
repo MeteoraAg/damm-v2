@@ -3,7 +3,9 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::{BaseFeeEnumReader, BaseFeeHandlerBuilder, PodAlignedFeeRateLimiter},
+    base_fee::{
+        fee_rate_limiter::PodAlignedFeeRateLimiter, BaseFeeEnumReader, BaseFeeHandlerBuilder,
+    },
     constants::{fee::FEE_DENOMINATOR, BASIS_POINT_MAX, ONE_Q64},
     params::swap::TradeDirection,
     safe_math::SafeMath,
@@ -98,7 +100,7 @@ static_assertions::assert_eq_align!(BaseFeeStruct, u64);
 
 impl BaseFeeStruct {
     pub fn to_fee_rate_limiter(&self) -> Result<PodAlignedFeeRateLimiter> {
-        let base_fee_mode = self.get_base_fee_mode()?;
+        let base_fee_mode = self.base_fee_info.get_base_fee_mode()?;
         require!(
             base_fee_mode == BaseFeeMode::RateLimiter,
             PoolError::InvalidBaseFeeMode
@@ -143,7 +145,7 @@ impl PoolFeesStruct {
         max_fee_numerator: u64,
         sqrt_price: u128,
     ) -> Result<u64> {
-        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+        let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
 
         let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
             current_point,
@@ -166,7 +168,7 @@ impl PoolFeesStruct {
         max_fee_numerator: u64,
         sqrt_price: u128,
     ) -> Result<u64> {
-        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+        let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
 
         let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
             current_point,
