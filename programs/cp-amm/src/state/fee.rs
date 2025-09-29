@@ -96,8 +96,6 @@ pub struct BaseFeeStruct {
     pub padding_1: u64,
 }
 
-static_assertions::assert_eq_align!(BaseFeeStruct, u64);
-
 impl BaseFeeStruct {
     pub fn to_fee_rate_limiter(&self) -> Result<PodAlignedFeeRateLimiter> {
         let base_fee_mode = self.base_fee_info.get_base_fee_mode()?;

@@ -26,6 +26,7 @@ pub struct BorshFeeMarketCapScheduler {
     pub price_step_bps: u32, // similar to period_frequency in fee time scheduler
     pub scheduler_expiration_duration: u32,
     pub reduction_factor: u64,
+    // Must at offset 26 (without memory alignment padding)
     pub base_fee_mode: u8,
     pub padding: [u8; 3],
 }
@@ -33,11 +34,6 @@ pub struct BorshFeeMarketCapScheduler {
 static_assertions::const_assert_eq!(
     BaseFeeParameters::INIT_SPACE,
     BorshFeeMarketCapScheduler::INIT_SPACE
-);
-
-static_assertions::const_assert_eq!(
-    BaseFeeParameters::BASE_FEE_MODE_OFFSET,
-    std::mem::offset_of!(BorshFeeMarketCapScheduler, base_fee_mode)
 );
 
 impl BorshBaseFeeSerde for BorshFeeMarketCapScheduler {

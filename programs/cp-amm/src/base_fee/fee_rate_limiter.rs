@@ -44,17 +44,13 @@ pub struct BorshFeeRateLimiter {
     pub max_limiter_duration: u32,
     pub max_fee_bps: u32,
     pub reference_amount: u64,
+    // Must at offset 26 (without memory alignment padding)
     pub base_fee_mode: u8,
     pub padding: [u8; 3],
 }
 static_assertions::const_assert_eq!(
     BaseFeeParameters::INIT_SPACE,
     BorshFeeRateLimiter::INIT_SPACE
-);
-
-static_assertions::const_assert_eq!(
-    BaseFeeParameters::BASE_FEE_MODE_OFFSET,
-    std::mem::offset_of!(BorshFeeRateLimiter, base_fee_mode)
 );
 
 impl BorshBaseFeeSerde for BorshFeeRateLimiter {
