@@ -169,4 +169,7 @@ pub enum PoolError {
 
     #[msg("Invalid permission")]
     InvalidPermission,
+
+    #[msg("Invalid fee market cap scheduler")]
+    InvalidFeeMarketCapScheduler,
 }

@@ -35,6 +35,10 @@ import {
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./bankrun-utils/token2022";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Reward by admin", () => {
   // SPL-Token
@@ -61,7 +65,10 @@ describe("Reward by admin", () => {
       funder = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       tokenAMint = await createToken(
         context.banksClient,
@@ -126,15 +133,25 @@ describe("Reward by admin", () => {
         context.payer,
         admin.publicKey
       );
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            zeroFactor: new BN(2_500_000).toArray("le", 8),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -145,16 +162,20 @@ describe("Reward by admin", () => {
         poolCreatorAuthority: PublicKey.default,
         activationType: 0,
         collectFeeMode: 0,
-        minSqrtPriceIndex: new BN(0),
       };
 
-      let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.InitializeReward, OperatorPermission.UpdateRewardDuration, OperatorPermission.UpdateRewardFunder])
+      let permission = encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.InitializeReward,
+        OperatorPermission.UpdateRewardDuration,
+        OperatorPermission.UpdateRewardFunder,
+      ]);
 
       await createOperator(context.banksClient, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
-        permission
-      })
+        permission,
+      });
 
       config = await createConfigIx(
         context.banksClient,
@@ -211,7 +232,7 @@ describe("Reward by admin", () => {
         pool,
         rewardMint,
         funder: admin.publicKey,
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       };
       await initializeReward(context.banksClient, initRewardParams);
 
@@ -221,7 +242,7 @@ describe("Reward by admin", () => {
         signer: whitelistedAccount,
         pool,
         newDuration: new BN(2 * 24 * 60 * 60),
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       });
 
       // update new funder
@@ -230,7 +251,7 @@ describe("Reward by admin", () => {
         signer: whitelistedAccount,
         pool,
         newFunder: funder.publicKey,
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       });
 
       // fund reward
@@ -321,7 +342,7 @@ describe("Reward by admin", () => {
         pool,
         rewardMint,
         funder: admin.publicKey,
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       };
       await initializeReward(context.banksClient, initRewardParams);
 
@@ -331,7 +352,7 @@ describe("Reward by admin", () => {
         signer: whitelistedAccount,
         pool,
         newDuration: new BN(2 * 24 * 60 * 60),
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       });
 
       // update new funder
@@ -340,7 +361,7 @@ describe("Reward by admin", () => {
         signer: whitelistedAccount,
         pool,
         newFunder: funder.publicKey,
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       });
     });
   });
@@ -390,7 +411,10 @@ describe("Reward by admin", () => {
       funder = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       await createToken2022(
         context.banksClient,
@@ -459,15 +483,25 @@ describe("Reward by admin", () => {
         context.payer,
         admin.publicKey
       );
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            zeroFactor: new BN(2_500_000).toArray("le", 8),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -478,16 +512,20 @@ describe("Reward by admin", () => {
         poolCreatorAuthority: PublicKey.default,
         activationType: 0,
         collectFeeMode: 0,
-        minSqrtPriceIndex: new BN(0),
       };
 
-      let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.InitializeReward, OperatorPermission.UpdateRewardDuration, OperatorPermission.UpdateRewardFunder])
+      let permission = encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.InitializeReward,
+        OperatorPermission.UpdateRewardDuration,
+        OperatorPermission.UpdateRewardFunder,
+      ]);
 
       await createOperator(context.banksClient, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
-        permission
-      })
+        permission,
+      });
 
       config = await createConfigIx(
         context.banksClient,
@@ -544,7 +582,7 @@ describe("Reward by admin", () => {
         pool,
         rewardMint,
         funder: admin.publicKey,
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       };
       await initializeReward(context.banksClient, initRewardParams);
 
@@ -554,7 +592,7 @@ describe("Reward by admin", () => {
         signer: whitelistedAccount,
         pool,
         newDuration: new BN(2 * 24 * 60 * 60),
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       });
 
       // update new funder
@@ -563,7 +601,7 @@ describe("Reward by admin", () => {
         signer: whitelistedAccount,
         pool,
         newFunder: funder.publicKey,
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       });
 
       console.log("fund reward");
@@ -666,7 +704,7 @@ describe("Reward by admin", () => {
         pool,
         rewardMint,
         funder: admin.publicKey,
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       };
       await initializeReward(context.banksClient, initRewardParams);
 
@@ -676,7 +714,7 @@ describe("Reward by admin", () => {
         signer: whitelistedAccount,
         pool,
         newDuration: new BN(2 * 24 * 60 * 60),
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       });
 
       // update new funder
@@ -685,7 +723,7 @@ describe("Reward by admin", () => {
         signer: whitelistedAccount,
         pool,
         newFunder: funder.publicKey,
-        operator: deriveOperatorAddress(whitelistedAccount.publicKey)
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       });
     });
   });

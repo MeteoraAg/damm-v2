@@ -1,5 +1,5 @@
-use crate::base_fee::{BaseFeeSerde, FeeTimeScheduler};
 use crate::{
+    base_fee::fee_time_scheduler::PodAlignedFeeTimeScheduler,
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::swap::TradeDirection,
     state::{
@@ -23,16 +23,17 @@ proptest! {
         amount_in_a in 1..=u32::MAX as u64,
         amount_in_b in 1..=u32::MAX as u64,
     ) {
-
-        let fee_scheduler = FeeTimeScheduler{
-            cliff_fee_numerator:  1_000_000,
+        let fee_scheduler = PodAlignedFeeTimeScheduler {
+            cliff_fee_numerator: 1_000_000,
             ..Default::default()
         };
+
+        let mut base_fee = BaseFeeStruct::default();
+        let data = bytemuck::bytes_of(&fee_scheduler);
+        base_fee.base_fee_info.data.copy_from_slice(data);
+
         let pool_fees = PoolFeesStruct {
-            base_fee: BaseFeeStruct{
-                data: fee_scheduler.to_base_fee_struct_data(),
-                ..Default::default()
-            }, //1%
+            base_fee, //1%
             protocol_fee_percent: 20,
             partner_fee_percent: 50,
             referral_fee_percent: 20,
@@ -91,20 +92,23 @@ fn test_reserve_wont_lost_single() {
     let trade_direction = false;
     let amount_in = 1;
 
-    let fee_scheduler = FeeTimeScheduler {
+    let fee_scheduler = PodAlignedFeeTimeScheduler {
         cliff_fee_numerator: 1_000_000,
         ..Default::default()
     };
+
+    let mut base_fee = BaseFeeStruct::default();
+    let data = bytemuck::bytes_of(&fee_scheduler);
+    base_fee.base_fee_info.data.copy_from_slice(data);
+
     let pool_fees = PoolFeesStruct {
-        base_fee: BaseFeeStruct {
-            data: fee_scheduler.to_base_fee_struct_data(),
-            ..Default::default()
-        }, //1%
+        base_fee, //1%
         protocol_fee_percent: 20,
         partner_fee_percent: 50,
         referral_fee_percent: 20,
         ..Default::default()
     };
+
     let mut pool = Pool {
         pool_fees,
         sqrt_price,

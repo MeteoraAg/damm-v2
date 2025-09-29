@@ -245,7 +245,7 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
 
     pool.initialize(
         ctx.accounts.creator.key(),
-        pool_fees.to_pool_fees_struct(sqrt_price),
+        pool_fees.to_pool_fees_struct(sqrt_price)?,
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),

@@ -22,6 +22,10 @@ import {
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./bankrun-utils/token2022";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Initialize customizable pool", () => {
   describe("SPL-Token", () => {
@@ -64,6 +68,19 @@ describe("Initialize customizable pool", () => {
     });
 
     it("Initialize customizable pool with spl token", async () => {
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       const params: InitializeCustomizablePoolParams = {
         payer: creator,
         creator: creator.publicKey,
@@ -77,11 +94,7 @@ describe("Initialize customizable pool", () => {
         activationPoint: null,
         poolFees: {
           baseFee: {
-            zeroFactor: new BN(2_500_000).toArray("le", 8),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -149,6 +162,19 @@ describe("Initialize customizable pool", () => {
     });
 
     it("Initialize customizeable pool with spl token", async () => {
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       const params: InitializeCustomizablePoolParams = {
         payer: creator,
         creator: creator.publicKey,
@@ -162,11 +188,7 @@ describe("Initialize customizable pool", () => {
         activationPoint: null,
         poolFees: {
           baseFee: {
-            zeroFactor: new BN(2_500_000).toArray("le", 8),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,

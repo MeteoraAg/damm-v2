@@ -3,10 +3,13 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::BaseFeeHandlerBuilder,
+    base_fee::{
+        fee_rate_limiter::PodAlignedFeeRateLimiter, BaseFeeEnumReader, BaseFeeHandlerBuilder,
+    },
     constants::{fee::FEE_DENOMINATOR, BASIS_POINT_MAX, ONE_Q64},
     params::swap::TradeDirection,
     safe_math::SafeMath,
+    state::BaseFeeInfo,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u64, safe_shl_div_cast},
     PoolError,
@@ -89,8 +92,26 @@ const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeStruct {
-    pub data: [u8; 32],
+    pub base_fee_info: BaseFeeInfo,
     pub padding_1: u64,
+}
+
+static_assertions::assert_eq_align!(BaseFeeStruct, u64);
+
+impl BaseFeeStruct {
+    pub fn to_fee_rate_limiter(&self) -> Result<PodAlignedFeeRateLimiter> {
+        let base_fee_mode = self.base_fee_info.get_base_fee_mode()?;
+        require!(
+            base_fee_mode == BaseFeeMode::RateLimiter,
+            PoolError::InvalidBaseFeeMode
+        );
+
+        let fee_rate_limiter =
+            *bytemuck::try_from_bytes::<PodAlignedFeeRateLimiter>(&self.base_fee_info.data)
+                .map_err(|_| PoolError::UndeterminedError)?;
+
+        Ok(fee_rate_limiter)
+    }
 }
 
 const_assert_eq!(BaseFeeStruct::INIT_SPACE, 40);
@@ -124,7 +145,7 @@ impl PoolFeesStruct {
         max_fee_numerator: u64,
         sqrt_price: u128,
     ) -> Result<u64> {
-        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+        let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
 
         let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
             current_point,
@@ -147,7 +168,7 @@ impl PoolFeesStruct {
         max_fee_numerator: u64,
         sqrt_price: u128,
     ) -> Result<u64> {
-        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+        let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
 
         let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
             current_point,

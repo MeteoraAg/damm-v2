@@ -1,6 +1,5 @@
 use crate::{
     activation_handler::ActivationHandler,
-    base_fee::BaseFeeSerde,
     const_pda, get_pool_access_validator,
     instruction::{Swap as SwapInstruction, Swap2 as Swap2Instruction},
     params::swap::TradeDirection,
