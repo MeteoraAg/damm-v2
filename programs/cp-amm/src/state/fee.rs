@@ -48,11 +48,11 @@ pub enum BaseFeeMode {
     FeeTimeSchedulerExponential,
     // rate limiter
     RateLimiter,
-    // fee = cliff_fee_numerator - passed_price * reduction_factor
-    // passed_price = changed_price / price_step_bps
-    // passed_price = (current_sqrt_price - init_sqrt_price) * 10_000 * init_sqrt_price / price_step_bps
+    // fee = cliff_fee_numerator - passed_period * reduction_factor
+    // passed_period = changed_price / price_step_bps
+    // passed_period = (current_sqrt_price - init_sqrt_price) * 10_000 * init_sqrt_price / price_step_bps
     FeeMarketCapSchedulerLinear,
-    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_price
+    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
     FeeMarketCapSchedulerExponential,
 }
 

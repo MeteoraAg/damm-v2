@@ -1,7 +1,7 @@
 use crate::{
     activation_handler::ActivationType,
     alpha_vault::alpha_vault,
-    base_fee::base_fee_info_struct_to_params,
+    base_fee::base_fee_info_to_base_fee_parameters,
     constants::activation::*,
     error::PoolError,
     params::fee_parameters::{
@@ -60,7 +60,7 @@ const_assert_eq!(BaseFeeInfo::INIT_SPACE, 32);
 
 impl BaseFeeInfo {
     fn to_base_fee_parameters(&self) -> Result<BaseFeeParameters> {
-        base_fee_info_struct_to_params(self)
+        base_fee_info_to_base_fee_parameters(self)
     }
 
     fn to_base_fee_struct(&self) -> BaseFeeStruct {

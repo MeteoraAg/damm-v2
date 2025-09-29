@@ -5,7 +5,7 @@ use crate::base_fee::fee_rate_limiter::{BorshFeeRateLimiter, PodAlignedFeeRateLi
 use crate::base_fee::fee_time_scheduler::BorshFeeTimeScheduler;
 use crate::base_fee::fee_time_scheduler::PodAlignedFeeTimeScheduler;
 use crate::base_fee::{
-    base_fee_info_struct_to_params, base_fee_params_to_info_struct, BaseFeeEnumReader,
+    base_fee_info_to_base_fee_parameters, base_fee_parameters_to_base_fee_info, BaseFeeEnumReader,
 };
 use crate::params::fee_parameters::BaseFeeParameters;
 use crate::state::fee::BaseFeeMode;
@@ -36,7 +36,7 @@ fn test_base_fee_serde_rate_limiter() {
     assert_eq!(fee, deserialized);
 
     // convert to base fee struct
-    let base_fee_info_struct = base_fee_params_to_info_struct(&base_fee_params);
+    let base_fee_info_struct = base_fee_parameters_to_base_fee_info(&base_fee_params);
     assert!(base_fee_info_struct.is_ok());
 
     let base_fee_info_struct = base_fee_info_struct.unwrap();
@@ -64,7 +64,7 @@ fn test_base_fee_serde_rate_limiter() {
     assert_eq!(fee.reference_amount, deserialized.reference_amount);
 
     // convert back to base fee params
-    let reverse_base_fee_params = base_fee_info_struct_to_params(&base_fee_info_struct);
+    let reverse_base_fee_params = base_fee_info_to_base_fee_parameters(&base_fee_info_struct);
     assert!(reverse_base_fee_params.is_ok());
 
     let reverse_base_fee_params = reverse_base_fee_params.unwrap();
@@ -95,7 +95,7 @@ fn test_base_fee_serde_time_scheduler() {
     assert_eq!(fee, deserialized);
 
     // convert to base fee struct
-    let base_fee_info_struct = base_fee_params_to_info_struct(&base_fee_params);
+    let base_fee_info_struct = base_fee_parameters_to_base_fee_info(&base_fee_params);
     assert!(base_fee_info_struct.is_ok());
 
     let base_fee_info_struct = base_fee_info_struct.unwrap();
@@ -122,7 +122,7 @@ fn test_base_fee_serde_time_scheduler() {
     assert_eq!(fee.reduction_factor, deserialized.reduction_factor);
 
     // convert back to base fee params
-    let reverse_base_fee_params = base_fee_info_struct_to_params(&base_fee_info_struct);
+    let reverse_base_fee_params = base_fee_info_to_base_fee_parameters(&base_fee_info_struct);
     assert!(reverse_base_fee_params.is_ok());
 
     let reverse_base_fee_params = reverse_base_fee_params.unwrap();
@@ -154,7 +154,7 @@ fn test_base_fee_serde_market_cap_scheduler() {
     assert_eq!(fee, deserialized);
 
     // convert to base fee struct
-    let base_fee_info_struct = base_fee_params_to_info_struct(&base_fee_params);
+    let base_fee_info_struct = base_fee_parameters_to_base_fee_info(&base_fee_params);
     assert!(base_fee_info_struct.is_ok());
 
     let base_fee_info_struct = base_fee_info_struct.unwrap();
@@ -182,7 +182,7 @@ fn test_base_fee_serde_market_cap_scheduler() {
     assert_eq!(fee.price_step_bps, deserialized.price_step_bps);
 
     // convert back to base fee params
-    let reverse_base_fee_params = base_fee_info_struct_to_params(&base_fee_info_struct);
+    let reverse_base_fee_params = base_fee_info_to_base_fee_parameters(&base_fee_info_struct);
     assert!(reverse_base_fee_params.is_ok());
 
     let reverse_base_fee_params = reverse_base_fee_params.unwrap();

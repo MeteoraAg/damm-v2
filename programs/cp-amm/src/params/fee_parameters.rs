@@ -1,6 +1,6 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
-use crate::base_fee::{base_fee_params_to_info_struct, BaseFeeHandlerBuilder};
+use crate::base_fee::{base_fee_parameters_to_base_fee_info, BaseFeeHandlerBuilder};
 use crate::constants::fee::{
     HOST_FEE_PERCENT, MAX_BASIS_POINT, PARTNER_FEE_PERCENT, PROTOCOL_FEE_PERCENT,
 };
@@ -44,7 +44,7 @@ impl BaseFeeParameters {
     }
 
     pub fn to_base_fee_config(&self) -> Result<BaseFeeInfo> {
-        base_fee_params_to_info_struct(self)
+        base_fee_parameters_to_base_fee_info(self)
     }
 }
 

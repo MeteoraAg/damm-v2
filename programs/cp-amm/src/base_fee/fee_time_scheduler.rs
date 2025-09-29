@@ -73,6 +73,11 @@ static_assertions::const_assert_eq!(
     PodAlignedFeeTimeScheduler::INIT_SPACE
 );
 
+static_assertions::const_assert_eq!(
+    BaseFeeInfo::BASE_FEE_MODE_OFFSET,
+    std::mem::offset_of!(PodAlignedFeeTimeScheduler, base_fee_mode)
+);
+
 impl PodAlignedBaseFeeSerde for PodAlignedFeeTimeScheduler {
     fn to_borsh_bytes(&self) -> Result<[u8; BaseFeeParameters::INIT_SPACE]> {
         let borsh_struct = BorshFeeTimeScheduler {

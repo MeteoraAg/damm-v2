@@ -1,4 +1,6 @@
-use crate::base_fee::fee_market_cap_scheduler::PodAlignedFeeMarketCapScheduler;
+use crate::base_fee::fee_market_cap_scheduler::{
+    BorshFeeMarketCapScheduler, PodAlignedFeeMarketCapScheduler,
+};
 use crate::base_fee::fee_rate_limiter::{BorshFeeRateLimiter, PodAlignedFeeRateLimiter};
 use crate::base_fee::fee_time_scheduler::{BorshFeeTimeScheduler, PodAlignedFeeTimeScheduler};
 use crate::base_fee::BaseFeeHandler;
@@ -48,7 +50,7 @@ pub trait BaseFeeHandlerBuilder {
 
 impl BaseFeeHandlerBuilder for BaseFeeParameters {
     fn get_base_fee_handler(&self) -> Result<Box<dyn BaseFeeHandler>> {
-        let base_fee_info = base_fee_params_to_info_struct(self)?;
+        let base_fee_info = base_fee_parameters_to_base_fee_info(self)?;
         base_fee_info.get_base_fee_handler()
     }
 }
@@ -80,7 +82,7 @@ impl BaseFeeHandlerBuilder for BaseFeeInfo {
     }
 }
 
-pub fn base_fee_params_to_info_struct(from: &BaseFeeParameters) -> Result<BaseFeeInfo> {
+pub fn base_fee_parameters_to_base_fee_info(from: &BaseFeeParameters) -> Result<BaseFeeInfo> {
     let base_fee_mode = from.get_base_fee_mode()?;
     let data = match base_fee_mode {
         BaseFeeMode::FeeTimeSchedulerExponential | BaseFeeMode::FeeTimeSchedulerLinear => {
@@ -93,14 +95,15 @@ pub fn base_fee_params_to_info_struct(from: &BaseFeeParameters) -> Result<BaseFe
         }
         BaseFeeMode::FeeMarketCapSchedulerExponential
         | BaseFeeMode::FeeMarketCapSchedulerLinear => {
-            let borsh_serde_struct = BorshFeeTimeScheduler::try_from_slice(from.data.as_slice())?;
+            let borsh_serde_struct =
+                BorshFeeMarketCapScheduler::try_from_slice(from.data.as_slice())?;
             borsh_serde_struct.to_pod_aligned_bytes()?
         }
     };
     Ok(BaseFeeInfo { data })
 }
 
-pub fn base_fee_info_struct_to_params(from: &BaseFeeInfo) -> Result<BaseFeeParameters> {
+pub fn base_fee_info_to_base_fee_parameters(from: &BaseFeeInfo) -> Result<BaseFeeParameters> {
     let base_fee_mode = from.get_base_fee_mode()?;
     let data = match base_fee_mode {
         BaseFeeMode::FeeTimeSchedulerExponential | BaseFeeMode::FeeTimeSchedulerLinear => {

@@ -177,8 +177,19 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
         _collect_fee_mode: CollectFeeMode,
         _activation_type: ActivationType,
     ) -> Result<()> {
+        // doesn't allow zero fee marketcap scheduler
         require!(
             self.reduction_factor > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        require!(
+            self.price_step_bps > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        require!(
+            self.scheduler_expiration_duration > 0,
             PoolError::InvalidFeeMarketCapScheduler
         );
 
@@ -186,11 +197,6 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
         let max_fee_numerator = self.cliff_fee_numerator;
         validate_fee_fraction(min_fee_numerator, FEE_DENOMINATOR)?;
         validate_fee_fraction(max_fee_numerator, FEE_DENOMINATOR)?;
-
-        require!(
-            self.price_step_bps > 0,
-            PoolError::InvalidFeeMarketCapScheduler
-        );
 
         require!(
             min_fee_numerator >= MIN_FEE_NUMERATOR

@@ -178,14 +178,14 @@ pub mod cp_amm {
         ctx: Context<'_, '_, 'c, 'info, InitializePoolWithDynamicConfigCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_pool_with_dynamic_config(ctx, params.into())
+        instructions::handle_initialize_pool_with_dynamic_config(ctx, params)
     }
 
     pub fn initialize_customizable_pool<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, InitializeCustomizablePoolCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_customizable_pool(ctx, params.into())
+        instructions::handle_initialize_customizable_pool(ctx, params)
     }
 
     pub fn create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
