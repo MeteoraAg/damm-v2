@@ -6,8 +6,11 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import { BanksClient, ProgramTestContext, startAnchor } from "solana-bankrun";
-import { CP_AMM_PROGRAM_ID } from "./constants";
+import { ALPHA_VAULT_PROGRAM_ID, CP_AMM_PROGRAM_ID } from "./constants";
 import BN from "bn.js";
+import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
+
+import CpAmmIdl from "../../target/idl/cp_amm.json";
 
 export async function startTest(root: Keypair) {
   // Program name need to match fixtures program name
@@ -17,6 +20,14 @@ export async function startTest(root: Keypair) {
       {
         name: "cp_amm",
         programId: new PublicKey(CP_AMM_PROGRAM_ID),
+      },
+      {
+        name: "transfer_hook_counter",
+        programId: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+      },
+      {
+        name: "alpha_vault",
+        programId: new PublicKey(ALPHA_VAULT_PROGRAM_ID),
       },
     ],
     [
@@ -85,6 +96,22 @@ export async function expectThrowsAsync(
   throw new Error("Expected an error but didn't get one");
 }
 
+export function getCpAmmProgramErrorCodeHexString(errorMessage: String) {
+  const error = CpAmmIdl.errors.find(
+    (e) =>
+      e.name.toLowerCase() === errorMessage.toLowerCase() ||
+      e.msg.toLowerCase() === errorMessage.toLowerCase()
+  );
+
+  if (!error) {
+    throw new Error(
+      `Unknown stake for fee error message / name: ${errorMessage}`
+    );
+  }
+
+  return "0x" + error.code.toString(16);
+}
+
 export async function generateKpAndFund(
   banksClient: BanksClient,
   rootKeypair: Keypair
@@ -94,193 +121,10 @@ export async function generateKpAndFund(
     banksClient,
     rootKeypair,
     kp.publicKey,
-    new BN(LAMPORTS_PER_SOL)
+    new BN(100 * LAMPORTS_PER_SOL)
   );
   return kp;
 }
-
-// async function createAndFundToken2022(
-//   banksClient: BanksClient,
-//   rootKeypair: Keypair,
-//   extensions: ExtensionType[],
-//   accounts: PublicKey[]
-// ) {
-//   const tokenAMintKeypair = Keypair.generate();
-//   const tokenBMintKeypair = Keypair.generate();
-//   const rewardMintKeypair = Keypair.generate();
-//   await createToken2022(
-//     banksClient,
-//     rootKeypair,
-//     tokenAMintKeypair,
-//     extensions
-//   );
-//   await createToken2022(
-//     banksClient,
-//     rootKeypair,
-//     tokenBMintKeypair,
-//     extensions
-//   );
-//   await createToken2022(
-//     banksClient,
-//     rootKeypair,
-//     rewardMintKeypair,
-//     extensions
-//   );
-//   // Mint token A to payer & user
-//   for (const account of accounts) {
-//     await mintToToken2022(
-//       banksClient,
-//       rootKeypair,
-//       rootKeypair,
-//       tokenAMintKeypair.publicKey,
-//       account,
-//       BigInt(rawAmount)
-//     );
-
-//     await mintToToken2022(
-//       banksClient,
-//       rootKeypair,
-//       rootKeypair,
-//       tokenBMintKeypair.publicKey,
-//       account,
-//       BigInt(rawAmount)
-//     );
-
-//     await mintToToken2022(
-//       banksClient,
-//       rootKeypair,
-//       rootKeypair,
-//       rewardMintKeypair.publicKey,
-//       account,
-//       BigInt(rawAmount)
-//     );
-
-//     await mintToToken2022(
-//       banksClient,
-//       rootKeypair,
-//       rootKeypair,
-//       rewardMintKeypair.publicKey,
-//       account,
-//       BigInt(rawAmount)
-//     );
-//   }
-//   return {
-//     tokenAMint: tokenAMintKeypair.publicKey,
-//     tokenBMint: tokenBMintKeypair,
-//     rewardMint: rewardMintKeypair.publicKey,
-//   };
-// }
-
-// async function createAndFundSplToken(
-//   banksClient: BanksClient,
-//   rootKeypair: Keypair,
-//   accounts: PublicKey[]
-// ) {
-//   const tokenAMintKeypair = Keypair.generate();
-//   const tokenBMintKeypair = Keypair.generate();
-//   const rewardMintKeypair = Keypair.generate();
-//   await createToken(
-//     banksClient,
-//     rootKeypair,
-//     tokenAMintKeypair,
-//     rootKeypair.publicKey
-//   );
-//   await createToken(
-//     banksClient,
-//     rootKeypair,
-//     tokenBMintKeypair,
-//     rootKeypair.publicKey
-//   );
-//   await createToken(
-//     banksClient,
-//     rootKeypair,
-//     rewardMintKeypair,
-//     rootKeypair.publicKey
-//   );
-//   // Mint token A to payer & user
-//   for (const account of accounts) {
-//     mintTo(
-//       banksClient,
-//       rootKeypair,
-//       tokenAMintKeypair.publicKey,
-//       rootKeypair,
-//       account,
-//       BigInt(rawAmount)
-//     );
-
-//     mintTo(
-//       banksClient,
-//       rootKeypair,
-//       tokenBMintKeypair.publicKey,
-//       rootKeypair,
-//       account,
-//       BigInt(rawAmount)
-//     );
-
-//     await mintTo(
-//       banksClient,
-//       rootKeypair,
-//       rewardMintKeypair.publicKey,
-//       rootKeypair,
-//       account,
-//       BigInt(rawAmount)
-//     );
-
-//     await mintTo(
-//       banksClient,
-//       rootKeypair,
-//       rewardMintKeypair.publicKey,
-//       rootKeypair,
-//       account,
-//       BigInt(rawAmount)
-//     );
-//   }
-
-//   return {
-//     tokenAMint: tokenAMintKeypair.publicKey,
-//     tokenBMint: tokenBMintKeypair,
-//     rewardMint: rewardMintKeypair.publicKey,
-//   };
-// }
-
-// export async function setupTestContext(
-//   banksClient: BanksClient,
-//   rootKeypair: Keypair,
-//   token2022: boolean,
-//   extensions?: ExtensionType[]
-// ) {
-//   const accounts = await generateKpAndFund(banksClient, rootKeypair, 7);
-//   const accountPubkeys = accounts.map((item) => item.publicKey);
-//   //
-//   let tokens;
-//   if (token2022) {
-//     tokens = await createAndFundToken2022(
-//       banksClient,
-//       rootKeypair,
-//       extensions,
-//       accountPubkeys
-//     );
-//   } else {
-//     tokens = await createAndFundSplToken(
-//       banksClient,
-//       rootKeypair,
-//       accountPubkeys
-//     );
-//   }
-
-//   return {
-//     admin: accounts[0],
-//     payer: accounts[1],
-//     poolCreator: accounts[2],
-//     funder: accounts[3],
-//     user: accounts[4],
-//     operator: accounts[5],
-//     partner: accounts[6],
-//     tokenAMint: tokens.tokenAMint,
-//     tokenBMint: tokens.tokenBMint,
-//     rewardMint: tokens.rewardMint,
-//   };
-// }
 
 export function randomID(min = 0, max = 10000) {
   return Math.floor(Math.random() * (max - min) + min);
@@ -288,5 +132,19 @@ export function randomID(min = 0, max = 10000) {
 
 export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
   const clock = await context.banksClient.getClock();
-   context.warpToSlot(clock.slot + BigInt(slots.toString()));
+  context.warpToSlot(clock.slot + BigInt(slots.toString()));
+}
+
+export function convertToByteArray(value: BN): number[] {
+  return Array.from(value.toArrayLike(Buffer, "le", 8));
+}
+
+export function convertToRateLimiterSecondFactor(
+  maxLimiterDuration: BN,
+  maxFeeBps: BN
+): number[] {
+  const buffer1 = maxLimiterDuration.toArrayLike(Buffer, "le", 4);
+  const buffer2 = maxFeeBps.toArrayLike(Buffer, "le", 4);
+  const buffer = Buffer.concat([buffer1, buffer2]);
+  return Array.from(buffer);
 }

@@ -1,5 +1,5 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { generateKpAndFund, startTest } from "./bankrun-utils/common";
+import { convertToByteArray, generateKpAndFund, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   MIN_LP_AMOUNT,
@@ -11,8 +11,10 @@ import {
   CreateDynamicConfigParams,
   InitializePoolWithCustomizeConfigParams,
   initializePoolWithCustomizeConfig,
+  getPool,
 } from "./bankrun-utils";
 import BN from "bn.js";
+import { expect } from "chai";
 
 describe("Dynamic config test", () => {
   let context: ProgramTestContext;
@@ -87,10 +89,10 @@ describe("Dynamic config test", () => {
       poolFees: {
         baseFee: {
           cliffFeeNumerator: new BN(2_500_000),
-          numberOfPeriod: 0,
-          reductionFactor: new BN(0),
-          periodFrequency: new BN(0),
-          feeSchedulerMode: 0,
+          firstFactor: 0,
+          secondFactor: convertToByteArray(new BN(0)),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
         padding: [],
         dynamicFee: null,
@@ -99,6 +101,8 @@ describe("Dynamic config test", () => {
       collectFeeMode: 0,
     };
 
-    await initializePoolWithCustomizeConfig(context.banksClient, params);
+    const { pool } = await initializePoolWithCustomizeConfig(context.banksClient, params);
+    const poolState = await getPool(context.banksClient, pool);
+    expect(poolState.version).eq(0);
   });
 });

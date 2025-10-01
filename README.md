@@ -76,12 +76,6 @@ Program
 anchor build
 ```
 
-CLI
-
-```
-cargo build -p cli
-```
-
 ### Test
 
 ```

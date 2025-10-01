@@ -7,6 +7,10 @@ import {
   createInitializeMetadataPointerInstruction,
   createMintToInstruction,
   createInitializePermanentDelegateInstruction,
+  createInitializeTransferHookInstruction,
+  createUpdateTransferHookInstruction,
+  createSetAuthorityInstruction,
+  AuthorityType,
 } from "@solana/spl-token";
 import {
   Keypair,
@@ -18,7 +22,9 @@ import {
 import { BanksClient } from "solana-bankrun";
 import { DECIMALS } from "./constants";
 import { getOrCreateAssociatedTokenAccount } from "./token";
-const rawAmount = 1_000_000 * 10 ** DECIMALS; // 1 millions
+import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
+import { processTransactionMaybeThrow } from "./common";
+const rawAmount = 1_000_000_000 * 10 ** DECIMALS; // 1 millions
 
 interface ExtensionWithInstruction {
   extension: ExtensionType;
@@ -58,6 +64,21 @@ export function createTransferFeeExtensionWithInstruction(
       withdrawWithheldAuthority.publicKey,
       feeBasisPoint,
       maxFee,
+      TOKEN_2022_PROGRAM_ID
+    ),
+  };
+}
+
+export function createTransferHookExtensionWithInstruction(
+  mint: PublicKey,
+  authority: PublicKey
+): ExtensionWithInstruction {
+  return {
+    extension: ExtensionType.TransferHook,
+    instruction: createInitializeTransferHookInstruction(
+      mint,
+      authority,
+      TRANSFER_HOOK_COUNTER_PROGRAM_ID,
       TOKEN_2022_PROGRAM_ID
     ),
   };
@@ -130,4 +151,33 @@ export async function mintToToken2022(
   transaction.sign(payer, mintAuthority);
 
   await banksClient.processTransaction(transaction);
+}
+
+export async function revokeAuthorityAndProgramIdTransferHook(
+  bankClient: BanksClient,
+  authority: Keypair,
+  mint: PublicKey
+) {
+  const transaction = new Transaction().add(
+    createUpdateTransferHookInstruction(
+      mint,
+      authority.publicKey,
+      PublicKey.default,
+      [],
+      TOKEN_2022_PROGRAM_ID
+    ),
+    createSetAuthorityInstruction(
+      mint,
+      authority.publicKey,
+      AuthorityType.TransferHookProgramId,
+      null,
+      [],
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+
+  transaction.recentBlockhash = (await bankClient.getLatestBlockhash())[0];
+  transaction.sign(authority);
+
+  await processTransactionMaybeThrow(bankClient, transaction);
 }

@@ -1,5 +1,9 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { generateKpAndFund, startTest } from "./bankrun-utils/common";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  startTest,
+} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -13,7 +17,7 @@ import {
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
-  swap,
+  swapExactIn,
   SwapParams,
   createToken,
   mintSplTokenTo,
@@ -88,10 +92,10 @@ describe("Claim position fee", () => {
       poolFees: {
         baseFee: {
           cliffFeeNumerator: new BN(2_500_000),
-          numberOfPeriod: 0,
-          reductionFactor: new BN(0),
-          periodFrequency: new BN(0),
-          feeSchedulerMode: 0,
+          firstFactor: 0,
+          secondFactor: convertToByteArray(new BN(0)),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
         padding: [],
         dynamicFee: null,
@@ -153,7 +157,7 @@ describe("Claim position fee", () => {
       referralTokenAccount: null,
     };
 
-    await swap(context.banksClient, swapParams);
+    await swapExactIn(context.banksClient, swapParams);
 
     // claim position fee
     const claimParams = {

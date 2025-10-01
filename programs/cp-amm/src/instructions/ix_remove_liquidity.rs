@@ -8,10 +8,10 @@ use crate::{
     state::{ModifyLiquidityResult, Pool, Position},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
-    EvtRemoveLiquidity, PoolError,
+    EvtLiquidityChange, EvtRemoveLiquidity, PoolError,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize)]
+#[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone)]
 pub struct RemoveLiquidityParameters {
     /// delta liquidity
     pub liquidity_delta: u128,
@@ -160,6 +160,24 @@ pub fn handle_remove_liquidity(
         },
         token_a_amount,
         token_b_amount,
+    });
+
+    let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
+
+    emit_cpi!(EvtLiquidityChange {
+        pool: ctx.accounts.pool.key(),
+        position: ctx.accounts.position.key(),
+        owner: ctx.accounts.owner.key(),
+        liquidity_delta,
+        token_a_amount_threshold,
+        token_b_amount_threshold,
+        token_a_amount: transfer_fee_excluded_amount_a,
+        token_b_amount: transfer_fee_excluded_amount_b,
+        transfer_fee_included_token_a_amount: token_a_amount,
+        transfer_fee_included_token_b_amount: token_b_amount,
+        reserve_b_amount,
+        reserve_a_amount,
+        change_type: 1
     });
 
     Ok(())

@@ -230,12 +230,29 @@ pub fn is_supported_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> 
     let mint_data = mint_info.try_borrow_data()?;
     let mint = StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&mint_data)?;
     let extensions = mint.get_extension_types()?;
+
     for e in extensions {
-        if e != ExtensionType::TransferFeeConfig
-            && e != ExtensionType::MetadataPointer
-            && e != ExtensionType::TokenMetadata
-        {
-            return Ok(false);
+        match e {
+            ExtensionType::TransferFeeConfig
+            | ExtensionType::MetadataPointer
+            | ExtensionType::TokenMetadata => {
+                // permissionless supported
+            }
+            ExtensionType::TransferHook => {
+                if let Ok(transfer_hook) =
+                    mint.get_extension::<extension::transfer_hook::TransferHook>()
+                {
+                    let transfer_hook_program_id = Option::<Pubkey>::from(transfer_hook.program_id);
+                    let transfer_hook_authority = Option::<Pubkey>::from(transfer_hook.authority);
+                    if transfer_hook_program_id.is_some() || transfer_hook_authority.is_some() {
+                        return Ok(false);
+                    }
+                } else {
+                    return Ok(false);
+                }
+            }
+
+            _ => return Ok(false),
         }
     }
     Ok(true)

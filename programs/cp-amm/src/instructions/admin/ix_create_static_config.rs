@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    activation_handler::ActivationHandler,
+    activation_handler::{ActivationHandler, ActivationType},
     assert_eq_admin,
     constants::{seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     event,
@@ -65,15 +65,6 @@ pub fn handle_create_static_config(
         PoolError::InvalidPriceRange
     );
 
-    // validate collect fee mode
-    require!(
-        CollectFeeMode::try_from(collect_fee_mode).is_ok(),
-        PoolError::InvalidCollectFeeMode
-    );
-
-    // validate fee
-    pool_fees.validate()?;
-
     let has_alpha_vault = vault_config_key.ne(&Pubkey::default());
 
     let activation_point = Some(ActivationHandler::get_max_activation_point(
@@ -87,6 +78,13 @@ pub fn handle_create_static_config(
     };
     activation_params.validate()?;
 
+    let pool_activation_type =
+        ActivationType::try_from(activation_type).map_err(|_| PoolError::InvalidActivationType)?;
+
+    let pool_collect_fee_mode =
+        CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::InvalidCollectFeeMode)?;
+    pool_fees.validate(pool_collect_fee_mode, pool_activation_type)?;
+
     let mut config = ctx.accounts.config.load_init()?;
     config.init_static_config(
         index,
@@ -96,7 +94,7 @@ pub fn handle_create_static_config(
         activation_type,
         sqrt_min_price,
         sqrt_max_price,
-        collect_fee_mode.into(),
+        collect_fee_mode,
     );
 
     emit_cpi!(event::EvtCreateConfig {
