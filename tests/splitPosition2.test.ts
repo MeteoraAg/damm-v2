@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
 import {
+  convertToByteArray,
   expectThrowsAsync,
   generateKpAndFund,
   startTest,
@@ -25,8 +26,8 @@ import {
   permanentLockPosition,
   U64_MAX,
   addLiquidity,
-  swap,
   SPLIT_POSITION_DENOMINATOR,
+  swapExactIn,
 } from "./bankrun-utils";
 import BN from "bn.js";
 
@@ -98,10 +99,10 @@ describe("Split position 2", () => {
       poolFees: {
         baseFee: {
           cliffFeeNumerator: new BN(2_500_000),
-          numberOfPeriod: 0,
-          reductionFactor: new BN(0),
-          periodFrequency: new BN(0),
-          feeSchedulerMode: 0,
+          firstFactor: 0,
+          secondFactor: convertToByteArray(new BN(0)),
+          thirdFactor: new BN(0),
+          baseFeeMode: 0,
         },
         padding: [],
         dynamicFee: null,
@@ -205,7 +206,7 @@ describe("Split position 2", () => {
 
   it("Split position into two position", async () => {
     // swap
-    await swap(context.banksClient, {
+    await swapExactIn(context.banksClient, {
       payer: user,
       pool,
       inputTokenMint: tokenAMint,
@@ -215,7 +216,7 @@ describe("Split position 2", () => {
       referralTokenAccount: null,
     });
 
-    await swap(context.banksClient, {
+    await swapExactIn(context.banksClient, {
       payer: user,
       pool,
       inputTokenMint: tokenBMint,

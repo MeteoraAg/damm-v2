@@ -21,6 +21,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+
+## cp_amm [0.1.5] [PR #122](https://github.com/MeteoraAg/damm-v2/pull/122)
+### Added
+- Allow partner to config another mode for base fee, called rate limiter. With the mode is enable, fee slope will increase if user buy with higher amount. The rate limiter mode is only available if collect fee mode is in token b token only, and when user buy token (not sell). Rate limiter doesn't allow user to send multiple swap instructions (or CPI) to the same pool in 1 transaction
+- Add new endpoint `swap2`, that includes 3 `swap_mode`: 0 (ExactIn), 1 (PartialFill) and 2 (ExactOut)
+- Emit new event in 2 swap endpoints `EvtSwap2`, that includes more information about `reserve_a_amount`, `reserve_b_amount`
+- Emit new event `EvtLiquidityChange` when user add or remove liquidity
+
+### Changed
+- Support permissionless for token2022 with transfer hook extension if both transfer hook program and transfer hook authority have been revoked
+
+### Deprecated
+- Event `EvtSwap`, `EvtRemoveLiquidity` and `EvtAddLiquidity` are deprecated 
+
+### Fixed
+- Using `saturating_sub` instead of `safe_sub` for `elapsed` calculation
+
+### Breaking Changes
+- In swap instruction, if rate limiter is enable, user need to submit `instruction_sysvar_account` in remaining account, otherwise transaction will be failed
+- Quote function can be changed by rate limiter
+
 ## cp_amm [0.1.4] 
 ### Added
 - Add new endpoint `split_position2` that allows position's owner to split position with better resolution
