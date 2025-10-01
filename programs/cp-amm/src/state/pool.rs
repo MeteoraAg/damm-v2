@@ -431,13 +431,14 @@ impl Pool {
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
         let mut actual_partner_fee = 0;
+        let mut trade_fee_numerator = 0;
 
         let max_fee_numerator = get_max_fee_numerator(self.version)?;
 
         let included_fee_amount_out = if fee_mode.fees_on_input {
             amount_out
         } else {
-            let trade_fee_numerator = self
+            trade_fee_numerator = self
                 .pool_fees
                 .get_total_trading_fee_from_excluded_fee_amount(
                     current_point,
@@ -476,7 +477,7 @@ impl Pool {
         }?;
 
         let included_fee_input_amount = if fee_mode.fees_on_input {
-            let trade_fee_numerator = self
+            trade_fee_numerator = self
                 .pool_fees
                 .get_total_trading_fee_from_excluded_fee_amount(
                     current_point,
@@ -518,6 +519,7 @@ impl Pool {
             protocol_fee: actual_protocol_fee,
             partner_fee: actual_partner_fee,
             referral_fee: actual_referral_fee,
+            trade_fee_numerator,
         })
     }
 
@@ -653,6 +655,7 @@ impl Pool {
             protocol_fee: actual_protocol_fee,
             partner_fee: actual_partner_fee,
             referral_fee: actual_referral_fee,
+            trade_fee_numerator,
         })
     }
 
@@ -751,6 +754,7 @@ impl Pool {
             protocol_fee: actual_protocol_fee,
             partner_fee: actual_partner_fee,
             referral_fee: actual_referral_fee,
+            trade_fee_numerator,
         })
     }
 
@@ -1314,6 +1318,7 @@ pub struct SwapResult2 {
     pub protocol_fee: u64,
     pub partner_fee: u64,
     pub referral_fee: u64,
+    pub trade_fee_numerator: u64,
 }
 
 pub struct SwapAmountFromInput {

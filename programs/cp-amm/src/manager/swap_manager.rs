@@ -1,11 +1,11 @@
 use crate::{
     activation_handler::ActivationHandler,
-    constants::fee::{FEE_DENOMINATOR, MAX_BASIS_POINT, MAX_FEE_NUMERATOR},
+    constants::fee::{FEE_DENOMINATOR, MAX_BASIS_POINT},
     get_pool_access_validator_without_clock,
     params::swap::TradeDirection,
     safe_math::SafeMath,
-    state::{fee::FeeMode, Pool, SwapResult},
-    PoolError,
+    state::{fee::FeeMode, Pool, SwapResult2},
+    PoolError, SwapMode,
 };
 use anchor_lang::prelude::*;
 
@@ -55,12 +55,26 @@ fn handle_normal_swap(
 
     let fee_mode = FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, false)?;
 
-    let SwapResult {
-        lp_fee,
-        protocol_fee,
+    // TODO: PR support for exact out on JUP in the future
+    let swap_mode = SwapMode::ExactIn;
+
+    let SwapResult2 {
         output_amount,
+        trading_fee: lp_fee,
+        protocol_fee,
+        trade_fee_numerator,
         ..
-    } = pool.get_swap_result(amount_in, &fee_mode, trade_direction, current_point)?;
+    } = match swap_mode {
+        SwapMode::ExactIn => pool.get_swap_result_from_exact_input(
+            amount_in,
+            &fee_mode,
+            trade_direction,
+            current_point,
+        )?,
+        _ => {
+            unreachable!("Unsupported swap mode")
+        }
+    };
 
     let fee_mint = if fee_mode.fees_on_token_a {
         pool.token_a_mint
@@ -70,12 +84,7 @@ fn handle_normal_swap(
 
     let fee_amount = lp_fee.safe_add(protocol_fee)?;
 
-    let trade_fee_numerator = pool
-        .pool_fees
-        .get_total_trading_fee(current_point, pool.activation_point)?
-        .min(MAX_FEE_NUMERATOR.into());
-
-    let fee_bps = trade_fee_numerator
+    let fee_bps = u128::from(trade_fee_numerator)
         .safe_mul(MAX_BASIS_POINT.into())?
         .safe_div(FEE_DENOMINATOR.into())?;
 

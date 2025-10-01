@@ -32,13 +32,13 @@ pub enum SwapMode {
     ExactOut,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug)]
 pub struct SwapParameters {
     pub amount_in: u64,
     pub minimum_amount_out: u64,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
 pub struct SwapParameters2 {
     /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
     pub amount_0: u64,
