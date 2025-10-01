@@ -52,6 +52,7 @@ import {
   deriveRewardVaultAddress,
   deriveTokenBadgeAddress,
   deriveTokenVaultAddress,
+  deriveWhitelistProtocolFeeReceiver,
 } from "./accounts";
 import { processTransactionMaybeThrow } from "./common";
 import { CP_AMM_PROGRAM_ID } from "./constants";
@@ -451,6 +452,8 @@ export async function claimProtocolFee(
       operator: operator.publicKey,
       tokenAProgram,
       tokenBProgram,
+      whitelistProtocolFeeReceiverA: null,
+      whitelistProtocolFeeReceiverB: null
     })
     .transaction();
 
@@ -1938,7 +1941,6 @@ export async function splitPosition(
     reward1Percentage,
   } = params;
   const program = createCpAmmProgram();
-  const poolAuthority = derivePoolAuthority();
   const transaction = await program.methods
     .splitPosition({
       permanentLockedLiquidityPercentage,
@@ -1963,6 +1965,53 @@ export async function splitPosition(
   transaction.sign(firstPositionOwner, secondPositionOwner);
 
   await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+export type CreateWhitelistProtocolFeeReceiverParams = {
+  admin: Keypair;
+  protocolFeeReceiver: PublicKey
+}
+export async function createWhitelistProtocolFeeReceiver(banksClient: BanksClient, params: CreateWhitelistProtocolFeeReceiverParams): Promise<void>{
+  const {admin, protocolFeeReceiver} = params;
+  
+  const program = createCpAmmProgram();
+
+  const transaction = await program.methods.createWhitelistProtocolFeeReceiver().accountsPartial({
+      whitelistProtocolFeeReceiver: deriveWhitelistProtocolFeeReceiver(protocolFeeReceiver),
+      protocolFeeReceiver,
+      payer: admin.publicKey,
+      admin: admin.publicKey,
+  }).transaction()
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(admin);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+
+  const whitelistedState = await getWhitelistedProtocolFeeReceiver(banksClient, protocolFeeReceiver);
+  console.log(whitelistedState)
+  
+}
+
+export type ApproveWhitelistProtocolFeeReceiverParams = {
+  admin: Keypair;
+  protocolFeeReceiver: PublicKey
+}
+export async function approveWhitelistProtocolFeeReceiver(banksClient: BanksClient, params: ApproveWhitelistProtocolFeeReceiverParams): Promise<void>{
+  const {admin, protocolFeeReceiver} = params;
+  
+  const program = createCpAmmProgram();
+
+  const transaction = await program.methods.approveWhitelistProtocolFeeReceiver().accountsPartial({
+      whitelistProtocolFeeReceiver: deriveWhitelistProtocolFeeReceiver(protocolFeeReceiver),
+      admin: admin.publicKey,
+  }).transaction()
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(admin);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+  
 }
 
 export async function getPool(
@@ -2022,4 +2071,13 @@ export async function getTokenBadge(
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(tokenBadge);
   return program.coder.accounts.decode("tokenBadge", Buffer.from(account.data));
+}
+
+export async function getWhitelistedProtocolFeeReceiver(
+  banksClient: BanksClient,
+  feeReceiver: PublicKey
+): Promise<TokenBadge> {
+  const program = createCpAmmProgram();
+  const account = await banksClient.getAccount(deriveWhitelistProtocolFeeReceiver(feeReceiver));
+  return program.coder.accounts.decode("whitelistedProtocolFeeReceiver", Buffer.from(account.data));
 }

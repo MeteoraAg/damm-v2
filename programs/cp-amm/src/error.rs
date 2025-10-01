@@ -163,4 +163,10 @@ pub enum PoolError {
 
     #[msg("Invalid pool version")]
     InvalidPoolVersion,
+
+    #[msg("Invalid token mint")]
+    InvalidTokenMint,
+
+    #[msg("Invalid fee owner")]
+    InvalidFeeOwner,
 }

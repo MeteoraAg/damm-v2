@@ -134,6 +134,24 @@ pub mod cp_amm {
         Ok(())
     }
 
+    pub fn create_whitelist_protocol_fee_receiver(
+        ctx: Context<CreateWhitelistProtocolFeeReceiver>,
+    ) -> Result<()> {
+        instructions::handle_create_whitelist_protocol_fee_receiver(ctx)
+    }
+
+    pub fn close_whitelist_protocol_fee_receiver(
+        ctx: Context<CloseWhitelistProtocolFeeReceiver>,
+    ) -> Result<()> {
+        instructions::handle_close_whitelist_protocol_fee_receiver(ctx)
+    }
+
+    pub fn approve_whitelist_protocol_fee_receiver(
+        ctx: Context<ApproveWhitelistProtocolFeeReceiver>,
+    ) -> Result<()> {
+        instructions::handle_approve_whitelist_protocol_fee_receiver(ctx)
+    }
+
     /// USER FUNCTIONS ////
 
     pub fn initialize_pool<'c: 'info, 'info>(
