@@ -16,7 +16,6 @@ cpi = ["no-entrypoint"]
 default = []
 local = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
-devnet = []
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["event-cpi"] }
