@@ -2,11 +2,10 @@ use anchor_lang::prelude::*;
 
 use crate::{
     activation_handler::{ActivationHandler, ActivationType},
-    assert_eq_admin,
     constants::{seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     event,
     params::{activation::ActivationParams, fee_parameters::PoolFeeParameters},
-    state::{CollectFeeMode, Config},
+    state::{CollectFeeMode, Config, Operator, OperatorPermission},
     PoolError,
 };
 
@@ -29,13 +28,20 @@ pub struct CreateConfigCtx<'info> {
         init,
         seeds = [CONFIG_PREFIX.as_ref(), index.to_le_bytes().as_ref()],
         bump,
-        payer = admin,
+        payer = payer,
         space = 8 + Config::INIT_SPACE
     )]
     pub config: AccountLoader<'info, Config>,
 
-    #[account(mut, constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin)]
-    pub admin: Signer<'info>,
+    #[account(
+        has_one = whitelisted_address
+    )]
+    pub operator: AccountLoader<'info, Operator>,
+
+    pub whitelisted_address: Signer<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }
@@ -45,6 +51,12 @@ pub fn handle_create_static_config(
     index: u64,
     config_parameters: StaticConfigParameters,
 ) -> Result<()> {
+    let operator = ctx.accounts.operator.load()?;
+    require!(
+        operator.is_permission_allow(OperatorPermission::CreateConfigKey),
+        PoolError::InvalidAuthority
+    );
+
     let StaticConfigParameters {
         pool_fees,
         vault_config_key,
@@ -83,6 +95,7 @@ pub fn handle_create_static_config(
 
     let pool_collect_fee_mode =
         CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
     pool_fees.validate(pool_collect_fee_mode, pool_activation_type)?;
 
     let mut config = ctx.accounts.config.load_init()?;
@@ -95,7 +108,7 @@ pub fn handle_create_static_config(
         sqrt_min_price,
         sqrt_max_price,
         collect_fee_mode,
-    );
+    )?;
 
     emit_cpi!(event::EvtCreateConfig {
         pool_fees,

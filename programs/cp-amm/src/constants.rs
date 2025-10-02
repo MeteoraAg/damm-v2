@@ -1,6 +1,3 @@
-use anchor_lang::prelude::Pubkey;
-use anchor_lang::solana_program::pubkey;
-
 /// refer raydium clmm
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
 /// refer raydium clmm
@@ -41,6 +38,8 @@ pub const SPLIT_POSITION_DENOMINATOR: u32 = 1_000_000_000; // 1b
 
 pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
 pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
+
+pub const MAX_OPERATION: u8 = 10;
 
 static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,
@@ -158,6 +157,7 @@ pub mod seeds {
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
     pub const REWARD_VAULT_PREFIX: &[u8] = b"reward_vault";
     pub const CLAIM_FEE_OPERATOR_PREFIX: &[u8] = b"cf_operator";
+    pub const OPERATOR_PREFIX: &[u8] = b"operator";
 }
 
 pub mod treasury {
@@ -165,8 +165,3 @@ pub mod treasury {
     // https://app.squads.so/squads/4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv/treasury
     pub const ID: Pubkey = pubkey!("4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv");
 }
-
-// Supported quote mints
-const SOL: Pubkey = pubkey!("So11111111111111111111111111111111111111112");
-const USDC: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-pub const DEFAULT_QUOTE_MINTS: [Pubkey; 2] = [SOL, USDC];

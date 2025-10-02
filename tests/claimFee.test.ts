@@ -1,45 +1,52 @@
+import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import { ProgramTestContext } from "solana-bankrun";
+import {
+  addLiquidity,
+  AddLiquidityParams,
+  claimPartnerFee,
+  claimProtocolFee,
+  closeClaimFeeOperator,
+  createClaimFeeOperator,
+  createConfigIx,
+  CreateConfigParams,
+  createOperator,
+  createPosition,
+  createToken,
+  encodePermissions,
+  initializePool,
+  InitializePoolParams,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
+  MIN_SQRT_PRICE,
+  mintSplTokenTo,
+  OperatorPermission,
+  swapExactIn,
+  SwapParams,
+  TREASURY,
+} from "./bankrun-utils";
 import {
   convertToByteArray,
   generateKpAndFund,
   randomID,
   startTest,
 } from "./bankrun-utils/common";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import {
-  addLiquidity,
-  AddLiquidityParams,
-  createConfigIx,
-  CreateConfigParams,
-  createPosition,
-  initializePool,
-  InitializePoolParams,
-  MIN_LP_AMOUNT,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  swapExactIn,
-  SwapParams,
-  createClaimFeeOperator,
-  claimProtocolFee,
-  TREASURY,
-  claimPartnerFee,
-  closeClaimFeeOperator,
-  mintSplTokenTo,
-  createToken,
-} from "./bankrun-utils";
-import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./bankrun-utils/token2022";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Claim fee", () => {
   describe("SPL Token", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
+    let whitelistedAccount: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -47,7 +54,7 @@ describe("Claim fee", () => {
     let position: PublicKey;
     let inputTokenMint: PublicKey;
     let outputTokenMint: PublicKey;
-    let operator: Keypair;
+    let claimFeeOperator: Keypair;
     let partner: Keypair;
 
     beforeEach(async () => {
@@ -57,7 +64,14 @@ describe("Claim fee", () => {
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       partner = await generateKpAndFund(context.banksClient, context.payer);
-      operator = await generateKpAndFund(context.banksClient, context.payer);
+      claimFeeOperator = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       inputTokenMint = await createToken(
         context.banksClient,
@@ -102,15 +116,24 @@ describe("Claim fee", () => {
         partner.publicKey
       );
 
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -123,9 +146,21 @@ describe("Claim fee", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.CreateClaimProtocolFeeOperator,
+        OperatorPermission.CloseClaimProtocolFeeOperator,
+      ]);
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -155,8 +190,8 @@ describe("Claim fee", () => {
 
       // create claim fee protocol operator
       await createClaimFeeOperator(context.banksClient, {
-        admin,
-        operator: operator.publicKey,
+        whitelistedAddress: whitelistedAccount,
+        claimFeeOperatorAddress: claimFeeOperator.publicKey,
       });
     });
 
@@ -185,7 +220,7 @@ describe("Claim fee", () => {
 
       // claim protocol fee
       await claimProtocolFee(context.banksClient, {
-        operator,
+        claimFeeOperator,
         pool,
         treasury: TREASURY,
       });
@@ -202,9 +237,9 @@ describe("Claim fee", () => {
       // close claim fee operator
 
       await closeClaimFeeOperator(context.banksClient, {
-        admin,
-        operator: operator.publicKey,
-        rentReceiver: operator.publicKey,
+        whitelistedAddress: whitelistedAccount,
+        operator: claimFeeOperator.publicKey,
+        rentReceiver: claimFeeOperator.publicKey,
       });
     });
   });
@@ -213,6 +248,7 @@ describe("Claim fee", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let user: Keypair;
+    let whitelistedAccount: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -244,6 +280,10 @@ describe("Claim fee", () => {
       admin = await generateKpAndFund(context.banksClient, context.payer);
       partner = await generateKpAndFund(context.banksClient, context.payer);
       operator = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       await createToken2022(
         context.banksClient,
@@ -290,15 +330,24 @@ describe("Claim fee", () => {
         partner.publicKey
       );
 
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -311,9 +360,21 @@ describe("Claim fee", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.CreateClaimProtocolFeeOperator,
+        OperatorPermission.CloseClaimProtocolFeeOperator,
+      ]);
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -343,8 +404,8 @@ describe("Claim fee", () => {
 
       // create claim fee protocol operator
       await createClaimFeeOperator(context.banksClient, {
-        admin,
-        operator: operator.publicKey,
+        whitelistedAddress: whitelistedAccount,
+        claimFeeOperatorAddress: operator.publicKey,
       });
     });
 
@@ -373,7 +434,7 @@ describe("Claim fee", () => {
 
       // claim protocol fee
       await claimProtocolFee(context.banksClient, {
-        operator,
+        claimFeeOperator: operator,
         pool,
         treasury: TREASURY,
       });
@@ -390,7 +451,7 @@ describe("Claim fee", () => {
       // close claim fee operator
 
       await closeClaimFeeOperator(context.banksClient, {
-        admin,
+        whitelistedAddress: whitelistedAccount,
         operator: operator.publicKey,
         rentReceiver: operator.publicKey,
       });

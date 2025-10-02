@@ -1,10 +1,7 @@
-use anchor_lang::prelude::*;
-use num_enum::{IntoPrimitive, TryFromPrimitive};
-use static_assertions::const_assert_eq;
-
 use crate::{
     activation_handler::ActivationType,
     alpha_vault::alpha_vault,
+    base_fee::base_fee_info_to_base_fee_parameters,
     constants::activation::*,
     error::PoolError,
     params::fee_parameters::{
@@ -13,6 +10,9 @@ use crate::{
     safe_math::SafeMath,
     state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
 };
+use anchor_lang::prelude::*;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+use static_assertions::{assert_eq_align, const_assert_eq};
 
 /// collect fee mode
 #[repr(u8)]
@@ -38,7 +38,7 @@ pub enum ConfigType {
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct PoolFeesConfig {
-    pub base_fee: BaseFeeConfig,
+    pub base_fee: BaseFeeInfo,
     pub dynamic_fee: DynamicFeeConfig,
     pub protocol_fee_percent: u8,
     pub partner_fee_percent: u8,
@@ -48,47 +48,31 @@ pub struct PoolFeesConfig {
 }
 
 const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
+assert_eq_align!(PoolFeesConfig, u128);
 
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
-pub struct BaseFeeConfig {
-    pub cliff_fee_numerator: u64,
-    // In fee scheduler first_factor: number_of_period, second_factor: period_frequency, third_factor: reduction_factor
-    // in rate limiter: first_factor: fee_increment_bps, second_factor: max_limiter_duration, max_fee_bps, third_factor: reference_amount
-    pub base_fee_mode: u8,
-    pub padding: [u8; 5],
-    pub first_factor: u16,
-    pub second_factor: [u8; 8],
-    pub third_factor: u64,
+pub struct BaseFeeInfo {
+    pub data: [u8; 32],
 }
 
-const_assert_eq!(BaseFeeConfig::INIT_SPACE, 32);
+const_assert_eq!(BaseFeeInfo::INIT_SPACE, 32);
 
-impl BaseFeeConfig {
-    fn to_base_fee_parameters(&self) -> BaseFeeParameters {
-        BaseFeeParameters {
-            cliff_fee_numerator: self.cliff_fee_numerator,
-            first_factor: self.first_factor,
-            second_factor: self.second_factor,
-            third_factor: self.third_factor,
-            base_fee_mode: self.base_fee_mode,
-        }
+impl BaseFeeInfo {
+    fn to_base_fee_parameters(&self) -> Result<BaseFeeParameters> {
+        base_fee_info_to_base_fee_parameters(self)
     }
 
     fn to_base_fee_struct(&self) -> BaseFeeStruct {
         BaseFeeStruct {
-            cliff_fee_numerator: self.cliff_fee_numerator,
-            first_factor: self.first_factor,
-            second_factor: self.second_factor,
-            third_factor: self.third_factor,
-            base_fee_mode: self.base_fee_mode,
+            base_fee_info: *self,
             ..Default::default()
         }
     }
 }
 
 impl PoolFeesConfig {
-    pub fn to_pool_fee_parameters(&self) -> PoolFeeParameters {
+    pub fn to_pool_fee_parameters(&self) -> Result<PoolFeeParameters> {
         let &PoolFeesConfig {
             base_fee,
             dynamic_fee:
@@ -106,9 +90,8 @@ impl PoolFeesConfig {
             ..
         } = self;
         if initialized == 1 {
-            PoolFeeParameters {
-                base_fee: base_fee.to_base_fee_parameters(),
-                padding: [0; 3],
+            Ok(PoolFeeParameters {
+                base_fee: base_fee.to_base_fee_parameters()?,
                 dynamic_fee: Some(DynamicFeeParameters {
                     bin_step,
                     bin_step_u128,
@@ -118,17 +101,16 @@ impl PoolFeesConfig {
                     max_volatility_accumulator,
                     variable_fee_control,
                 }),
-            }
+            })
         } else {
-            PoolFeeParameters {
-                base_fee: base_fee.to_base_fee_parameters(),
-                padding: [0; 3],
+            Ok(PoolFeeParameters {
+                base_fee: base_fee.to_base_fee_parameters()?,
                 ..Default::default()
-            }
+            })
         }
     }
 
-    pub fn to_pool_fees_struct(&self) -> PoolFeesStruct {
+    pub fn to_pool_fees_struct(&self, init_sqrt_price: u128) -> PoolFeesStruct {
         let &PoolFeesConfig {
             base_fee,
             protocol_fee_percent,
@@ -144,6 +126,7 @@ impl PoolFeesConfig {
             partner_fee_percent,
             referral_fee_percent,
             dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
+            init_sqrt_price,
             ..Default::default()
         }
     }
@@ -274,9 +257,9 @@ impl Config {
         sqrt_min_price: u128,
         sqrt_max_price: u128,
         collect_fee_mode: u8,
-    ) {
+    ) -> Result<()> {
         self.index = index;
-        self.pool_fees = pool_fees.to_pool_fees_config();
+        self.pool_fees = pool_fees.to_pool_fees_config()?;
         self.vault_config_key = vault_config_key;
         self.pool_creator_authority = pool_creator_authority;
         self.activation_type = activation_type;
@@ -284,6 +267,7 @@ impl Config {
         self.sqrt_max_price = sqrt_max_price;
         self.collect_fee_mode = collect_fee_mode;
         self.config_type = ConfigType::Static.into();
+        Ok(())
     }
 
     pub fn get_config_type(&self) -> Result<ConfigType> {

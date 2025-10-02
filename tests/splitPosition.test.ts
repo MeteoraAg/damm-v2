@@ -27,13 +27,21 @@ import {
   addLiquidity,
   swapExactIn,
   convertToByteArray,
+  OperatorPermission,
+  encodePermissions,
+  createOperator,
 } from "./bankrun-utils";
 import BN from "bn.js";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Split position", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let creator: Keypair;
+  let whitelistedAccount: Keypair;
   let config: PublicKey;
   let user: Keypair;
   let tokenAMint: PublicKey;
@@ -50,6 +58,10 @@ describe("Split position", () => {
     creator = await generateKpAndFund(context.banksClient, context.payer);
     admin = await generateKpAndFund(context.banksClient, context.payer);
     user = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(
+      context.banksClient,
+      context.payer
+    );
 
     tokenAMint = await createToken(
       context.banksClient,
@@ -95,14 +107,23 @@ describe("Split position", () => {
     );
     // create config
 
+    const cliffFeeNumerator = new BN(2_500_000);
+    const numberOfPeriod = new BN(0);
+    const periodFrequency = new BN(0);
+    const reductionFactor = new BN(0);
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod.toNumber(),
+      BigInt(periodFrequency.toString()),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeTimeSchedulerLinear
+    );
+
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -115,9 +136,17 @@ describe("Split position", () => {
       collectFeeMode: 0,
     };
 
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission,
+    });
+
     config = await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(configId),
       createConfigParams
     );

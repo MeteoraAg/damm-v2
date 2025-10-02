@@ -29,10 +29,17 @@ import {
   getCpAmmProgramErrorCodeHexString,
   getPosition,
   convertToByteArray,
+  encodePermissions,
+  OperatorPermission,
+  createOperator,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { describe } from "mocha";
 import { expect } from "chai";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Frozen reward vault", () => {
   let context: ProgramTestContext;
@@ -41,6 +48,7 @@ describe("Frozen reward vault", () => {
   let config: PublicKey;
   let funder: Keypair;
   let user: Keypair;
+  let whitelistedAccount: Keypair;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
   let rewardMint: PublicKey;
@@ -56,6 +64,10 @@ describe("Frozen reward vault", () => {
     funder = await generateKpAndFund(context.banksClient, context.payer);
     creator = await generateKpAndFund(context.banksClient, context.payer);
     admin = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(
+      context.banksClient,
+      context.payer
+    );
 
     tokenAMint = await createToken(
       context.banksClient,
@@ -121,15 +133,25 @@ describe("Frozen reward vault", () => {
       context.payer,
       admin.publicKey
     );
+
+    const cliffFeeNumerator = new BN(2_500_000);
+    const numberOfPeriod = new BN(0);
+    const periodFrequency = new BN(0);
+    const reductionFactor = new BN(0);
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod.toNumber(),
+      BigInt(periodFrequency.toString()),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeTimeSchedulerLinear
+    );
+
     // create config
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -142,9 +164,17 @@ describe("Frozen reward vault", () => {
       collectFeeMode: 0,
     };
 
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission,
+    });
+
     config = await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(configId),
       createConfigParams
     );
@@ -193,6 +223,7 @@ describe("Frozen reward vault", () => {
       rewardDuration: new BN(24 * 60 * 60),
       pool,
       rewardMint,
+      funder: funder.publicKey,
     };
     await initializeReward(context.banksClient, initRewardParams);
 
@@ -232,7 +263,9 @@ describe("Frozen reward vault", () => {
     expect(rewardVaultInfo.state).eq(2); // frozen
 
     // check error
-    const errorCode = getCpAmmProgramErrorCodeHexString("RewardVaultFrozenSkipRequired")
+    const errorCode = getCpAmmProgramErrorCodeHexString(
+      "RewardVaultFrozenSkipRequired"
+    );
     await expectThrowsAsync(async () => {
       await claimReward(context.banksClient, {
         index,
@@ -241,8 +274,7 @@ describe("Frozen reward vault", () => {
         position,
         skipReward: 0, // skip_reward is required in case reward vault frozen
       });
-    }, errorCode)
-
+    }, errorCode);
 
     // // claim reward
     await claimReward(context.banksClient, {
@@ -253,8 +285,8 @@ describe("Frozen reward vault", () => {
       skipReward: 1, // skip reward in case reward vault frozen
     });
 
-    const positionState = await getPosition(context.banksClient, position)
-    const rewardInfo = positionState.rewardInfos[index]
-    expect(rewardInfo.rewardPendings.toNumber()).eq(0)
+    const positionState = await getPosition(context.banksClient, position);
+    const rewardInfo = positionState.rewardInfos[index];
+    expect(rewardInfo.rewardPendings.toNumber()).eq(0);
   });
 });

@@ -1,6 +1,10 @@
 use anchor_lang::prelude::*;
 
-use crate::{constants::NUM_REWARDS, state::Pool, EvtUpdateRewardFunder, PoolError};
+use crate::{
+    constants::NUM_REWARDS,
+    state::{OperatorPermission, Pool},
+    EvtUpdateRewardFunder, PoolError,
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -22,14 +26,12 @@ impl<'info> UpdateRewardFunderCtx<'info> {
 
         require!(reward_info.funder != new_funder, PoolError::IdenticalFunder);
 
-        pool.validate_authority_to_edit_reward(reward_index, self.signer.key())?;
-
         Ok(())
     }
 }
 
-pub fn handle_update_reward_funder(
-    ctx: Context<UpdateRewardFunderCtx>,
+pub fn handle_update_reward_funder<'c: 'info, 'info>(
+    ctx: Context<'_, '_, 'c, 'info, UpdateRewardFunderCtx<'info>>,
     reward_index: u8,
     new_funder: Pubkey,
 ) -> Result<()> {
@@ -39,6 +41,14 @@ pub fn handle_update_reward_funder(
     ctx.accounts.validate(index, new_funder)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
+
+    pool.validate_authority_to_edit_reward(
+        index,
+        ctx.accounts.signer.key(),
+        ctx.remaining_accounts,
+        OperatorPermission::UpdateRewardFunder,
+    )?;
+
     let reward_info = &mut pool.reward_infos[index];
 
     let old_funder = reward_info.funder;

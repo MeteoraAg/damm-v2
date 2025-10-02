@@ -1,5 +1,10 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  randomID,
+  startTest,
+} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createConfigIx,
@@ -12,14 +17,20 @@ import {
   MIN_SQRT_PRICE,
   createToken,
   mintSplTokenTo,
+  encodePermissions,
+  OperatorPermission,
+  createOperator,
 } from "./bankrun-utils";
 import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./bankrun-utils/token2022";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Create position", () => {
   describe("SPL token", () => {
@@ -27,6 +38,7 @@ describe("Create position", () => {
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let liquidity: BN;
     let sqrtPrice: BN;
     let tokenAMint: PublicKey;
@@ -39,6 +51,10 @@ describe("Create position", () => {
       creator = await generateKpAndFund(context.banksClient, context.payer);
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       tokenAMint = await createToken(
         context.banksClient,
@@ -66,18 +82,35 @@ describe("Create position", () => {
         context.payer,
         creator.publicKey
       );
+
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
     });
 
     it("User create a position", async () => {
       // create config
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -92,7 +125,7 @@ describe("Create position", () => {
 
       const config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -124,6 +157,7 @@ describe("Create position", () => {
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let liquidity: BN;
     let sqrtPrice: BN;
     let tokenAMint: PublicKey;
@@ -148,6 +182,10 @@ describe("Create position", () => {
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       user = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       await createToken2022(
         context.banksClient,
@@ -177,18 +215,34 @@ describe("Create position", () => {
         context.payer,
         creator.publicKey
       );
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
     });
 
     it("User create a position", async () => {
       // create config
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -203,7 +257,7 @@ describe("Create position", () => {
 
       const config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );

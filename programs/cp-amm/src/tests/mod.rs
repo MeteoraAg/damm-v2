@@ -2,28 +2,28 @@
 pub const LIQUIDITY_MAX: u128 = 34028236692093846346337460743;
 
 #[cfg(test)]
-mod swap_tests;
+mod test_swap;
 
 #[cfg(test)]
-mod modify_liquidity_tests;
+mod test_modify_liquidity;
 
 #[cfg(test)]
-mod overflow_tests;
+mod test_overflow;
 
 #[cfg(test)]
-mod integration_tests;
+mod test_integration;
 
 #[cfg(test)]
-mod dynamic_fee_tests;
+mod test_dynamic_fee;
 
 #[cfg(test)]
 mod price_math;
 
 #[cfg(test)]
-mod reward_tests;
+mod test_reward;
 
 #[cfg(test)]
-mod fee_scheduler_tests;
+mod test_fee_scheduler;
 
 #[cfg(test)]
 mod test_volatility_accumulate;
@@ -32,4 +32,10 @@ mod test_volatility_accumulate;
 mod test_rate_limiter;
 
 #[cfg(test)]
-mod layout_test;
+mod test_layout;
+
+#[cfg(test)]
+mod test_operator_permission;
+
+#[cfg(test)]
+mod test_base_fee_serde;

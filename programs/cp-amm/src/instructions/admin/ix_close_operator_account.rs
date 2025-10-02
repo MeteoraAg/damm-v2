@@ -1,17 +1,16 @@
-use crate::{assert_eq_admin, state::TokenBadge, PoolError};
+use crate::{assert_eq_admin, state::Operator, PoolError};
 use anchor_lang::prelude::*;
 
 #[event_cpi]
 #[derive(Accounts)]
-pub struct CloseTokenBadgeCtx<'info> {
+pub struct CloseOperatorAccountCtx<'info> {
     #[account(
         mut,
         close = rent_receiver
     )]
-    pub token_badge: AccountLoader<'info, TokenBadge>,
+    pub operator: AccountLoader<'info, Operator>,
 
     #[account(
-        mut,
         constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
     )]
     pub admin: Signer<'info>,

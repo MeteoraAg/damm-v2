@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 
-use crate::{assert_eq_admin, state::ClaimFeeOperator, EvtCloseClaimFeeOperator, PoolError};
+use crate::{
+    state::{ClaimFeeOperator, Operator, OperatorPermission},
+    EvtCloseClaimFeeOperator, PoolError,
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -16,12 +19,20 @@ pub struct CloseClaimFeeOperatorCtx<'info> {
     pub rent_receiver: UncheckedAccount<'info>,
 
     #[account(
-        constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
+        has_one = whitelisted_address
     )]
-    pub admin: Signer<'info>,
+    pub operator: AccountLoader<'info, Operator>,
+
+    pub whitelisted_address: Signer<'info>,
 }
 
 pub fn handle_close_claim_fee_operator(ctx: Context<CloseClaimFeeOperatorCtx>) -> Result<()> {
+    let operator = ctx.accounts.operator.load()?;
+    require!(
+        operator.is_permission_allow(OperatorPermission::CloseClaimProtocolFeeOperator),
+        PoolError::InvalidAuthority
+    );
+
     let claim_fee_operator = ctx.accounts.claim_fee_operator.load()?;
     emit_cpi!(EvtCloseClaimFeeOperator {
         claim_fee_operator: ctx.accounts.claim_fee_operator.key(),

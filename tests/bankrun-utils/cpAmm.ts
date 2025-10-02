@@ -10,16 +10,10 @@ import {
   AccountLayout,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
-  getTokenMetadata,
-  MintLayout,
-  unpackMint,
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,
   getExtensionData,
   ExtensionType,
-  getMintCloseAuthority,
-  MintCloseAuthorityLayout,
   MetadataPointerLayout,
   unpackAccount,
   NATIVE_MINT,
@@ -45,6 +39,7 @@ import {
   deriveClaimFeeOperatorAddress,
   deriveConfigAddress,
   deriveCustomizablePoolAddress,
+  deriveOperatorAddress,
   derivePoolAddress,
   derivePoolAuthority,
   derivePositionAddress,
@@ -54,8 +49,17 @@ import {
   deriveTokenVaultAddress,
 } from "./accounts";
 import { processTransactionMaybeThrow } from "./common";
-import { CP_AMM_PROGRAM_ID } from "./constants";
-import { assert, expect } from "chai";
+import { CP_AMM_PROGRAM_ID, MIN_SQRT_PRICE } from "./constants";
+import { expect } from "chai";
+import {
+  BaseFeeMode,
+  decodePodAlignedFeeMarketCapScheduler,
+  decodeFeeMarketCapSchedulerParams,
+  decodePodAlignedFeeRateLimiter,
+  decodeFeeRateLimiterParams,
+  decodePodAlignedFeeTimeScheduler,
+  decodeFeeTimeSchedulerParams,
+} from "./feeCodec";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
 export type Position = IdlAccounts<CpAmm>["position"];
@@ -107,11 +111,7 @@ export type DynamicFee = {
 };
 
 export type BaseFee = {
-  cliffFeeNumerator: BN;
-  firstFactor: number;
-  secondFactor: number[];
-  thirdFactor: BN;
-  baseFeeMode: number;
+  data: number[];
 };
 
 export type PoolFees = {
@@ -136,7 +136,7 @@ export type CreateDynamicConfigParams = {
 
 export async function createDynamicConfigIx(
   banksClient: BanksClient,
-  admin: Keypair,
+  whitelistedAddress: Keypair,
   index: BN,
   params: CreateDynamicConfigParams
 ): Promise<PublicKey> {
@@ -146,13 +146,15 @@ export async function createDynamicConfigIx(
     .createDynamicConfig(index, params)
     .accountsPartial({
       config,
-      admin: admin.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
+      payer: whitelistedAddress.publicKey,
+      whitelistedAddress: whitelistedAddress.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
+  transaction.sign(whitelistedAddress);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -169,24 +171,27 @@ export async function createDynamicConfigIx(
 
 export async function createConfigIx(
   banksClient: BanksClient,
-  admin: Keypair,
+  whitelistedAddress: Keypair,
   index: BN,
   params: CreateConfigParams
 ): Promise<PublicKey> {
   const program = createCpAmmProgram();
 
   const config = deriveConfigAddress(index);
+
   const transaction = await program.methods
     .createConfig(index, params)
     .accountsPartial({
       config,
-      admin: admin.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
+      payer: whitelistedAddress.publicKey,
+      whitelistedAddress: whitelistedAddress.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
+  transaction.sign(whitelistedAddress);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -206,22 +211,100 @@ export async function createConfigIx(
   expect(configState.sqrtMaxPrice.toString()).eq(
     params.sqrtMaxPrice.toString()
   );
-  expect(configState.poolFees.baseFee.cliffFeeNumerator.toNumber()).eq(
-    params.poolFees.baseFee.cliffFeeNumerator.toNumber()
-  );
-  expect(configState.poolFees.baseFee.firstFactor).eq(
-    params.poolFees.baseFee.firstFactor
-  );
-  expect(configState.poolFees.baseFee.thirdFactor.toNumber()).eq(
-    params.poolFees.baseFee.thirdFactor.toNumber()
-  );
-  expect(configState.poolFees.baseFee.baseFeeMode).eq(
-    params.poolFees.baseFee.baseFeeMode
-  );
 
-  expect(Buffer.from(configState.poolFees.baseFee.secondFactor).toString()).eq(
-    Buffer.from(params.poolFees.baseFee.secondFactor).toString()
-  );
+  // Check the offset at base_fee_serde.rs
+  const baseFeeModeInParams = params.poolFees.baseFee.data[26];
+  const baseFeeModeInConfig = configState.poolFees.baseFee.data[8];
+
+  expect(baseFeeModeInConfig).eq(baseFeeModeInParams);
+  const baseFeeMode: BaseFeeMode = baseFeeModeInParams;
+
+  switch (baseFeeMode) {
+    case BaseFeeMode.FeeTimeSchedulerLinear:
+    case BaseFeeMode.FeeTimeSchedulerExponential:
+      const feeTimeSchedulerParams = decodeFeeTimeSchedulerParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedFeeTimeScheduler = decodePodAlignedFeeTimeScheduler(
+        Buffer.from(configState.poolFees.baseFee.data)
+      );
+
+      expect(feeTimeSchedulerParams.baseFeeMode).eq(
+        podAlignedFeeTimeScheduler.baseFeeMode
+      );
+      expect(feeTimeSchedulerParams.cliffFeeNumerator.toString()).eq(
+        podAlignedFeeTimeScheduler.cliffFeeNumerator.toString()
+      );
+      expect(feeTimeSchedulerParams.numberOfPeriod).eq(
+        podAlignedFeeTimeScheduler.numberOfPeriod
+      );
+      expect(feeTimeSchedulerParams.periodFrequency.toString()).eq(
+        podAlignedFeeTimeScheduler.periodFrequency.toString()
+      );
+      expect(feeTimeSchedulerParams.reductionFactor.toString()).eq(
+        podAlignedFeeTimeScheduler.reductionFactor.toString()
+      );
+      break;
+    case BaseFeeMode.FeeMarketCapSchedulerExponential:
+    case BaseFeeMode.FeeMarketCapSchedulerLinear:
+      const marketCapSchedulerParams = decodeFeeMarketCapSchedulerParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedMarketCapScheduler =
+        decodePodAlignedFeeMarketCapScheduler(
+          Buffer.from(configState.poolFees.baseFee.data)
+        );
+
+      expect(marketCapSchedulerParams.baseFeeMode).eq(
+        podAlignedMarketCapScheduler.baseFeeMode
+      );
+      expect(marketCapSchedulerParams.cliffFeeNumerator.toString()).eq(
+        podAlignedMarketCapScheduler.cliffFeeNumerator.toString()
+      );
+      expect(marketCapSchedulerParams.numberOfPeriod).eq(
+        podAlignedMarketCapScheduler.numberOfPeriod
+      );
+      expect(marketCapSchedulerParams.priceStepBps).eq(
+        podAlignedMarketCapScheduler.priceStepBps
+      );
+      expect(marketCapSchedulerParams.schedulerExpirationDuration).eq(
+        podAlignedMarketCapScheduler.schedulerExpirationDuration
+      );
+      expect(marketCapSchedulerParams.reductionFactor.toString()).eq(
+        podAlignedMarketCapScheduler.reductionFactor.toString()
+      );
+
+      break;
+    case BaseFeeMode.RateLimiter:
+      const rateLimiterParams = decodeFeeRateLimiterParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedRateLimiter = decodePodAlignedFeeRateLimiter(
+        Buffer.from(configState.poolFees.baseFee.data)
+      );
+
+      expect(rateLimiterParams.baseFeeMode).eq(
+        podAlignedRateLimiter.baseFeeMode
+      );
+      expect(rateLimiterParams.cliffFeeNumerator.toString()).eq(
+        podAlignedRateLimiter.cliffFeeNumerator.toString()
+      );
+      expect(rateLimiterParams.feeIncrementBps).eq(
+        podAlignedRateLimiter.feeIncrementBps
+      );
+      expect(rateLimiterParams.maxLimiterDuration).eq(
+        podAlignedRateLimiter.maxLimiterDuration
+      );
+      expect(rateLimiterParams.referenceAmount.toString()).eq(
+        podAlignedRateLimiter.referenceAmount.toString()
+      );
+      break;
+    default:
+      throw new Error("Unreachable");
+  }
   expect(configState.poolFees.protocolFeePercent).eq(20);
   expect(configState.poolFees.partnerFeePercent).eq(0);
   expect(configState.poolFees.referralFeePercent).eq(20);
@@ -232,7 +315,7 @@ export async function createConfigIx(
 
 export async function closeConfigIx(
   banksClient: BanksClient,
-  admin: Keypair,
+  whitelistedAddress: Keypair,
   config: PublicKey
 ) {
   const program = createCpAmmProgram();
@@ -240,12 +323,13 @@ export async function closeConfigIx(
     .closeConfig()
     .accountsPartial({
       config,
-      admin: admin.publicKey,
-      rentReceiver: admin.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
+      whitelistedAddress: whitelistedAddress.publicKey,
+      rentReceiver: whitelistedAddress.publicKey,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
+  transaction.sign(whitelistedAddress);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -255,14 +339,14 @@ export async function closeConfigIx(
 
 export type CreateTokenBadgeParams = {
   tokenMint: PublicKey;
-  admin: Keypair;
+  whitelistedAddress: Keypair;
 };
 
 export async function createTokenBadge(
   banksClient: BanksClient,
   params: CreateTokenBadgeParams
 ) {
-  const { tokenMint, admin } = params;
+  const { tokenMint, whitelistedAddress } = params;
   const program = createCpAmmProgram();
   const tokenBadge = deriveTokenBadgeAddress(tokenMint);
   const transaction = await program.methods
@@ -270,12 +354,14 @@ export async function createTokenBadge(
     .accountsPartial({
       tokenBadge,
       tokenMint,
-      admin: admin.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
+      whitelistedAddress: whitelistedAddress.publicKey,
+      payer: whitelistedAddress.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
+  transaction.sign(whitelistedAddress);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -286,26 +372,27 @@ export async function createTokenBadge(
 
 export type CloseTokenBadgeParams = {
   tokenMint: PublicKey;
-  admin: Keypair;
+  whitelistedAddress: Keypair;
 };
 
 export async function closeTokenBadge(
   banksClient: BanksClient,
   params: CloseTokenBadgeParams
 ) {
-  const { tokenMint, admin } = params;
+  const { tokenMint, whitelistedAddress } = params;
   const program = createCpAmmProgram();
   const tokenBadge = deriveTokenBadgeAddress(tokenMint);
   const transaction = await program.methods
     .closeTokenBadge()
     .accountsPartial({
       tokenBadge,
-      admin: admin.publicKey,
-      rentReceiver: admin.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
+      whitelistedAddress: whitelistedAddress.publicKey,
+      rentReceiver: whitelistedAddress.publicKey,
     })
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
+  transaction.sign(whitelistedAddress);
 
   await processTransactionMaybeThrow(banksClient, transaction);
   const tokenBadgeAccount = await banksClient.getAccount(tokenBadge);
@@ -313,23 +400,75 @@ export async function closeTokenBadge(
 }
 
 export type ClaimFeeOperatorParams = {
-  admin: Keypair;
-  operator: PublicKey;
+  whitelistedAddress: Keypair;
+  claimFeeOperatorAddress: PublicKey;
 };
 export async function createClaimFeeOperator(
   banksClient: BanksClient,
   params: ClaimFeeOperatorParams
 ) {
   const program = createCpAmmProgram();
-  const { admin, operator } = params;
+  const { whitelistedAddress, claimFeeOperatorAddress } = params;
 
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
+  const claimFeeOperator = deriveClaimFeeOperatorAddress(
+    claimFeeOperatorAddress
+  );
   const transaction = await program.methods
     .createClaimFeeOperator()
     .accountsPartial({
       claimFeeOperator,
-      operator,
+      claimFeeOperatorAddress,
+      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
+      payer: whitelistedAddress.publicKey,
+      whitelistedAddress: whitelistedAddress.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(whitelistedAddress);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+}
+
+export enum OperatorPermission {
+  CreateConfigKey, // 0
+  RemoveConfigKey, // 1
+  CreateTokenBadge, // 2
+  CloseTokenBadge, // 3
+  SetPoolStatus, // 4
+  CreateClaimProtocolFeeOperator, // 5
+  CloseClaimProtocolFeeOperator, // 6
+  InitializeReward, // 7
+  UpdateRewardDuration, // 8
+  UpdateRewardFunder, // 9
+}
+
+export function encodePermissions(permissions: OperatorPermission[]): BN {
+  return permissions.reduce((acc, perm) => {
+    return acc.or(new BN(1).shln(perm));
+  }, new BN(0));
+}
+
+export type CreateOperatorParams = {
+  admin: Keypair;
+  whitelistAddress: PublicKey;
+  permission: BN;
+};
+export async function createOperator(
+  banksClient: BanksClient,
+  params: CreateOperatorParams
+) {
+  const program = createCpAmmProgram();
+  const { admin, permission, whitelistAddress } = params;
+
+  const transaction = await program.methods
+    .createOperatorAccount(permission)
+    .accountsPartial({
+      operator: deriveOperatorAddress(whitelistAddress),
+      whitelistedAddress: whitelistAddress,
       admin: admin.publicKey,
+      payer: admin.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
@@ -341,7 +480,7 @@ export async function createClaimFeeOperator(
 }
 
 export type CloseFeeOperatorParams = {
-  admin: Keypair;
+  whitelistedAddress: Keypair;
   operator: PublicKey;
   rentReceiver: PublicKey;
 };
@@ -350,20 +489,20 @@ export async function closeClaimFeeOperator(
   params: CloseFeeOperatorParams
 ) {
   const program = createCpAmmProgram();
-  const { admin, operator, rentReceiver } = params;
-
+  const { whitelistedAddress, operator, rentReceiver } = params;
   const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
   const transaction = await program.methods
     .closeClaimFeeOperator()
     .accountsPartial({
       claimFeeOperator,
       rentReceiver,
-      admin: admin.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
+      whitelistedAddress: whitelistedAddress.publicKey,
     })
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
+  transaction.sign(whitelistedAddress);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -373,7 +512,7 @@ export async function closeClaimFeeOperator(
 }
 
 export type ClaimProtocolFeeParams = {
-  operator: Keypair;
+  claimFeeOperator: Keypair;
   pool: PublicKey;
   treasury: PublicKey;
 };
@@ -382,9 +521,11 @@ export async function claimProtocolFee(
   params: ClaimProtocolFeeParams
 ) {
   const program = createCpAmmProgram();
-  const { operator, pool, treasury } = params;
+  const { claimFeeOperator, pool, treasury } = params;
   const poolAuthority = derivePoolAuthority();
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator.publicKey);
+  const claimFeeOperatorAddress = deriveClaimFeeOperatorAddress(
+    claimFeeOperator.publicKey
+  );
   const poolState = await getPool(banksClient, pool);
 
   const tokenAProgram = (await banksClient.getAccount(poolState.tokenAMint))
@@ -422,7 +563,7 @@ export async function claimProtocolFee(
 
   const tokenAAccount = await getOrCreateAssociatedTokenAccount(
     banksClient,
-    operator,
+    claimFeeOperator,
     poolState.tokenAMint,
     treasury,
     tokenAProgram
@@ -430,7 +571,7 @@ export async function claimProtocolFee(
 
   const tokenBAccount = await getOrCreateAssociatedTokenAccount(
     banksClient,
-    operator,
+    claimFeeOperator,
     poolState.tokenBMint,
     treasury,
     tokenBProgram
@@ -447,15 +588,15 @@ export async function claimProtocolFee(
       tokenBMint: poolState.tokenBMint,
       tokenAAccount,
       tokenBAccount,
-      claimFeeOperator,
-      operator: operator.publicKey,
+      claimFeeOperator: claimFeeOperatorAddress,
+      operator: claimFeeOperator.publicKey,
       tokenAProgram,
       tokenBProgram,
     })
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(operator);
+  transaction.sign(claimFeeOperator);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 }
@@ -618,6 +759,7 @@ export async function initializePool(
 
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
+  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
 
   return { pool, position: position };
 }
@@ -750,11 +892,13 @@ export async function initializePoolWithCustomizeConfig(
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
 
+  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
+
   return { pool, position: position };
 }
 
 export type SetPoolStatusParams = {
-  admin: Keypair;
+  whitelistedAddress: Keypair;
   pool: PublicKey;
   status: number;
 };
@@ -763,18 +907,20 @@ export async function setPoolStatus(
   banksClient: BanksClient,
   params: SetPoolStatusParams
 ) {
-  const { admin, pool, status } = params;
+  const { whitelistedAddress, pool, status } = params;
   const program = createCpAmmProgram();
   const transaction = await program.methods
     .setPoolStatus(status)
     .accountsPartial({
       pool,
-      admin: admin.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
+
+      whitelistedAddress: whitelistedAddress.publicKey,
     })
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
+  transaction.sign(whitelistedAddress);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 }
@@ -908,6 +1054,102 @@ export async function initializeCustomizablePool(
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
 
+  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
+
+  // Check the offset at base_fee_serde.rs
+  const baseFeeModeInParams = params.poolFees.baseFee.data[26];
+  const baseFeeModeInConfig = poolState.poolFees.baseFee.baseFeeInfo.data[8];
+
+  expect(baseFeeModeInConfig).eq(baseFeeModeInParams);
+  const baseFeeMode: BaseFeeMode = baseFeeModeInParams;
+
+  switch (baseFeeMode) {
+    case BaseFeeMode.FeeTimeSchedulerLinear:
+    case BaseFeeMode.FeeTimeSchedulerExponential:
+      const feeTimeSchedulerParams = decodeFeeTimeSchedulerParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedFeeTimeScheduler = decodePodAlignedFeeTimeScheduler(
+        Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+
+      expect(feeTimeSchedulerParams.baseFeeMode).eq(
+        podAlignedFeeTimeScheduler.baseFeeMode
+      );
+      expect(feeTimeSchedulerParams.cliffFeeNumerator.toString()).eq(
+        podAlignedFeeTimeScheduler.cliffFeeNumerator.toString()
+      );
+      expect(feeTimeSchedulerParams.numberOfPeriod).eq(
+        podAlignedFeeTimeScheduler.numberOfPeriod
+      );
+      expect(feeTimeSchedulerParams.periodFrequency.toString()).eq(
+        podAlignedFeeTimeScheduler.periodFrequency.toString()
+      );
+      expect(feeTimeSchedulerParams.reductionFactor.toString()).eq(
+        podAlignedFeeTimeScheduler.reductionFactor.toString()
+      );
+      break;
+    case BaseFeeMode.FeeMarketCapSchedulerExponential:
+    case BaseFeeMode.FeeMarketCapSchedulerLinear:
+      const marketCapSchedulerParams = decodeFeeMarketCapSchedulerParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedMarketCapScheduler =
+        decodePodAlignedFeeMarketCapScheduler(
+          Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+        );
+
+      expect(marketCapSchedulerParams.baseFeeMode).eq(
+        podAlignedMarketCapScheduler.baseFeeMode
+      );
+      expect(marketCapSchedulerParams.cliffFeeNumerator.toString()).eq(
+        podAlignedMarketCapScheduler.cliffFeeNumerator.toString()
+      );
+      expect(marketCapSchedulerParams.numberOfPeriod).eq(
+        podAlignedMarketCapScheduler.numberOfPeriod
+      );
+      expect(marketCapSchedulerParams.priceStepBps).eq(
+        podAlignedMarketCapScheduler.priceStepBps
+      );
+      expect(marketCapSchedulerParams.schedulerExpirationDuration).eq(
+        podAlignedMarketCapScheduler.schedulerExpirationDuration
+      );
+      expect(marketCapSchedulerParams.reductionFactor.toString()).eq(
+        podAlignedMarketCapScheduler.reductionFactor.toString()
+      );
+
+      break;
+    case BaseFeeMode.RateLimiter:
+      const rateLimiterParams = decodeFeeRateLimiterParams(
+        Buffer.from(params.poolFees.baseFee.data)
+      );
+
+      const podAlignedRateLimiter = decodePodAlignedFeeRateLimiter(
+        Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+
+      expect(rateLimiterParams.baseFeeMode).eq(
+        podAlignedRateLimiter.baseFeeMode
+      );
+      expect(rateLimiterParams.cliffFeeNumerator.toString()).eq(
+        podAlignedRateLimiter.cliffFeeNumerator.toString()
+      );
+      expect(rateLimiterParams.feeIncrementBps).eq(
+        podAlignedRateLimiter.feeIncrementBps
+      );
+      expect(rateLimiterParams.maxLimiterDuration).eq(
+        podAlignedRateLimiter.maxLimiterDuration
+      );
+      expect(rateLimiterParams.referenceAmount.toString()).eq(
+        podAlignedRateLimiter.referenceAmount.toString()
+      );
+      break;
+    default:
+      throw new Error("Unreachable");
+  }
+
   return { pool, position: position };
 }
 
@@ -917,22 +1159,34 @@ export type InitializeRewardParams = {
   rewardDuration: BN;
   pool: PublicKey;
   rewardMint: PublicKey;
+  funder: PublicKey;
+  operator?: PublicKey;
 };
 
 export async function initializeReward(
   banksClient: BanksClient,
   params: InitializeRewardParams
 ): Promise<void> {
-  const { index, rewardDuration, pool, rewardMint, payer } = params;
+  const { index, rewardDuration, pool, rewardMint, payer, funder, operator } =
+    params;
   const program = createCpAmmProgram();
 
   const poolAuthority = derivePoolAuthority();
   const rewardVault = deriveRewardVaultAddress(pool, index);
 
   const tokenProgram = (await banksClient.getAccount(rewardMint)).owner;
-
+  let remainingAccounts =
+    operator == null
+      ? []
+      : [
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
-    .initializeReward(index, rewardDuration, payer.publicKey)
+    .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
       pool,
       poolAuthority,
@@ -943,6 +1197,7 @@ export async function initializeReward(
       tokenProgram,
       systemProgram: SystemProgram.programId,
     })
+    .remainingAccounts(remainingAccounts)
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(payer);
@@ -962,26 +1217,38 @@ export async function initializeReward(
 
 export type UpdateRewardDurationParams = {
   index: number;
-  admin: Keypair;
+  signer: Keypair;
   pool: PublicKey;
   newDuration: BN;
+  operator?: PublicKey;
 };
 
 export async function updateRewardDuration(
   banksClient: BanksClient,
   params: UpdateRewardDurationParams
 ): Promise<void> {
-  const { pool, admin, index, newDuration } = params;
+  const { pool, signer, index, newDuration, operator } = params;
   const program = createCpAmmProgram();
+  let remainingAccounts =
+    operator == null
+      ? []
+      : [
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
       pool,
-      signer: admin.publicKey,
+      signer: signer.publicKey,
     })
+    .remainingAccounts(remainingAccounts)
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
+  transaction.sign(signer);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -993,26 +1260,38 @@ export async function updateRewardDuration(
 
 export type UpdateRewardFunderParams = {
   index: number;
-  admin: Keypair;
+  signer: Keypair;
   pool: PublicKey;
   newFunder: PublicKey;
+  operator?: PublicKey;
 };
 
 export async function updateRewardFunder(
   banksClient: BanksClient,
   params: UpdateRewardFunderParams
 ): Promise<void> {
-  const { pool, admin, index, newFunder } = params;
+  const { pool, signer, index, newFunder, operator } = params;
   const program = createCpAmmProgram();
+  let remainingAccounts =
+    operator == null
+      ? []
+      : [
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
       pool,
-      signer: admin.publicKey,
+      signer: signer.publicKey,
     })
+    .remainingAccounts(remainingAccounts)
     .transaction();
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(admin);
+  transaction.sign(signer);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 

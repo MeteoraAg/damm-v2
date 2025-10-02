@@ -1,5 +1,9 @@
 import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, startTest } from "./bankrun-utils/common";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  startTest,
+} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   MIN_LP_AMOUNT,
@@ -12,19 +16,25 @@ import {
   InitializePoolWithCustomizeConfigParams,
   initializePoolWithCustomizeConfig,
   getPool,
+  encodePermissions,
+  createOperator,
+  OperatorPermission,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { expect } from "chai";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Dynamic config test", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
   let creator: Keypair;
+  let whitelistedAccount: Keypair;
   let config: PublicKey;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
-  let liquidity: BN;
-  let sqrtPrice: BN;
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
@@ -32,6 +42,10 @@ describe("Dynamic config test", () => {
     context = await startTest(root);
     creator = await generateKpAndFund(context.banksClient, context.payer);
     admin = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(
+      context.banksClient,
+      context.payer
+    );
 
     tokenAMint = await createToken(
       context.banksClient,
@@ -64,15 +78,36 @@ describe("Dynamic config test", () => {
       poolCreatorAuthority: creator.publicKey,
     };
 
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission,
+    });
+
     config = await createDynamicConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(configId),
       createDynamicConfigParams
     );
   });
 
   it("create pool with dynamic config", async () => {
+    const cliffFeeNumerator = new BN(2_500_000);
+    const numberOfPeriod = new BN(0);
+    const periodFrequency = new BN(0);
+    const reductionFactor = new BN(0);
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod.toNumber(),
+      BigInt(periodFrequency.toString()),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeTimeSchedulerLinear
+    );
+
     const params: InitializePoolWithCustomizeConfigParams = {
       payer: creator,
       creator: creator.publicKey,
@@ -88,11 +123,7 @@ describe("Dynamic config test", () => {
       activationPoint: null,
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -101,7 +132,10 @@ describe("Dynamic config test", () => {
       collectFeeMode: 0,
     };
 
-    const { pool } = await initializePoolWithCustomizeConfig(context.banksClient, params);
+    const { pool } = await initializePoolWithCustomizeConfig(
+      context.banksClient,
+      params
+    );
     const poolState = await getPool(context.banksClient, pool);
     expect(poolState.version).eq(0);
   });

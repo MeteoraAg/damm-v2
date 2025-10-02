@@ -1,5 +1,7 @@
 pub mod admin;
 pub use admin::*;
+pub mod operator;
+pub use operator::*;
 pub mod swap;
 pub use swap::*;
 pub mod ix_add_liquidity;

@@ -53,7 +53,7 @@ macro_rules! checked_impl {
                 }
             }
 
-            #[inline(always)]
+            #[track_caller]
             fn safe_div(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_div(v) {
                     Some(result) => Ok(result),
@@ -65,7 +65,7 @@ macro_rules! checked_impl {
                 }
             }
 
-            #[inline(always)]
+            #[track_caller]
             fn safe_rem(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_rem(v) {
                     Some(result) => Ok(result),
