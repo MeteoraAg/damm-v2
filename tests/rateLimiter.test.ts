@@ -1,41 +1,40 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToRateLimiterSecondFactor,
-  expectThrowsAsync,
-  generateKpAndFund,
-  getCpAmmProgramErrorCodeHexString,
-  processTransactionMaybeThrow,
-  randomID,
-  startTest,
-  warpSlotBy,
-} from "./bankrun-utils/common";
 import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
   Transaction,
 } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { ProgramTestContext } from "solana-bankrun";
 import {
-  InitializeCustomizablePoolParams,
-  initializeCustomizablePool,
-  MIN_LP_AMOUNT,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  mintSplTokenTo,
-  createToken,
   CreateConfigParams,
-  createConfigIx,
+  InitializeCustomizablePoolParams,
   InitializePoolParams,
-  initializePool,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
+  MIN_SQRT_PRICE,
+  createConfigIx,
+  createToken,
+  getCpAmmProgramErrorCodeHexString,
   getPool,
+  initializeCustomizablePool,
+  initializePool,
+  mintSplTokenTo,
   swapExactIn,
   swapInstruction,
   OperatorPermission,
   encodePermissions,
   createOperator,
+  generateKpAndFund,
+  startTest,
+  convertToRateLimiterSecondFactor,
+  randomID,
+  warpSlotBy,
+  processTransactionMaybeThrow,
+  expectThrowsAsync,
 } from "./bankrun-utils";
-import BN from "bn.js";
-import {  expect } from "chai";
+import { encodeFeeRateLimiterParams } from "./bankrun-utils/feeCodec";
 
 describe("Rate limiter", () => {
   let context: ProgramTestContext;
@@ -56,7 +55,10 @@ describe("Rate limiter", () => {
     partner = await generateKpAndFund(context.banksClient, context.payer);
     user = await generateKpAndFund(context.banksClient, context.payer);
     poolCreator = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(
+      context.banksClient,
+      context.payer
+    );
 
     tokenA = await createToken(
       context.banksClient,
@@ -103,23 +105,25 @@ describe("Rate limiter", () => {
   });
 
   it("Rate limiter", async () => {
-    let referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
-    let maxRateLimiterDuration = new BN(10);
-    let maxFeeBps = new BN(5000);
+    const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
+    const maxRateLimiterDuration = new BN(10);
+    const maxFeeBps = new BN(5000);
 
-    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(
-      maxRateLimiterDuration,
-      maxFeeBps
+    const cliffFeeNumerator = new BN(10_000_000);
+    const feeIncrementBps = 10;
+
+    const data = encodeFeeRateLimiterParams(
+      BigInt(cliffFeeNumerator.toString()),
+      feeIncrementBps,
+      maxRateLimiterDuration.toNumber(),
+      maxFeeBps.toNumber(),
+      BigInt(referenceAmount.toString())
     );
 
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(10_000_000), // 100bps
-          firstFactor: 10, // 10 bps
-          secondFactor: rateLimiterSecondFactor, // combined(maxRateLimiterDuration, maxFeeBps)
-          thirdFactor: referenceAmount, // 1 sol
-          baseFeeMode: 2, // rate limiter mode
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -132,13 +136,13 @@ describe("Rate limiter", () => {
       collectFeeMode: 1, // onlyB
     };
 
-    let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
     await createOperator(context.banksClient, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
-      permission
-    })
+      permission,
+    });
 
     let config = await createConfigIx(
       context.banksClient,
@@ -234,16 +238,23 @@ describe("Rate limiter", () => {
   });
 
   it("Try to send multiple instructions", async () => {
-    let referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
-    let maxRateLimiterDuration = new BN(10);
-    let maxFeeBps = new BN(5000);
+    const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
+    const maxRateLimiterDuration = new BN(10);
+    const maxFeeBps = new BN(5000);
 
-    let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(
-      maxRateLimiterDuration,
-      maxFeeBps
-    );
     const liquidity = new BN(MIN_LP_AMOUNT);
     const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
+
+    const cliffFeeNumerator = new BN(10_000_000);
+    const feeIncrementBps = 10;
+
+    const data = encodeFeeRateLimiterParams(
+      BigInt(cliffFeeNumerator.toString()),
+      feeIncrementBps,
+      maxRateLimiterDuration.toNumber(),
+      maxFeeBps.toNumber(),
+      BigInt(referenceAmount.toString())
+    );
 
     const initPoolParams: InitializeCustomizablePoolParams = {
       payer: poolCreator,
@@ -252,11 +263,7 @@ describe("Rate limiter", () => {
       tokenBMint: tokenB,
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(10_000_000), // 100bps
-          firstFactor: 10, // 10 bps
-          secondFactor: rateLimiterSecondFactor,
-          thirdFactor: referenceAmount, // 1 sol
-          baseFeeMode: 2, // rate limiter mode
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,

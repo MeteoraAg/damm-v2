@@ -40,6 +40,10 @@ import {
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./bankrun-utils/token2022";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Lock position", () => {
   describe("SPL Token", () => {
@@ -67,7 +71,10 @@ describe("Lock position", () => {
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       tokenAMint = await createToken(
         context.banksClient,
@@ -111,15 +118,25 @@ describe("Lock position", () => {
         context.payer,
         creator.publicKey
       );
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(10_000_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -132,13 +149,13 @@ describe("Lock position", () => {
         collectFeeMode: 0,
       };
 
-      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
       await createOperator(context.banksClient, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
-        permission
-      })
+        permission,
+      });
 
       config = await createConfigIx(
         context.banksClient,
@@ -402,7 +419,10 @@ describe("Lock position", () => {
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       await createToken2022(
         context.banksClient,
@@ -449,15 +469,24 @@ describe("Lock position", () => {
         creator.publicKey
       );
 
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(10_000_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -470,13 +499,13 @@ describe("Lock position", () => {
         collectFeeMode: 0,
       };
 
-      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
       await createOperator(context.banksClient, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
-        permission
-      })
+        permission,
+      });
 
       config = await createConfigIx(
         context.banksClient,
