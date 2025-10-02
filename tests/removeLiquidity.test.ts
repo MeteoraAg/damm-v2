@@ -16,6 +16,9 @@ import {
   removeAllLiquidity,
   closePosition,
   CreateConfigParams,
+  OperatorPermission,
+  encodePermissions,
+  createOperator,
 } from "./bankrun-utils";
 import BN from "bn.js";
 import { ExtensionType } from "@solana/spl-token";
@@ -31,9 +34,9 @@ describe("Remove liquidity", () => {
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let config: PublicKey;
     let pool: PublicKey;
-    let position: PublicKey;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
@@ -44,6 +47,7 @@ describe("Remove liquidity", () => {
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       tokenAMint = await createToken(
         context.banksClient,
@@ -109,9 +113,17 @@ describe("Remove liquidity", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -184,7 +196,7 @@ describe("Remove liquidity", () => {
     let user: Keypair;
     let config: PublicKey;
     let pool: PublicKey;
-    let position: PublicKey;
+    let whitelistedAccount: Keypair;
     let creator: Keypair;
 
     let tokenAMint: PublicKey;
@@ -209,6 +221,7 @@ describe("Remove liquidity", () => {
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       await createToken2022(
         context.banksClient,
@@ -276,9 +289,17 @@ describe("Remove liquidity", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );

@@ -163,4 +163,10 @@ pub enum PoolError {
 
     #[msg("Invalid pool version")]
     InvalidPoolVersion,
+
+    #[msg("Invalid authority to do that action")]
+    InvalidAuthority,
+
+    #[msg("Invalid permission")]
+    InvalidPermission,
 }
