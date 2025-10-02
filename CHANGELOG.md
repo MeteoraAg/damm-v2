@@ -23,15 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.1.6] [PR #124](https://github.com/MeteoraAg/damm-v2/pull/124)
 ### Added
+- Add 2 new modes for base fee: fee by marketcap linear and fee by marketcap exponential, fee will be reduced when current price increases from initial price
 - Add new endpoint `create_operator_account` and `close_operator_account`that allows admin to manage different operator accounts
 - Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
 
 ### Breaking Changes
+- Quote function will be changed by 2 new fee modes.
 - All admin endpoints now will requires `whitelisted_address` and `operator` instead of raw admin account. Those affected endpoints: `close_claim_fee_operator`, `close_config`, `create_claim_fee_operator`, `close_token_badge`, `create_dynamic_config`, `create_static_config`, `create_token_badge`, `initialize_reward`, `set_pool_status`, `update_reward_duration`, `update_reward_funder`
 
 ## cp_amm [0.1.5] [PR #122](https://github.com/MeteoraAg/damm-v2/pull/122)
 ### Added
-- Allow partner to config another mode for base fee, called rate limiter. With the mode is enable, fee slope will increase if user buy with higher amount. The rate limiter mode is only available if collect fee mode is in token b token only, and when user buy token (not sell). Rate limiter doesn't allow user to send multiple swap instructions (or CPI) to the same pool in 1 transaction
+- Add 3 new modes for base fee: rate limiter, fee by marketcap linear and fee by marketcap exponential. 
+- For rate limiter mode, fee will be increased if user buy with higher amount. The rate limiter mode is only available if collect fee mode is in token b token only, and when user buy token (not sell). Rate limiter doesn't allow user to send multiple swap instructions (or CPI) to the same pool in 1 transaction
+- For fee by marketcap, fee will be reduced as current price increases from initial price
 - Add new endpoint `swap2`, that includes 3 `swap_mode`: 0 (ExactIn), 1 (PartialFill) and 2 (ExactOut)
 - Emit new event in 2 swap endpoints `EvtSwap2`, that includes more information about `reserve_a_amount`, `reserve_b_amount`
 - Emit new event `EvtLiquidityChange` when user add or remove liquidity

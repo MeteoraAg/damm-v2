@@ -1,7 +1,6 @@
 import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
 import {
-  convertToByteArray,
   expectThrowsAsync,
   generateKpAndFund,
   startTest,
@@ -28,12 +27,17 @@ import {
   addLiquidity,
   SPLIT_POSITION_DENOMINATOR,
   swapExactIn,
+  createOperator,
+  OperatorPermission,
+  encodePermissions,
 } from "./bankrun-utils";
 import BN from "bn.js";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./bankrun-utils/feeCodec";
 
 describe("Split position 2", () => {
   let context: ProgramTestContext;
   let admin: Keypair;
+  let whitelistedAccount: Keypair;
   let creator: Keypair;
   let config: PublicKey;
   let user: Keypair;
@@ -50,6 +54,10 @@ describe("Split position 2", () => {
     context = await startTest(root);
     creator = await generateKpAndFund(context.banksClient, context.payer);
     admin = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(
+      context.banksClient,
+      context.payer
+    );
     user = await generateKpAndFund(context.banksClient, context.payer);
 
     tokenAMint = await createToken(
@@ -94,15 +102,26 @@ describe("Split position 2", () => {
       context.payer,
       user.publicKey
     );
+
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission,
+    });
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(2_500_000),
+      0,
+      BigInt(0),
+      BigInt(0),
+      BaseFeeMode.FeeTimeSchedulerLinear
+    );
     // create config
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -117,7 +136,7 @@ describe("Split position 2", () => {
 
     config = await createConfigIx(
       context.banksClient,
-      admin,
+      whitelistedAccount,
       new BN(configId),
       createConfigParams
     );

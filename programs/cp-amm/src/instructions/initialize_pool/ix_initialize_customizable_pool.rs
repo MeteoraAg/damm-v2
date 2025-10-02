@@ -40,7 +40,7 @@ pub struct InitializeCustomizablePoolParameters {
     pub has_alpha_vault: bool,
     /// initialize liquidity
     pub liquidity: u128,
-    /// The init price of the pool as a sqrt(token_b/token_a) Q64.64 value
+    /// The init price of the pool as a sqrt(token_b/token_a) Q64.64 value. Market cap fee scheduler minimum price will be derived from this value
     pub sqrt_price: u128,
     /// activation type
     pub activation_type: u8,
@@ -73,6 +73,7 @@ impl InitializeCustomizablePoolParameters {
         // validate fee
         let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
         self.pool_fees.validate(collect_fee_mode, activation_type)?;
 
         // validate activation
@@ -259,6 +260,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         activation_type,
         collect_fee_mode,
         has_alpha_vault,
+        ..
     } = params;
 
     // validate quote token
@@ -288,9 +290,10 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         has_alpha_vault,
     );
     let pool_type: u8 = PoolType::Customizable.into();
+
     pool.initialize(
         ctx.accounts.creator.key(),
-        pool_fees.to_pool_fees_struct(),
+        pool_fees.to_pool_fees_struct(sqrt_price)?,
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),

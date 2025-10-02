@@ -445,6 +445,7 @@ impl Pool {
                     amount_out,
                     trade_direction,
                     max_fee_numerator,
+                    self.sqrt_price,
                 )?;
 
             let (included_fee_amount_out, fee_amount) =
@@ -484,6 +485,7 @@ impl Pool {
                     input_amount,
                     trade_direction,
                     max_fee_numerator,
+                    self.sqrt_price,
                 )?;
 
             let (included_fee_input_amount, fee_amount) =
@@ -543,6 +545,7 @@ impl Pool {
                 amount_in,
                 trade_direction,
                 max_fee_numerator,
+                self.sqrt_price,
             )?;
 
         let mut actual_amount_in = if fee_mode.fees_on_input {
@@ -590,6 +593,7 @@ impl Pool {
                         actual_amount_in,
                         trade_direction,
                         max_fee_numerator,
+                        self.sqrt_price,
                     )?;
 
                 let (included_fee_amount_in, fee_amount) =
@@ -682,6 +686,7 @@ impl Pool {
                 amount_in,
                 trade_direction,
                 max_fee_numerator,
+                self.sqrt_price,
             )?;
 
         let actual_amount_in = if fee_mode.fees_on_input {

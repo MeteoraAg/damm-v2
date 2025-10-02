@@ -18,10 +18,11 @@ use crate::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
-    validate_quote_token, EvtCreatePosition, EvtInitializePool, PoolError,
+    validate_quote_token, EvtCreatePosition, EvtInitializePool,
+    InitializeCustomizablePoolParameters, PoolError,
 };
 
-use super::{max_key, min_key, InitializeCustomizablePoolParameters};
+use super::{max_key, min_key};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -203,6 +204,7 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         activation_type,
         collect_fee_mode,
         has_alpha_vault,
+        ..
     } = params;
 
     // init pool
@@ -240,9 +242,10 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         has_alpha_vault,
     );
     let pool_type: u8 = PoolType::Customizable.into();
+
     pool.initialize(
         ctx.accounts.creator.key(),
-        pool_fees.to_pool_fees_struct(),
+        pool_fees.to_pool_fees_struct(sqrt_price)?,
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),

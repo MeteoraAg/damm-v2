@@ -1,30 +1,37 @@
+import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, startTest } from "./bankrun-utils/common";
-import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createConfigIx,
   CreateConfigParams,
+  createOperator,
+  createToken,
+  encodePermissions,
   getPool,
   initializePool,
   InitializePoolParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
-  setPoolStatus,
-  createToken,
   mintSplTokenTo,
-  encodePermissions,
-  createOperator,
   OperatorPermission,
+  setPoolStatus,
 } from "./bankrun-utils";
-import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  startTest,
+} from "./bankrun-utils/common";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./bankrun-utils/token2022";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Initialize pool", () => {
   describe("SPL token", () => {
@@ -44,7 +51,10 @@ describe("Initialize pool", () => {
       context = await startTest(root);
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       tokenAMint = await createToken(
         context.banksClient,
@@ -72,15 +82,25 @@ describe("Initialize pool", () => {
         context.payer,
         creator.publicKey
       );
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -93,13 +113,16 @@ describe("Initialize pool", () => {
         collectFeeMode: 0,
       };
 
-      let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])
+      let permission = encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.SetPoolStatus,
+      ]);
 
       await createOperator(context.banksClient, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
-        permission
-      })
+        permission,
+      });
 
       config = await createConfigIx(
         context.banksClient,
@@ -173,7 +196,10 @@ describe("Initialize pool", () => {
       ];
       creator = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(
+        context.banksClient,
+        context.payer
+      );
 
       await createToken2022(
         context.banksClient,
@@ -203,15 +229,25 @@ describe("Initialize pool", () => {
         context.payer,
         creator.publicKey
       );
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -224,13 +260,16 @@ describe("Initialize pool", () => {
         collectFeeMode: 0,
       };
 
-      let permission = encodePermissions([OperatorPermission.CreateConfigKey, OperatorPermission.SetPoolStatus])
+      let permission = encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.SetPoolStatus,
+      ]);
 
       await createOperator(context.banksClient, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
-        permission
-      })
+        permission,
+      });
 
       config = await createConfigIx(
         context.banksClient,

@@ -268,7 +268,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     let alpha_vault = config.get_whitelisted_alpha_vault(ctx.accounts.pool.key());
     pool.initialize(
         ctx.accounts.creator.key(),
-        config.pool_fees.to_pool_fees_struct(),
+        config.pool_fees.to_pool_fees_struct(sqrt_price),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),
@@ -342,7 +342,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         pool: ctx.accounts.pool.key(),
         token_a_mint: ctx.accounts.token_a_mint.key(),
         token_b_mint: ctx.accounts.token_b_mint.key(),
-        pool_fees: config.pool_fees.to_pool_fee_parameters(),
+        pool_fees: config.pool_fees.to_pool_fee_parameters()?,
         creator: ctx.accounts.creator.key(),
         payer: ctx.accounts.payer.key(),
         activation_point,

@@ -36,3 +36,6 @@ mod test_layout;
 
 #[cfg(test)]
 mod test_operator_permission;
+
+#[cfg(test)]
+mod test_base_fee_serde;
