@@ -27,8 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add new endpoint `create_operator_account` and `close_operator_account`that allows admin to manage different operator accounts
 - Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
 
+### Changed
+- Remove constraints for quote tokens (SOL/USDC), affected endpoints: `initialize_pool_with_dynamic_config` and `initialize_customizable_pool`
+
 ### Removed
-- Remove constraints for quote tokens
+- Remove feature `devnet` when building program
 
 ### Breaking Changes
 - Quote function will be changed by 2 new fee modes.
