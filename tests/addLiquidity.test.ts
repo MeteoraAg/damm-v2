@@ -1,5 +1,6 @@
 import { AccountLayout } from "@solana/spl-token";
 import { ProgramTestContext } from "solana-bankrun";
+import { convertToByteArray, generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
@@ -8,8 +9,10 @@ import {
   AddLiquidityParams,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
   createPosition,
   createToken,
+  encodePermissions,
   getPool,
   initializePool,
   InitializePoolParams,
@@ -17,9 +20,9 @@ import {
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
   mintSplTokenTo,
+  OperatorPermission,
   U64_MAX,
 } from "./bankrun-utils";
-import { generateKpAndFund, randomID, startTest, convertToByteArray } from "./bankrun-utils/common";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
@@ -30,6 +33,7 @@ describe("Add liquidity", () => {
   describe("SPL Token", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
+    let whitelistedAccount: Keypair;
     let user: Keypair;
     let creator: Keypair;
     let config: PublicKey;
@@ -45,6 +49,7 @@ describe("Add liquidity", () => {
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       tokenAMint = await createToken(
         context.banksClient,
@@ -110,9 +115,17 @@ describe("Add liquidity", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -141,12 +154,6 @@ describe("Add liquidity", () => {
       );
 
       const poolState = await getPool(context.banksClient, pool);
-
-      const preTokenAVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenAVault)).data
-        ).amount
-      );
 
       const preTokenBVaultBalance = Number(
         AccountLayout.decode(
@@ -177,12 +184,6 @@ describe("Add liquidity", () => {
       );
 
       expect(preTokenBVaultBalance).eq(postTokenBVaultBalance);
-
-      console.log({ preTokenAVaultBalance, postTokenAVaultBalance });
-      console.log({
-        preTokenBVaultBalance,
-        postTokenBVaultBalance,
-      });
     });
 
     it("Create pool with sqrtPrice equal sqrtMaxPrice", async () => {
@@ -243,12 +244,6 @@ describe("Add liquidity", () => {
         ).amount
       );
 
-      console.log({ preTokenAVaultBalance, postTokenAVaultBalance });
-      console.log({
-        preTokenBVaultBalance,
-        postTokenBVaultBalance,
-      });
-
       expect(preTokenAVaultBalance).eq(postTokenAVaultBalance);
     });
   });
@@ -256,6 +251,7 @@ describe("Add liquidity", () => {
   describe("Token 2022", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
+    let whitelistedAccount: Keypair;
     let user: Keypair;
     let config: PublicKey;
     let pool: PublicKey;
@@ -283,6 +279,7 @@ describe("Add liquidity", () => {
       user = await generateKpAndFund(context.banksClient, context.payer);
       admin = await generateKpAndFund(context.banksClient, context.payer);
       creator = await generateKpAndFund(context.banksClient, context.payer);
+      whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
 
       await createToken2022(
         context.banksClient,
@@ -351,9 +348,17 @@ describe("Add liquidity", () => {
         collectFeeMode: 0,
       };
 
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+
+      await createOperator(context.banksClient, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission
+      })
+
       config = await createConfigIx(
         context.banksClient,
-        admin,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -477,12 +482,6 @@ describe("Add liquidity", () => {
           (await context.banksClient.getAccount(poolState.tokenBVault)).data
         ).amount
       );
-
-      console.log({ preTokenAVaultBalance, postTokenAVaultBalance });
-      console.log({
-        preTokenBVaultBalance,
-        postTokenBVaultBalance,
-      });
 
       expect(preTokenAVaultBalance).eq(postTokenAVaultBalance);
     });
