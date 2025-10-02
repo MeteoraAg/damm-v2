@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add new endpoint `create_operator_account` and `close_operator_account`that allows admin to manage different operator accounts
 - Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
 
+### Removed
+- Remove constraints for quote tokens
+
 ### Breaking Changes
 - Quote function will be changed by 2 new fee modes.
 - All admin endpoints now will requires `whitelisted_address` and `operator` instead of raw admin account. Those affected endpoints: `close_claim_fee_operator`, `close_config`, `create_claim_fee_operator`, `close_token_badge`, `create_dynamic_config`, `create_static_config`, `create_token_badge`, `initialize_reward`, `set_pool_status`, `update_reward_duration`, `update_reward_funder`
