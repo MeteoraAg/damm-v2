@@ -29,6 +29,27 @@ pub mod params;
 
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
 
+// Only for IDL generation
+#[cfg(feature = "idl-build")]
+#[derive(Accounts)]
+pub struct ForIdlTypeGenerationDoNotCallThis<'info> {
+    pod_aligned_fee_time_scheduler:
+        AccountLoader<'info, base_fee::fee_time_scheduler::PodAlignedFeeTimeScheduler>,
+    pod_aligned_fee_rate_limiter:
+        AccountLoader<'info, base_fee::fee_rate_limiter::PodAlignedFeeRateLimiter>,
+    pod_aligned_fee_market_cap_scheduler:
+        AccountLoader<'info, base_fee::fee_market_cap_scheduler::PodAlignedFeeMarketCapScheduler>,
+}
+
+#[cfg(feature = "idl-build")]
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct DummyParams {
+    borsh_fee_time_scheduler_params: base_fee::fee_time_scheduler::BorshFeeTimeScheduler,
+    borsh_fee_rate_limiter_params: base_fee::fee_rate_limiter::BorshFeeRateLimiter,
+    borsh_fee_market_cap_scheduler_params:
+        base_fee::fee_market_cap_scheduler::BorshFeeMarketCapScheduler,
+}
+
 #[program]
 pub mod cp_amm {
     use super::*;
@@ -270,5 +291,13 @@ pub mod cp_amm {
                 reward_1_numerator: numerator,
             },
         )
+    }
+
+    #[cfg(feature = "idl-build")]
+    pub fn dummy_ix(
+        _ctx: Context<ForIdlTypeGenerationDoNotCallThis>,
+        _ixs: DummyParams,
+    ) -> Result<()> {
+        Ok(())
     }
 }

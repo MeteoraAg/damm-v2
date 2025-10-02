@@ -1,10 +1,6 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  startTest,
-} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { ProgramTestContext } from "solana-bankrun";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -12,20 +8,28 @@ import {
   createConfigIx,
   CreateConfigParams,
   createPosition,
+  createToken,
   initializePool,
   InitializePoolParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
+  mintSplTokenTo,
   swapExactIn,
   SwapParams,
-  createToken,
-  mintSplTokenTo,
   encodePermissions,
   OperatorPermission,
   createOperator,
 } from "./bankrun-utils";
-import BN from "bn.js";
+import {
+  convertToByteArray,
+  generateKpAndFund,
+  startTest,
+} from "./bankrun-utils/common";
+import {
+  BaseFeeMode,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Claim position fee", () => {
   let context: ProgramTestContext;
@@ -47,7 +51,10 @@ describe("Claim position fee", () => {
     user = await generateKpAndFund(context.banksClient, context.payer);
     admin = await generateKpAndFund(context.banksClient, context.payer);
     creator = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+    whitelistedAccount = await generateKpAndFund(
+      context.banksClient,
+      context.payer
+    );
 
     tokenAMint = await createToken(
       context.banksClient,
@@ -92,15 +99,24 @@ describe("Claim position fee", () => {
       creator.publicKey
     );
 
+    const cliffFeeNumerator = new BN(2_500_000);
+    const numberOfPeriod = new BN(0);
+    const periodFrequency = new BN(0);
+    const reductionFactor = new BN(0);
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod.toNumber(),
+      BigInt(periodFrequency.toString()),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeTimeSchedulerLinear
+    );
+
     // create config
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -113,13 +129,13 @@ describe("Claim position fee", () => {
       collectFeeMode: 0,
     };
 
-    let permission = encodePermissions([OperatorPermission.CreateConfigKey])
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
     await createOperator(context.banksClient, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
-      permission
-    })
+      permission,
+    });
 
     config = await createConfigIx(
       context.banksClient,

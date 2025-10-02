@@ -1,4 +1,26 @@
-import { BanksClient, ProgramTestContext } from "solana-bankrun";
+import { NATIVE_MINT } from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { ProgramTestContext } from "solana-bankrun";
+import {
+  BaseFee,
+  FEE_DENOMINATOR,
+  InitializeCustomizablePoolParams,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
+  MIN_SQRT_PRICE,
+  createToken,
+  getPool,
+  initializeCustomizablePool,
+  mintSplTokenTo,
+} from "./bankrun-utils";
+import {
+  depositAlphaVault,
+  fillDammV2,
+  getVaultState,
+  setupProrataAlphaVault,
+} from "./bankrun-utils/alphaVault";
 import {
   convertToByteArray,
   convertToRateLimiterSecondFactor,
@@ -6,29 +28,14 @@ import {
   startTest,
   warpSlotBy,
 } from "./bankrun-utils/common";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { Rounding, mulDiv } from "./bankrun-utils/math";
 import {
-  MIN_LP_AMOUNT,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  createToken,
-  mintSplTokenTo,
-  InitializeCustomizablePoolParams,
-  initializeCustomizablePool,
-  getPool,
-  FEE_DENOMINATOR,
-  BaseFee,
-} from "./bankrun-utils";
-import BN from "bn.js";
-import {
-  depositAlphaVault,
-  fillDammV2,
-  getVaultState,
-  setupProrataAlphaVault,
-} from "./bankrun-utils/alphaVault";
-import { NATIVE_MINT } from "@solana/spl-token";
-import { mulDiv, Rounding } from "./bankrun-utils/math";
-import { expect } from "chai";
+  BaseFeeMode,
+  decodePodAlignedFeeRateLimiter,
+  decodePodAlignedFeeTimeScheduler,
+  encodeFeeRateLimiterParams,
+  encodeFeeTimeSchedulerParams,
+} from "./bankrun-utils/feeCodec";
 
 describe("Alpha vault with sniper tax", () => {
   describe("Fee Scheduler", () => {
@@ -62,20 +69,28 @@ describe("Alpha vault with sniper tax", () => {
     });
 
     it("Alpha vault can buy before activation point with minimum fee", async () => {
-      const baseFee = {
-        cliffFeeNumerator: new BN(500_000_000), // 50 %
-        firstFactor: 100, // 100 periods
-        secondFactor: convertToByteArray(new BN(1)),
-        thirdFactor: new BN(4875000),
-        baseFeeMode: 0, // fee scheduler Linear mode
-      };
-      const { pool, alphaVault } = await alphaVaultWithSniperTaxFullflow(
+      const cliffFeeNumerator = new BN(500_000_000);
+      const numberOfPeriods = 100;
+      const periodFrequency = new BN(1);
+      const reductionFactor = new BN(4875000);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriods,
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
+      const { pool, alphaVault } = await alphaVaultWithSniperTaxFullFlow(
         context,
         user,
         creator,
         tokenAMint,
         tokenBMint,
-        baseFee
+        {
+          data: Array.from(data),
+        }
       );
 
       const alphaVaultState = await getVaultState(
@@ -90,11 +105,15 @@ describe("Alpha vault with sniper tax", () => {
 
       // flat base fee
       // linear fee scheduler
-      const feeNumerator = poolState.poolFees.baseFee.cliffFeeNumerator.sub(
-        new BN(poolState.poolFees.baseFee.firstFactor).mul(
-          poolState.poolFees.baseFee.thirdFactor
-        )
+      const linearFeeTimeScheduler = decodePodAlignedFeeTimeScheduler(
+        Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
       );
+      const feeNumeratorDecay = new BN(
+        linearFeeTimeScheduler.numberOfPeriod
+      ).mul(linearFeeTimeScheduler.reductionFactor);
+
+      const feeNumerator =
+        linearFeeTimeScheduler.cliffFeeNumerator.sub(feeNumeratorDecay);
 
       const lpFee = mulDiv(
         totalDeposit,
@@ -102,6 +121,7 @@ describe("Alpha vault with sniper tax", () => {
         new BN(FEE_DENOMINATOR),
         Rounding.Up
       );
+
       // alpha vault can buy with minimum fee (fee scheduler don't applied)
       // expect total trading fee equal minimum base fee
       expect(totalTradingFee.toNumber()).eq(lpFee.toNumber());
@@ -139,29 +159,29 @@ describe("Alpha vault with sniper tax", () => {
     });
 
     it("Alpha vault can buy before activation point with minimum fee", async () => {
-      let referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
-      let maxRateLimiterDuration = new BN(10);
-      let maxFeeBps = new BN(5000);
+      const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
+      const maxRateLimiterDuration = new BN(10);
+      const maxFeeBps = new BN(5000);
+      const feeIncrementBps = 10;
+      const cliffFeeNumerator = new BN(10_000_000);
 
-      let rateLimiterSecondFactor = convertToRateLimiterSecondFactor(
-        maxRateLimiterDuration,
-        maxFeeBps
+      const data = encodeFeeRateLimiterParams(
+        BigInt(cliffFeeNumerator.toString()),
+        feeIncrementBps,
+        maxRateLimiterDuration.toNumber(),
+        maxFeeBps.toNumber(),
+        BigInt(referenceAmount.toString())
       );
 
-      const baseFee = {
-        cliffFeeNumerator: new BN(10_000_000), // 100bps
-        firstFactor: 10, // 10 bps
-        secondFactor: rateLimiterSecondFactor,
-        thirdFactor: referenceAmount, // 1 sol
-        baseFeeMode: 2, // rate limiter mode
-      };
-      const { pool, alphaVault } = await alphaVaultWithSniperTaxFullflow(
+      const { pool, alphaVault } = await alphaVaultWithSniperTaxFullFlow(
         context,
         user,
         creator,
         tokenAMint,
         tokenBMint,
-        baseFee
+        {
+          data: Array.from(data),
+        }
       );
 
       const alphaVaultState = await getVaultState(
@@ -173,11 +193,14 @@ describe("Alpha vault with sniper tax", () => {
         poolState.metrics.totalProtocolBFee
       );
       const totalDeposit = new BN(alphaVaultState.totalDeposit);
-      const feeNumerator = poolState.poolFees.baseFee.cliffFeeNumerator;
+
+      const rateLimiterScheduler = decodePodAlignedFeeRateLimiter(
+        Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+      );
 
       const lpFee = mulDiv(
         totalDeposit,
-        feeNumerator,
+        rateLimiterScheduler.cliffFeeNumerator,
         new BN(FEE_DENOMINATOR),
         Rounding.Up
       );
@@ -188,7 +211,7 @@ describe("Alpha vault with sniper tax", () => {
   });
 });
 
-const alphaVaultWithSniperTaxFullflow = async (
+const alphaVaultWithSniperTaxFullFlow = async (
   context: ProgramTestContext,
   user: Keypair,
   creator: Keypair,
@@ -228,7 +251,6 @@ const alphaVaultWithSniperTaxFullflow = async (
     context.banksClient,
     params
   );
-
 
   console.log("setup prorata vault");
   let startVestingPoint = new BN(Number(currentSlot) + startVestingPointDiff);

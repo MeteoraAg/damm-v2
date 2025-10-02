@@ -95,6 +95,7 @@ pub fn handle_create_static_config(
 
     let pool_collect_fee_mode =
         CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
     pool_fees.validate(pool_collect_fee_mode, pool_activation_type)?;
 
     let mut config = ctx.accounts.config.load_init()?;
@@ -107,7 +108,7 @@ pub fn handle_create_static_config(
         sqrt_min_price,
         sqrt_max_price,
         collect_fee_mode,
-    );
+    )?;
 
     emit_cpi!(event::EvtCreateConfig {
         pool_fees,
