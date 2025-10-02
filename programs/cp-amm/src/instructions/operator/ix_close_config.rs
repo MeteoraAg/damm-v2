@@ -1,6 +1,10 @@
 use anchor_lang::prelude::*;
 
-use crate::{assert_eq_admin, event, state::Config, PoolError};
+use crate::{
+    event,
+    state::{Config, Operator, OperatorPermission},
+    PoolError,
+};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -12,8 +16,12 @@ pub struct CloseConfigCtx<'info> {
     )]
     pub config: AccountLoader<'info, Config>,
 
-    #[account(mut, constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin)]
-    pub admin: Signer<'info>,
+    #[account(
+        has_one = whitelisted_address
+    )]
+    pub operator: AccountLoader<'info, Operator>,
+
+    pub whitelisted_address: Signer<'info>,
 
     /// CHECK: Account to receive closed account rental SOL
     #[account(mut)]
@@ -21,9 +29,14 @@ pub struct CloseConfigCtx<'info> {
 }
 
 pub fn handle_close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {
+    let operator = ctx.accounts.operator.load()?;
+    require!(
+        operator.is_permission_allow(OperatorPermission::RemoveConfigKey),
+        PoolError::InvalidAuthority
+    );
     emit_cpi!(event::EvtCloseConfig {
         config: ctx.accounts.config.key(),
-        admin: ctx.accounts.admin.key(),
+        admin: ctx.accounts.whitelisted_address.key(),
     });
 
     Ok(())
