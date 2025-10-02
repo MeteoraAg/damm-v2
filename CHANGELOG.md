@@ -33,9 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.1.5] [PR #122](https://github.com/MeteoraAg/damm-v2/pull/122)
 ### Added
-- Add 3 new modes for base fee: rate limiter, fee by marketcap linear and fee by marketcap exponential. 
-- For rate limiter mode, fee will be increased if user buy with higher amount. The rate limiter mode is only available if collect fee mode is in token b token only, and when user buy token (not sell). Rate limiter doesn't allow user to send multiple swap instructions (or CPI) to the same pool in 1 transaction
-- For fee by marketcap, fee will be reduced as current price increases from initial price
+- Allow partner to config another mode for base fee, called rate limiter. With the mode is enable, fee slope will increase if user buy with higher amount. The rate limiter mode is only available if collect fee mode is in token b token only, and when user buy token (not sell). Rate limiter doesn't allow user to send multiple swap instructions (or CPI) to the same pool in 1 transaction
 - Add new endpoint `swap2`, that includes 3 `swap_mode`: 0 (ExactIn), 1 (PartialFill) and 2 (ExactOut)
 - Emit new event in 2 swap endpoints `EvtSwap2`, that includes more information about `reserve_a_amount`, `reserve_b_amount`
 - Emit new event `EvtLiquidityChange` when user add or remove liquidity
