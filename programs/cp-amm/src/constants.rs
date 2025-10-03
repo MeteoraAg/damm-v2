@@ -1,6 +1,9 @@
-/// refer raydium clmm
+use anchor_lang::constant;
+
+// TODO add constant, anchor constant doesn't work with i128 for a big number
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
-/// refer raydium clmm
+
+// TODO add constant, anchor constant doesn't work with i128 for a big number
 pub const MAX_SQRT_PRICE: u128 = 79226673521066979257578248091;
 
 pub const LIQUIDITY_SCALE: u8 = 128;
@@ -11,14 +14,14 @@ pub const TOTAL_REWARD_SCALE: u8 = 192;
 
 pub const ONE_Q64: u128 = 1u128 << 64;
 
+#[constant]
 pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
 
-//  bin_step << 64 / BASIS_POINT_MAX
+//  bin_step << 64 / MAX_BASIS_POINT
+// TODO add constant, anchor constant doesn't work with i128 for a big number
 pub const BIN_STEP_BPS_U128_DEFAULT: u128 = 1844674407370955;
 
 static_assertions::const_assert_eq!(LIQUIDITY_SCALE + REWARD_RATE_SCALE, TOTAL_REWARD_SCALE);
-
-pub const BASIS_POINT_MAX: u64 = 10_000;
 
 pub const U24_MAX: u32 = 0xffffff;
 
@@ -34,12 +37,14 @@ pub const MIN_REWARD_DURATION: u64 = 24 * 60 * 60; // 1 day
 
 pub const MAX_REWARD_DURATION: u64 = 31536000; // 1 year = 365 * 24 * 3600
 
+// need to export as constant in case someone want to calculate split position numerator
+#[constant]
 pub const SPLIT_POSITION_DENOMINATOR: u32 = 1_000_000_000; // 1b
 
 pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
 pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
 
-pub const MAX_OPERATION: u8 = 10;
+pub const MAX_OPERATION: u8 = 11;
 
 static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,
@@ -87,6 +92,7 @@ pub mod fee {
     use anchor_lang::prelude::*;
 
     /// Default fee denominator. DO NOT simply update it as it will break logic that depends on it as default value.
+    #[constant]
     pub const FEE_DENOMINATOR: u64 = 1_000_000_000;
 
     /// Max fee BPS
@@ -97,7 +103,8 @@ pub mod fee {
     pub const MAX_FEE_NUMERATOR_V1: u64 = 990_000_000; // 99%
 
     /// Max basis point. 100% in pct
-    pub const MAX_BASIS_POINT: u64 = 10000;
+    #[constant]
+    pub const MAX_BASIS_POINT: u64 = 10_000;
 
     pub const MIN_FEE_BPS: u64 = 1; // 0.01%
     pub const MIN_FEE_NUMERATOR: u64 = 100_000;
@@ -147,12 +154,26 @@ pub mod fee {
 }
 
 pub mod seeds {
+    use anchor_lang::constant;
+
     pub const CONFIG_PREFIX: &[u8] = b"config";
+
+    #[constant]
     pub const CUSTOMIZABLE_POOL_PREFIX: &[u8] = b"cpool";
+
+    #[constant]
     pub const POOL_PREFIX: &[u8] = b"pool";
+
+    #[constant]
     pub const TOKEN_VAULT_PREFIX: &[u8] = b"token_vault";
+
+    #[constant]
     pub const POOL_AUTHORITY_PREFIX: &[u8] = b"pool_authority";
+
+    #[constant]
     pub const POSITION_PREFIX: &[u8] = b"position";
+
+    #[constant]
     pub const POSITION_NFT_ACCOUNT_PREFIX: &[u8] = b"position_nft_account";
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
     pub const REWARD_VAULT_PREFIX: &[u8] = b"reward_vault";

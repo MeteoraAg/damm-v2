@@ -48,9 +48,6 @@ import {
   deriveTokenBadgeAddress,
   deriveTokenVaultAddress,
 } from "./accounts";
-import { processTransactionMaybeThrow } from "./common";
-import { CP_AMM_PROGRAM_ID, MIN_SQRT_PRICE } from "./constants";
-import { expect } from "chai";
 import {
   BaseFeeMode,
   decodePodAlignedFeeMarketCapScheduler,
@@ -60,6 +57,20 @@ import {
   decodePodAlignedFeeTimeScheduler,
   decodeFeeTimeSchedulerParams,
 } from "./feeCodec";
+import { convertToByteArray, processTransactionMaybeThrow } from "./common";
+import {
+  BASIS_POINT_MAX,
+  BIN_STEP_BPS_DEFAULT,
+  BIN_STEP_BPS_U128_DEFAULT,
+  CP_AMM_PROGRAM_ID,
+  DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
+  DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
+  DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
+  MAX_PRICE_CHANGE_BPS_DEFAULT,
+  ONE
+} from "./constants";
+import { expect } from "chai";
+import Decimal from "decimal.js";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
 export type Position = IdlAccounts<CpAmm>["position"];
@@ -438,10 +449,11 @@ export enum OperatorPermission {
   CloseTokenBadge, // 3
   SetPoolStatus, // 4
   CreateClaimProtocolFeeOperator, // 5
-  CloseClaimProtocolFeeOperator, // 6
-  InitializeReward, // 7
-  UpdateRewardDuration, // 8
-  UpdateRewardFunder, // 9
+  CloseClaimProtocolFeeOperator,  // 6
+  InitializeReward,               // 7
+  UpdateRewardDuration,           // 8
+  UpdateRewardFunder,             // 9
+  UpdatePoolFees                  // 10
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -509,6 +521,31 @@ export async function closeClaimFeeOperator(
   const account = await banksClient.getAccount(claimFeeOperator);
 
   expect(account).to.be.null;
+}
+
+export type UpdatePoolFeesParams = {
+  pool: PublicKey;
+  whitelistedOperator: Keypair;
+  cliffFeeNumerator: BN | null;
+  dynamicFee: DynamicFee | null;
+};
+
+export async function updatePoolFeesParameters(banksClient: BanksClient, params: UpdatePoolFeesParams, isAssert = true): Promise<void> {
+  const { pool, whitelistedOperator, cliffFeeNumerator, dynamicFee } = params
+  const program = createCpAmmProgram();
+  const transaction = await program.methods.updatePoolFees({
+    cliffFeeNumerator,
+    dynamicFee
+  }).accountsPartial({
+    pool,
+    operator: deriveOperatorAddress(whitelistedOperator.publicKey),
+    whitelistedAddress: whitelistedOperator.publicKey
+  }).transaction()
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(whitelistedOperator);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
 }
 
 export type ClaimProtocolFeeParams = {
@@ -1179,12 +1216,12 @@ export async function initializeReward(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
@@ -1233,12 +1270,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1276,12 +1313,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -2343,4 +2380,108 @@ export async function getTokenBadge(
   const program = createCpAmmProgram();
   const account = await banksClient.getAccount(tokenBadge);
   return program.coder.accounts.decode("tokenBadge", Buffer.from(account.data));
+}
+
+
+
+export function getDynamicFeeParams(
+  baseFeeNumerator: BN,
+  maxPriceChangeBps: number = MAX_PRICE_CHANGE_BPS_DEFAULT // default 15%
+): DynamicFee {
+  if (maxPriceChangeBps > MAX_PRICE_CHANGE_BPS_DEFAULT) {
+    throw new Error(
+      `maxPriceChangeBps (${maxPriceChangeBps} bps) must be less than or equal to ${MAX_PRICE_CHANGE_BPS_DEFAULT}`
+    );
+  }
+
+  const priceRatio = maxPriceChangeBps / BASIS_POINT_MAX + 1;
+  // Q64
+  const sqrtPriceRatioQ64 = new BN(
+    Decimal.sqrt(priceRatio.toString())
+      .mul(Decimal.pow(2, 64))
+      .floor()
+      .toFixed()
+  );
+  const deltaBinId = sqrtPriceRatioQ64
+    .sub(ONE)
+    .div(BIN_STEP_BPS_U128_DEFAULT)
+    .muln(2);
+
+  const maxVolatilityAccumulator = new BN(deltaBinId.muln(BASIS_POINT_MAX));
+
+  const squareVfaBin = maxVolatilityAccumulator
+    .mul(new BN(BIN_STEP_BPS_DEFAULT))
+    .pow(new BN(2));
+
+  const maxDynamicFeeNumerator = baseFeeNumerator.muln(20).divn(100); // default max dynamic fee = 20% of base fee.
+  const vFee = maxDynamicFeeNumerator
+    .mul(new BN(100_000_000_000))
+    .sub(new BN(99_999_999_999));
+
+  const variableFeeControl = vFee.div(squareVfaBin);
+
+  return {
+    binStep: BIN_STEP_BPS_DEFAULT,
+    binStepU128: BIN_STEP_BPS_U128_DEFAULT,
+    filterPeriod: DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
+    decayPeriod: DYNAMIC_FEE_DECAY_PERIOD_DEFAULT,
+    reductionFactor: DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
+    maxVolatilityAccumulator: maxVolatilityAccumulator.toNumber(),
+    variableFeeControl: variableFeeControl.toNumber(),
+  };
+}
+
+export function getDefaultDynamicFee(): DynamicFee {
+  return {
+    binStep: 0,
+    binStepU128: new BN(0),
+    filterPeriod: 0,
+    decayPeriod: 0,
+    reductionFactor: 0,
+    maxVolatilityAccumulator: 0,
+    variableFeeControl: 0,
+  };
+}
+
+export function getFeeShedulerParams(
+  maxBaseFeeNumerator: BN,
+  minBaseFeeNumerator: BN,
+  baseFeeMode: BaseFeeMode,
+  numberOfPeriod: number,
+  totalDuration: number
+) {
+  if (maxBaseFeeNumerator.eq(minBaseFeeNumerator)) {
+    if (numberOfPeriod != 0 || totalDuration != 0) {
+      throw new Error("numberOfPeriod and totalDuration must both be zero");
+    }
+
+    return {
+      cliffFeeNumerator: maxBaseFeeNumerator,
+      firstFactor: 0,
+      secondFactor: convertToByteArray(new BN(0)),
+      thirdFactor: new BN(0),
+      baseFeeMode: 0,
+    };
+  }
+
+  const periodFrequency = new BN(totalDuration / numberOfPeriod);
+
+  let reductionFactor: BN;
+  if (baseFeeMode == BaseFeeMode.FeeTimeSchedulerLinear) {
+    const totalReduction = maxBaseFeeNumerator.sub(minBaseFeeNumerator);
+    reductionFactor = totalReduction.divn(numberOfPeriod);
+  } else {
+    const ratio =
+      minBaseFeeNumerator.toNumber() / maxBaseFeeNumerator.toNumber();
+    const decayBase = Math.pow(ratio, 1 / numberOfPeriod);
+    reductionFactor = new BN(BASIS_POINT_MAX * (1 - decayBase));
+  }
+
+  return {
+    cliffFeeNumerator: maxBaseFeeNumerator,
+    numberOfPeriod,
+    periodFrequency,
+    reductionFactor,
+    baseFeeMode,
+  };
 }

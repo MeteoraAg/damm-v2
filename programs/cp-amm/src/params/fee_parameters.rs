@@ -4,7 +4,7 @@ use crate::base_fee::{base_fee_parameters_to_base_fee_info, BaseFeeHandlerBuilde
 use crate::constants::fee::{
     HOST_FEE_PERCENT, MAX_BASIS_POINT, PARTNER_FEE_PERCENT, PROTOCOL_FEE_PERCENT,
 };
-use crate::constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
+use crate::constants::{BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
 use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
@@ -101,7 +101,7 @@ impl PoolFeeParameters {
     }
 }
 
-#[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
+#[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default, PartialEq)]
 pub struct DynamicFeeParameters {
     pub bin_step: u16,
     pub bin_step_u128: u128,
@@ -126,7 +126,7 @@ impl DynamicFeeParameters {
             ..Default::default()
         }
     }
-    fn to_dynamic_fee_struct(&self) -> DynamicFeeStruct {
+    pub fn to_dynamic_fee_struct(&self) -> DynamicFeeStruct {
         DynamicFeeStruct {
             initialized: 1,
             bin_step: self.bin_step,
@@ -156,9 +156,9 @@ impl DynamicFeeParameters {
             PoolError::InvalidInput
         );
 
-        // reduction factor decide the decay rate of variable fee, max reduction_factor is BASIS_POINT_MAX = 100% reduction
+        // reduction factor decide the decay rate of variable fee, max reduction_factor is MAX_BASIS_POINT = 100% reduction
         require!(
-            self.reduction_factor <= BASIS_POINT_MAX as u16,
+            self.reduction_factor <= MAX_BASIS_POINT as u16,
             PoolError::InvalidInput
         );
 

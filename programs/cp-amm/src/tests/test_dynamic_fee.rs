@@ -1,6 +1,6 @@
 use crate::tests::price_math::get_price_from_id;
 
-const BASIS_POINT_MAX: u64 = 10_000;
+const MAX_BASIS_POINT: u64 = 10_000;
 
 #[derive(Debug, Default)]
 struct DynamicFeeModel {
@@ -23,7 +23,7 @@ impl DynamicFeeModel {
         let bin_step = (self.bin_step as u128)
             .checked_shl(64)
             .unwrap()
-            .checked_div(BASIS_POINT_MAX.into())
+            .checked_div(MAX_BASIS_POINT.into())
             .unwrap();
         if self.sqrt_price_reference > sqrt_price {
             self.sqrt_price_reference
@@ -47,7 +47,7 @@ impl DynamicFeeModel {
 
         let volatility_accumulator = self
             .volatility_reference
-            .checked_add(delta_price.checked_mul(BASIS_POINT_MAX.into()).unwrap())
+            .checked_add(delta_price.checked_mul(MAX_BASIS_POINT.into()).unwrap())
             .unwrap();
 
         self.volatility_accumulator =
@@ -81,7 +81,7 @@ impl DynamicFeeModel {
                     .volatility_accumulator
                     .checked_mul(self.reduction_factor as u128)
                     .unwrap()
-                    .checked_div(BASIS_POINT_MAX as u128)
+                    .checked_div(MAX_BASIS_POINT as u128)
                     .unwrap();
 
                 self.volatility_reference = volatility_reference;
