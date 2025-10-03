@@ -1,6 +1,4 @@
-use crate::tests::price_math::get_price_from_id;
-
-const MAX_BASIS_POINT: u64 = 10_000;
+use crate::{constants::fee::MAX_BASIS_POINT, tests::price_math::get_price_from_id};
 
 #[derive(Debug, Default)]
 struct DynamicFeeModel {

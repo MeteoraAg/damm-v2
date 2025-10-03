@@ -108,7 +108,7 @@ impl PodAlignedFeeTimeScheduler {
 
         match base_fee_mode {
             BaseFeeMode::FeeTimeSchedulerLinear => {
-                let fee_numerator: u64 = self
+                let fee_numerator = self
                     .cliff_fee_numerator
                     .safe_sub(self.reduction_factor.safe_mul(period)?)?;
                 Ok(fee_numerator)

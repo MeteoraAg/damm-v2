@@ -76,8 +76,6 @@ impl InitializeCustomizablePoolParameters {
 
         self.pool_fees.validate(collect_fee_mode, activation_type)?;
 
-        self.pool_fees.validate(collect_fee_mode, activation_type)?;
-
         // validate activation
         let activation_params = ActivationParams {
             activation_point: self.activation_point,
