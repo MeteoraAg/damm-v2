@@ -5,7 +5,7 @@ use crate::{
     params::fee_parameters::PoolFeeParameters,
     state::{SplitAmountInfo, SplitPositionInfo, SwapResult, SwapResult2},
     AddLiquidityParameters, RemoveLiquidityParameters, SplitPositionParameters2, SwapParameters,
-    SwapParameters2,
+    SwapParameters2, UpdatePoolFeesParameters,
 };
 
 /// Close config
@@ -321,4 +321,11 @@ pub struct EvtLiquidityChange {
     pub token_b_amount_threshold: u64,
     // 0: add, 1: remove
     pub change_type: u8,
+}
+
+#[event]
+pub struct EvtUpdatePoolFees {
+    pub pool: Pubkey,
+    pub operator: Pubkey,
+    pub params: UpdatePoolFeesParameters,
 }

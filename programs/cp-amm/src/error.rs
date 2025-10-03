@@ -172,4 +172,13 @@ pub enum PoolError {
 
     #[msg("Invalid fee market cap scheduler")]
     InvalidFeeMarketCapScheduler,
+
+    #[msg("Cannot update base fee")]
+    CannotUpdateBaseFee,
+
+    #[msg("Invalid dynamic fee parameters")]
+    InvalidDynamicFeeParameters,
+
+    #[msg("Invalid update pool fees parameters")]
+    InvalidUpdatePoolFeesParameters,
 }

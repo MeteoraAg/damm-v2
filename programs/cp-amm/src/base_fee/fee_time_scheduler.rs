@@ -189,4 +189,14 @@ impl BaseFeeHandler for PodAlignedFeeTimeScheduler {
     ) -> Result<u64> {
         self.get_base_fee_numerator(current_point, activation_point)
     }
+
+    fn validate_base_fee_is_static(
+        &self,
+        current_point: u64,
+        activation_point: u64,
+    ) -> Result<bool> {
+        let scheduler_expiration_point = u128::from(activation_point)
+            .safe_add(u128::from(self.number_of_period).safe_mul(self.period_frequency.into())?)?;
+        Ok(u128::from(current_point) > scheduler_expiration_point)
+    }
 }

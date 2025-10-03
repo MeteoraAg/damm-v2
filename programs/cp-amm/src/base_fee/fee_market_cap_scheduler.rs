@@ -236,4 +236,14 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
             current_sqrt_price,
         )
     }
+
+    fn validate_base_fee_is_static(
+        &self,
+        current_point: u64,
+        activation_point: u64,
+    ) -> Result<bool> {
+        let scheduler_expiration_point =
+            u128::from(activation_point).safe_add(self.scheduler_expiration_duration.into())?;
+        Ok(u128::from(current_point) > scheduler_expiration_point)
+    }
 }
