@@ -1303,10 +1303,7 @@ impl Pool {
     ) -> Result<()> {
         // update cliff_fee_numerator
         match params.get_base_fee_update_mode() {
-            BaseFeeUpdateMode::Update => {
-                let cliff_fee_numerator = params
-                    .cliff_fee_numerator
-                    .ok_or_else(|| PoolError::TypeCastFailed)?;
+            BaseFeeUpdateMode::Update(cliff_fee_numerator) => {
                 // validate base fee is static
                 let base_fee_handler = self
                     .pool_fees
@@ -1325,6 +1322,7 @@ impl Pool {
                     .base_fee_info
                     .update_cliff_fee_numerator(cliff_fee_numerator)?;
 
+                // Reload cliff_fee_numerator after update
                 let base_fee_handler = self
                     .pool_fees
                     .base_fee
@@ -1353,13 +1351,10 @@ impl Pool {
                 );
                 self.pool_fees.dynamic_fee = DynamicFeeStruct::default();
             }
-            DynamicFeeUpdateMode::Update => {
+            DynamicFeeUpdateMode::Update(dynamic_fee) => {
                 // We don't need to reset dynamic fee struct to zero before update new dynamic fee params
                 // because in [to_dynamic_fee_struct] we already reset the rest value in dynamic fee struct to zero
-                self.pool_fees.dynamic_fee = params
-                    .dynamic_fee
-                    .ok_or_else(|| PoolError::TypeCastFailed)?
-                    .to_dynamic_fee_struct();
+                self.pool_fees.dynamic_fee = dynamic_fee.to_dynamic_fee_struct();
             }
             _ => {
                 // skip update, so we don't do anything

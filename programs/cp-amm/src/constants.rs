@@ -1,10 +1,12 @@
 use anchor_lang::constant;
 
-// TODO add constant, anchor constant doesn't work with i128 for a big number
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
+#[constant]
+pub const MIN_SQRT_PRICE_LE_BYTES: [u8; 16] = MIN_SQRT_PRICE.to_le_bytes();
 
-// TODO add constant, anchor constant doesn't work with i128 for a big number
 pub const MAX_SQRT_PRICE: u128 = 79226673521066979257578248091;
+#[constant]
+pub const MAX_SQRT_PRICE_LE_BYTES: [u8; 16] = MAX_SQRT_PRICE.to_le_bytes();
 
 pub const LIQUIDITY_SCALE: u8 = 128;
 
@@ -18,8 +20,9 @@ pub const ONE_Q64: u128 = 1u128 << 64;
 pub const BIN_STEP_BPS_DEFAULT: u16 = 1;
 
 //  bin_step << 64 / MAX_BASIS_POINT
-// TODO add constant, anchor constant doesn't work with i128 for a big number
 pub const BIN_STEP_BPS_U128_DEFAULT: u128 = 1844674407370955;
+#[constant]
+pub const BIN_STEP_U128_DEFAULT_LE_BYTES: [u8; 16] = BIN_STEP_BPS_U128_DEFAULT.to_le_bytes();
 
 static_assertions::const_assert_eq!(LIQUIDITY_SCALE + REWARD_RATE_SCALE, TOTAL_REWARD_SCALE);
 

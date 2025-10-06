@@ -24,22 +24,21 @@ pub struct UpdatePoolFeesParameters {
 pub enum DynamicFeeUpdateMode {
     Skip,
     Disable,
-    Update,
+    Update(DynamicFeeParameters),
 }
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BaseFeeUpdateMode {
     Skip,
-    Update,
+    Update(u64),
 }
 
 impl UpdatePoolFeesParameters {
     pub fn get_base_fee_update_mode(&self) -> BaseFeeUpdateMode {
-        if self.cliff_fee_numerator.is_none() {
-            BaseFeeUpdateMode::Skip
-        } else {
-            BaseFeeUpdateMode::Update
+        match self.cliff_fee_numerator {
+            Some(cliff_fee_numerator) => BaseFeeUpdateMode::Update(cliff_fee_numerator),
+            None => BaseFeeUpdateMode::Skip,
         }
     }
 
@@ -48,7 +47,7 @@ impl UpdatePoolFeesParameters {
             if dynamic_fee == DynamicFeeParameters::default() {
                 DynamicFeeUpdateMode::Disable
             } else {
-                DynamicFeeUpdateMode::Update
+                DynamicFeeUpdateMode::Update(dynamic_fee)
             }
         } else {
             DynamicFeeUpdateMode::Skip
