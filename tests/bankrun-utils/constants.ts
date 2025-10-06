@@ -33,6 +33,14 @@ export const MAX_RATE_LIMITER_DURATION_IN_SLOTS = 108000; // 12 hours
 // Set the decimals, fee basis points, and maximum fee
 export const FEE_BASIS_POINT = 100; // 1%
 export const MAX_FEE = BigInt(9 * Math.pow(10, DECIMALS)); // 9 tokens
+export const DYNAMIC_FEE_FILTER_PERIOD_DEFAULT = 10;
+export const DYNAMIC_FEE_DECAY_PERIOD_DEFAULT = 120;
+export const DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT = 5000; // 50%
+export const BIN_STEP_BPS_DEFAULT = 1;
+//  bin_step << 64 / BASIS_POINT_MAX
+export const BIN_STEP_BPS_U128_DEFAULT = new BN("1844674407370955");
+export const MAX_PRICE_CHANGE_BPS_DEFAULT = 1500; // 15%
+export const ONE = new BN(1).shln(64);
 
 export const TEST_TRANSFER_HOOK_PROGRAM_ID = new PublicKey(
   "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"

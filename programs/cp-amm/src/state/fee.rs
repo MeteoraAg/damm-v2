@@ -6,7 +6,10 @@ use crate::{
     base_fee::{
         fee_rate_limiter::PodAlignedFeeRateLimiter, BaseFeeEnumReader, BaseFeeHandlerBuilder,
     },
-    constants::{fee::FEE_DENOMINATOR, BASIS_POINT_MAX, ONE_Q64},
+    constants::{
+        fee::{FEE_DENOMINATOR, MAX_BASIS_POINT},
+        ONE_Q64,
+    },
     params::swap::TradeDirection,
     safe_math::SafeMath,
     state::BaseFeeInfo,
@@ -332,7 +335,7 @@ impl DynamicFeeStruct {
 
         let volatility_accumulator = self
             .volatility_reference
-            .safe_add(delta_price.safe_mul(BASIS_POINT_MAX.into())?)?;
+            .safe_add(delta_price.safe_mul(MAX_BASIS_POINT.into())?)?;
 
         self.volatility_accumulator = std::cmp::min(
             volatility_accumulator,
@@ -359,7 +362,7 @@ impl DynamicFeeStruct {
                 let volatility_reference = self
                     .volatility_accumulator
                     .safe_mul(self.reduction_factor.into())?
-                    .safe_div(BASIS_POINT_MAX.into())?;
+                    .safe_div(MAX_BASIS_POINT.into())?;
 
                 self.volatility_reference = volatility_reference;
             }

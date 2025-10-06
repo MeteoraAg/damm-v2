@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add 2 new modes for base fee: fee by marketcap linear and fee by marketcap exponential, fee will be reduced when current price increases from initial price
 - Add new endpoint `create_operator_account` and `close_operator_account`that allows admin to manage different operator accounts
 - Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
+- Add new endpoint `update_pool_fees` that allows operators to update pool fees (both base fee and dynamic fee) for specific pools.
 
 ### Changed
 - Remove constraints for quote tokens (SOL/USDC), affected endpoints: `initialize_pool_with_dynamic_config` and `initialize_customizable_pool`

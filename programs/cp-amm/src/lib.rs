@@ -165,6 +165,13 @@ pub mod cp_amm {
         instructions::handle_close_token_badge(ctx)
     }
 
+    pub fn update_pool_fees(
+        ctx: Context<UpdatePoolFeesCtx>,
+        params: UpdatePoolFeesParameters,
+    ) -> Result<()> {
+        instructions::handle_update_pool_fees(ctx, params)
+    }
+
     /// USER FUNCTIONS ////
 
     pub fn initialize_pool<'c: 'info, 'info>(

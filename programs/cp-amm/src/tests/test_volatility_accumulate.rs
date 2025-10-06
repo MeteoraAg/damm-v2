@@ -1,5 +1,5 @@
 use crate::{
-    constants::{BASIS_POINT_MAX, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, ONE_Q64},
+    constants::{fee::MAX_BASIS_POINT, BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, ONE_Q64},
     state::fee::DynamicFeeStruct,
     tests::price_math::get_price_from_id,
 };
@@ -9,7 +9,7 @@ fn test_bin_step_bps_u128() {
     let result = ONE_Q64
         .checked_mul(BIN_STEP_BPS_DEFAULT.into())
         .unwrap()
-        .checked_div(BASIS_POINT_MAX.into())
+        .checked_div(MAX_BASIS_POINT.into())
         .unwrap();
     assert_eq!(result, BIN_STEP_BPS_U128_DEFAULT);
 }

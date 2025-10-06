@@ -9,6 +9,7 @@ import { BanksClient, ProgramTestContext, startAnchor } from "solana-bankrun";
 import { ALPHA_VAULT_PROGRAM_ID, CP_AMM_PROGRAM_ID } from "./constants";
 import BN from "bn.js";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
+import CpAmmIdl from "../../target/idl/cp_amm.json";
 
 export async function startTest(root: Keypair) {
   // Program name need to match fixtures program name
@@ -92,6 +93,22 @@ export async function expectThrowsAsync(
     }
   }
   throw new Error("Expected an error but didn't get one");
+}
+
+export function getCpAmmProgramErrorCodeHexString(errorMessage: String) {
+  const error = CpAmmIdl.errors.find(
+    (e) =>
+      e.name.toLowerCase() === errorMessage.toLowerCase() ||
+      e.msg.toLowerCase() === errorMessage.toLowerCase()
+  );
+
+  if (!error) {
+    throw new Error(
+      `Unknown stake for fee error message / name: ${errorMessage}`
+    );
+  }
+
+  return "0x" + error.code.toString(16);
 }
 
 export async function generateKpAndFund(

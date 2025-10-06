@@ -128,3 +128,37 @@ pub fn base_fee_info_to_base_fee_parameters(from: &BaseFeeInfo) -> Result<BaseFe
     };
     Ok(BaseFeeParameters { data })
 }
+
+pub trait UpdateCliffFeeNumerator {
+    fn update_cliff_fee_numerator(&mut self, new_cliff_fee_numerator: u64) -> Result<()>;
+}
+
+impl UpdateCliffFeeNumerator for BaseFeeInfo {
+    fn update_cliff_fee_numerator(&mut self, new_cliff_fee_numerator: u64) -> Result<()> {
+        let base_fee_mode = self.get_base_fee_mode()?;
+        match base_fee_mode {
+            BaseFeeMode::FeeTimeSchedulerExponential | BaseFeeMode::FeeTimeSchedulerLinear => {
+                let pod_aligned_struct =
+                    bytemuck::try_from_bytes_mut::<PodAlignedFeeTimeScheduler>(&mut self.data)
+                        .map_err(|_| PoolError::UndeterminedError)?;
+                pod_aligned_struct.cliff_fee_numerator = new_cliff_fee_numerator;
+            }
+            BaseFeeMode::RateLimiter => {
+                let pod_aligned_struct =
+                    bytemuck::try_from_bytes_mut::<PodAlignedFeeRateLimiter>(&mut self.data)
+                        .map_err(|_| PoolError::UndeterminedError)?;
+
+                pod_aligned_struct.cliff_fee_numerator = new_cliff_fee_numerator;
+            }
+            BaseFeeMode::FeeMarketCapSchedulerExponential
+            | BaseFeeMode::FeeMarketCapSchedulerLinear => {
+                let pod_aligned_struct =
+                    bytemuck::try_from_bytes_mut::<PodAlignedFeeMarketCapScheduler>(&mut self.data)
+                        .map_err(|_| PoolError::UndeterminedError)?;
+
+                pod_aligned_struct.cliff_fee_numerator = new_cliff_fee_numerator;
+            }
+        };
+        Ok(())
+    }
+}
