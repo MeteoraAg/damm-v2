@@ -379,7 +379,7 @@ describe("Swap token", () => {
         payer: user,
         pool,
         inputTokenMint,
-        outputTokenMint,
+        outputTokenMint,  
         amountIn: new BN(10),
         minimumAmountOut: new BN(0),
         referralTokenAccount: null,

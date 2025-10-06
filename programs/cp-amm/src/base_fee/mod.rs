@@ -34,4 +34,10 @@ pub trait BaseFeeHandler {
         init_sqrt_price: u128,
         current_sqrt_price: u128,
     ) -> Result<u64>;
+
+    fn validate_base_fee_is_static(
+        &self,
+        current_point: u64,
+        activation_point: u64,
+    ) -> Result<bool>;
 }
