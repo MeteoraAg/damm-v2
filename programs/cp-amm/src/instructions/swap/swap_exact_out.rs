@@ -6,9 +6,7 @@ use crate::{
     PoolError, SwapParameters,
 };
 
-pub fn process_swap_exact_out<'a, 'b, 'info>(
-    params: ProcessSwapParams<'a, 'b, 'info>,
-) -> Result<ProcessSwapResult> {
+pub fn process_swap_exact_out<'a>(params: ProcessSwapParams<'a>) -> Result<ProcessSwapResult> {
     let ProcessSwapParams {
         pool,
         token_in_mint,
@@ -20,8 +18,12 @@ pub fn process_swap_exact_out<'a, 'b, 'info>(
         amount_1: maximum_amount_in,
     } = params;
 
-    let included_transfer_fee_amount_out =
-        calculate_transfer_fee_included_amount(token_out_mint, amount_out)?.amount;
+    // TODO fix unwrap
+    let included_transfer_fee_amount_out = calculate_transfer_fee_included_amount(
+        &token_out_mint.try_borrow_data().unwrap(),
+        amount_out,
+    )?
+    .amount;
     require!(
         included_transfer_fee_amount_out > 0,
         PoolError::AmountIsZero
@@ -34,8 +36,9 @@ pub fn process_swap_exact_out<'a, 'b, 'info>(
         current_point,
     )?;
 
+    // TODO fix unwrap
     let included_transfer_fee_amount_in = calculate_transfer_fee_included_amount(
-        token_in_mint,
+        &token_in_mint.try_borrow_data().unwrap(),
         swap_result.included_fee_input_amount,
     )?
     .amount;

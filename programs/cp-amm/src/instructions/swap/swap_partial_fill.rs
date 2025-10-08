@@ -5,9 +5,7 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 
-pub fn process_swap_partial_fill<'a, 'b, 'info>(
-    params: ProcessSwapParams<'a, 'b, 'info>,
-) -> Result<ProcessSwapResult> {
+pub fn process_swap_partial_fill<'a>(params: ProcessSwapParams<'a>) -> Result<ProcessSwapResult> {
     let ProcessSwapParams {
         pool,
         token_in_mint,
@@ -18,9 +16,12 @@ pub fn process_swap_partial_fill<'a, 'b, 'info>(
         trade_direction,
         current_point,
     } = params;
-
-    let excluded_transfer_fee_amount_in =
-        calculate_transfer_fee_excluded_amount(token_in_mint, amount_in)?.amount;
+    // TODO fix unwrap
+    let excluded_transfer_fee_amount_in = calculate_transfer_fee_excluded_amount(
+        &token_in_mint.try_borrow_data().unwrap(),
+        amount_in,
+    )?
+    .amount;
 
     // redundant check, but it is fine to keep it
     require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
@@ -38,16 +39,21 @@ pub fn process_swap_partial_fill<'a, 'b, 'info>(
         PoolError::AmountIsZero
     );
 
-    let excluded_transfer_fee_amount_out =
-        calculate_transfer_fee_excluded_amount(token_out_mint, swap_result.output_amount)?.amount;
+    // TODO fix unwrap
+    let excluded_transfer_fee_amount_out = calculate_transfer_fee_excluded_amount(
+        &token_out_mint.try_borrow_data().unwrap(),
+        swap_result.output_amount,
+    )?
+    .amount;
 
     require!(
         excluded_transfer_fee_amount_out >= minimum_amount_out,
         PoolError::ExceededSlippage
     );
 
+    // TODO fix unwrap
     let transfer_fee_included_consumed_in_amount = calculate_transfer_fee_included_amount(
-        token_in_mint,
+        &token_in_mint.try_borrow_data().unwrap(),
         swap_result.included_fee_input_amount,
     )?
     .amount;

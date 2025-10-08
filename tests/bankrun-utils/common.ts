@@ -138,7 +138,6 @@ export function randomID(min = 0, max = 10000) {
 export async function warpSlotBy(context: ProgramTestContext, slots: BN) {
   const clock = await context.banksClient.getClock();
   context.warpToSlot(clock.slot + BigInt(slots.toString()));
-<<<<<<< HEAD
 }
 
 export function convertToByteArray(value: BN): number[] {
@@ -153,6 +152,4 @@ export function convertToRateLimiterSecondFactor(
   const buffer2 = maxFeeBps.toArrayLike(Buffer, "le", 4);
   const buffer = Buffer.concat([buffer1, buffer2]);
   return Array.from(buffer);
-=======
->>>>>>> 33beb80 (Refactor entrypoint)
 }

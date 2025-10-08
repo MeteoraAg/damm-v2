@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Remove constraints for quote tokens (SOL/USDC), affected endpoints: `initialize_pool_with_dynamic_config` and `initialize_customizable_pool`
+- Implement no-sdt (pinocchio) for swap and swap2 endpoint, that reduces CU for those functions
 
 ### Removed
 - Remove feature `devnet` when building program

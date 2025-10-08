@@ -32,6 +32,29 @@ pub mod params;
 
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
 
+pub const EVENT_AUTHORITY_SEEDS: &[u8] = b"__event_authority";
+pub const EVENT_AUTHORITY_AND_BUMP: (pinocchio::pubkey::Pubkey, u8) = {
+    let (address, bump) = const_crypto::ed25519::derive_program_address(
+        &[EVENT_AUTHORITY_SEEDS],
+        &crate::ID_CONST.to_bytes(),
+    );
+    (address, bump)
+};
+
+fn p_event_dispatch(
+    _program_id: &pinocchio::pubkey::Pubkey,
+    accounts: &[pinocchio::account_info::AccountInfo],
+    _data: &[u8],
+) -> Result<()> {
+    let given_event_authority = &accounts[0];
+    require!(given_event_authority.is_signer(), PoolError::PoolDisabled);
+    require!(
+        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
+        PoolError::PoolDisabled
+    );
+    Ok(())
+}
+
 // Only for IDL generation
 #[cfg(feature = "idl-build")]
 #[derive(Accounts)]
@@ -51,20 +74,6 @@ pub struct DummyParams {
     borsh_fee_rate_limiter_params: base_fee::fee_rate_limiter::BorshFeeRateLimiter,
     borsh_fee_market_cap_scheduler_params:
         base_fee::fee_market_cap_scheduler::BorshFeeMarketCapScheduler,
-}
-
-fn event_dispatch(
-    _program_id: &pinocchio::pubkey::Pubkey,
-    accounts: &[pinocchio::account_info::AccountInfo],
-    _data: &[u8],
-) -> Result<()> {
-    let given_event_authority = &accounts[0];
-    require!(given_event_authority.is_signer(), PoolError::PoolDisabled);
-    require!(
-        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
-        PoolError::PoolDisabled
-    );
-    Ok(())
 }
 
 #[program]
@@ -252,19 +261,21 @@ pub mod cp_amm {
         instructions::handle_close_position(ctx)
     }
 
-    pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
-        instructions::swap::handle_swap_wrapper(
-            &ctx,
-            SwapParameters2 {
-                amount_0: params.amount_in,
-                amount_1: params.minimum_amount_out,
-                swap_mode: SwapMode::ExactIn.into(),
-            },
-        )
+    pub fn swap(_ctx: Context<SwapCtx>, _params: SwapParameters) -> Result<()> {
+        Ok(())
+        // instructions::swap::handle_swap_wrapper(
+        //     &ctx,
+        //     SwapParameters2 {
+        //         amount_0: params.amount_in,
+        //         amount_1: params.minimum_amount_out,
+        //         swap_mode: SwapMode::ExactIn.into(),
+        //     },
+        // )
     }
 
-    pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
-        instructions::swap::handle_swap_wrapper(&ctx, params)
+    pub fn swap2(_ctx: Context<SwapCtx>, _params: SwapParameters2) -> Result<()> {
+        Ok(())
+        // instructions::swap::handle_swap_wrapper(&ctx, params)
     }
 
     pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
@@ -324,18 +335,4 @@ pub mod cp_amm {
     ) -> Result<()> {
         Ok(())
     }
-}
-
-fn p_event_dispatch(
-    _program_id: &pinocchio::pubkey::Pubkey,
-    accounts: &[pinocchio::account_info::AccountInfo],
-    _data: &[u8],
-) -> Result<()> {
-    let given_event_authority = &accounts[0];
-    require!(given_event_authority.is_signer(), PoolError::PoolDisabled);
-    require!(
-        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
-        PoolError::PoolDisabled
-    );
-    Ok(())
 }

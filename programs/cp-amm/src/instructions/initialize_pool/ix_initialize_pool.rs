@@ -316,10 +316,26 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     });
 
     // transfer token
-    let total_amount_a =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
-    let total_amount_b =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
+    // TODO fix unwrap
+    let total_amount_a = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_a_mint
+            .to_account_info()
+            .try_borrow_data()
+            .unwrap(),
+        token_a_amount,
+    )?
+    .amount;
+    // TODO fix unwrap
+    let total_amount_b = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_b_mint
+            .to_account_info()
+            .try_borrow_data()
+            .unwrap(),
+        token_b_amount,
+    )?
+    .amount;
 
     transfer_from_user(
         &ctx.accounts.payer,

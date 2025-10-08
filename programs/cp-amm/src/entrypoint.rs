@@ -1,27 +1,54 @@
+use crate::{
+    entry, p_event_dispatch, p_handle_swap, SwapParameters, SwapParameters2, SWAP_IX_ACCOUNTS,
+};
 use anchor_lang::{
     prelude::{event::EVENT_IX_TAG_LE, *},
     solana_program,
 };
-
-use crate::{entry, p_event_dispatch, p_handle_swap, SWAP_IX_ACCOUNTS};
 
 #[inline(always)]
 unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
     const UNINIT: core::mem::MaybeUninit<pinocchio::account_info::AccountInfo> =
         core::mem::MaybeUninit::<pinocchio::account_info::AccountInfo>::uninit();
     // Create an array of uninitialized account infos.
-    let mut accounts = [UNINIT; SWAP_IX_ACCOUNTS];
+    // In rate limiter we may need an additional account for sysvar program id
+    let mut accounts = [UNINIT; SWAP_IX_ACCOUNTS + 1];
 
     let (program_id, count, instruction_data) =
-        pinocchio::entrypoint::deserialize::<SWAP_IX_ACCOUNTS>(input, &mut accounts);
+        pinocchio::entrypoint::deserialize(input, &mut accounts);
 
     let accounts = core::slice::from_raw_parts(accounts.as_ptr() as _, count);
-    let result = if instruction_data.starts_with(crate::instruction::Swap::DISCRIMINATOR) {
-        Some(p_handle_swap(&program_id, accounts, &instruction_data))
-    } else if instruction_data.starts_with(EVENT_IX_TAG_LE) {
-        Some(p_event_dispatch(&program_id, accounts, &instruction_data))
-    } else {
-        None
+
+    let instruction_bits = [
+        instruction_data.starts_with(crate::instruction::Swap::DISCRIMINATOR),
+        instruction_data.starts_with(crate::instruction::Swap2::DISCRIMINATOR),
+        instruction_data.starts_with(EVENT_IX_TAG_LE),
+    ];
+    let result = match instruction_bits {
+        [true, false, false] | [false, true, false] => {
+            let (left, right) = accounts.split_at_unchecked(SWAP_IX_ACCOUNTS);
+            let accounts = core::slice::from_raw_parts(left.as_ptr() as _, SWAP_IX_ACCOUNTS);
+            let remaining_accounts = core::slice::from_raw_parts(
+                right.as_ptr() as _,
+                count.checked_sub(SWAP_IX_ACCOUNTS)?,
+            );
+            let params = if instruction_bits[0] {
+                let swap_parameters =
+                    SwapParameters::deserialize(&mut &instruction_data[8..]).unwrap();
+                swap_parameters.to_swap_parameters2()
+            } else {
+                SwapParameters2::deserialize(&mut &instruction_data[8..]).unwrap()
+            };
+
+            Some(p_handle_swap(
+                &program_id,
+                accounts,
+                remaining_accounts,
+                &params,
+            ))
+        }
+        [false, false, true] => Some(p_event_dispatch(&program_id, accounts, &instruction_data)),
+        _ => None,
     };
 
     result.map(|value| match value {
