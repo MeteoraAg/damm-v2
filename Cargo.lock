@@ -1741,6 +1741,8 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "cp-amm",
+ "spl-pod",
+ "spl-token-2022",
 ]
 
 [[package]]
