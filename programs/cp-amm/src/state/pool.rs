@@ -144,7 +144,7 @@ pub struct Pool {
     pub token_a_flag: u8,
     /// token b flag
     pub token_b_flag: u8,
-    /// 0 is collect fee in both token, 1 only collect fee in token a, 2 only collect fee in token b
+    /// 0 is collect fee in both token, 1 only collect fee only in token b
     pub collect_fee_mode: u8,
     /// pool type
     pub pool_type: u8,
