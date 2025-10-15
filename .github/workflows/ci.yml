@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - release_0.1.6
+      - change_pool_version
 
 env:
   SOLANA_CLI_VERSION: 2.1.0
@@ -121,7 +122,7 @@ jobs:
         id: cache-node-modules
         with:
           path: ./node_modules
-          key: ${{ runner.os }}-${{ hashFiles('./package-lock.json') }}
+          key: ${{ runner.os }}-${{ hashFiles('./pnpm-lock.yaml') }}
       # Testing
       - run: pnpm install
         shell: bash
