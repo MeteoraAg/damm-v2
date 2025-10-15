@@ -121,7 +121,7 @@ jobs:
         id: cache-node-modules
         with:
           path: ./node_modules
-          key: ${{ runner.os }}-${{ hashFiles('./package-lock.json') }}
+          key: ${{ runner.os }}-${{ hashFiles('./pnpm-lock.yaml') }}
       # Testing
       - run: pnpm install
         shell: bash

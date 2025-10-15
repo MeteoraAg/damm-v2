@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Remove constraints for quote tokens (SOL/USDC), affected endpoints: `initialize_pool_with_dynamic_config` and `initialize_customizable_pool`
+- Update current pool version to 1, that changes max fee of new created pools to 99%
 
 ### Removed
 - Remove feature `devnet` when building program
