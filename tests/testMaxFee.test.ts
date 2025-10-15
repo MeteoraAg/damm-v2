@@ -4,6 +4,7 @@ import { expect } from "chai";
 import { ProgramTestContext } from "solana-bankrun";
 import {
     CreateConfigParams,
+    FEE_DENOMINATOR,
     InitializePoolParams,
     MAX_SQRT_PRICE,
     MIN_LP_AMOUNT,
@@ -22,10 +23,19 @@ import {
 import { generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
 import {
     BaseFeeMode,
+    encodeFeeMarketCapSchedulerParams,
+    encodeFeeRateLimiterParams,
     encodeFeeTimeSchedulerParams,
 } from "./bankrun-utils/feeCodec";
+import { getRateLimiterFeeNumeratorFromIncludedFeeAmount } from "./bankrun-utils/rateLimiterUtils";
 
-describe("Fee time fee scheduler", () => {
+const sqrtPrice = new BN("4880549731789001291");
+const numberOfPeriod = 100;
+const priceStepBps = 10;
+const reductionFactor = new BN(10);
+const schedulerExpirationDuration = new BN(3600);
+
+describe("Test max fee 99%", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let operator: Keypair;
@@ -36,7 +46,7 @@ describe("Fee time fee scheduler", () => {
     let tokenB: PublicKey;
     let whitelistedAccount: Keypair;
 
-    before(async () => {
+    beforeEach(async () => {
         const root = Keypair.generate();
         context = await startTest(root);
         admin = context.payer;
@@ -152,6 +162,7 @@ describe("Fee time fee scheduler", () => {
         };
         const { pool } = await initializePool(context.banksClient, initPoolParams);
         let poolState = await getPool(context.banksClient, pool);
+        expect(poolState.version.toString()).eq("1");
 
         // Market cap increase
         await swapExactIn(context.banksClient, {
@@ -225,6 +236,7 @@ describe("Fee time fee scheduler", () => {
         };
         const { pool } = await initializePool(context.banksClient, initPoolParams);
         let poolState = await getPool(context.banksClient, pool);
+        expect(poolState.version.toString()).eq("1");
 
         // Market cap increase
         await swapExactIn(context.banksClient, {
@@ -296,6 +308,7 @@ describe("Fee time fee scheduler", () => {
         };
         const { pool } = await initializePool(context.banksClient, initPoolParams);
         let poolState = await getPool(context.banksClient, pool);
+        expect(poolState.version.toString()).eq("1");
 
         // Market cap increase
         await swapExactIn(context.banksClient, {
@@ -318,4 +331,241 @@ describe("Fee time fee scheduler", () => {
 
         expect(actualFee.toString()).eq(totalTradingFee.toString())
     });
+
+    it("Market cap linear fee scheduler with max fee 99%", async () => {
+        const cliffFeeNumerator = new BN(990_000_000); // 10%
+
+        const data = encodeFeeMarketCapSchedulerParams(
+            BigInt(cliffFeeNumerator.toString()),
+            numberOfPeriod,
+            priceStepBps,
+            schedulerExpirationDuration.toNumber(),
+            BigInt(reductionFactor.toString()),
+            BaseFeeMode.FeeMarketCapSchedulerLinear
+        );
+
+        const createConfigParams: CreateConfigParams = {
+            poolFees: {
+                baseFee: {
+                    data: Array.from(data),
+                },
+                padding: [],
+                dynamicFee: null,
+            },
+            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+            vaultConfigKey: PublicKey.default,
+            poolCreatorAuthority: PublicKey.default,
+            activationType: 0,
+            collectFeeMode: 1, // onlyB
+        };
+
+        let config = await createConfigIx(
+            context.banksClient,
+            whitelistedAccount,
+            new BN(randomID()),
+            createConfigParams
+        );
+        const liquidity = new BN(MIN_LP_AMOUNT);
+
+        const initPoolParams: InitializePoolParams = {
+            payer: poolCreator,
+            creator: poolCreator.publicKey,
+            config,
+            tokenAMint: tokenA,
+            tokenBMint: tokenB,
+            liquidity,
+            sqrtPrice,
+            activationPoint: null,
+        };
+        const { pool } = await initializePool(context.banksClient, initPoolParams);
+        let poolState = await getPool(context.banksClient, pool);
+
+        expect(poolState.version.toString()).eq("1");
+
+        // Market cap increase
+        await swapExactIn(context.banksClient, {
+            payer: poolCreator,
+            pool,
+            inputTokenMint: tokenB,
+            outputTokenMint: tokenA,
+            amountIn: new BN(LAMPORTS_PER_SOL),
+            minimumAmountOut: new BN(0),
+            referralTokenAccount: null,
+        });
+
+        poolState = await getPool(context.banksClient, pool);
+
+        let totalTradingFee = poolState.metrics.totalLpBFee.add(
+            poolState.metrics.totalProtocolBFee
+        );
+
+        const actualFee = new BN(LAMPORTS_PER_SOL).muln(99).divn(100)
+
+        expect(actualFee.toString()).eq(totalTradingFee.toString())
+    });
+
+    it("Market cap exponential fee scheduler with max fee 99%", async () => {
+        const cliffFeeNumerator = new BN(990_000_000); // 10%
+
+        const data = encodeFeeMarketCapSchedulerParams(
+            BigInt(cliffFeeNumerator.toString()),
+            numberOfPeriod,
+            priceStepBps,
+            schedulerExpirationDuration.toNumber(),
+            BigInt(reductionFactor.toString()),
+            BaseFeeMode.FeeMarketCapSchedulerExponential
+        );
+
+        const createConfigParams: CreateConfigParams = {
+            poolFees: {
+                baseFee: {
+                    data: Array.from(data),
+                },
+                padding: [],
+                dynamicFee: null,
+            },
+            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+            vaultConfigKey: PublicKey.default,
+            poolCreatorAuthority: PublicKey.default,
+            activationType: 0,
+            collectFeeMode: 1, // onlyB
+        };
+
+        let config = await createConfigIx(
+            context.banksClient,
+            whitelistedAccount,
+            new BN(randomID()),
+            createConfigParams
+        );
+        const liquidity = new BN(MIN_LP_AMOUNT);
+
+        const initPoolParams: InitializePoolParams = {
+            payer: poolCreator,
+            creator: poolCreator.publicKey,
+            config,
+            tokenAMint: tokenA,
+            tokenBMint: tokenB,
+            liquidity,
+            sqrtPrice,
+            activationPoint: null,
+        };
+        const { pool } = await initializePool(context.banksClient, initPoolParams);
+        let poolState = await getPool(context.banksClient, pool);
+
+        // Market cap increase
+        await swapExactIn(context.banksClient, {
+            payer: poolCreator,
+            pool,
+            inputTokenMint: tokenB,
+            outputTokenMint: tokenA,
+            amountIn: new BN(LAMPORTS_PER_SOL),
+            minimumAmountOut: new BN(0),
+            referralTokenAccount: null,
+        });
+
+        poolState = await getPool(context.banksClient, pool);
+
+        let totalTradingFee = poolState.metrics.totalLpBFee.add(
+            poolState.metrics.totalProtocolBFee
+        );
+
+        const actualFee = new BN(LAMPORTS_PER_SOL).muln(99).divn(100)
+
+        expect(actualFee.toString()).eq(totalTradingFee.toString())
+    });
+
+    it("Rate limiter with max fee 99%", async () => {
+        const referenceAmount = new BN(LAMPORTS_PER_SOL); // 0.1 SOL
+        const maxRateLimiterDuration = new BN(10);
+        const maxFeeBps = 9900;
+
+        const cliffFeeNumerator = new BN(100_000_000); // 10%
+        const feeIncrementBps = 5000;
+
+        const data = encodeFeeRateLimiterParams(
+            BigInt(cliffFeeNumerator.toString()),
+            feeIncrementBps,
+            maxRateLimiterDuration.toNumber(),
+            maxFeeBps,
+            BigInt(referenceAmount.toString())
+        );
+
+        const createConfigParams: CreateConfigParams = {
+            poolFees: {
+                baseFee: {
+                    data: Array.from(data),
+                },
+                padding: [],
+                dynamicFee: null,
+            },
+            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+            vaultConfigKey: PublicKey.default,
+            poolCreatorAuthority: PublicKey.default,
+            activationType: 0,
+            collectFeeMode: 1, // onlyB
+        };
+
+        let config = await createConfigIx(
+            context.banksClient,
+            whitelistedAccount,
+            new BN(randomID()),
+            createConfigParams
+        );
+        const liquidity = new BN(MIN_LP_AMOUNT);
+        const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
+
+        const initPoolParams: InitializePoolParams = {
+            payer: poolCreator,
+            creator: poolCreator.publicKey,
+            config,
+            tokenAMint: tokenA,
+            tokenBMint: tokenB,
+            liquidity,
+            sqrtPrice,
+            activationPoint: null,
+        };
+        const { pool } = await initializePool(context.banksClient, initPoolParams);
+        let poolState = await getPool(context.banksClient, pool);
+
+        // swap with 1 SOL
+        await swapExactIn(context.banksClient, {
+            payer: poolCreator,
+            pool,
+            inputTokenMint: tokenB,
+            outputTokenMint: tokenA,
+            amountIn: referenceAmount.muln(3),
+            minimumAmountOut: new BN(0),
+            referralTokenAccount: null,
+        });
+
+        poolState = await getPool(context.banksClient, pool);
+
+        let totalTradingFee = poolState.metrics.totalLpBFee.add(
+            poolState.metrics.totalProtocolBFee
+        );
+        // first 1 SOL: 10%
+        // next amount: 60%
+        // next amount: 99%
+        const feeNumerator = getRateLimiterFeeNumeratorFromIncludedFeeAmount(
+            cliffFeeNumerator,
+            feeIncrementBps,
+            maxFeeBps,
+            referenceAmount, referenceAmount.muln(3)
+        )
+
+        const actualFee = referenceAmount.muln(3)
+            .mul(feeNumerator)
+            .add(new BN(FEE_DENOMINATOR))
+            .sub(new BN(1))
+            .div(new BN(FEE_DENOMINATOR));
+
+
+        expect(totalTradingFee.toString()).eq(
+            actualFee.toString()
+        );
+    });
+
 });
