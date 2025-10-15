@@ -143,7 +143,7 @@ pub mod fee {
     static_assertions::const_assert!(HOST_FEE_PERCENT <= 50);
     static_assertions::const_assert!(PARTNER_FEE_PERCENT <= 50);
 
-    pub const CURRENT_POOL_VERSION: u8 = 0;
+    pub const CURRENT_POOL_VERSION: u8 = 1;
 
     pub fn get_max_fee_numerator(pool_version: u8) -> Result<u64> {
         match pool_version {

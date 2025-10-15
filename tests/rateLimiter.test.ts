@@ -28,7 +28,6 @@ import {
   createOperator,
   generateKpAndFund,
   startTest,
-  convertToRateLimiterSecondFactor,
   randomID,
   warpSlotBy,
   processTransactionMaybeThrow,
@@ -47,7 +46,7 @@ describe("Rate limiter", () => {
   let tokenA: PublicKey;
   let tokenB: PublicKey;
 
-  before(async () => {
+  beforeEach(async () => {
     const root = Keypair.generate();
     context = await startTest(root);
     admin = context.payer;
@@ -236,7 +235,6 @@ describe("Rate limiter", () => {
       referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()
     );
   });
-
   it("Try to send multiple instructions", async () => {
     const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
     const maxRateLimiterDuration = new BN(10);
