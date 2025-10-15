@@ -45,6 +45,7 @@ describe("Test max fee 99%", () => {
     let tokenA: PublicKey;
     let tokenB: PublicKey;
     let whitelistedAccount: Keypair;
+    let createConfigParams: CreateConfigParams;
 
     beforeEach(async () => {
         const root = Keypair.generate();
@@ -111,6 +112,22 @@ describe("Test max fee 99%", () => {
             whitelistAddress: whitelistedAccount.publicKey,
             permission,
         });
+
+        createConfigParams = {
+            poolFees: {
+                baseFee: {
+                    data: Array.from([]),
+                },
+                padding: [],
+                dynamicFee: null,
+            },
+            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+            vaultConfigKey: PublicKey.default,
+            poolCreatorAuthority: PublicKey.default,
+            activationType: 0,
+            collectFeeMode: 1, // onlyB
+        };
     });
     it("Max fee 99%", async () => {
         const cliffFeeNumerator = new BN(990_000_000); // 99%
@@ -126,21 +143,7 @@ describe("Test max fee 99%", () => {
             BaseFeeMode.FeeTimeSchedulerLinear
         );
 
-        const createConfigParams: CreateConfigParams = {
-            poolFees: {
-                baseFee: {
-                    data: Array.from(data),
-                },
-                padding: [],
-                dynamicFee: null,
-            },
-            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-            vaultConfigKey: PublicKey.default,
-            poolCreatorAuthority: PublicKey.default,
-            activationType: 0,
-            collectFeeMode: 1, // onlyB
-        };
+        createConfigParams.poolFees.baseFee.data = Array.from(data);
 
         let config = await createConfigIx(
             context.banksClient,
@@ -165,12 +168,13 @@ describe("Test max fee 99%", () => {
         expect(poolState.version.toString()).eq("1");
 
         // Market cap increase
+        const amountIn = new BN(LAMPORTS_PER_SOL);
         await swapExactIn(context.banksClient, {
             payer: poolCreator,
             pool,
             inputTokenMint: tokenB,
             outputTokenMint: tokenA,
-            amountIn: new BN(LAMPORTS_PER_SOL),
+            amountIn,
             minimumAmountOut: new BN(0),
             referralTokenAccount: null,
         });
@@ -181,7 +185,7 @@ describe("Test max fee 99%", () => {
             poolState.metrics.totalProtocolBFee
         );
 
-        const actualFee = new BN(LAMPORTS_PER_SOL).muln(99).divn(100)
+        const actualFee = amountIn.muln(99).divn(100)
 
         expect(actualFee.toString()).eq(totalTradingFee.toString())
     });
@@ -200,21 +204,7 @@ describe("Test max fee 99%", () => {
             BaseFeeMode.FeeTimeSchedulerLinear
         );
 
-        const createConfigParams: CreateConfigParams = {
-            poolFees: {
-                baseFee: {
-                    data: Array.from(data),
-                },
-                padding: [],
-                dynamicFee: null,
-            },
-            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-            vaultConfigKey: PublicKey.default,
-            poolCreatorAuthority: PublicKey.default,
-            activationType: 0,
-            collectFeeMode: 1, // onlyB
-        };
+        createConfigParams.poolFees.baseFee.data = Array.from(data);
 
         let config = await createConfigIx(
             context.banksClient,
@@ -239,12 +229,13 @@ describe("Test max fee 99%", () => {
         expect(poolState.version.toString()).eq("1");
 
         // Market cap increase
+        const amountIn = new BN(LAMPORTS_PER_SOL);
         await swapExactIn(context.banksClient, {
             payer: poolCreator,
             pool,
             inputTokenMint: tokenB,
             outputTokenMint: tokenA,
-            amountIn: new BN(LAMPORTS_PER_SOL),
+            amountIn,
             minimumAmountOut: new BN(0),
             referralTokenAccount: null,
         });
@@ -255,7 +246,7 @@ describe("Test max fee 99%", () => {
             poolState.metrics.totalProtocolBFee
         );
 
-        const actualFee = new BN(LAMPORTS_PER_SOL).muln(99).divn(100)
+        const actualFee = amountIn.muln(99).divn(100)
 
         expect(actualFee.toString()).eq(totalTradingFee.toString())
     });
@@ -272,21 +263,8 @@ describe("Test max fee 99%", () => {
             BaseFeeMode.FeeTimeSchedulerExponential
         );
 
-        const createConfigParams: CreateConfigParams = {
-            poolFees: {
-                baseFee: {
-                    data: Array.from(data),
-                },
-                padding: [],
-                dynamicFee: null,
-            },
-            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-            vaultConfigKey: PublicKey.default,
-            poolCreatorAuthority: PublicKey.default,
-            activationType: 0,
-            collectFeeMode: 1, // onlyB
-        };
+        createConfigParams.poolFees.baseFee.data = Array.from(data)
+
 
         let config = await createConfigIx(
             context.banksClient,
@@ -311,12 +289,13 @@ describe("Test max fee 99%", () => {
         expect(poolState.version.toString()).eq("1");
 
         // Market cap increase
+        const amountIn = new BN(LAMPORTS_PER_SOL);
         await swapExactIn(context.banksClient, {
             payer: poolCreator,
             pool,
             inputTokenMint: tokenB,
             outputTokenMint: tokenA,
-            amountIn: new BN(LAMPORTS_PER_SOL),
+            amountIn,
             minimumAmountOut: new BN(0),
             referralTokenAccount: null,
         });
@@ -327,7 +306,7 @@ describe("Test max fee 99%", () => {
             poolState.metrics.totalProtocolBFee
         );
 
-        const actualFee = new BN(LAMPORTS_PER_SOL).muln(99).divn(100)
+        const actualFee = amountIn.muln(99).divn(100)
 
         expect(actualFee.toString()).eq(totalTradingFee.toString())
     });
@@ -344,21 +323,7 @@ describe("Test max fee 99%", () => {
             BaseFeeMode.FeeMarketCapSchedulerLinear
         );
 
-        const createConfigParams: CreateConfigParams = {
-            poolFees: {
-                baseFee: {
-                    data: Array.from(data),
-                },
-                padding: [],
-                dynamicFee: null,
-            },
-            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-            vaultConfigKey: PublicKey.default,
-            poolCreatorAuthority: PublicKey.default,
-            activationType: 0,
-            collectFeeMode: 1, // onlyB
-        };
+        createConfigParams.poolFees.baseFee.data = Array.from(data)
 
         let config = await createConfigIx(
             context.banksClient,
@@ -384,6 +349,7 @@ describe("Test max fee 99%", () => {
         expect(poolState.version.toString()).eq("1");
 
         // Market cap increase
+        const amountIn = new BN(LAMPORTS_PER_SOL);
         await swapExactIn(context.banksClient, {
             payer: poolCreator,
             pool,
@@ -400,7 +366,7 @@ describe("Test max fee 99%", () => {
             poolState.metrics.totalProtocolBFee
         );
 
-        const actualFee = new BN(LAMPORTS_PER_SOL).muln(99).divn(100)
+        const actualFee = amountIn.muln(99).divn(100)
 
         expect(actualFee.toString()).eq(totalTradingFee.toString())
     });
@@ -417,21 +383,7 @@ describe("Test max fee 99%", () => {
             BaseFeeMode.FeeMarketCapSchedulerExponential
         );
 
-        const createConfigParams: CreateConfigParams = {
-            poolFees: {
-                baseFee: {
-                    data: Array.from(data),
-                },
-                padding: [],
-                dynamicFee: null,
-            },
-            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-            vaultConfigKey: PublicKey.default,
-            poolCreatorAuthority: PublicKey.default,
-            activationType: 0,
-            collectFeeMode: 1, // onlyB
-        };
+        createConfigParams.poolFees.baseFee.data = Array.from(data)
 
         let config = await createConfigIx(
             context.banksClient,
@@ -455,6 +407,7 @@ describe("Test max fee 99%", () => {
         let poolState = await getPool(context.banksClient, pool);
 
         // Market cap increase
+        const amountIn = new BN(LAMPORTS_PER_SOL);
         await swapExactIn(context.banksClient, {
             payer: poolCreator,
             pool,
@@ -471,7 +424,7 @@ describe("Test max fee 99%", () => {
             poolState.metrics.totalProtocolBFee
         );
 
-        const actualFee = new BN(LAMPORTS_PER_SOL).muln(99).divn(100)
+        const actualFee = amountIn.muln(99).divn(100)
 
         expect(actualFee.toString()).eq(totalTradingFee.toString())
     });
@@ -492,21 +445,7 @@ describe("Test max fee 99%", () => {
             BigInt(referenceAmount.toString())
         );
 
-        const createConfigParams: CreateConfigParams = {
-            poolFees: {
-                baseFee: {
-                    data: Array.from(data),
-                },
-                padding: [],
-                dynamicFee: null,
-            },
-            sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-            sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-            vaultConfigKey: PublicKey.default,
-            poolCreatorAuthority: PublicKey.default,
-            activationType: 0,
-            collectFeeMode: 1, // onlyB
-        };
+        createConfigParams.poolFees.baseFee.data = Array.from(data)
 
         let config = await createConfigIx(
             context.banksClient,
@@ -530,13 +469,14 @@ describe("Test max fee 99%", () => {
         const { pool } = await initializePool(context.banksClient, initPoolParams);
         let poolState = await getPool(context.banksClient, pool);
 
-        // swap with 1 SOL
+        // swap with 3 SOL
+        const amountIn = referenceAmount.muln(3);
         await swapExactIn(context.banksClient, {
             payer: poolCreator,
             pool,
             inputTokenMint: tokenB,
             outputTokenMint: tokenA,
-            amountIn: referenceAmount.muln(3),
+            amountIn,
             minimumAmountOut: new BN(0),
             referralTokenAccount: null,
         });
@@ -553,7 +493,8 @@ describe("Test max fee 99%", () => {
             cliffFeeNumerator,
             feeIncrementBps,
             maxFeeBps,
-            referenceAmount, referenceAmount.muln(3)
+            referenceAmount,
+            amountIn
         )
 
         const actualFee = referenceAmount.muln(3)
