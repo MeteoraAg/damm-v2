@@ -32,8 +32,10 @@ import {
   warpSlotBy,
   processTransactionMaybeThrow,
   expectThrowsAsync,
+  FEE_DENOMINATOR,
 } from "./bankrun-utils";
 import { encodeFeeRateLimiterParams } from "./bankrun-utils/feeCodec";
+import { getRateLimiterFeeNumeratorFromIncludedFeeAmount } from "./bankrun-utils/rateLimiterUtils";
 
 describe("Rate limiter", () => {
   let context: ProgramTestContext;
@@ -235,6 +237,107 @@ describe("Rate limiter", () => {
       referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()
     );
   });
+
+  it("Rate limiter with max fee 99%", async () => {
+    const referenceAmount = new BN(LAMPORTS_PER_SOL); // 0.1 SOL
+    const maxRateLimiterDuration = new BN(10);
+    const maxFeeBps = 9900;
+
+    const cliffFeeNumerator = new BN(100_000_000); // 10%
+    const feeIncrementBps = 5000;
+
+    const data = encodeFeeRateLimiterParams(
+      BigInt(cliffFeeNumerator.toString()),
+      feeIncrementBps,
+      maxRateLimiterDuration.toNumber(),
+      maxFeeBps,
+      BigInt(referenceAmount.toString())
+    );
+
+    const createConfigParams: CreateConfigParams = {
+      poolFees: {
+        baseFee: {
+          data: Array.from(data),
+        },
+        padding: [],
+        dynamicFee: null,
+      },
+      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+      vaultConfigKey: PublicKey.default,
+      poolCreatorAuthority: PublicKey.default,
+      activationType: 0,
+      collectFeeMode: 1, // onlyB
+    };
+
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+    await createOperator(context.banksClient, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission,
+    });
+
+    let config = await createConfigIx(
+      context.banksClient,
+      whitelistedAccount,
+      new BN(randomID()),
+      createConfigParams
+    );
+    const liquidity = new BN(MIN_LP_AMOUNT);
+    const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
+
+    const initPoolParams: InitializePoolParams = {
+      payer: poolCreator,
+      creator: poolCreator.publicKey,
+      config,
+      tokenAMint: tokenA,
+      tokenBMint: tokenB,
+      liquidity,
+      sqrtPrice,
+      activationPoint: null,
+    };
+    const { pool } = await initializePool(context.banksClient, initPoolParams);
+    let poolState = await getPool(context.banksClient, pool);
+
+    // swap with 1 SOL
+    await swapExactIn(context.banksClient, {
+      payer: poolCreator,
+      pool,
+      inputTokenMint: tokenB,
+      outputTokenMint: tokenA,
+      amountIn: referenceAmount.muln(3),
+      minimumAmountOut: new BN(0),
+      referralTokenAccount: null,
+    });
+
+    poolState = await getPool(context.banksClient, pool);
+
+    let totalTradingFee = poolState.metrics.totalLpBFee.add(
+      poolState.metrics.totalProtocolBFee
+    );
+    // first 1 SOL: 10%
+    // next amount: 60%
+    // next amount: 99%
+    const feeNumerator = getRateLimiterFeeNumeratorFromIncludedFeeAmount(
+      cliffFeeNumerator,
+      feeIncrementBps,
+      maxFeeBps,
+      referenceAmount, referenceAmount.muln(3)
+    )
+
+    const actualFee = referenceAmount.muln(3)
+      .mul(feeNumerator)
+      .add(new BN(FEE_DENOMINATOR))
+      .sub(new BN(1))
+      .div(new BN(FEE_DENOMINATOR));
+
+
+    expect(totalTradingFee.toString()).eq(
+      actualFee.toString()
+    );
+  });
+
   it("Try to send multiple instructions", async () => {
     const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
     const maxRateLimiterDuration = new BN(10);
