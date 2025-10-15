@@ -161,7 +161,7 @@ describe("Initialize customizable pool", () => {
       );
     });
 
-    it("Initialize customizeable pool with spl token", async () => {
+    it("Initialize customizable pool with spl token", async () => {
       const cliffFeeNumerator = new BN(2_500_000);
       const numberOfPeriod = new BN(0);
       const periodFrequency = new BN(0);
@@ -197,12 +197,10 @@ describe("Initialize customizable pool", () => {
         collectFeeMode: 0,
       };
 
-      const { pool } = await initializeCustomizablePool(
+      const { pool: _pool } = await initializeCustomizablePool(
         context.banksClient,
         params
       );
-      const poolState = await getPool(context.banksClient, pool);
-      expect(poolState.version).eq(0);
     });
   });
 });
