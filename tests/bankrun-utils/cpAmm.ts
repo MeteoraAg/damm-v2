@@ -67,7 +67,7 @@ import {
   DYNAMIC_FEE_FILTER_PERIOD_DEFAULT,
   DYNAMIC_FEE_REDUCTION_FACTOR_DEFAULT,
   MAX_PRICE_CHANGE_BPS_DEFAULT,
-  ONE
+  ONE,
 } from "./constants";
 import { expect } from "chai";
 import Decimal from "decimal.js";
@@ -449,11 +449,11 @@ export enum OperatorPermission {
   CloseTokenBadge, // 3
   SetPoolStatus, // 4
   CreateClaimProtocolFeeOperator, // 5
-  CloseClaimProtocolFeeOperator,  // 6
-  InitializeReward,               // 7
-  UpdateRewardDuration,           // 8
-  UpdateRewardFunder,             // 9
-  UpdatePoolFees                  // 10
+  CloseClaimProtocolFeeOperator, // 6
+  InitializeReward, // 7
+  UpdateRewardDuration, // 8
+  UpdateRewardFunder, // 9
+  UpdatePoolFees, // 10
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -530,17 +530,24 @@ export type UpdatePoolFeesParams = {
   dynamicFee: DynamicFee | null;
 };
 
-export async function updatePoolFeesParameters(banksClient: BanksClient, params: UpdatePoolFeesParams, isAssert = true): Promise<void> {
-  const { pool, whitelistedOperator, cliffFeeNumerator, dynamicFee } = params
+export async function updatePoolFeesParameters(
+  banksClient: BanksClient,
+  params: UpdatePoolFeesParams,
+  isAssert = true
+): Promise<void> {
+  const { pool, whitelistedOperator, cliffFeeNumerator, dynamicFee } = params;
   const program = createCpAmmProgram();
-  const transaction = await program.methods.updatePoolFees({
-    cliffFeeNumerator,
-    dynamicFee
-  }).accountsPartial({
-    pool,
-    operator: deriveOperatorAddress(whitelistedOperator.publicKey),
-    whitelistedAddress: whitelistedOperator.publicKey
-  }).transaction()
+  const transaction = await program.methods
+    .updatePoolFees({
+      cliffFeeNumerator,
+      dynamicFee,
+    })
+    .accountsPartial({
+      pool,
+      operator: deriveOperatorAddress(whitelistedOperator.publicKey),
+      whitelistedAddress: whitelistedOperator.publicKey,
+    })
+    .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
   transaction.sign(whitelistedOperator);
@@ -1216,12 +1223,12 @@ export async function initializeReward(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
@@ -1270,12 +1277,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1313,12 +1320,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -2009,7 +2016,6 @@ export async function swapInstruction(
 
   return transaction;
 }
-
 export enum SwapMode {
   ExactIn,
   PartialFillIn,
@@ -2070,6 +2076,82 @@ export async function swap2Instruction(
 
   const transaction = await program.methods
     .swap2({
+      amount0,
+      amount1,
+      swapMode,
+    })
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      payer: payer.publicKey,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint,
+      tokenBMint,
+      referralTokenAccount,
+    })
+    .remainingAccounts(
+      // TODO should check condition to add this in remaining accounts
+      [
+        {
+          isSigner: false,
+          isWritable: false,
+          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+        },
+      ]
+    )
+    .transaction();
+
+  return transaction;
+}
+
+export async function swapTestInstruction(
+  banksClient: BanksClient,
+  params: Swap2Params
+) {
+  const {
+    payer,
+    pool,
+    inputTokenMint,
+    outputTokenMint,
+    amount0,
+    amount1,
+    swapMode,
+    referralTokenAccount,
+  } = params;
+
+  const program = createCpAmmProgram();
+  const poolState = await getPool(banksClient, pool);
+
+  const poolAuthority = derivePoolAuthority();
+  const tokenAProgram = (await banksClient.getAccount(poolState.tokenAMint))
+    .owner;
+
+  const tokenBProgram = (await banksClient.getAccount(poolState.tokenBMint))
+    .owner;
+  const inputTokenAccount = getAssociatedTokenAddressSync(
+    inputTokenMint,
+    payer.publicKey,
+    true,
+    tokenAProgram
+  );
+  const outputTokenAccount = getAssociatedTokenAddressSync(
+    outputTokenMint,
+    payer.publicKey,
+    true,
+    tokenBProgram
+  );
+  const tokenAVault = poolState.tokenAVault;
+  const tokenBVault = poolState.tokenBVault;
+  const tokenAMint = poolState.tokenAMint;
+  const tokenBMint = poolState.tokenBMint;
+
+  const transaction = await program.methods
+    .swapTest({
       amount0,
       amount1,
       swapMode,
@@ -2302,7 +2384,7 @@ export async function splitPosition2(
     secondPosition,
     firstPositionNftAccount,
     secondPositionNftAccount,
-    numerator
+    numerator,
   } = params;
   const program = createCpAmmProgram();
   const transaction = await program.methods
@@ -2381,8 +2463,6 @@ export async function getTokenBadge(
   const account = await banksClient.getAccount(tokenBadge);
   return program.coder.accounts.decode("tokenBadge", Buffer.from(account.data));
 }
-
-
 
 export function getDynamicFeeParams(
   baseFeeNumerator: BN,
