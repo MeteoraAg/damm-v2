@@ -1,6 +1,5 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { BN } from "bn.js";
-import { ProgramTestContext } from "solana-bankrun";
 import {
   BASIS_POINT_MAX,
   closeConfigIx,
@@ -12,35 +11,28 @@ import {
   MIN_SQRT_PRICE,
   OFFSET,
   OperatorPermission,
-} from "./bankrun-utils";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  randomID,
-  startTest,
-} from "./bankrun-utils/common";
-import { shlDiv } from "./bankrun-utils/math";
+  startSvm,
+} from "./helpers";
+import { generateKpAndFund, randomID } from "./helpers/common";
+import { shlDiv } from "./helpers/math";
 import {
   BaseFeeMode,
   encodeFeeMarketCapSchedulerParams,
   encodeFeeTimeSchedulerParams,
-} from "./bankrun-utils/feeCodec";
+} from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Admin function: Create config", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let whitelistedAccount: Keypair;
   let createConfigParams: CreateConfigParams;
   let index;
 
   beforeEach(async () => {
-    const root = Keypair.generate();
-    context = await startTest(root);
-    admin = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(
-      context.banksClient,
-      context.payer
-    );
+    svm = startSvm();
+    admin = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
 
     const cliffFeeNumerator = new BN(2_500_000);
     const numberOfPeriod = new BN(0);
@@ -76,7 +68,7 @@ describe("Admin function: Create config", () => {
       OperatorPermission.RemoveConfigKey,
     ]);
 
-    await createOperator(context.banksClient, {
+    await createOperator(svm, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
       permission,
@@ -84,22 +76,17 @@ describe("Admin function: Create config", () => {
   });
 
   it("Admin create config", async () => {
-    await createConfigIx(
-      context.banksClient,
-      whitelistedAccount,
-      index,
-      createConfigParams
-    );
+    await createConfigIx(svm, whitelistedAccount, index, createConfigParams);
   });
 
   it("Admin close config", async () => {
     const config = await createConfigIx(
-      context.banksClient,
+      svm,
       whitelistedAccount,
       index,
       createConfigParams
     );
-    await closeConfigIx(context.banksClient, whitelistedAccount, config);
+    await closeConfigIx(svm, whitelistedAccount, config);
   });
 
   it("Admin create config with dynamic fee", async () => {
@@ -151,7 +138,7 @@ describe("Admin function: Create config", () => {
     };
 
     await createConfigIx(
-      context.banksClient,
+      svm,
       whitelistedAccount,
       new BN(Math.floor(Math.random() * 1000)),
       createConfigParams
@@ -194,7 +181,7 @@ describe("Admin function: Create config", () => {
     };
 
     await createConfigIx(
-      context.banksClient,
+      svm,
       whitelistedAccount,
       new BN(Math.floor(Math.random() * 1000)),
       createConfigParams

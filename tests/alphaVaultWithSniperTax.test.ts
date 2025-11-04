@@ -1,8 +1,6 @@
-import { NATIVE_MINT } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import { ProgramTestContext } from "solana-bankrun";
 import {
   BaseFee,
   FEE_DENOMINATOR,
@@ -10,62 +8,51 @@ import {
   MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
+  NATIVE_MINT,
   createToken,
   getPool,
   initializeCustomizablePool,
   mintSplTokenTo,
-} from "./bankrun-utils";
+  startSvm,
+  warpSlotBy,
+} from "./helpers";
 import {
   depositAlphaVault,
   fillDammV2,
   getVaultState,
   setupProrataAlphaVault,
-} from "./bankrun-utils/alphaVault";
-import {
-  convertToByteArray,
-  convertToRateLimiterSecondFactor,
-  generateKpAndFund,
-  startTest,
-  warpSlotBy,
-} from "./bankrun-utils/common";
-import { Rounding, mulDiv } from "./bankrun-utils/math";
+} from "./helpers/alphaVault";
+import { generateKpAndFund } from "./helpers/common";
+import { Rounding, mulDiv } from "./helpers/math";
 import {
   BaseFeeMode,
   decodePodAlignedFeeRateLimiter,
   decodePodAlignedFeeTimeScheduler,
   encodeFeeRateLimiterParams,
   encodeFeeTimeSchedulerParams,
-} from "./bankrun-utils/feeCodec";
+} from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Alpha vault with sniper tax", () => {
   describe("Fee Scheduler", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
+    let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
 
-      tokenAMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
       tokenBMint = NATIVE_MINT;
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
     });
 
     it("Alpha vault can buy before activation point with minimum fee", async () => {
@@ -83,7 +70,7 @@ describe("Alpha vault with sniper tax", () => {
       );
 
       const { pool, alphaVault } = await alphaVaultWithSniperTaxFullFlow(
-        context,
+        svm,
         user,
         creator,
         tokenAMint,
@@ -93,11 +80,8 @@ describe("Alpha vault with sniper tax", () => {
         }
       );
 
-      const alphaVaultState = await getVaultState(
-        context.banksClient,
-        alphaVault
-      );
-      const poolState = await getPool(context.banksClient, pool);
+      const alphaVaultState = getVaultState(svm, alphaVault);
+      const poolState = getPool(svm, pool);
       let totalTradingFee = poolState.metrics.totalLpBFee.add(
         poolState.metrics.totalProtocolBFee
       );
@@ -129,33 +113,24 @@ describe("Alpha vault with sniper tax", () => {
   });
 
   describe("Rate limiter", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let user: Keypair;
+    let admin: Keypair;
     let creator: Keypair;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
 
-      tokenAMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
       tokenBMint = NATIVE_MINT;
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
     });
 
     it("Alpha vault can buy before activation point with minimum fee", async () => {
@@ -174,7 +149,7 @@ describe("Alpha vault with sniper tax", () => {
       );
 
       const { pool, alphaVault } = await alphaVaultWithSniperTaxFullFlow(
-        context,
+        svm,
         user,
         creator,
         tokenAMint,
@@ -184,11 +159,8 @@ describe("Alpha vault with sniper tax", () => {
         }
       );
 
-      const alphaVaultState = await getVaultState(
-        context.banksClient,
-        alphaVault
-      );
-      const poolState = await getPool(context.banksClient, pool);
+      const alphaVaultState = getVaultState(svm, alphaVault);
+      const poolState = getPool(svm, pool);
       let totalTradingFee = poolState.metrics.totalLpBFee.add(
         poolState.metrics.totalProtocolBFee
       );
@@ -212,7 +184,7 @@ describe("Alpha vault with sniper tax", () => {
 });
 
 const alphaVaultWithSniperTaxFullFlow = async (
-  context: ProgramTestContext,
+  svm: LiteSVM,
   user: Keypair,
   creator: Keypair,
   tokenAMint: PublicKey,
@@ -223,7 +195,7 @@ const alphaVaultWithSniperTaxFullFlow = async (
   let startVestingPointDiff = 25;
   let endVestingPointDiff = 30;
 
-  let currentSlot = await context.banksClient.getSlot("processed");
+  let currentSlot = svm.getClock().slot;
   let activationPoint = new BN(Number(currentSlot) + activationPointDiff);
 
   console.log("setup permission pool");
@@ -247,17 +219,14 @@ const alphaVaultWithSniperTaxFullFlow = async (
     activationType: 0, // slot
     collectFeeMode: 1, // onlyB
   };
-  const { pool } = await initializeCustomizablePool(
-    context.banksClient,
-    params
-  );
+  const { pool } = await initializeCustomizablePool(svm, params);
 
   console.log("setup prorata vault");
   let startVestingPoint = new BN(Number(currentSlot) + startVestingPointDiff);
   let endVestingPoint = new BN(Number(currentSlot) + endVestingPointDiff);
   let maxBuyingCap = new BN(10 * LAMPORTS_PER_SOL);
 
-  let alphaVault = await setupProrataAlphaVault(context.banksClient, {
+  let alphaVault = await setupProrataAlphaVault(svm, {
     baseMint: tokenAMint,
     quoteMint: tokenBMint,
     pool,
@@ -273,7 +242,7 @@ const alphaVaultWithSniperTaxFullFlow = async (
 
   console.log("User deposit in alpha vault");
   let depositAmount = new BN(10 * LAMPORTS_PER_SOL);
-  await depositAlphaVault(context.banksClient, {
+  await depositAlphaVault(svm, {
     amount: depositAmount,
     ownerKeypair: user,
     alphaVault,
@@ -283,16 +252,10 @@ const alphaVaultWithSniperTaxFullFlow = async (
   // warp slot to pre-activation point
   // alpha vault can buy before activation point
   const preactivationPoint = activationPoint.sub(new BN(5));
-  await warpSlotBy(context, preactivationPoint);
+  warpSlotBy(svm, preactivationPoint);
 
   console.log("fill damm v2");
-  await fillDammV2(
-    context.banksClient,
-    pool,
-    alphaVault,
-    creator,
-    maxBuyingCap
-  );
+  await fillDammV2(svm, pool, alphaVault, creator, maxBuyingCap);
 
   return {
     pool,

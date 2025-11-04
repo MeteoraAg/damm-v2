@@ -1,23 +1,29 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { ProgramTestContext } from "solana-bankrun";
-import { closeTokenBadge, createOperator, createTokenBadge, encodePermissions, OperatorPermission } from "./bankrun-utils";
-import { generateKpAndFund, startTest } from "./bankrun-utils/common";
+import {
+  closeTokenBadge,
+  createOperator,
+  createTokenBadge,
+  encodePermissions,
+  OperatorPermission,
+  startSvm,
+} from "./helpers";
+import { generateKpAndFund } from "./helpers/common";
 import {
   createPermenantDelegateExtensionWithInstruction,
   createToken2022,
-} from "./bankrun-utils/token2022";
+} from "./helpers/token2022";
+import { LiteSVM } from "litesvm";
 
 describe("Admin function: Create token badge", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let whitelistedAccount: Keypair;
   let tokenAMint: PublicKey;
 
   beforeEach(async () => {
-    const root = Keypair.generate();
-    context = await startTest(root);
-    admin = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(context.banksClient, context.payer);
+    svm = startSvm();
+    admin = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
 
     const tokenAMintKeypair = Keypair.generate();
     tokenAMint = tokenAMintKeypair.publicKey;
@@ -29,35 +35,33 @@ describe("Admin function: Create token badge", () => {
       ),
     ];
 
-    await createToken2022(
-      context.banksClient,
-      context.payer,
-      extensions,
-      tokenAMintKeypair
-    );
+    await createToken2022(svm, extensions, tokenAMintKeypair, admin.publicKey);
 
-    let permission = encodePermissions([OperatorPermission.CreateTokenBadge, OperatorPermission.CloseTokenBadge])
+    let permission = encodePermissions([
+      OperatorPermission.CreateTokenBadge,
+      OperatorPermission.CloseTokenBadge,
+    ]);
 
-    await createOperator(context.banksClient, {
+    await createOperator(svm, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
-      permission
-    })
+      permission,
+    });
   });
 
   it("Admin create token badge", async () => {
-    await createTokenBadge(context.banksClient, {
+    await createTokenBadge(svm, {
       tokenMint: tokenAMint,
       whitelistedAddress: whitelistedAccount,
     });
   });
 
   it("Admin close token badge", async () => {
-    await createTokenBadge(context.banksClient, {
+    await createTokenBadge(svm, {
       tokenMint: tokenAMint,
       whitelistedAddress: whitelistedAccount,
     });
-    await closeTokenBadge(context.banksClient, {
+    await closeTokenBadge(svm, {
       tokenMint: tokenAMint,
       whitelistedAddress: whitelistedAccount,
     });

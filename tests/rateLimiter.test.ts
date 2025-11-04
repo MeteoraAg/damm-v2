@@ -6,7 +6,6 @@ import {
 } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import { ProgramTestContext } from "solana-bankrun";
 import {
   CreateConfigParams,
   InitializeCustomizablePoolParams,
@@ -16,7 +15,6 @@ import {
   MIN_SQRT_PRICE,
   createConfigIx,
   createToken,
-  getCpAmmProgramErrorCodeHexString,
   getPool,
   initializeCustomizablePool,
   initializePool,
@@ -27,16 +25,18 @@ import {
   encodePermissions,
   createOperator,
   generateKpAndFund,
-  startTest,
   randomID,
   warpSlotBy,
-  processTransactionMaybeThrow,
-  expectThrowsAsync,
-} from "./bankrun-utils";
-import { encodeFeeRateLimiterParams } from "./bankrun-utils/feeCodec";
+  startSvm,
+  getCpAmmProgramErrorCode,
+  sendTransaction,
+  expectThrowsErrorCode,
+} from "./helpers";
+import { encodeFeeRateLimiterParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Rate limiter", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -47,60 +47,24 @@ describe("Rate limiter", () => {
   let tokenB: PublicKey;
 
   beforeEach(async () => {
-    const root = Keypair.generate();
-    context = await startTest(root);
-    admin = context.payer;
-    operator = await generateKpAndFund(context.banksClient, context.payer);
-    partner = await generateKpAndFund(context.banksClient, context.payer);
-    user = await generateKpAndFund(context.banksClient, context.payer);
-    poolCreator = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(
-      context.banksClient,
-      context.payer
-    );
+    svm = startSvm();
+    admin = generateKpAndFund(svm);
+    operator = generateKpAndFund(svm);
+    partner = generateKpAndFund(svm);
+    user = generateKpAndFund(svm);
+    poolCreator = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
 
-    tokenA = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
-    tokenB = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
+    tokenA = createToken(svm, admin.publicKey);
+    tokenB = createToken(svm, admin.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenA,
-      context.payer,
-      user.publicKey
-    );
+    mintSplTokenTo(svm, tokenA, admin, user.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenB,
-      context.payer,
-      user.publicKey
-    );
+    mintSplTokenTo(svm, tokenB, admin, user.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenA,
-      context.payer,
-      poolCreator.publicKey
-    );
+    mintSplTokenTo(svm, tokenA, admin, poolCreator.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenB,
-      context.payer,
-      poolCreator.publicKey
-    );
+    mintSplTokenTo(svm, tokenB, admin, poolCreator.publicKey);
   });
 
   it("Rate limiter", async () => {
@@ -137,14 +101,14 @@ describe("Rate limiter", () => {
 
     let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
-    await createOperator(context.banksClient, {
+    await createOperator(svm, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
       permission,
     });
 
     let config = await createConfigIx(
-      context.banksClient,
+      svm,
       whitelistedAccount,
       new BN(randomID()),
       createConfigParams
@@ -162,12 +126,12 @@ describe("Rate limiter", () => {
       sqrtPrice,
       activationPoint: null,
     };
-    const { pool } = await initializePool(context.banksClient, initPoolParams);
-    let poolState = await getPool(context.banksClient, pool);
+    const { pool } = await initializePool(svm, initPoolParams);
+    let poolState = await getPool(svm, pool);
 
     // swap with 1 SOL
 
-    await swapExactIn(context.banksClient, {
+    await swapExactIn(svm, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -177,7 +141,7 @@ describe("Rate limiter", () => {
       referralTokenAccount: null,
     });
 
-    poolState = await getPool(context.banksClient, pool);
+    poolState = getPool(svm, pool);
 
     let totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
@@ -189,7 +153,7 @@ describe("Rate limiter", () => {
 
     // swap with 2 SOL
 
-    await swapExactIn(context.banksClient, {
+    await swapExactIn(svm, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -199,7 +163,7 @@ describe("Rate limiter", () => {
       referralTokenAccount: null,
     });
 
-    poolState = await getPool(context.banksClient, pool);
+    poolState = await getPool(svm, pool);
 
     let totalTradingFee1 = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
@@ -211,11 +175,11 @@ describe("Rate limiter", () => {
     );
 
     // wait until time pass the 10 slot
-    await warpSlotBy(context, maxRateLimiterDuration.add(new BN(1)));
+    warpSlotBy(svm, maxRateLimiterDuration.add(new BN(1)));
 
     // swap with 2 SOL
 
-    await swapExactIn(context.banksClient, {
+    await swapExactIn(svm, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -225,7 +189,7 @@ describe("Rate limiter", () => {
       referralTokenAccount: null,
     });
 
-    poolState = await getPool(context.banksClient, pool);
+    poolState = await getPool(svm, pool);
 
     let totalTradingFee2 = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
@@ -275,13 +239,10 @@ describe("Rate limiter", () => {
       collectFeeMode: 1, // onlyB
       activationPoint: null,
     };
-    const { pool } = await initializeCustomizablePool(
-      context.banksClient,
-      initPoolParams
-    );
+    const { pool } = await initializeCustomizablePool(svm, initPoolParams);
 
     // swap with 1 SOL
-    const swapIx = await swapInstruction(context.banksClient, {
+    const swapIx = await swapInstruction(svm, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -296,16 +257,10 @@ describe("Rate limiter", () => {
       transaction.add(swapIx);
     }
 
-    transaction.recentBlockhash = (
-      await context.banksClient.getLatestBlockhash()
-    )[0];
-    transaction.sign(poolCreator);
-
-    const errorCode = getCpAmmProgramErrorCodeHexString(
+    const errorCode = getCpAmmProgramErrorCode(
       "FailToValidateSingleSwapInstruction"
     );
-    await expectThrowsAsync(async () => {
-      await processTransactionMaybeThrow(context.banksClient, transaction);
-    }, errorCode);
+    const result = sendTransaction(svm, transaction, [poolCreator]);
+    expectThrowsErrorCode(result, errorCode);
   });
 });

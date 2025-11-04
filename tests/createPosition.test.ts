@@ -1,10 +1,4 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  randomID,
-  startTest,
-} from "./bankrun-utils/common";
+import { generateKpAndFund, randomID } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createConfigIx,
@@ -20,21 +14,20 @@ import {
   encodePermissions,
   OperatorPermission,
   createOperator,
-} from "./bankrun-utils";
+  startSvm,
+} from "./helpers";
 import BN from "bn.js";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
-} from "./bankrun-utils/token2022";
-import {
-  BaseFeeMode,
-  encodeFeeTimeSchedulerParams,
-} from "./bankrun-utils/feeCodec";
+} from "./helpers/token2022";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Create position", () => {
   describe("SPL token", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
@@ -45,47 +38,22 @@ describe("Create position", () => {
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      creator = await generateKpAndFund(context.banksClient, context.payer);
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(
-        context.banksClient,
-        context.payer
-      );
+      creator = generateKpAndFund(svm);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
+      tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
+      tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-      tokenAMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
-      tokenBMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
-
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
-      await createOperator(context.banksClient, {
+      await createOperator(svm, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
         permission,
@@ -124,7 +92,7 @@ describe("Create position", () => {
       };
 
       const config = await createConfigIx(
-        context.banksClient,
+        svm,
         whitelistedAccount,
         new BN(randomID()),
         createConfigParams
@@ -144,16 +112,13 @@ describe("Create position", () => {
         activationPoint: null,
       };
 
-      const { pool } = await initializePool(
-        context.banksClient,
-        initPoolParams
-      );
-      await createPosition(context.banksClient, user, user.publicKey, pool);
+      const { pool } = await initializePool(svm, initPoolParams);
+      await createPosition(svm, user, user.publicKey, pool);
     });
   });
 
   describe("Token 2022", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
@@ -164,8 +129,7 @@ describe("Create position", () => {
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
       const tokenAMintKeypair = Keypair.generate();
       const tokenBMintKeypair = Keypair.generate();
@@ -179,45 +143,30 @@ describe("Create position", () => {
       const tokenBExtensions = [
         createTransferFeeExtensionWithInstruction(tokenBMint),
       ];
-      creator = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(
-        context.banksClient,
-        context.payer
-      );
+      creator = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      user = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenAExtensions,
-        tokenAMintKeypair
+        tokenAMintKeypair,
+        admin.publicKey
       );
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenBExtensions,
-        tokenBMintKeypair
+        tokenBMintKeypair,
+        admin.publicKey
       );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      await mintToToken2022(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
+      await mintToToken2022(svm, tokenBMint, admin, creator.publicKey);
       let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
-      await createOperator(context.banksClient, {
+      await createOperator(svm, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
         permission,
@@ -256,7 +205,7 @@ describe("Create position", () => {
       };
 
       const config = await createConfigIx(
-        context.banksClient,
+        svm,
         whitelistedAccount,
         new BN(randomID()),
         createConfigParams
@@ -278,11 +227,8 @@ describe("Create position", () => {
         activationPoint: null,
       };
 
-      const { pool } = await initializePool(
-        context.banksClient,
-        initPoolParams
-      );
-      await createPosition(context.banksClient, user, user.publicKey, pool);
+      const { pool } = await initializePool(svm, initPoolParams);
+      await createPosition(svm, user, user.publicKey, pool);
     });
   });
 });

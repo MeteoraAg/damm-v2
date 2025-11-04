@@ -1,9 +1,4 @@
-import { Clock, ProgramTestContext } from "solana-bankrun";
-import {
-  expectThrowsAsync,
-  generateKpAndFund,
-  startTest,
-} from "./bankrun-utils/common";
+import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -26,28 +21,28 @@ import {
   withdrawIneligibleReward,
   createToken,
   mintSplTokenTo,
-  getCpAmmProgramErrorCodeHexString,
-  convertToByteArray,
   encodePermissions,
   OperatorPermission,
   createOperator,
-} from "./bankrun-utils";
+  startSvm,
+  warpToTimestamp,
+  getCpAmmProgramErrorCode,
+  expectThrowsErrorCode,
+} from "./helpers";
 import BN from "bn.js";
 import { describe } from "mocha";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
-} from "./bankrun-utils/token2022";
-import {
-  BaseFeeMode,
-  encodeFeeTimeSchedulerParams,
-} from "./bankrun-utils/feeCodec";
+} from "./helpers/token2022";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Reward by creator", () => {
   // SPL-Token
   describe("Reward with SPL-Token", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let creator: Keypair;
     let admin: Keypair;
     let config: PublicKey;
@@ -62,81 +57,29 @@ describe("Reward by creator", () => {
     const configId = Math.floor(Math.random() * 1000);
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      funder = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(
-        context.banksClient,
-        context.payer
-      );
+      user = generateKpAndFund(svm);
+      funder = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
-      tokenAMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
-      tokenBMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      tokenAMint = createToken(svm, admin.publicKey);
+      tokenBMint = createToken(svm, admin.publicKey);
 
-      rewardMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      rewardMint = createToken(svm, admin.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, tokenBMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        rewardMint,
-        context.payer,
-        funder.publicKey
-      );
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        rewardMint,
-        context.payer,
-        admin.publicKey
-      );
+      mintSplTokenTo(svm, rewardMint, admin, funder.publicKey);
+      mintSplTokenTo(svm, rewardMint, admin, admin.publicKey);
 
       const cliffFeeNumerator = new BN(2_500_000);
       const numberOfPeriod = new BN(0);
@@ -170,14 +113,14 @@ describe("Reward by creator", () => {
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
-      await createOperator(context.banksClient, {
+      await createOperator(svm, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
         permission,
       });
 
       config = await createConfigIx(
-        context.banksClient,
+        svm,
         whitelistedAccount,
         new BN(configId),
         createConfigParams
@@ -199,18 +142,10 @@ describe("Reward by creator", () => {
         activationPoint: null,
       };
 
-      const { pool } = await initializePool(
-        context.banksClient,
-        initPoolParams
-      );
+      const { pool } = await initializePool(svm, initPoolParams);
 
       // user create postion and add liquidity
-      const position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      const position = await createPosition(svm, user, user.publicKey, pool);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -220,7 +155,7 @@ describe("Reward by creator", () => {
         tokenAAmountThreshold: new BN(200),
         tokenBAmountThreshold: new BN(200),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
       // init reward
       const index = 0;
@@ -232,10 +167,10 @@ describe("Reward by creator", () => {
         rewardMint,
         funder: creator.publicKey,
       };
-      await initializeReward(context.banksClient, initRewardParams);
+      await initializeReward(svm, initRewardParams);
 
       // update duration
-      await updateRewardDuration(context.banksClient, {
+      await updateRewardDuration(svm, {
         index,
         signer: creator,
         pool,
@@ -243,7 +178,7 @@ describe("Reward by creator", () => {
       });
 
       // update new funder
-      await updateRewardFunder(context.banksClient, {
+      await updateRewardFunder(svm, {
         index,
         signer: creator,
         pool,
@@ -251,7 +186,7 @@ describe("Reward by creator", () => {
       });
 
       // fund reward
-      await fundReward(context.banksClient, {
+      await fundReward(svm, {
         index,
         funder: funder,
         pool,
@@ -261,7 +196,7 @@ describe("Reward by creator", () => {
 
       // claim reward
 
-      await claimReward(context.banksClient, {
+      await claimReward(svm, {
         index,
         user,
         pool,
@@ -270,21 +205,14 @@ describe("Reward by creator", () => {
       });
 
       // claim ineligible reward
-      const poolState = await getPool(context.banksClient, pool);
+      const poolState = getPool(svm, pool);
       // set new timestamp to pass reward duration end
       const timestamp =
         poolState.rewardInfos[index].rewardDurationEnd.addn(5000);
-      const currentClock = await context.banksClient.getClock();
-      context.setClock(
-        new Clock(
-          currentClock.slot,
-          currentClock.epochStartTimestamp,
-          currentClock.epoch,
-          currentClock.leaderScheduleEpoch,
-          BigInt(timestamp.toString())
-        )
-      );
-      await withdrawIneligibleReward(context.banksClient, {
+
+      warpToTimestamp(svm, new BN(timestamp));
+
+      await withdrawIneligibleReward(svm, {
         index,
         funder,
         pool,
@@ -306,18 +234,10 @@ describe("Reward by creator", () => {
         activationPoint: null,
       };
 
-      const { pool } = await initializePool(
-        context.banksClient,
-        initPoolParams
-      );
+      const { pool } = await initializePool(svm, initPoolParams);
 
       // user create postion and add liquidity
-      const position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      const position = await createPosition(svm, user, user.publicKey, pool);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -327,7 +247,7 @@ describe("Reward by creator", () => {
         tokenAAmountThreshold: new BN(200),
         tokenBAmountThreshold: new BN(200),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
       // init reward
       const index = 1;
@@ -340,17 +260,16 @@ describe("Reward by creator", () => {
         funder: creator.publicKey,
       };
 
-      const errorCode = getCpAmmProgramErrorCodeHexString("InvalidRewardIndex");
-      await expectThrowsAsync(async () => {
-        await initializeReward(context.banksClient, initRewardParams);
-      }, errorCode);
+      const errorCode = getCpAmmProgramErrorCode("InvalidRewardIndex");
+      const res = await initializeReward(svm, initRewardParams);
+      expectThrowsErrorCode(res, errorCode);
     });
   });
 
   // SPL-Token2022
 
   describe("Reward SPL-Token 2022", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let creator: Keypair;
     let config: PublicKey;
     let funder: Keypair;
@@ -365,8 +284,7 @@ describe("Reward by creator", () => {
     const configId = Math.floor(Math.random() * 1000);
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
       const tokenAMintKeypair = Keypair.generate();
       const tokenBMintKeypair = Keypair.generate();
@@ -387,82 +305,43 @@ describe("Reward by creator", () => {
         createTransferFeeExtensionWithInstruction(rewardMint),
       ];
 
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      funder = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      whitelistedAccount = await generateKpAndFund(
-        context.banksClient,
-        context.payer
-      );
+      user = generateKpAndFund(svm);
+      funder = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenAExtensions,
-        tokenAMintKeypair
-      );
-      await createToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBExtensions,
-        tokenBMintKeypair
-      );
-
-      await createToken2022(
-        context.banksClient,
-        context.payer,
-        rewardExtensions,
-        rewardMintKeypair
-      );
-
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        user.publicKey
-      );
-
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        user.publicKey
-      );
-
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
-
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
-
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        rewardMint,
-        context.payer,
-        funder.publicKey
-      );
-
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        rewardMint,
-        context.payer,
+        tokenAMintKeypair,
         admin.publicKey
       );
+      await createToken2022(
+        svm,
+        tokenBExtensions,
+        tokenBMintKeypair,
+        admin.publicKey
+      );
+
+      await createToken2022(
+        svm,
+        rewardExtensions,
+        rewardMintKeypair,
+        admin.publicKey
+      );
+
+      await mintToToken2022(svm, tokenAMint, admin, user.publicKey);
+
+      await mintToToken2022(svm, tokenBMint, admin, user.publicKey);
+
+      await mintToToken2022(svm, tokenAMint, admin, creator.publicKey);
+
+      await mintToToken2022(svm, tokenBMint, admin, creator.publicKey);
+
+      await mintToToken2022(svm, rewardMint, admin, funder.publicKey);
+
+      await mintToToken2022(svm, rewardMint, admin, admin.publicKey);
 
       const cliffFeeNumerator = new BN(2_500_000);
       const numberOfPeriod = new BN(0);
@@ -496,14 +375,14 @@ describe("Reward by creator", () => {
 
       let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
-      await createOperator(context.banksClient, {
+      await createOperator(svm, {
         admin,
         whitelistAddress: whitelistedAccount.publicKey,
         permission,
       });
 
       config = await createConfigIx(
-        context.banksClient,
+        svm,
         whitelistedAccount,
         new BN(configId),
         createConfigParams
@@ -525,18 +404,10 @@ describe("Reward by creator", () => {
         activationPoint: null,
       };
 
-      const { pool } = await initializePool(
-        context.banksClient,
-        initPoolParams
-      );
+      const { pool } = await initializePool(svm, initPoolParams);
 
       // user create postion and add liquidity
-      const position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      const position = await createPosition(svm, user, user.publicKey, pool);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -546,7 +417,7 @@ describe("Reward by creator", () => {
         tokenAAmountThreshold: new BN(200),
         tokenBAmountThreshold: new BN(200),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
       // init reward
       const index = 0;
@@ -558,10 +429,10 @@ describe("Reward by creator", () => {
         rewardMint,
         funder: creator.publicKey,
       };
-      await initializeReward(context.banksClient, initRewardParams);
+      await initializeReward(svm, initRewardParams);
 
       // update duration
-      await updateRewardDuration(context.banksClient, {
+      await updateRewardDuration(svm, {
         index,
         signer: creator,
         pool,
@@ -569,7 +440,7 @@ describe("Reward by creator", () => {
       });
 
       // update new funder
-      await updateRewardFunder(context.banksClient, {
+      await updateRewardFunder(svm, {
         index,
         signer: creator,
         pool,
@@ -578,7 +449,7 @@ describe("Reward by creator", () => {
 
       console.log("fund reward");
       // fund reward
-      await fundReward(context.banksClient, {
+      await fundReward(svm, {
         index,
         funder: funder,
         pool,
@@ -586,21 +457,13 @@ describe("Reward by creator", () => {
         amount: new BN("100"),
       });
 
-      let currentClock = await context.banksClient.getClock();
+      let currentClock = svm.getClock();
       const newTimestamp = Number(currentClock.unixTimestamp) + 3600;
-      context.setClock(
-        new Clock(
-          currentClock.slot,
-          currentClock.epochStartTimestamp,
-          currentClock.epoch,
-          currentClock.leaderScheduleEpoch,
-          BigInt(newTimestamp.toString())
-        )
-      );
+      warpToTimestamp(svm, new BN(newTimestamp));
 
       // claim reward
 
-      await claimReward(context.banksClient, {
+      await claimReward(svm, {
         index,
         user,
         pool,
@@ -609,21 +472,13 @@ describe("Reward by creator", () => {
       });
 
       // claim ineligible reward
-      const poolState = await getPool(context.banksClient, pool);
+      const poolState = getPool(svm, pool);
       // set new timestamp to pass reward duration end
       const timestamp =
         poolState.rewardInfos[index].rewardDurationEnd.addn(5000);
-      currentClock = await context.banksClient.getClock();
-      context.setClock(
-        new Clock(
-          currentClock.slot,
-          currentClock.epochStartTimestamp,
-          currentClock.epoch,
-          currentClock.leaderScheduleEpoch,
-          BigInt(timestamp.toString())
-        )
-      );
-      await withdrawIneligibleReward(context.banksClient, {
+      warpToTimestamp(svm, new BN(timestamp));
+
+      await withdrawIneligibleReward(svm, {
         index,
         funder,
         pool,
@@ -645,18 +500,10 @@ describe("Reward by creator", () => {
         activationPoint: null,
       };
 
-      const { pool } = await initializePool(
-        context.banksClient,
-        initPoolParams
-      );
+      const { pool } = await initializePool(svm, initPoolParams);
 
       // user create postion and add liquidity
-      const position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      const position = await createPosition(svm, user, user.publicKey, pool);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -666,7 +513,7 @@ describe("Reward by creator", () => {
         tokenAAmountThreshold: new BN(200),
         tokenBAmountThreshold: new BN(200),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
       // init reward
       const index = 1;
@@ -678,10 +525,9 @@ describe("Reward by creator", () => {
         rewardMint,
         funder: creator.publicKey,
       };
-      const errorCode = getCpAmmProgramErrorCodeHexString("InvalidRewardIndex");
-      await expectThrowsAsync(async () => {
-        await initializeReward(context.banksClient, initRewardParams);
-      }, errorCode);
+      const errorCode = getCpAmmProgramErrorCode("InvalidRewardIndex");
+      const res = await initializeReward(svm, initRewardParams);
+      expectThrowsErrorCode(res, errorCode);
     });
   });
 });
