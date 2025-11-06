@@ -1,7 +1,6 @@
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import { ProgramTestContext } from "solana-bankrun";
 import {
   CreateConfigParams,
   InitializePoolParams,
@@ -17,13 +16,15 @@ import {
   initializeCustomizablePool,
   initializePool,
   mintSplTokenTo,
+  startSvm,
   swapExactIn,
-} from "./bankrun-utils";
-import { generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+} from "./helpers";
+import { generateKpAndFund, randomID } from "./helpers/common";
 import {
   BaseFeeMode,
   encodeFeeMarketCapSchedulerParams,
-} from "./bankrun-utils/feeCodec";
+} from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 const sqrtPrice = new BN("4880549731789001291");
 const numberOfPeriod = 100;
@@ -32,7 +33,7 @@ const reductionFactor = new BN(10);
 const schedulerExpirationDuration = new BN(3600);
 
 describe("Market cap fee scheduler", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let operator: Keypair;
   let partner: Keypair;
@@ -43,66 +44,30 @@ describe("Market cap fee scheduler", () => {
   let whitelistedAccount: Keypair;
 
   before(async () => {
-    const root = Keypair.generate();
-    context = await startTest(root);
-    admin = context.payer;
-    operator = await generateKpAndFund(context.banksClient, context.payer);
-    partner = await generateKpAndFund(context.banksClient, context.payer);
-    user = await generateKpAndFund(context.banksClient, context.payer);
-    poolCreator = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(
-      context.banksClient,
-      context.payer
-    );
-    tokenA = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
-    tokenB = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
+    svm = startSvm();
+    admin = generateKpAndFund(svm);
+    operator = generateKpAndFund(svm);
+    partner = generateKpAndFund(svm);
+    user = generateKpAndFund(svm);
+    poolCreator = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
+    tokenA = createToken(svm, admin.publicKey, admin.publicKey);
+    tokenB = createToken(svm, admin.publicKey, admin.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenA,
-      context.payer,
-      user.publicKey
-    );
+    mintSplTokenTo(svm, tokenA, admin, user.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenB,
-      context.payer,
-      user.publicKey
-    );
+    mintSplTokenTo(svm, tokenB, admin, user.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenA,
-      context.payer,
-      poolCreator.publicKey
-    );
+    mintSplTokenTo(svm, tokenA, admin, poolCreator.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenB,
-      context.payer,
-      poolCreator.publicKey
-    );
+    mintSplTokenTo(svm, tokenB, admin, poolCreator.publicKey);
 
     let permission = encodePermissions([
       OperatorPermission.CreateConfigKey,
       OperatorPermission.RemoveConfigKey,
     ]);
 
-    await createOperator(context.banksClient, {
+    await createOperator(svm, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
       permission,
@@ -121,7 +86,7 @@ describe("Market cap fee scheduler", () => {
       BaseFeeMode.FeeMarketCapSchedulerLinear
     );
 
-    await initializeCustomizablePool(context.banksClient, {
+    await initializeCustomizablePool(svm, {
       poolFees: {
         baseFee: {
           data: Array.from(data),
@@ -173,7 +138,7 @@ describe("Market cap fee scheduler", () => {
     };
 
     let config = await createConfigIx(
-      context.banksClient,
+      svm,
       whitelistedAccount,
       new BN(randomID()),
       createConfigParams
@@ -190,11 +155,11 @@ describe("Market cap fee scheduler", () => {
       sqrtPrice,
       activationPoint: null,
     };
-    const { pool } = await initializePool(context.banksClient, initPoolParams);
-    let poolState = await getPool(context.banksClient, pool);
+    const { pool } = await initializePool(svm, initPoolParams);
+    let poolState = getPool(svm, pool);
 
     // Market cap increase
-    await swapExactIn(context.banksClient, {
+    await swapExactIn(svm, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -204,12 +169,12 @@ describe("Market cap fee scheduler", () => {
       referralTokenAccount: null,
     });
 
-    poolState = await getPool(context.banksClient, pool);
+    poolState = await getPool(svm, pool);
 
     const feePoint0 = poolState.metrics.totalLpBFee;
 
     // Market cap increase
-    await swapExactIn(context.banksClient, {
+    await swapExactIn(svm, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -219,7 +184,7 @@ describe("Market cap fee scheduler", () => {
       referralTokenAccount: null,
     });
 
-    poolState = await getPool(context.banksClient, pool);
+    poolState = await getPool(svm, pool);
 
     const feePoint1 = poolState.metrics.totalLpBFee.sub(feePoint0);
 

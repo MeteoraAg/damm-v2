@@ -21,13 +21,13 @@ import {
   Signer,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { BanksClient } from "solana-bankrun";
+import { LiteSVM } from "litesvm";
 
 export async function getExtraAccountMetasForTransferHook(
-  bankClient: BanksClient,
+  svm: LiteSVM,
   mint: PublicKey
 ) {
-  const info = await bankClient.getAccount(mint);
+  const info = svm.getAccount(mint);
 
   if (info.owner.equals(TOKEN_PROGRAM_ID)) {
     return [];
@@ -47,25 +47,26 @@ export async function getExtraAccountMetasForTransferHook(
   if (!transferHook) {
     return [];
   } else {
-    const transferWithHookIx = await createTransferCheckedWithTransferHookInstruction(
-      bankClient,
-      PublicKey.default,
-      mint,
-      PublicKey.default,
-      PublicKey.default,
-      BigInt(0),
-      mintInfo.decimals,
-      [],
-      TOKEN_2022_PROGRAM_ID
-    );
+    const transferWithHookIx =
+      await createTransferCheckedWithTransferHookInstruction(
+        svm,
+        PublicKey.default,
+        mint,
+        PublicKey.default,
+        PublicKey.default,
+        BigInt(0),
+        mintInfo.decimals,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      );
 
     // Only 4 keys needed if it's single signer. https://github.com/solana-labs/solana-program-library/blob/d72289c79a04411c69a8bf1054f7156b6196f9b3/token/js/src/extensions/transferFee/instructions.ts#L251
     return transferWithHookIx.keys.slice(4);
   }
 }
 
-export async function createTransferCheckedWithTransferHookInstruction(
-  bankClient: BanksClient,
+export function createTransferCheckedWithTransferHookInstruction(
+  svm: LiteSVM,
   source: PublicKey,
   mint: PublicKey,
   destination: PublicKey,
@@ -85,7 +86,7 @@ export async function createTransferCheckedWithTransferHookInstruction(
     multiSigners,
     programId
   );
-  const info = await bankClient.getAccount(mint);
+  const info = svm.getAccount(mint);
   const accountInfoWithBuffer = {
     ...info,
     data: Buffer.from(info.data),
@@ -100,7 +101,7 @@ export async function createTransferCheckedWithTransferHookInstruction(
 
   if (transferHook) {
     addExtraAccountMetasForExecute(
-      bankClient,
+      svm,
       instruction,
       transferHook.programId,
       source,
@@ -142,8 +143,8 @@ function deEscalateAccountMeta(
   return accountMeta;
 }
 
-export async function addExtraAccountMetasForExecute(
-  bankClient: BanksClient,
+export function addExtraAccountMetasForExecute(
+  svm: LiteSVM,
   instruction: TransactionInstruction,
   programId: PublicKey,
   source: PublicKey,
@@ -153,7 +154,7 @@ export async function addExtraAccountMetasForExecute(
   amount: number | bigint
 ) {
   const validateStatePubkey = getExtraAccountMetaAddress(mint, programId);
-  const validateStateAccount = await bankClient.getAccount(validateStatePubkey);
+  const validateStateAccount = svm.getAccount(validateStatePubkey);
   if (validateStateAccount == null) {
     return instruction;
   }
@@ -185,8 +186,8 @@ export async function addExtraAccountMetasForExecute(
   for (const extraAccountMeta of validateStateData) {
     executeInstruction.keys.push(
       deEscalateAccountMeta(
-        await resolveExtraAccountMeta(
-          bankClient,
+        resolveExtraAccountMeta(
+          svm,
           extraAccountMeta,
           executeInstruction.keys,
           executeInstruction.data,
@@ -213,13 +214,13 @@ export async function addExtraAccountMetasForExecute(
   });
 }
 
-export async function resolveExtraAccountMeta(
-  bankClient: BanksClient,
+export function resolveExtraAccountMeta(
+  svm: LiteSVM,
   extraMeta: ExtraAccountMeta,
   previousMetas: AccountMeta[],
   instructionData: Buffer,
   transferHookProgramId: PublicKey
-): Promise<AccountMeta> {
+): AccountMeta {
   if (extraMeta.discriminator === 0) {
     return {
       pubkey: new PublicKey(extraMeta.addressConfig),
@@ -227,8 +228,8 @@ export async function resolveExtraAccountMeta(
       isWritable: extraMeta.isWritable,
     };
   } else if (extraMeta.discriminator === 2) {
-    const pubkey = await unpackPubkeyData(
-      bankClient,
+    const pubkey = unpackPubkeyData(
+      svm,
       extraMeta.addressConfig,
       previousMetas,
       instructionData
@@ -252,8 +253,8 @@ export async function resolveExtraAccountMeta(
     programId = previousMetas[accountIndex].pubkey;
   }
 
-  const seeds = await unpackSeeds(
-    bankClient,
+  const seeds = unpackSeeds(
+    svm,
     extraMeta.addressConfig,
     previousMetas,
     instructionData
@@ -267,35 +268,35 @@ export async function resolveExtraAccountMeta(
   };
 }
 
-async function unpackPubkeyData(
-  bankClient: BanksClient,
+function unpackPubkeyData(
+  svm: LiteSVM,
   keyDataConfig: Uint8Array,
   previousMetas: AccountMeta[],
   instructionData: Buffer
-): Promise<PublicKey> {
+): PublicKey {
   const [discriminator, ...rest] = keyDataConfig;
   const remaining = new Uint8Array(rest);
   switch (discriminator) {
     case 1:
       return unpackPubkeyDataFromInstructionData(remaining, instructionData);
     case 2:
-      return await unpackPubkeyDataFromAccountData(bankClient, remaining, previousMetas);
+      return unpackPubkeyDataFromAccountData(svm, remaining, previousMetas);
     default:
       throw new TokenTransferHookInvalidPubkeyData();
   }
 }
 
-async function unpackSeeds(
-  bankClient: BanksClient,
+function unpackSeeds(
+  svm: LiteSVM,
   seeds: Uint8Array,
   previousMetas: AccountMeta[],
   instructionData: Buffer
-): Promise<Buffer[]> {
+): Buffer[] {
   const unpackedSeeds: Buffer[] = [];
   let i = 0;
   while (i < 32) {
-    const seed = await unpackFirstSeed(
-      bankClient,
+    const seed = unpackFirstSeed(
+      svm,
       seeds.slice(i),
       previousMetas,
       instructionData
@@ -309,12 +310,12 @@ async function unpackSeeds(
   return unpackedSeeds;
 }
 
-async function unpackFirstSeed(
-  bankClient: BanksClient,
+function unpackFirstSeed(
+  svm: LiteSVM,
   seeds: Uint8Array,
   previousMetas: AccountMeta[],
   instructionData: Buffer
-): Promise<Seed | null> {
+): Seed | null {
   const [discriminator, ...rest] = seeds;
   const remaining = new Uint8Array(rest);
   switch (discriminator) {
@@ -327,7 +328,7 @@ async function unpackFirstSeed(
     case 3:
       return unpackSeedAccountKey(remaining, previousMetas);
     case 4:
-      return await unpackSeedAccountData(bankClient, remaining, previousMetas);
+      return unpackSeedAccountData(svm, remaining, previousMetas);
     default:
       throw new TokenTransferHookInvalidSeed();
   }
@@ -398,11 +399,11 @@ function unpackSeedAccountKey(
   };
 }
 
-async function unpackSeedAccountData(
-  bankClient: BanksClient,
+function unpackSeedAccountData(
+  svm: LiteSVM,
   seeds: Uint8Array,
   previousMetas: AccountMeta[]
-): Promise<Seed> {
+): Seed {
   if (seeds.length < 3) {
     throw new TokenTransferHookInvalidSeed();
   }
@@ -410,7 +411,7 @@ async function unpackSeedAccountData(
   if (previousMetas.length <= accountIndex) {
     throw new TokenTransferHookInvalidSeed();
   }
-  const accountInfo = await bankClient.getAccount(previousMetas[accountIndex].pubkey);
+  const accountInfo = svm.getAccount(previousMetas[accountIndex].pubkey);
   if (accountInfo == null) {
     throw new TokenTransferHookAccountDataNotFound();
   }
@@ -443,11 +444,11 @@ function unpackPubkeyDataFromInstructionData(
   );
 }
 
-async function unpackPubkeyDataFromAccountData(
-  bankClient: BanksClient,
+function unpackPubkeyDataFromAccountData(
+  svm: LiteSVM,
   remaining: Uint8Array,
   previousMetas: AccountMeta[]
-): Promise<PublicKey> {
+): PublicKey {
   if (remaining.length < 2) {
     throw new TokenTransferHookInvalidPubkeyData();
   }
@@ -455,7 +456,7 @@ async function unpackPubkeyDataFromAccountData(
   if (previousMetas.length <= accountIndex) {
     throw new TokenTransferHookAccountDataNotFound();
   }
-  const accountInfo = await bankClient.getAccount(previousMetas[accountIndex].pubkey);
+  const accountInfo = svm.getAccount(previousMetas[accountIndex].pubkey);
   if (accountInfo == null) {
     throw new TokenTransferHookAccountNotFound();
   }

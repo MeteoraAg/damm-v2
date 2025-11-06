@@ -1,7 +1,6 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
-import { expect } from "chai";
-import { ProgramTestContext } from "solana-bankrun";
+
 import {
   createToken,
   getPool,
@@ -11,60 +10,36 @@ import {
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
   mintSplTokenTo,
-} from "./bankrun-utils";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  startTest,
-} from "./bankrun-utils/common";
+  startSvm,
+} from "./helpers";
+import { generateKpAndFund } from "./helpers/common";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
-} from "./bankrun-utils/token2022";
-import {
-  BaseFeeMode,
-  encodeFeeTimeSchedulerParams,
-} from "./bankrun-utils/feeCodec";
+} from "./helpers/token2022";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Initialize customizable pool", () => {
   describe("SPL-Token", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
+    let admin: Keypair;
     let creator: Keypair;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      svm = startSvm();
+      creator = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
 
-      tokenAMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
-      tokenBMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
+      tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
     });
 
     it("Initialize customizable pool with spl token", async () => {
@@ -103,19 +78,19 @@ describe("Initialize customizable pool", () => {
         collectFeeMode: 0,
       };
 
-      await initializeCustomizablePool(context.banksClient, params);
+      await initializeCustomizablePool(svm, params);
     });
   });
 
   describe("Token 2022", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let creator: Keypair;
+    let admin: Keypair;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
       const tokenAMintKeypair = Keypair.generate();
       const tokenBMintKeypair = Keypair.generate();
@@ -129,36 +104,25 @@ describe("Initialize customizable pool", () => {
       const tokenBExtensions = [
         createTransferFeeExtensionWithInstruction(tokenBMint),
       ];
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      creator = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenAExtensions,
-        tokenAMintKeypair
+        tokenAMintKeypair,
+        admin.publicKey
       );
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenBExtensions,
-        tokenBMintKeypair
+        tokenBMintKeypair,
+        admin.publicKey
       );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      await mintToToken2022(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
+      await mintToToken2022(svm, tokenBMint, admin, creator.publicKey);
     });
 
     it("Initialize customizable pool with spl token", async () => {
@@ -197,10 +161,7 @@ describe("Initialize customizable pool", () => {
         collectFeeMode: 0,
       };
 
-      const { pool: _pool } = await initializeCustomizablePool(
-        context.banksClient,
-        params
-      );
+      const { pool: _pool } = await initializeCustomizablePool(svm, params);
     });
   });
 });

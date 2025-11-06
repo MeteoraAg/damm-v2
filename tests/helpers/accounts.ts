@@ -10,6 +10,7 @@ export function derivePoolAuthority(): PublicKey {
     CP_AMM_PROGRAM_ID
   )[0];
 }
+
 export function deriveConfigAddress(index: BN): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("config"), index.toArrayLike(Buffer, "le", 8)],
@@ -88,7 +89,9 @@ export function deriveClaimFeeOperatorAddress(operator: PublicKey): PublicKey {
   )[0];
 }
 
-export function deriveOperatorAddress(whitelistedAddress: PublicKey): PublicKey {
+export function deriveOperatorAddress(
+  whitelistedAddress: PublicKey
+): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("operator"), whitelistedAddress.toBuffer()],
     CP_AMM_PROGRAM_ID

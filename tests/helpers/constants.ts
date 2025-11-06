@@ -13,6 +13,10 @@ export const TREASURY = new PublicKey(
   "4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"
 );
 
+export const NATIVE_MINT = new PublicKey(
+  "So11111111111111111111111111111111111111112"
+);
+
 export const MIN_SQRT_PRICE = new BN("4295048016");
 export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 
@@ -24,10 +28,10 @@ export const OFFSET = 64;
 export const U64_MAX = new BN("18446744073709551615");
 export const MAX_FEE_BPS = 9900;
 export const MAX_FEE_NUMERATOR = 990_000_000;
-export const MIN_FEE_NUMERATOR = 100_000
+export const MIN_FEE_NUMERATOR = 100_000;
 export const FEE_DENOMINATOR = 1_000_000_000;
 
-export const  MAX_RATE_LIMITER_DURATION_IN_SECONDS = 60 * 60 * 12; // 12 hours
+export const MAX_RATE_LIMITER_DURATION_IN_SECONDS = 60 * 60 * 12; // 12 hours
 export const MAX_RATE_LIMITER_DURATION_IN_SLOTS = 108000; // 12 hours
 
 // Set the decimals, fee basis points, and maximum fee

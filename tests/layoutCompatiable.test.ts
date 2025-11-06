@@ -1,15 +1,11 @@
 import { expect } from "chai";
-import { convertToByteArray } from "./bankrun-utils/common";
-import { createCpAmmProgram } from "./bankrun-utils";
+import { createCpAmmProgram } from "./helpers";
 import BN from "bn.js";
 import fs from "fs";
 
 import { CpAmm } from "../target/types/cp_amm";
 import { IdlAccounts } from "@coral-xyz/anchor";
-import {
-  decodePodAlignedFeeMarketCapScheduler,
-  decodePodAlignedFeeTimeScheduler,
-} from "./bankrun-utils/feeCodec";
+import { decodePodAlignedFeeTimeScheduler } from "./helpers/feeCodec";
 type ConfigAccount = IdlAccounts<CpAmm>["config"];
 type PoolAccount = IdlAccounts<CpAmm>["pool"];
 

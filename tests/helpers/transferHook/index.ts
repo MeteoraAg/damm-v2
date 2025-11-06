@@ -14,8 +14,9 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
-import { BanksClient } from "solana-bankrun";
-import { processTransactionMaybeThrow } from "../common";
+import { LiteSVM, TransactionMetadata } from "litesvm";
+import { sendTransaction } from "..";
+import { expect } from "chai";
 
 export const TRANSFER_HOOK_COUNTER_PROGRAM_ID = new web3.PublicKey(
   "EBZDYx7599krFc4m2govwBdZcicr4GgepqC78m71nsHS"
@@ -47,7 +48,7 @@ export function deriveExtraAccountMetaList(mint: PublicKey) {
 }
 
 export async function createExtraAccountMetaListAndCounter(
-  bankClient: BanksClient,
+  svm: LiteSVM,
   payer: Keypair,
   mint: web3.PublicKey
 ) {
@@ -67,10 +68,8 @@ export async function createExtraAccountMetaListAndCounter(
       systemProgram: SystemProgram.programId,
     })
     .transaction();
-    transaction.recentBlockhash = (await bankClient.getLatestBlockhash())[0];
-  transaction.sign(payer);
-  await processTransactionMaybeThrow(bankClient, transaction);
-
+  const result = sendTransaction(svm, transaction, [payer]);
+  expect(result).instanceOf(TransactionMetadata);
   return [extraAccountMetaList, counterAccount];
 }
 
