@@ -193,7 +193,6 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
         included_transfer_fee_amount_in,
         excluded_transfer_fee_amount_out,
         included_transfer_fee_amount_out,
-        ..
     } = match swap_mode {
         SwapMode::ExactIn => process_swap_exact_in(process_swap_params),
         SwapMode::PartialFill => process_swap_partial_fill(process_swap_params),
@@ -202,11 +201,7 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
 
     pool.apply_swap_result(&swap_result, &fee_mode, current_timestamp)?;
 
-    let SwapResult2 {
-        included_fee_input_amount: _,
-        referral_fee,
-        ..
-    } = swap_result;
+    let SwapResult2 { referral_fee, .. } = swap_result;
 
     // send to reserve
     transfer_from_user(
