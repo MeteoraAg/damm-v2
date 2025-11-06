@@ -3,9 +3,8 @@ use anchor_lang::prelude::*;
 
 use crate::{
     params::fee_parameters::PoolFeeParameters,
-    state::{SplitAmountInfo, SplitPositionInfo, SwapResult, SwapResult2},
-    AddLiquidityParameters, RemoveLiquidityParameters, SplitPositionParameters2, SwapParameters,
-    SwapParameters2, UpdatePoolFeesParameters,
+    state::{SplitAmountInfo, SplitPositionInfo, SwapResult2},
+    SplitPositionParameters2, SwapParameters2, UpdatePoolFeesParameters,
 };
 
 /// Close config
@@ -83,19 +82,6 @@ pub struct EvtInitializePool {
     pub pool_type: u8,
 }
 
-#[deprecated = "Please migrate to EvtLiquidityChange instead. This event will be removed in the future."]
-#[event]
-pub struct EvtAddLiquidity {
-    pub pool: Pubkey,
-    pub position: Pubkey,
-    pub owner: Pubkey,
-    pub params: AddLiquidityParameters,
-    pub token_a_amount: u64,
-    pub token_b_amount: u64,
-    pub total_amount_a: u64,
-    pub total_amount_b: u64,
-}
-
 #[event]
 pub struct EvtClaimPositionFee {
     pub pool: Pubkey,
@@ -119,29 +105,6 @@ pub struct EvtClosePosition {
     pub owner: Pubkey,
     pub position: Pubkey,
     pub position_nft_mint: Pubkey,
-}
-
-#[deprecated = "Please migrate to EvtLiquidityChange instead. This event will be removed in the future."]
-#[event]
-pub struct EvtRemoveLiquidity {
-    pub pool: Pubkey,
-    pub position: Pubkey,
-    pub owner: Pubkey,
-    pub params: RemoveLiquidityParameters,
-    pub token_a_amount: u64,
-    pub token_b_amount: u64,
-}
-
-#[deprecated = "Please migrate to EvtSwap2 instead. This event will be removed in the future."]
-#[event]
-pub struct EvtSwap {
-    pub pool: Pubkey,
-    pub trade_direction: u8,
-    pub has_referral: bool,
-    pub params: SwapParameters,
-    pub swap_result: SwapResult,
-    pub actual_amount_in: u64,
-    pub current_timestamp: u64,
 }
 
 #[derive(Clone, Copy)]

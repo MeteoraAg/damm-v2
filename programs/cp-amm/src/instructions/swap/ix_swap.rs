@@ -8,7 +8,7 @@ use crate::{
     state::{fee::FeeMode, Pool, SwapResult2},
     swap::{ProcessSwapParams, ProcessSwapResult},
     token::{transfer_from_pool, transfer_from_user},
-    EvtSwap, EvtSwap2, PoolError,
+    EvtSwap2, PoolError,
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_lang::{
@@ -189,7 +189,6 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
     };
 
     let ProcessSwapResult {
-        swap_in_parameters,
         swap_result,
         included_transfer_fee_amount_in,
         excluded_transfer_fee_amount_out,
@@ -202,11 +201,7 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
 
     pool.apply_swap_result(&swap_result, &fee_mode, current_timestamp)?;
 
-    let SwapResult2 {
-        included_fee_input_amount,
-        referral_fee,
-        ..
-    } = swap_result;
+    let SwapResult2 { referral_fee, .. } = swap_result;
 
     // send to reserve
     transfer_from_user(
@@ -252,16 +247,6 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
     }
 
     let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
-
-    emit_cpi!(EvtSwap {
-        pool: ctx.accounts.pool.key(),
-        trade_direction: trade_direction.into(),
-        has_referral,
-        params: swap_in_parameters,
-        swap_result: swap_result.into(),
-        actual_amount_in: included_fee_input_amount,
-        current_timestamp
-    });
 
     emit_cpi!(EvtSwap2 {
         pool: ctx.accounts.pool.key(),
