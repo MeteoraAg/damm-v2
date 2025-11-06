@@ -24,6 +24,7 @@ import {
   getCpAmmProgramErrorCode,
   expectThrowsErrorCode,
   warpSlotBy,
+  warpTimestampToPassfilterPeriod,
 } from "./helpers";
 import BN from "bn.js";
 import {
@@ -38,7 +39,7 @@ import {
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 
-describe.only("Admin update pool fees parameters", () => {
+describe("Admin update pool fees parameters", () => {
   let svm: LiteSVM;
   let creator: Keypair;
   let admin: Keypair;
@@ -70,7 +71,7 @@ describe.only("Admin update pool fees parameters", () => {
     });
   });
 
-  it.only("disable dynamic fee ", async () => {
+  it("disable dynamic fee ", async () => {
     const cliffFeeNumerator = new BN(2_500_000);
     const numberOfPeriod = new BN(0);
     const periodFrequency = new BN(0);
@@ -91,6 +92,7 @@ describe.only("Admin update pool fees parameters", () => {
       poolFeesData,
       getDynamicFeeParams(new BN(2_500_000))
     );
+    warpTimestampToPassfilterPeriod(svm, poolAddress);
     // do swap
     const swapParams: SwapParams = {
       payer: creator,
@@ -151,6 +153,8 @@ describe.only("Admin update pool fees parameters", () => {
       null
     );
 
+    warpTimestampToPassfilterPeriod(svm, poolAddress);
+
     const swapParams: SwapParams = {
       payer: creator,
       pool: poolAddress,
@@ -169,6 +173,8 @@ describe.only("Admin update pool fees parameters", () => {
       cliffFeeNumerator: null,
       dynamicFee,
     });
+
+    warpTimestampToPassfilterPeriod(svm, poolAddress);
 
     await swapExactIn(svm, swapParams);
 
@@ -212,6 +218,7 @@ describe.only("Admin update pool fees parameters", () => {
       poolFeesData,
       getDynamicFeeParams(new BN(2_500_000))
     );
+    warpTimestampToPassfilterPeriod(svm, poolAddress);
     const newDynamicFeeParams = getDynamicFeeParams(new BN(5_000_000));
     const swapParams: SwapParams = {
       payer: creator,
@@ -305,6 +312,7 @@ describe.only("Admin update pool fees parameters", () => {
       dynamicFee: null,
     });
     expectThrowsErrorCode(res, errorCode);
+
     warpSlotBy(svm, new BN(10000));
 
     let poolState = getPool(svm, poolAddress);
@@ -319,7 +327,6 @@ describe.only("Admin update pool fees parameters", () => {
       cliffFeeNumerator,
       dynamicFee: null,
     });
-
     await swapExactIn(svm, swapParams);
     poolState = getPool(svm, poolAddress);
 

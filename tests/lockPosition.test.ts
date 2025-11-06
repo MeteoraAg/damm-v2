@@ -29,6 +29,7 @@ import {
   swapExactIn,
   SwapParams,
   warpSlotBy,
+  warpToTimestamp,
 } from "./helpers";
 import { generateKpAndFund } from "./helpers/common";
 import {
@@ -174,6 +175,7 @@ describe("Lock position", () => {
           )
         );
         cliffUnlockLiquidity = cliffUnlockLiquidity.add(loss);
+        warpSlotBy(svm, new BN(1));
 
         const lockPositionParams: LockPositionParams = {
           cliffPoint: null,
@@ -197,6 +199,7 @@ describe("Lock position", () => {
         expect(positionState.vestedLiquidity.eq(liquidityToLock)).to.be.true;
 
         const vestingState = getVesting(svm, vesting);
+        console.log("cliffPoint: ", vestingState.cliffPoint.toString());
         expect(!vestingState.cliffPoint.isZero()).to.be.true;
         expect(vestingState.cliffUnlockLiquidity.eq(cliffUnlockLiquidity)).to.be
           .true;
@@ -230,9 +233,9 @@ describe("Lock position", () => {
       });
 
       it("Cliff point", async () => {
-        const beforePositionState = await getPosition(svm, position);
+        const beforePositionState = getPosition(svm, position);
 
-        const beforeVestingState = await getVesting(svm, vestings[0]);
+        const beforeVestingState = getVesting(svm, vestings[0]);
 
         await refreshVestings(
           svm,
@@ -243,9 +246,9 @@ describe("Lock position", () => {
           vestings
         );
 
-        const afterPositionState = await getPosition(svm, position);
+        const afterPositionState = getPosition(svm, position);
 
-        const afterVestingState = await getVesting(svm, vestings[0]);
+        const afterVestingState = getVesting(svm, vestings[0]);
 
         let vestedLiquidityDelta = beforePositionState.vestedLiquidity.sub(
           afterPositionState.vestedLiquidity
@@ -283,7 +286,7 @@ describe("Lock position", () => {
             vestings
           );
 
-          const afterPositionState = await getPosition(svm, position);
+          const afterPositionState = getPosition(svm, position);
 
           expect(
             afterPositionState.unlockedLiquidity.gt(
@@ -292,10 +295,10 @@ describe("Lock position", () => {
           ).to.be.true;
         }
 
-        const vesting = await svm.getAccount(vestings[0]);
-        expect(vesting).is.null;
+        const vesting = svm.getAccount(vestings[0]);
+        expect(vesting.data.length).eq(0);
 
-        const positionState = await getPosition(svm, position);
+        const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.isZero()).to.be.true;
         expect(positionState.unlockedLiquidity.eq(liquidityDelta)).to.be.true;
       });
@@ -303,10 +306,10 @@ describe("Lock position", () => {
       it("Permanent lock position", async () => {
         await permanentLockPosition(svm, position, user, user);
 
-        const poolState = await getPool(svm, pool);
+        const poolState = getPool(svm, pool);
         expect(!poolState.permanentLockLiquidity.isZero()).to.be.true;
 
-        const positionState = await getPosition(svm, position);
+        const positionState = getPosition(svm, position);
         expect(positionState.unlockedLiquidity.isZero()).to.be.true;
         expect(!positionState.permanentLockedLiquidity.isZero()).to.be.true;
       });
@@ -485,6 +488,8 @@ describe("Lock position", () => {
           numberOfPeriod,
         };
 
+        warpSlotBy(svm, new BN(1));
+
         const vesting = await lockPosition(
           svm,
           position,
@@ -495,10 +500,10 @@ describe("Lock position", () => {
 
         vestings.push(vesting);
 
-        const positionState = await getPosition(svm, position);
+        const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.eq(liquidityToLock)).to.be.true;
 
-        const vestingState = await getVesting(svm, vesting);
+        const vestingState = getVesting(svm, vesting);
         expect(!vestingState.cliffPoint.isZero()).to.be.true;
         expect(vestingState.cliffUnlockLiquidity.eq(cliffUnlockLiquidity)).to.be
           .true;
@@ -532,9 +537,9 @@ describe("Lock position", () => {
       });
 
       it("Cliff point", async () => {
-        const beforePositionState = await getPosition(svm, position);
+        const beforePositionState = getPosition(svm, position);
 
-        const beforeVestingState = await getVesting(svm, vestings[0]);
+        const beforeVestingState = getVesting(svm, vestings[0]);
 
         await refreshVestings(
           svm,
@@ -545,9 +550,9 @@ describe("Lock position", () => {
           vestings
         );
 
-        const afterPositionState = await getPosition(svm, position);
+        const afterPositionState = getPosition(svm, position);
 
-        const afterVestingState = await getVesting(svm, vestings[0]);
+        const afterVestingState = getVesting(svm, vestings[0]);
 
         let vestedLiquidityDelta = beforePositionState.vestedLiquidity.sub(
           afterPositionState.vestedLiquidity
@@ -585,7 +590,7 @@ describe("Lock position", () => {
             vestings
           );
 
-          const afterPositionState = await getPosition(svm, position);
+          const afterPositionState = getPosition(svm, position);
 
           expect(
             afterPositionState.unlockedLiquidity.gt(
@@ -595,7 +600,7 @@ describe("Lock position", () => {
         }
 
         const vesting = svm.getAccount(vestings[0]);
-        expect(vesting).is.null;
+        expect(vesting.data.length).eq(0);
 
         const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.isZero()).to.be.true;

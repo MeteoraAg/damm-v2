@@ -8,8 +8,9 @@ import {
 import BN from "bn.js";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { LiteSVM, TransactionMetadata } from "litesvm";
-import { sendTransaction } from "./svm";
+import { sendTransaction, warpToTimestamp } from "./svm";
 import { expect } from "chai";
+import { getPool } from "./cpAmm";
 
 export async function transferSol(
   svm: LiteSVM,
@@ -64,4 +65,17 @@ export function convertToRateLimiterSecondFactor(
   const buffer2 = maxFeeBps.toArrayLike(Buffer, "le", 4);
   const buffer = Buffer.concat([buffer1, buffer2]);
   return Array.from(buffer);
+}
+
+export function warpTimestampToPassfilterPeriod(
+  svm: LiteSVM,
+  poolAddress: PublicKey
+) {
+  let poolState = getPool(svm, poolAddress);
+  let clock = svm.getClock();
+  const warpedTimestamp = BigInt(
+    poolState.poolFees.dynamicFee.filterPeriod + 1
+  );
+  const warpTimestamp = clock.unixTimestamp + warpedTimestamp;
+  warpToTimestamp(svm, new BN(warpTimestamp.toString()));
 }

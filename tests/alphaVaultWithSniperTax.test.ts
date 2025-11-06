@@ -50,9 +50,12 @@ describe("Alpha vault with sniper tax", () => {
       admin = generateKpAndFund(svm);
 
       tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
-      tokenBMint = NATIVE_MINT;
+      tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
       mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
+      mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
+      mintSplTokenTo(svm, tokenBMint, admin, user.publicKey);
+      mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
     });
 
     it("Alpha vault can buy before activation point with minimum fee", async () => {
@@ -128,9 +131,12 @@ describe("Alpha vault with sniper tax", () => {
       admin = generateKpAndFund(svm);
 
       tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
-      tokenBMint = NATIVE_MINT;
+      tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
       mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
+      mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
+      mintSplTokenTo(svm, tokenBMint, admin, user.publicKey);
+      mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
     });
 
     it("Alpha vault can buy before activation point with minimum fee", async () => {

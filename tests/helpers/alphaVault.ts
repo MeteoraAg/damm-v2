@@ -21,7 +21,11 @@ import { ALPHA_VAULT_PROGRAM_ID } from "./constants";
 import { createCpAmmProgram, getPool } from "./cpAmm";
 import { derivePoolAuthority } from "./accounts";
 import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import {
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
 import { sendTransaction } from "./svm";
 import { expect } from "chai";
 
@@ -163,7 +167,10 @@ export async function setupProrataAlphaVault(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [payer, baseKeypair]);
-
+  if (result instanceof FailedTransactionMetadata) {
+    console.log(result.meta().logs());
+    console.log(result.err().valueOf());
+  }
   expect(result).instanceOf(TransactionMetadata);
 
   return alphaVault;
@@ -232,6 +239,11 @@ export async function depositAlphaVault(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [ownerKeypair]);
+
+  if (result instanceof FailedTransactionMetadata) {
+    console.log(result.meta().logs());
+    console.log(result.err().valueOf());
+  }
 
   expect(result).instanceOf(TransactionMetadata);
 }

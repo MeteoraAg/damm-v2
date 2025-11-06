@@ -20,7 +20,11 @@ import {
 } from "@solana/web3.js";
 import BN from "bn.js";
 import { DECIMALS, NATIVE_MINT } from "./constants";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import {
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
 import { sendTransaction } from "./svm";
 import { expect } from "chai";
 const rawAmount = 100_000_000 * 10 ** DECIMALS; // 1 millions
@@ -109,6 +113,9 @@ export function freezeTokenAccount(
   transaction.add(freezeInstruction);
 
   const result = sendTransaction(svm, transaction, [freezeAuthority]);
+  if (result instanceof FailedTransactionMetadata) {
+    console.log(result.meta().logs());
+  }
   expect(result).instanceOf(TransactionMetadata);
 }
 

@@ -63,7 +63,7 @@ describe("Frozen reward vault", () => {
     tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
     tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-    rewardMint = createToken(svm, admin.publicKey, admin.publicKey);
+    rewardMint = createToken(svm, admin.publicKey, creator.publicKey);
 
     mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
 
@@ -173,14 +173,17 @@ describe("Frozen reward vault", () => {
       amount: new BN("1000000000"),
     });
 
-    const currentClock = await svm.getClock();
+    const currentClock = svm.getClock();
 
     const newTimestamp = Number(currentClock.unixTimestamp) + 3600;
+
     warpToTimestamp(svm, new BN(newTimestamp));
+
     // freeze reward vault
     let rewardVault = deriveRewardVaultAddress(pool, index);
     freezeTokenAccount(svm, creator, rewardMint, rewardVault);
-    const rewardVaultInfo = await getTokenAccount(svm, rewardVault);
+
+    const rewardVaultInfo = getTokenAccount(svm, rewardVault);
     expect(rewardVaultInfo.state).eq(2); // frozen
 
     // check error

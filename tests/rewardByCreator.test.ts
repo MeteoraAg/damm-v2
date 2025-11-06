@@ -169,6 +169,8 @@ describe("Reward by creator", () => {
       };
       await initializeReward(svm, initRewardParams);
 
+      warpToTimestamp(svm, new BN(1));
+
       // update duration
       await updateRewardDuration(svm, {
         index,
@@ -430,6 +432,8 @@ describe("Reward by creator", () => {
         funder: creator.publicKey,
       };
       await initializeReward(svm, initRewardParams);
+
+      warpToTimestamp(svm, new BN(1));
 
       // update duration
       await updateRewardDuration(svm, {

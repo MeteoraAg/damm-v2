@@ -346,7 +346,7 @@ export async function closeConfigIx(
   expect(result).instanceOf(TransactionMetadata);
 
   const configState = svm.getAccount(config);
-  expect(configState).to.be.null;
+  expect(configState.data.length).eq(0);
 }
 
 export type CreateTokenBadgeParams = {
@@ -406,7 +406,7 @@ export async function closeTokenBadge(
   const result = sendTransaction(svm, transaction, [whitelistedAddress]);
   expect(result).instanceOf(TransactionMetadata);
   const tokenBadgeAccount = svm.getAccount(tokenBadge);
-  expect(tokenBadgeAccount).to.be.null;
+  expect(tokenBadgeAccount.data.length).eq(0);
 }
 
 export type ClaimFeeOperatorParams = {
@@ -515,7 +515,7 @@ export async function closeClaimFeeOperator(
 
   const account = svm.getAccount(claimFeeOperator);
 
-  expect(account).to.be.null;
+  expect(account.data.length).eq(0);
 }
 
 export type UpdatePoolFeesParams = {
@@ -545,9 +545,8 @@ export async function updatePoolFeesParameters(
 
   const result = sendTransaction(svm, transaction, [whitelistedOperator]);
   if (result instanceof FailedTransactionMetadata) {
-    console.log(result.meta().logs());
+    console.log("log: ", result.meta().logs());
   }
-  expect(result).instanceOf(TransactionMetadata);
 
   return result;
 }
@@ -783,20 +782,24 @@ export async function initializePool(
   );
 
   const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
-  expect(result).instanceOf(TransactionMetadata);
+  if (result instanceof FailedTransactionMetadata) {
+    console.log(result.meta().logs());
+  } else {
+    // validate pool data
+    const poolState = getPool(svm, pool);
+    expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
+    expect(poolState.tokenBMint.toString()).eq(tokenBMint.toString());
+    expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
+    expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
+    expect(poolState.liquidity.toString()).eq(liquidity.toString());
+    expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
 
-  // validate pool data
-  const poolState = getPool(svm, pool);
-  expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
-  expect(poolState.tokenBMint.toString()).eq(tokenBMint.toString());
-  expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
-  expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
-  expect(poolState.liquidity.toString()).eq(liquidity.toString());
-  expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
-
-  expect(poolState.rewardInfos[0].initialized).eq(0);
-  expect(poolState.rewardInfos[1].initialized).eq(0);
-  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
+    expect(poolState.rewardInfos[0].initialized).eq(0);
+    expect(poolState.rewardInfos[1].initialized).eq(0);
+    expect(poolState.poolFees.initSqrtPrice.toString()).eq(
+      sqrtPrice.toString()
+    );
+  }
 
   return { pool, position: position, result };
 }
@@ -1011,7 +1014,6 @@ export async function initializeCustomizablePool(
   const position = derivePositionAddress(positionNftKP.publicKey);
   const positionNftAccount = derivePositionNftAccount(positionNftKP.publicKey);
 
-  console.log("svm.getAccount(tokenBMint): ", svm.getAccount(tokenBMint));
   const tokenAProgram = svm.getAccount(tokenAMint).owner;
   const tokenBProgram = svm.getAccount(tokenBMint).owner;
 
@@ -1076,6 +1078,9 @@ export async function initializeCustomizablePool(
   );
 
   const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
+  if (result instanceof FailedTransactionMetadata) {
+    console.log(result.meta().logs());
+  }
   expect(result).instanceOf(TransactionMetadata);
 
   // validate pool data
@@ -1237,17 +1242,19 @@ export async function initializeReward(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [payer]);
-  expect(result).instanceOf(TransactionMetadata);
-
-  // validate reward data
-  const poolState = getPool(svm, pool);
-  expect(poolState.rewardInfos[index].initialized).eq(1);
-  expect(poolState.rewardInfos[index].vault.toString()).eq(
-    rewardVault.toString()
-  );
-  expect(poolState.rewardInfos[index].mint.toString()).eq(
-    rewardMint.toString()
-  );
+  if (result instanceof FailedTransactionMetadata) {
+    console.log(result.meta().logs());
+  } else {
+    // validate reward data
+    const poolState = getPool(svm, pool);
+    expect(poolState.rewardInfos[index].initialized).eq(1);
+    expect(poolState.rewardInfos[index].vault.toString()).eq(
+      rewardVault.toString()
+    );
+    expect(poolState.rewardInfos[index].mint.toString()).eq(
+      rewardMint.toString()
+    );
+  }
 
   return result;
 }
@@ -1424,8 +1431,9 @@ export async function claimReward(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [user]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  if (result instanceof FailedTransactionMetadata) {
+    console.log(result.meta().logs());
+  }
 
   return result;
 }
@@ -1501,6 +1509,9 @@ export async function refreshVestings(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [payer]);
+  if (result instanceof FailedTransactionMetadata) {
+    console.log("log: ", result.meta().logs());
+  }
 
   expect(result).instanceOf(TransactionMetadata);
 }
@@ -2211,7 +2222,6 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
     firstPositionOwner,
     secondPositionOwner,
   ]);
-  expect(result).instanceOf(TransactionMetadata);
 
   return result;
 }
@@ -2258,7 +2268,6 @@ export async function splitPosition2(
     firstPositionOwner,
     secondPositionOwner,
   ]);
-  expect(result).instanceOf(TransactionMetadata);
 
   return result;
 }

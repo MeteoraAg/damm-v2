@@ -173,6 +173,8 @@ describe("Reward by admin", () => {
       };
       await initializeReward(svm, initRewardParams);
 
+      warpToTimestamp(svm, new BN(1));
+
       // update duration
       await updateRewardDuration(svm, {
         index,
@@ -266,6 +268,8 @@ describe("Reward by admin", () => {
         operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       };
       await initializeReward(svm, initRewardParams);
+
+      warpToTimestamp(svm, new BN(1));
 
       // update duration
       await updateRewardDuration(svm, {
@@ -459,6 +463,8 @@ describe("Reward by admin", () => {
       };
       await initializeReward(svm, initRewardParams);
 
+      warpToTimestamp(svm, new BN(1));
+
       // update duration
       await updateRewardDuration(svm, {
         index,
@@ -556,6 +562,8 @@ describe("Reward by admin", () => {
         operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       };
       await initializeReward(svm, initRewardParams);
+
+      warpToTimestamp(svm, new BN(1));
 
       // update duration
       await updateRewardDuration(svm, {

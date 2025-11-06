@@ -7,14 +7,29 @@ import {
 } from "litesvm";
 import { expect } from "chai";
 import BN from "bn.js";
-import { CP_AMM_PROGRAM_ID } from ".";
+import { ALPHA_VAULT_PROGRAM_ID, CP_AMM_PROGRAM_ID } from ".";
 import path from "path";
+import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 
 export function startSvm() {
   const svm = new LiteSVM();
 
-  const sourceFilePath = path.resolve("./target/deploy/cp_amm.so");
-  svm.addProgramFromFile(new PublicKey(CP_AMM_PROGRAM_ID), sourceFilePath);
+  const sourceFileCpammPath = path.resolve("./target/deploy/cp_amm.so");
+  const sourceFileAlphaVaultPath = path.resolve(
+    "./tests/fixtures/alpha_vault.so"
+  );
+  const sourceFileTransferhookPath = path.resolve(
+    "./tests/fixtures/transfer_hook_counter.so"
+  );
+  svm.addProgramFromFile(new PublicKey(CP_AMM_PROGRAM_ID), sourceFileCpammPath);
+  svm.addProgramFromFile(
+    new PublicKey(ALPHA_VAULT_PROGRAM_ID),
+    sourceFileAlphaVaultPath
+  );
+  svm.addProgramFromFile(
+    new PublicKey(TRANSFER_HOOK_COUNTER_PROGRAM_ID),
+    sourceFileTransferhookPath
+  );
 
   const accountInfo: AccountInfoBytes = {
     data: new Uint8Array(),
@@ -38,7 +53,10 @@ export function sendTransaction(
 ) {
   transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(...signers);
-  return svm.sendTransaction(transaction);
+  const result = svm.sendTransaction(transaction);
+  svm.expireBlockhash();
+
+  return result;
 }
 
 export function sendTransactionOrExpectThrowError(
