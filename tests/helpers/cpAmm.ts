@@ -544,10 +544,6 @@ export async function updatePoolFeesParameters(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [whitelistedOperator]);
-  if (result instanceof FailedTransactionMetadata) {
-    console.log("log: ", result.meta().logs());
-  }
-
   return result;
 }
 
@@ -782,9 +778,7 @@ export async function initializePool(
   );
 
   const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
-  if (result instanceof FailedTransactionMetadata) {
-    console.log(result.meta().logs());
-  } else {
+  if (result instanceof TransactionMetadata) {
     // validate pool data
     const poolState = getPool(svm, pool);
     expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
@@ -1078,9 +1072,6 @@ export async function initializeCustomizablePool(
   );
 
   const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
-  if (result instanceof FailedTransactionMetadata) {
-    console.log(result.meta().logs());
-  }
   expect(result).instanceOf(TransactionMetadata);
 
   // validate pool data
@@ -1242,9 +1233,7 @@ export async function initializeReward(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [payer]);
-  if (result instanceof FailedTransactionMetadata) {
-    console.log(result.meta().logs());
-  } else {
+  if (result instanceof TransactionMetadata) {
     // validate reward data
     const poolState = getPool(svm, pool);
     expect(poolState.rewardInfos[index].initialized).eq(1);
@@ -1431,10 +1420,6 @@ export async function claimReward(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [user]);
-  if (result instanceof FailedTransactionMetadata) {
-    console.log(result.meta().logs());
-  }
-
   return result;
 }
 
@@ -1509,10 +1494,6 @@ export async function refreshVestings(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [payer]);
-  if (result instanceof FailedTransactionMetadata) {
-    console.log("log: ", result.meta().logs());
-  }
-
   expect(result).instanceOf(TransactionMetadata);
 }
 
@@ -2095,10 +2076,6 @@ export async function swapExactIn(svm: LiteSVM, params: SwapParams) {
   const transaction = await swapInstruction(svm, params);
 
   const result = sendTransaction(svm, transaction, [params.payer]);
-
-  if (result instanceof FailedTransactionMetadata) {
-    console.log(result.meta().logs());
-  }
 
   expect(result).instanceOf(TransactionMetadata);
 }

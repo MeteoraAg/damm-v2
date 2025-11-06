@@ -113,9 +113,6 @@ export function freezeTokenAccount(
   transaction.add(freezeInstruction);
 
   const result = sendTransaction(svm, transaction, [freezeAuthority]);
-  if (result instanceof FailedTransactionMetadata) {
-    console.log(result.meta().logs());
-  }
   expect(result).instanceOf(TransactionMetadata);
 }
 

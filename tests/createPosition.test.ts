@@ -211,8 +211,6 @@ describe("Create position", () => {
         createConfigParams
       );
 
-      console.log("config config: ", config);
-
       liquidity = new BN(MIN_LP_AMOUNT);
       sqrtPrice = new BN(MIN_SQRT_PRICE);
 
