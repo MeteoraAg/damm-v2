@@ -1,9 +1,4 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  startTest,
-} from "./bankrun-utils/common";
+import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   MIN_LP_AMOUNT,
@@ -15,20 +10,17 @@ import {
   CreateDynamicConfigParams,
   InitializePoolWithCustomizeConfigParams,
   initializePoolWithCustomizeConfig,
-  getPool,
   encodePermissions,
   createOperator,
   OperatorPermission,
-} from "./bankrun-utils";
+  startSvm,
+} from "./helpers";
 import BN from "bn.js";
-import { expect } from "chai";
-import {
-  BaseFeeMode,
-  encodeFeeTimeSchedulerParams,
-} from "./bankrun-utils/feeCodec";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Dynamic config test", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let creator: Keypair;
   let whitelistedAccount: Keypair;
@@ -38,41 +30,17 @@ describe("Dynamic config test", () => {
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
-    const root = Keypair.generate();
-    context = await startTest(root);
-    creator = await generateKpAndFund(context.banksClient, context.payer);
-    admin = await generateKpAndFund(context.banksClient, context.payer);
-    whitelistedAccount = await generateKpAndFund(
-      context.banksClient,
-      context.payer
-    );
+    svm = startSvm();
+    creator = generateKpAndFund(svm);
+    admin = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
 
-    tokenAMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
-    tokenBMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
+    tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
+    tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenAMint,
-      context.payer,
-      creator.publicKey
-    );
+    mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenBMint,
-      context.payer,
-      creator.publicKey
-    );
+    mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
     // create dynamic config
     const createDynamicConfigParams: CreateDynamicConfigParams = {
       poolCreatorAuthority: creator.publicKey,
@@ -80,14 +48,14 @@ describe("Dynamic config test", () => {
 
     let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
-    await createOperator(context.banksClient, {
+    await createOperator(svm, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
       permission,
     });
 
     config = await createDynamicConfigIx(
-      context.banksClient,
+      svm,
       whitelistedAccount,
       new BN(configId),
       createDynamicConfigParams
@@ -133,7 +101,7 @@ describe("Dynamic config test", () => {
     };
 
     const { pool: _pool } = await initializePoolWithCustomizeConfig(
-      context.banksClient,
+      svm,
       params
     );
   });

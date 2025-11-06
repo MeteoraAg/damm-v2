@@ -1,15 +1,7 @@
-import {
-  AnchorProvider,
-  BN,
-  IdlAccounts,
-  IdlTypes,
-  Program,
-  Wallet,
-} from "@coral-xyz/anchor";
+import { AnchorProvider, BN, Program, Wallet } from "@coral-xyz/anchor";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
-  MintLayout,
   NATIVE_MINT,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -25,14 +17,17 @@ import {
 
 import AlphaVaultIDL from "./idl/alpha_vault.json";
 import { AlphaVault } from "./idl/alpha_vault";
-import { ALPHA_VAULT_PROGRAM_ID, FEE_DENOMINATOR } from "./constants";
-import { expect } from "chai";
+import { ALPHA_VAULT_PROGRAM_ID } from "./constants";
 import { createCpAmmProgram, getPool } from "./cpAmm";
-import { BanksClient } from "solana-bankrun";
 import { derivePoolAuthority } from "./accounts";
 import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
-import { processTransactionMaybeThrow } from "./common";
-import { mulDiv, Rounding } from "./math";
+import {
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
+import { sendTransaction } from "./svm";
+import { expect } from "chai";
 
 export const ALPHA_VAULT_TREASURY_ID = new PublicKey(
   "BJQbRiRWhJCyTYZcAuAL3ngDCx3AyFQGKDq8zhiZAKUw"
@@ -99,19 +94,18 @@ export function createAlphaVaultProgram() {
   return program;
 }
 
-export async function getVaultState(banksClient: BanksClient, alphaVault: PublicKey): Promise<any>{
+export function getVaultState(svm: LiteSVM, alphaVault: PublicKey): any {
   const alphaVaultProgram = createAlphaVaultProgram();
 
-  const alphaVaultAccount = await banksClient.getAccount(alphaVault);
+  const alphaVaultAccount = svm.getAccount(alphaVault);
   return alphaVaultProgram.coder.accounts.decode(
     "vault",
     Buffer.from(alphaVaultAccount.data)
   );
-
 }
 
 export async function setupProrataAlphaVault(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   params: SetupProrataAlphaVaultParams
 ): Promise<PublicKey> {
   let {
@@ -130,21 +124,21 @@ export async function setupProrataAlphaVault(
 
   const alphaVaultProgram = createAlphaVaultProgram();
 
-  const baseMintAccount = await banksClient.getAccount(baseMint);
-  const quoteMintAccount = await banksClient.getAccount(quoteMint);
+  const baseMintAccount = svm.getAccount(baseMint);
+  const quoteMintAccount = svm.getAccount(quoteMint);
 
   let [alphaVault] = deriveAlphaVault(baseKeypair.publicKey, pool);
 
-  await getOrCreateAssociatedTokenAccount(
-    banksClient,
+  getOrCreateAssociatedTokenAccount(
+    svm,
     payer,
     quoteMint,
     alphaVault,
     quoteMintAccount.owner
   );
 
-  await getOrCreateAssociatedTokenAccount(
-    banksClient,
+  getOrCreateAssociatedTokenAccount(
+    svm,
     payer,
     baseMint,
     alphaVault,
@@ -172,34 +166,29 @@ export async function setupProrataAlphaVault(
     })
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.feePayer = payer.publicKey;
-  transaction.sign(payer, baseKeypair);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
+  const result = sendTransaction(svm, transaction, [payer, baseKeypair]);
+  expect(result).instanceOf(TransactionMetadata);
 
   return alphaVault;
 }
 
 export async function depositAlphaVault(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   params: DepositAlphaVaultParams
 ) {
   let { amount, ownerKeypair, alphaVault, payer } = params;
   const alphaVaultProgram = createAlphaVaultProgram();
 
-  const alphaVaultAccount = await banksClient.getAccount(alphaVault);
+  const alphaVaultAccount = svm.getAccount(alphaVault);
   let alphaVaultState = alphaVaultProgram.coder.accounts.decode(
     "vault",
     Buffer.from(alphaVaultAccount.data)
   );
-  const quoteMintAccount = await banksClient.getAccount(
-    alphaVaultState.quoteMint
-  );
+  const quoteMintAccount = svm.getAccount(alphaVaultState.quoteMint);
 
   let [escrow] = deriveAlphaVaultEscrow(alphaVault, ownerKeypair.publicKey);
 
-  const escrowData = await banksClient.getAccount(escrow);
+  const escrowData = svm.getAccount(escrow);
   if (!escrowData) {
     const createEscrowTx = await alphaVaultProgram.methods
       .createNewEscrow()
@@ -214,18 +203,13 @@ export async function depositAlphaVault(
       })
       .transaction();
 
-    createEscrowTx.recentBlockhash = (
-      await banksClient.getLatestBlockhash()
-    )[0];
-    createEscrowTx.feePayer = payer.publicKey;
-    createEscrowTx.sign(payer);
-    
+    const result = sendTransaction(svm, createEscrowTx, [payer]);
 
-    await processTransactionMaybeThrow(banksClient, createEscrowTx);
+    expect(result).instanceOf(TransactionMetadata);
   }
 
   if (alphaVaultState.quoteMint.equals(NATIVE_MINT)) {
-    await wrapSOL(banksClient, payer, amount);
+    wrapSOL(svm, payer, amount);
   }
 
   let sourceToken = getAssociatedTokenAddressSync(
@@ -250,15 +234,13 @@ export async function depositAlphaVault(
     })
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.feePayer = ownerKeypair.publicKey;
-  transaction.sign(ownerKeypair);
+  const result = sendTransaction(svm, transaction, [ownerKeypair]);
 
-  await processTransactionMaybeThrow(banksClient, transaction);
+  expect(result).instanceOf(TransactionMetadata);
 }
 
 export async function fillDammV2(
-  banksClient: BanksClient,
+  svm: LiteSVM,
   pool: PublicKey,
   alphaVault: PublicKey,
   onwer: Keypair,
@@ -266,13 +248,13 @@ export async function fillDammV2(
 ) {
   const alphaVaultProgram = createAlphaVaultProgram();
   const ammProgram = createCpAmmProgram();
-  const alphaVaultAccount = await banksClient.getAccount(alphaVault);
+  const alphaVaultAccount = svm.getAccount(alphaVault);
   let alphaVaultState = alphaVaultProgram.coder.accounts.decode(
     "vault",
     Buffer.from(alphaVaultAccount.data)
   );
 
-  let poolState = await getPool(banksClient, pool);
+  let poolState = getPool(svm, pool);
   const tokenAProgram =
     poolState.tokenAFlag == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
   const tokenBProgram =
@@ -284,9 +266,7 @@ export async function fillDammV2(
   )[0];
 
   const [crankFeeWhitelist] = deriveCrankFeeWhitelist(onwer.publicKey);
-  const crankFeeWhitelistAccount = await banksClient.getAccount(
-    crankFeeWhitelist
-  );
+  const crankFeeWhitelistAccount = svm.getAccount(crankFeeWhitelist);
 
   const transaction = await alphaVaultProgram.methods
     .fillDammV2(maxAmount)
@@ -320,9 +300,6 @@ export async function fillDammV2(
     ])
     .transaction();
 
-  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.feePayer = onwer.publicKey;
-  transaction.sign(onwer);
-
-  await processTransactionMaybeThrow(banksClient, transaction);
+  const result = sendTransaction(svm, transaction, [onwer]);
+  expect(result).instanceOf(TransactionMetadata);
 }

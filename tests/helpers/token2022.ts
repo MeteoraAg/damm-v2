@@ -14,16 +14,18 @@ import {
 } from "@solana/spl-token";
 import {
   Keypair,
+  LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { BanksClient } from "solana-bankrun";
 import { DECIMALS } from "./constants";
 import { getOrCreateAssociatedTokenAccount } from "./token";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
-import { processTransactionMaybeThrow } from "./common";
+import { LiteSVM, TransactionMetadata } from "litesvm";
+import { sendTransaction } from ".";
+import { expect } from "chai";
 const rawAmount = 1_000_000_000 * 10 ** DECIMALS; // 1 millions
 
 interface ExtensionWithInstruction {
@@ -85,15 +87,15 @@ export function createTransferHookExtensionWithInstruction(
 }
 
 export async function createToken2022(
-  banksClient: BanksClient,
-  payer: Keypair,
+  svm: LiteSVM,
   extensions: ExtensionWithInstruction[],
-  mintKeypair: Keypair
+  mintKeypair: Keypair,
+  mintAuthority: PublicKey
 ): Promise<PublicKey> {
+  const payer = Keypair.generate();
+  svm.airdrop(payer.publicKey, BigInt(LAMPORTS_PER_SOL));
   let mintLen = getMintLen(extensions.map((ext) => ext.extension));
-  const mintLamports = (await banksClient.getRent()).minimumBalance(
-    BigInt(mintLen)
-  );
+  const mintLamports = svm.getRent().minimumBalance(BigInt(mintLen));
   const transaction = new Transaction().add(
     SystemProgram.createAccount({
       fromPubkey: payer.publicKey,
@@ -106,30 +108,29 @@ export async function createToken2022(
     createInitializeMint2Instruction(
       mintKeypair.publicKey,
       DECIMALS,
-      payer.publicKey,
+      mintAuthority,
       null,
       TOKEN_2022_PROGRAM_ID
     )
   );
 
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
-  transaction.sign(payer, mintKeypair);
+  const result = sendTransaction(svm, transaction, [payer, mintKeypair]);
 
-  await banksClient.processTransaction(transaction);
+  expect(result).instanceOf(TransactionMetadata);
 
   return mintKeypair.publicKey;
 }
 
 export async function mintToToken2022(
-  banksClient: BanksClient,
-  payer: Keypair,
+  svm: LiteSVM,
   mint: PublicKey,
   mintAuthority: Keypair,
   toWallet: PublicKey
 ) {
-  const destination = await getOrCreateAssociatedTokenAccount(
-    banksClient,
+  const payer = Keypair.generate();
+  svm.airdrop(payer.publicKey, BigInt(LAMPORTS_PER_SOL));
+  const destination = getOrCreateAssociatedTokenAccount(
+    svm,
     payer,
     mint,
     toWallet,
@@ -145,16 +146,15 @@ export async function mintToToken2022(
   );
 
   let transaction = new Transaction();
-  const [recentBlockhash] = await banksClient.getLatestBlockhash();
-  transaction.recentBlockhash = recentBlockhash;
   transaction.add(mintIx);
-  transaction.sign(payer, mintAuthority);
 
-  await banksClient.processTransaction(transaction);
+  const result = sendTransaction(svm, transaction, [payer, mintAuthority]);
+
+  expect(result).instanceOf(TransactionMetadata);
 }
 
 export async function revokeAuthorityAndProgramIdTransferHook(
-  bankClient: BanksClient,
+  svm: LiteSVM,
   authority: Keypair,
   mint: PublicKey
 ) {
@@ -176,8 +176,7 @@ export async function revokeAuthorityAndProgramIdTransferHook(
     )
   );
 
-  transaction.recentBlockhash = (await bankClient.getLatestBlockhash())[0];
-  transaction.sign(authority);
+  const result = sendTransaction(svm, transaction, [authority]);
 
-  await processTransactionMaybeThrow(bankClient, transaction);
+  expect(result).instanceOf(TransactionMetadata);
 }
