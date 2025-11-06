@@ -30,7 +30,6 @@ pub struct ProcessSwapParams<'a, 'b, 'info> {
 
 pub struct ProcessSwapResult {
     swap_result: SwapResult2,
-    swap_in_parameters: SwapParameters,
     included_transfer_fee_amount_in: u64,
     included_transfer_fee_amount_out: u64,
     excluded_transfer_fee_amount_out: u64,

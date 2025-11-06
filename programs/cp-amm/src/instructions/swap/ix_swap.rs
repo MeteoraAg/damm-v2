@@ -189,11 +189,11 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
     };
 
     let ProcessSwapResult {
-        swap_in_parameters: _,
         swap_result,
         included_transfer_fee_amount_in,
         excluded_transfer_fee_amount_out,
         included_transfer_fee_amount_out,
+        ..
     } = match swap_mode {
         SwapMode::ExactIn => process_swap_exact_in(process_swap_params),
         SwapMode::PartialFill => process_swap_partial_fill(process_swap_params),
