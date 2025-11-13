@@ -6,7 +6,7 @@ use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::constants::fee::{get_max_fee_numerator, CURRENT_POOL_VERSION};
-use crate::curve::get_next_sqrt_price_from_output;
+use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::{
     assert_eq_admin,
@@ -806,15 +806,20 @@ impl Pool {
         &self,
         amount_in: u64,
     ) -> Result<SwapAmountFromInput> {
-        let max_amount_in = get_delta_amount_b_unsigned(
+        let max_amount_in = get_delta_amount_b_unsigned_unchecked(
             self.sqrt_price,
             self.sqrt_max_price,
             self.liquidity,
             Rounding::Up,
         )?;
 
-        let (consumed_in_amount, next_sqrt_price) = if amount_in >= max_amount_in {
-            (max_amount_in, self.sqrt_max_price)
+        let (consumed_in_amount, next_sqrt_price) = if U256::from(amount_in) >= max_amount_in {
+            (
+                max_amount_in
+                    .try_into()
+                    .map_err(|_| PoolError::TypeCastFailed)?,
+                self.sqrt_max_price,
+            )
         } else {
             let next_sqrt_price =
                 get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, false)?;
@@ -841,15 +846,20 @@ impl Pool {
         &self,
         amount_in: u64,
     ) -> Result<SwapAmountFromInput> {
-        let max_amount_in = get_delta_amount_a_unsigned(
+        let max_amount_in = get_delta_amount_a_unsigned_unchecked(
             self.sqrt_min_price,
             self.sqrt_price,
             self.liquidity,
             Rounding::Up,
         )?;
 
-        let (consumed_in_amount, next_sqrt_price) = if amount_in >= max_amount_in {
-            (max_amount_in, self.sqrt_min_price)
+        let (consumed_in_amount, next_sqrt_price) = if U256::from(amount_in) >= max_amount_in {
+            (
+                max_amount_in
+                    .try_into()
+                    .map_err(|_| PoolError::TypeCastFailed)?,
+                self.sqrt_min_price,
+            )
         } else {
             let next_sqrt_price =
                 get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, true)?;
@@ -1122,6 +1132,7 @@ impl Pool {
         })
     }
 
+    #[cfg(test)]
     pub fn get_max_amount_in(&self, trade_direction: TradeDirection) -> Result<u64> {
         let amount = match trade_direction {
             TradeDirection::AtoB => get_delta_amount_a_unsigned_unchecked(
@@ -1130,7 +1141,7 @@ impl Pool {
                 self.liquidity,
                 Rounding::Down,
             )?,
-            TradeDirection::BtoA => get_delta_amount_a_unsigned_unchecked(
+            TradeDirection::BtoA => get_delta_amount_b_unsigned_unchecked(
                 self.sqrt_price,
                 self.sqrt_max_price,
                 self.liquidity,

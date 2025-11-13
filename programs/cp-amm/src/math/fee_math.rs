@@ -34,6 +34,12 @@ pub fn get_fee_in_period(
 }
 
 pub fn pow(base: u128, exp: i32) -> Option<u128> {
+    // https://doc.rust-lang.org/std/primitive.i32.html#method.abs
+    // The absolute value of i32::MIN cannot be represented as an i32, and attempting to calculate it will cause an overflow.
+    if exp == i32::MIN {
+        return None;
+    }
+
     // If exponent is negative. We will invert the result later by 1 / base^exp.abs()
     let mut invert = exp.is_negative();
 
