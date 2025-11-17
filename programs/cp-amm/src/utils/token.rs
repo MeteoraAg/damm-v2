@@ -56,11 +56,11 @@ pub struct TransferFeeExcludedAmount {
     pub transfer_fee: u64,
 }
 
-pub fn calculate_transfer_fee_excluded_amount<'info>(
-    token_mint: &InterfaceAccount<'info, Mint>,
+pub fn calculate_transfer_fee_excluded_amount(
+    token_mint_data: &[u8],
     transfer_fee_included_amount: u64,
 ) -> Result<TransferFeeExcludedAmount> {
-    if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint)? {
+    if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint_data)? {
         let transfer_fee = epoch_transfer_fee
             .calculate_fee(transfer_fee_included_amount)
             .ok_or_else(|| PoolError::MathOverflow)?;
@@ -79,8 +79,8 @@ pub fn calculate_transfer_fee_excluded_amount<'info>(
     })
 }
 
-pub fn calculate_transfer_fee_included_amount<'info>(
-    token_mint: &InterfaceAccount<'info, Mint>,
+pub fn calculate_transfer_fee_included_amount(
+    token_mint_data: &[u8],
     transfer_fee_excluded_amount: u64,
 ) -> Result<TransferFeeIncludedAmount> {
     if transfer_fee_excluded_amount == 0 {
@@ -90,7 +90,7 @@ pub fn calculate_transfer_fee_included_amount<'info>(
         });
     }
 
-    if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint)? {
+    if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint_data)? {
         let transfer_fee: u64 =
             if u16::from(epoch_transfer_fee.transfer_fee_basis_points) == MAX_FEE_BASIS_POINTS {
                 // edge-case: if transfer fee rate is 100%, current SPL implementation returns 0 as inverse fee.
@@ -130,15 +130,7 @@ pub fn calculate_transfer_fee_included_amount<'info>(
     })
 }
 
-pub fn get_epoch_transfer_fee<'info>(
-    token_mint: &InterfaceAccount<'info, Mint>,
-) -> Result<Option<TransferFee>> {
-    let token_mint_info = token_mint.to_account_info();
-    if *token_mint_info.owner == Token::id() {
-        return Ok(None);
-    }
-
-    let token_mint_data = token_mint_info.try_borrow_data()?;
+fn get_epoch_transfer_fee(token_mint_data: &[u8]) -> Result<Option<TransferFee>> {
     let token_mint_unpacked =
         StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
     if let Ok(transfer_fee_config) =
@@ -150,6 +142,27 @@ pub fn get_epoch_transfer_fee<'info>(
 
     Ok(None)
 }
+
+// pub fn get_epoch_transfer_fee<'info>(
+//     token_mint: &InterfaceAccount<'info, Mint>,
+// ) -> Result<Option<TransferFee>> {
+//     let token_mint_info = token_mint.to_account_info();
+//     if *token_mint_info.owner == Token::id() {
+//         return Ok(None);
+//     }
+
+//     let token_mint_data = token_mint_info.try_borrow_data()?;
+//     let token_mint_unpacked =
+//         StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
+//     if let Ok(transfer_fee_config) =
+//         token_mint_unpacked.get_extension::<extension::transfer_fee::TransferFeeConfig>()
+//     {
+//         let epoch = Clock::get()?.epoch;
+//         return Ok(Some(transfer_fee_config.get_epoch_fee(epoch).clone()));
+//     }
+
+//     Ok(None)
+// }
 
 pub fn transfer_from_user<'a, 'c: 'info, 'info>(
     authority: &'a Signer<'info>,
