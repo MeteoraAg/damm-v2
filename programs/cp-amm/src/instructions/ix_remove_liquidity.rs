@@ -8,7 +8,7 @@ use crate::{
     state::{ModifyLiquidityResult, Pool, Position},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
-    EvtLiquidityChange, EvtRemoveLiquidity, PoolError,
+    EvtLiquidityChange, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone)]
@@ -148,19 +148,6 @@ pub fn handle_remove_liquidity(
         &ctx.accounts.token_b_program,
         token_b_amount,
     )?;
-
-    emit_cpi!(EvtRemoveLiquidity {
-        pool: ctx.accounts.pool.key(),
-        owner: ctx.accounts.owner.key(),
-        position: ctx.accounts.position.key(),
-        params: RemoveLiquidityParameters {
-            liquidity_delta,
-            token_a_amount_threshold,
-            token_b_amount_threshold
-        },
-        token_a_amount,
-        token_b_amount,
-    });
 
     let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
 

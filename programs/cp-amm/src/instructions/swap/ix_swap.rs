@@ -1,15 +1,14 @@
 use crate::{
     activation_handler::ActivationHandler,
     const_pda, get_pool_access_validator,
-    instruction::Swap as SwapInstruction,
-    instruction::Swap2 as Swap2Instruction,
+    instruction::{Swap as SwapInstruction, Swap2 as Swap2Instruction},
     params::swap::TradeDirection,
     process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill,
     safe_math::SafeMath,
     state::{fee::FeeMode, Pool, SwapResult2},
     swap::{ProcessSwapParams, ProcessSwapResult},
     token::{transfer_from_pool, transfer_from_user},
-    EvtSwap, EvtSwap2, PoolError,
+    EvtSwap2, PoolError,
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_lang::{
@@ -162,7 +161,7 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
 
     // another validation to prevent snipers to craft multiple swap instructions in 1 tx
     // (if we dont do this, they are able to concat 16 swap instructions in 1 tx)
-    if let Ok(rate_limiter) = pool.pool_fees.base_fee.get_fee_rate_limiter() {
+    if let Ok(rate_limiter) = pool.pool_fees.base_fee.to_fee_rate_limiter() {
         if rate_limiter.is_rate_limiter_applied(
             current_point,
             pool.activation_point,
@@ -190,7 +189,6 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
     };
 
     let ProcessSwapResult {
-        swap_in_parameters,
         swap_result,
         included_transfer_fee_amount_in,
         excluded_transfer_fee_amount_out,
@@ -203,11 +201,7 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
 
     pool.apply_swap_result(&swap_result, &fee_mode, current_timestamp)?;
 
-    let SwapResult2 {
-        included_fee_input_amount,
-        referral_fee,
-        ..
-    } = swap_result;
+    let SwapResult2 { referral_fee, .. } = swap_result;
 
     // send to reserve
     transfer_from_user(
@@ -253,16 +247,6 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
     }
 
     let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
-
-    emit_cpi!(EvtSwap {
-        pool: ctx.accounts.pool.key(),
-        trade_direction: trade_direction.into(),
-        has_referral,
-        params: swap_in_parameters,
-        swap_result: swap_result.into(),
-        actual_amount_in: included_fee_input_amount,
-        current_timestamp
-    });
 
     emit_cpi!(EvtSwap2 {
         pool: ctx.accounts.pool.key(),

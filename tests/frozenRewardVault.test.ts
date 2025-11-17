@@ -1,9 +1,4 @@
-import { Clock, ProgramTestContext } from "solana-bankrun";
-import {
-  expectThrowsAsync,
-  generateKpAndFund,
-  startTest,
-} from "./bankrun-utils/common";
+import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -26,21 +21,29 @@ import {
   deriveRewardVaultAddress,
   getTokenAccount,
   U64_MAX,
-  getCpAmmProgramErrorCodeHexString,
+  getCpAmmProgramErrorCode,
   getPosition,
-  convertToByteArray,
-} from "./bankrun-utils";
+  encodePermissions,
+  OperatorPermission,
+  createOperator,
+  startSvm,
+  warpToTimestamp,
+  expectThrowsErrorCode,
+} from "./helpers";
 import BN from "bn.js";
 import { describe } from "mocha";
 import { expect } from "chai";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Frozen reward vault", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let creator: Keypair;
   let admin: Keypair;
   let config: PublicKey;
   let funder: Keypair;
   let user: Keypair;
+  let whitelistedAccount: Keypair;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
   let rewardMint: PublicKey;
@@ -49,87 +52,48 @@ describe("Frozen reward vault", () => {
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
-    const root = Keypair.generate();
-    context = await startTest(root);
+    svm = startSvm();
 
-    user = await generateKpAndFund(context.banksClient, context.payer);
-    funder = await generateKpAndFund(context.banksClient, context.payer);
-    creator = await generateKpAndFund(context.banksClient, context.payer);
-    admin = await generateKpAndFund(context.banksClient, context.payer);
+    user = generateKpAndFund(svm);
+    funder = generateKpAndFund(svm);
+    creator = generateKpAndFund(svm);
+    admin = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
 
-    tokenAMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
-    tokenBMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
+    tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
+    tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-    rewardMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey,
-      creator.publicKey
-    );
+    rewardMint = createToken(svm, admin.publicKey, creator.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenAMint,
-      context.payer,
-      user.publicKey
-    );
+    mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenBMint,
-      context.payer,
-      user.publicKey
+    mintSplTokenTo(svm, tokenBMint, admin, user.publicKey);
+
+    mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
+
+    mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
+
+    mintSplTokenTo(svm, rewardMint, admin, funder.publicKey);
+    mintSplTokenTo(svm, rewardMint, admin, admin.publicKey);
+
+    const cliffFeeNumerator = new BN(2_500_000);
+    const numberOfPeriod = new BN(0);
+    const periodFrequency = new BN(0);
+    const reductionFactor = new BN(0);
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod.toNumber(),
+      BigInt(periodFrequency.toString()),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeTimeSchedulerLinear
     );
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenAMint,
-      context.payer,
-      creator.publicKey
-    );
-
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenBMint,
-      context.payer,
-      creator.publicKey
-    );
-
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      rewardMint,
-      context.payer,
-      funder.publicKey
-    );
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      rewardMint,
-      context.payer,
-      admin.publicKey
-    );
     // create config
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -142,9 +106,17 @@ describe("Frozen reward vault", () => {
       collectFeeMode: 0,
     };
 
-    config = await createConfigIx(
-      context.banksClient,
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+    await createOperator(svm, {
       admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission,
+    });
+
+    config = await createConfigIx(
+      svm,
+      whitelistedAccount,
       new BN(configId),
       createConfigParams
     );
@@ -165,15 +137,10 @@ describe("Frozen reward vault", () => {
       activationPoint: null,
     };
 
-    const { pool } = await initializePool(context.banksClient, initPoolParams);
+    const { pool } = await initializePool(svm, initPoolParams);
 
     // user create postion and add liquidity
-    const position = await createPosition(
-      context.banksClient,
-      user,
-      user.publicKey,
-      pool
-    );
+    const position = await createPosition(svm, user, user.publicKey, pool);
 
     const addLiquidityParams: AddLiquidityParams = {
       owner: user,
@@ -183,7 +150,7 @@ describe("Frozen reward vault", () => {
       tokenAAmountThreshold: U64_MAX,
       tokenBAmountThreshold: U64_MAX,
     };
-    await addLiquidity(context.banksClient, addLiquidityParams);
+    await addLiquidity(svm, addLiquidityParams);
 
     // init reward
     const index = 0;
@@ -193,11 +160,12 @@ describe("Frozen reward vault", () => {
       rewardDuration: new BN(24 * 60 * 60),
       pool,
       rewardMint,
+      funder: funder.publicKey,
     };
-    await initializeReward(context.banksClient, initRewardParams);
+    await initializeReward(svm, initRewardParams);
 
     // fund reward
-    await fundReward(context.banksClient, {
+    await fundReward(svm, {
       index,
       funder: funder,
       pool,
@@ -205,47 +173,34 @@ describe("Frozen reward vault", () => {
       amount: new BN("1000000000"),
     });
 
-    const currentClock = await context.banksClient.getClock();
+    const currentClock = svm.getClock();
 
     const newTimestamp = Number(currentClock.unixTimestamp) + 3600;
-    context.setClock(
-      new Clock(
-        currentClock.slot,
-        currentClock.epochStartTimestamp,
-        currentClock.epoch,
-        currentClock.leaderScheduleEpoch,
-        BigInt(newTimestamp.toString())
-      )
-    );
+
+    warpToTimestamp(svm, new BN(newTimestamp));
+
     // freeze reward vault
     let rewardVault = deriveRewardVaultAddress(pool, index);
-    await freezeTokenAccount(
-      context.banksClient,
-      creator,
-      rewardMint,
-      rewardVault
-    );
-    const rewardVaultInfo = await getTokenAccount(
-      context.banksClient,
-      rewardVault
-    );
+    freezeTokenAccount(svm, creator, rewardMint, rewardVault);
+
+    const rewardVaultInfo = getTokenAccount(svm, rewardVault);
     expect(rewardVaultInfo.state).eq(2); // frozen
 
     // check error
-    const errorCode = getCpAmmProgramErrorCodeHexString("RewardVaultFrozenSkipRequired")
-    await expectThrowsAsync(async () => {
-      await claimReward(context.banksClient, {
+    const errorCode = getCpAmmProgramErrorCode("RewardVaultFrozenSkipRequired");
+    expectThrowsErrorCode(
+      await claimReward(svm, {
         index,
         user,
         pool,
         position,
         skipReward: 0, // skip_reward is required in case reward vault frozen
-      });
-    }, errorCode)
-
+      }),
+      errorCode
+    );
 
     // // claim reward
-    await claimReward(context.banksClient, {
+    await claimReward(svm, {
       index,
       user,
       pool,
@@ -253,8 +208,8 @@ describe("Frozen reward vault", () => {
       skipReward: 1, // skip reward in case reward vault frozen
     });
 
-    const positionState = await getPosition(context.banksClient, position)
-    const rewardInfo = positionState.rewardInfos[index]
-    expect(rewardInfo.rewardPendings.toNumber()).eq(0)
+    const positionState = getPosition(svm, position);
+    const rewardInfo = positionState.rewardInfos[index];
+    expect(rewardInfo.rewardPendings.toNumber()).eq(0);
   });
 });

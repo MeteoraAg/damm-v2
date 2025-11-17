@@ -1,5 +1,4 @@
-import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+import { generateKpAndFund, randomID } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -16,87 +15,69 @@ import {
   removeAllLiquidity,
   closePosition,
   CreateConfigParams,
-} from "./bankrun-utils";
+  OperatorPermission,
+  encodePermissions,
+  createOperator,
+  startSvm,
+} from "./helpers";
 import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
-} from "./bankrun-utils/token2022";
+} from "./helpers/token2022";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Remove liquidity", () => {
   describe("SPL Token", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let config: PublicKey;
     let pool: PublicKey;
-    let position: PublicKey;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
-      tokenAMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
-      tokenBMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      tokenAMint = createToken(svm, admin.publicKey);
+      tokenBMint = createToken(svm, admin.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, tokenBMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
+      mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -109,9 +90,17 @@ describe("Remove liquidity", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -127,18 +116,13 @@ describe("Remove liquidity", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
     });
 
     it("User remove liquidity", async () => {
       // create a position
-      const position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      const position = await createPosition(svm, user, user.publicKey, pool);
 
       // add liquidity
       let liquidity = new BN("100000000000");
@@ -150,7 +134,7 @@ describe("Remove liquidity", () => {
         tokenAAmountThreshold: U64_MAX,
         tokenBAmountThreshold: U64_MAX,
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
       // remove liquidity
       const removeLiquidityParams = {
@@ -161,7 +145,7 @@ describe("Remove liquidity", () => {
         tokenAAmountThreshold: new BN(0),
         tokenBAmountThreshold: new BN(0),
       };
-      await removeLiquidity(context.banksClient, removeLiquidityParams);
+      await removeLiquidity(svm, removeLiquidityParams);
 
       // remove all liquidity
       const removeAllLiquidityParams = {
@@ -171,28 +155,27 @@ describe("Remove liquidity", () => {
         tokenAAmountThreshold: new BN(0),
         tokenBAmountThreshold: new BN(0),
       };
-      await removeAllLiquidity(context.banksClient, removeAllLiquidityParams);
+      await removeAllLiquidity(svm, removeAllLiquidityParams);
 
       // close position
-      await closePosition(context.banksClient, { owner: user, pool, position });
+      await closePosition(svm, { owner: user, pool, position });
     });
   });
 
   describe("Token 2022", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
     let config: PublicKey;
     let pool: PublicKey;
-    let position: PublicKey;
+    let whitelistedAccount: Keypair;
     let creator: Keypair;
 
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
       const tokenAMintKeypair = Keypair.generate();
       const tokenBMintKeypair = Keypair.generate();
@@ -206,64 +189,50 @@ describe("Remove liquidity", () => {
       const tokenBExtensions = [
         createTransferFeeExtensionWithInstruction(tokenBMint),
       ];
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenAExtensions,
-        tokenAMintKeypair
+        tokenAMintKeypair,
+        admin.publicKey
       );
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenBExtensions,
-        tokenBMintKeypair
+        tokenBMintKeypair,
+        admin.publicKey
       );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        user.publicKey
-      );
+      await mintToToken2022(svm, tokenAMint, admin, user.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        user.publicKey
-      );
+      await mintToToken2022(svm, tokenBMint, admin, user.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      await mintToToken2022(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
+      await mintToToken2022(svm, tokenBMint, admin, creator.publicKey);
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -276,9 +245,17 @@ describe("Remove liquidity", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -294,18 +271,13 @@ describe("Remove liquidity", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
     });
 
     it("User remove liquidity", async () => {
       // create a position
-      const position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      const position = await createPosition(svm, user, user.publicKey, pool);
 
       // add liquidity
       let liquidity = new BN("100000000000");
@@ -317,7 +289,7 @@ describe("Remove liquidity", () => {
         tokenAAmountThreshold: U64_MAX,
         tokenBAmountThreshold: U64_MAX,
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
       // return
 
       const removeLiquidityParams = {
@@ -328,7 +300,7 @@ describe("Remove liquidity", () => {
         tokenAAmountThreshold: new BN(0),
         tokenBAmountThreshold: new BN(0),
       };
-      await removeLiquidity(context.banksClient, removeLiquidityParams);
+      await removeLiquidity(svm, removeLiquidityParams);
     });
   });
 });

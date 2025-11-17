@@ -1,5 +1,4 @@
-import { AccountLayout } from "@solana/spl-token";
-import { ProgramTestContext } from "solana-bankrun";
+import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
@@ -8,28 +7,36 @@ import {
   AddLiquidityParams,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
   createPosition,
   createToken,
+  encodePermissions,
   getPool,
+  getTokenBalance,
   initializePool,
   InitializePoolParams,
   MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
   mintSplTokenTo,
+  OperatorPermission,
+  randomID,
+  startSvm,
   U64_MAX,
-} from "./bankrun-utils";
-import { generateKpAndFund, randomID, startTest, convertToByteArray } from "./bankrun-utils/common";
+} from "./helpers";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
-} from "./bankrun-utils/token2022";
+} from "./helpers/token2022";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Add liquidity", () => {
   describe("SPL Token", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
+    let whitelistedAccount: Keypair;
     let user: Keypair;
     let creator: Keypair;
     let config: PublicKey;
@@ -39,65 +46,39 @@ describe("Add liquidity", () => {
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
-      tokenAMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
-      tokenBMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
+      tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, tokenBMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
 
       // create config
+      const cliffFeeNumerator = BigInt(2_500_000);
+
+      const data = encodeFeeTimeSchedulerParams(
+        cliffFeeNumerator,
+        0,
+        BigInt(0),
+        BigInt(0),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -110,9 +91,17 @@ describe("Add liquidity", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -130,29 +119,14 @@ describe("Add liquidity", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
 
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      position = await createPosition(svm, user, user.publicKey, pool);
 
-      const poolState = await getPool(context.banksClient, pool);
+      const poolState = getPool(svm, pool);
 
-      const preTokenAVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenAVault)).data
-        ).amount
-      );
-
-      const preTokenBVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenBVault)).data
-        ).amount
-      );
+      const preTokenBVaultBalance = getTokenBalance(svm, poolState.tokenBVault);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -162,27 +136,14 @@ describe("Add liquidity", () => {
         tokenAAmountThreshold: U64_MAX,
         tokenBAmountThreshold: U64_MAX,
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
-      const postTokenAVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenAVault)).data
-        ).amount
-      );
-
-      const postTokenBVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenBVault)).data
-        ).amount
+      const postTokenBVaultBalance = getTokenBalance(
+        svm,
+        poolState.tokenBVault
       );
 
       expect(preTokenBVaultBalance).eq(postTokenBVaultBalance);
-
-      console.log({ preTokenAVaultBalance, postTokenAVaultBalance });
-      console.log({
-        preTokenBVaultBalance,
-        postTokenBVaultBalance,
-      });
     });
 
     it("Create pool with sqrtPrice equal sqrtMaxPrice", async () => {
@@ -197,29 +158,14 @@ describe("Add liquidity", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
 
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        creator,
-        user.publicKey,
-        pool
-      );
+      position = await createPosition(svm, creator, user.publicKey, pool);
 
-      const poolState = await getPool(context.banksClient, pool);
+      const poolState = getPool(svm, pool);
 
-      const preTokenAVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenAVault)).data
-        ).amount
-      );
-
-      const preTokenBVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenBVault)).data
-        ).amount
-      );
+      const preTokenAVaultBalance = getTokenBalance(svm, poolState.tokenAVault);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -229,33 +175,21 @@ describe("Add liquidity", () => {
         tokenAAmountThreshold: U64_MAX,
         tokenBAmountThreshold: U64_MAX,
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
-      const postTokenAVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenAVault)).data
-        ).amount
+      const postTokenAVaultBalance = getTokenBalance(
+        svm,
+        poolState.tokenAVault
       );
-
-      const postTokenBVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenBVault)).data
-        ).amount
-      );
-
-      console.log({ preTokenAVaultBalance, postTokenAVaultBalance });
-      console.log({
-        preTokenBVaultBalance,
-        postTokenBVaultBalance,
-      });
 
       expect(preTokenAVaultBalance).eq(postTokenAVaultBalance);
     });
   });
 
   describe("Token 2022", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
+    let whitelistedAccount: Keypair;
     let user: Keypair;
     let config: PublicKey;
     let pool: PublicKey;
@@ -265,9 +199,7 @@ describe("Add liquidity", () => {
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
-
+      svm = startSvm();
       const tokenAMintKeypair = Keypair.generate();
       const tokenBMintKeypair = Keypair.generate();
 
@@ -280,65 +212,48 @@ describe("Add liquidity", () => {
       const tokenBExtensions = [
         createTransferFeeExtensionWithInstruction(tokenBMint),
       ];
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenAExtensions,
-        tokenAMintKeypair
+        tokenAMintKeypair,
+        admin.publicKey
       );
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenBExtensions,
-        tokenBMintKeypair
+        tokenBMintKeypair,
+        admin.publicKey
       );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        user.publicKey
-      );
+      await mintToToken2022(svm, tokenAMint, admin, user.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        user.publicKey
-      );
+      await mintToToken2022(svm, tokenBMint, admin, user.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      await mintToToken2022(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
+      await mintToToken2022(svm, tokenBMint, admin, creator.publicKey);
+
+      const cliffFeeNumerator = BigInt(2_500_000);
+
+      const data = encodeFeeTimeSchedulerParams(
+        cliffFeeNumerator,
+        0,
+        BigInt(0),
+        BigInt(0),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -351,9 +266,17 @@ describe("Add liquidity", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -371,29 +294,14 @@ describe("Add liquidity", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
 
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      position = await createPosition(svm, user, user.publicKey, pool);
 
-      const poolState = await getPool(context.banksClient, pool);
+      const poolState = getPool(svm, pool);
 
-      const preTokenAVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenAVault)).data
-        ).amount
-      );
-
-      const preTokenBVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenBVault)).data
-        ).amount
-      );
+      const preTokenBVaultBalance = getTokenBalance(svm, poolState.tokenBVault);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -403,18 +311,11 @@ describe("Add liquidity", () => {
         tokenAAmountThreshold: U64_MAX,
         tokenBAmountThreshold: U64_MAX,
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
-      const postTokenAVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenAVault)).data
-        ).amount
-      );
-
-      const postTokenBVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenBVault)).data
-        ).amount
+      const postTokenBVaultBalance = getTokenBalance(
+        svm,
+        poolState.tokenBVault
       );
 
       expect(preTokenBVaultBalance).eq(postTokenBVaultBalance);
@@ -432,29 +333,14 @@ describe("Add liquidity", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
 
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      position = await createPosition(svm, user, user.publicKey, pool);
 
-      const poolState = await getPool(context.banksClient, pool);
+      const poolState = getPool(svm, pool);
 
-      const preTokenAVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenAVault)).data
-        ).amount
-      );
-
-      const preTokenBVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenBVault)).data
-        ).amount
-      );
+      const preTokenAVaultBalance = getTokenBalance(svm, poolState.tokenAVault);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -464,25 +350,12 @@ describe("Add liquidity", () => {
         tokenAAmountThreshold: U64_MAX,
         tokenBAmountThreshold: U64_MAX,
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
-      const postTokenAVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenAVault)).data
-        ).amount
+      const postTokenAVaultBalance = getTokenBalance(
+        svm,
+        poolState.tokenAVault
       );
-
-      const postTokenBVaultBalance = Number(
-        AccountLayout.decode(
-          (await context.banksClient.getAccount(poolState.tokenBVault)).data
-        ).amount
-      );
-
-      console.log({ preTokenAVaultBalance, postTokenAVaultBalance });
-      console.log({
-        preTokenBVaultBalance,
-        postTokenBVaultBalance,
-      });
 
       expect(preTokenAVaultBalance).eq(postTokenAVaultBalance);
     });

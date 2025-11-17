@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use crate::{
     swap::{ProcessSwapParams, ProcessSwapResult},
     token::calculate_transfer_fee_included_amount,
-    PoolError, SwapParameters,
+    PoolError,
 };
 
 pub fn process_swap_exact_out<'a, 'b, 'info>(
@@ -47,10 +47,6 @@ pub fn process_swap_exact_out<'a, 'b, 'info>(
 
     Ok(ProcessSwapResult {
         swap_result,
-        swap_in_parameters: SwapParameters {
-            amount_in: included_transfer_fee_amount_in,
-            minimum_amount_out: amount_out,
-        },
         included_transfer_fee_amount_in,
         included_transfer_fee_amount_out,
         excluded_transfer_fee_amount_out: amount_out,

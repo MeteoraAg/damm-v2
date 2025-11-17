@@ -1,7 +1,7 @@
 use crate::{
     swap::{ProcessSwapParams, ProcessSwapResult},
     token::{calculate_transfer_fee_excluded_amount, calculate_transfer_fee_included_amount},
-    PoolError, SwapParameters,
+    PoolError,
 };
 use anchor_lang::prelude::*;
 
@@ -54,10 +54,6 @@ pub fn process_swap_partial_fill<'a, 'b, 'info>(
 
     Ok(ProcessSwapResult {
         swap_result,
-        swap_in_parameters: SwapParameters {
-            amount_in: transfer_fee_included_consumed_in_amount,
-            minimum_amount_out,
-        },
         included_transfer_fee_amount_in: transfer_fee_included_consumed_in_amount,
         included_transfer_fee_amount_out: swap_result.output_amount,
         excluded_transfer_fee_amount_out,

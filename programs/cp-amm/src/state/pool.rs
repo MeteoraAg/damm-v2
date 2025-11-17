@@ -5,11 +5,13 @@ use std::cmp::min;
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use crate::activation_handler::{ActivationHandler, ActivationType};
+use crate::base_fee::{BaseFeeHandlerBuilder, UpdateCliffFeeNumerator};
 use crate::constants::fee::{get_max_fee_numerator, CURRENT_POOL_VERSION};
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
+use crate::state::{Operator, OperatorPermission};
 use crate::{
-    assert_eq_admin,
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
         get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
@@ -25,6 +27,7 @@ use crate::{
     utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
     PoolError,
 };
+use crate::{BaseFeeUpdateMode, DynamicFeeUpdateMode, UpdatePoolFeesParameters};
 
 use super::fee::FeeMode;
 
@@ -141,7 +144,7 @@ pub struct Pool {
     pub token_a_flag: u8,
     /// token b flag
     pub token_b_flag: u8,
-    /// 0 is collect fee in both token, 1 only collect fee in token a, 2 only collect fee in token b
+    /// 0 is collect fee in both token, 1 only collect fee only in token b
     pub collect_fee_mode: u8,
     /// pool type
     pub pool_type: u8,
@@ -254,7 +257,7 @@ impl RewardInfo {
     }
 
     pub fn is_valid_funder(&self, funder: Pubkey) -> bool {
-        assert_eq_admin(funder) || funder.eq(&self.funder)
+        funder.eq(&self.funder)
     }
 
     pub fn init_reward(
@@ -445,6 +448,7 @@ impl Pool {
                     amount_out,
                     trade_direction,
                     max_fee_numerator,
+                    self.sqrt_price,
                 )?;
 
             let (included_fee_amount_out, fee_amount) =
@@ -484,6 +488,7 @@ impl Pool {
                     input_amount,
                     trade_direction,
                     max_fee_numerator,
+                    self.sqrt_price,
                 )?;
 
             let (included_fee_input_amount, fee_amount) =
@@ -543,6 +548,7 @@ impl Pool {
                 amount_in,
                 trade_direction,
                 max_fee_numerator,
+                self.sqrt_price,
             )?;
 
         let mut actual_amount_in = if fee_mode.fees_on_input {
@@ -590,6 +596,7 @@ impl Pool {
                         actual_amount_in,
                         trade_direction,
                         max_fee_numerator,
+                        self.sqrt_price,
                     )?;
 
                 let (included_fee_amount_in, fee_amount) =
@@ -682,6 +689,7 @@ impl Pool {
                 amount_in,
                 trade_direction,
                 max_fee_numerator,
+                self.sqrt_price,
             )?;
 
         let actual_amount_in = if fee_mode.fees_on_input {
@@ -1252,16 +1260,28 @@ impl Pool {
         U256::from_le_bytes(self.fee_b_per_liquidity)
     }
 
-    pub fn validate_authority_to_edit_reward(
+    pub fn validate_authority_to_edit_reward<'c: 'info, 'info>(
         &self,
         reward_index: usize,
         signer: Pubkey,
+        remaining_accounts: &'c [AccountInfo<'info>],
+        permission: OperatorPermission,
     ) -> Result<()> {
         // pool creator is allowed to initialize reward with only index 0
         if signer == self.creator {
             require!(reward_index == 0, PoolError::InvalidRewardIndex)
         } else {
-            require!(assert_eq_admin(signer), PoolError::InvalidAdmin);
+            let operator_account = remaining_accounts
+                .get(0)
+                .ok_or_else(|| PoolError::InvalidAuthority)?;
+            let operator_loader: AccountLoader<'_, Operator> =
+                AccountLoader::try_from(operator_account)?;
+            let operator = operator_loader.load()?;
+            require!(
+                operator.whitelisted_address.eq(&signer)
+                    && operator.is_permission_allow(permission),
+                PoolError::InvalidAuthority
+            );
         }
         Ok(())
     }
@@ -1286,6 +1306,72 @@ impl Pool {
         )?;
 
         Ok((reserve_a_amount, reserve_b_amount))
+    }
+
+    pub fn validate_and_update_pool_fees(
+        &mut self,
+        params: &UpdatePoolFeesParameters,
+    ) -> Result<()> {
+        // update cliff_fee_numerator
+        match params.get_base_fee_update_mode() {
+            BaseFeeUpdateMode::Update(cliff_fee_numerator) => {
+                // validate base fee is static
+                let base_fee_handler = self
+                    .pool_fees
+                    .base_fee
+                    .base_fee_info
+                    .get_base_fee_handler()?;
+                let current_point = ActivationHandler::get_current_point(self.activation_type)?;
+                require!(
+                    base_fee_handler
+                        .validate_base_fee_is_static(current_point, self.activation_point)?,
+                    PoolError::CannotUpdateBaseFee
+                );
+                // update cliff fee numerator firstly
+                self.pool_fees
+                    .base_fee
+                    .base_fee_info
+                    .update_cliff_fee_numerator(cliff_fee_numerator)?;
+
+                // Reload cliff_fee_numerator after update
+                let base_fee_handler = self
+                    .pool_fees
+                    .base_fee
+                    .base_fee_info
+                    .get_base_fee_handler()?;
+
+                let activation_type = ActivationType::try_from(self.activation_type)
+                    .map_err(|_| PoolError::InvalidActivationType)?;
+                let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
+                    .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
+                // validate base fee again after update new cliff fee numerator
+                base_fee_handler.validate(collect_fee_mode, activation_type)?;
+            }
+            _ => {
+                // skip update, so we don't do anything
+            }
+        }
+
+        // update dynamic fee
+        match params.get_dynamic_fee_update_mode() {
+            DynamicFeeUpdateMode::Disable => {
+                require!(
+                    self.pool_fees.dynamic_fee.is_dynamic_fee_enable(),
+                    PoolError::InvalidUpdatePoolFeesParameters
+                );
+                self.pool_fees.dynamic_fee = DynamicFeeStruct::default();
+            }
+            DynamicFeeUpdateMode::Update(dynamic_fee) => {
+                // We don't need to reset dynamic fee struct to zero before update new dynamic fee params
+                // because in [to_dynamic_fee_struct] we already reset the rest value in dynamic fee struct to zero
+                self.pool_fees.dynamic_fee = dynamic_fee.to_dynamic_fee_struct();
+            }
+            _ => {
+                // skip update, so we don't do anything
+            }
+        }
+        Ok(())
     }
 }
 

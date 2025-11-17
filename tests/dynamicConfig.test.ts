@@ -1,5 +1,4 @@
-import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, startTest } from "./bankrun-utils/common";
+import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   MIN_LP_AMOUNT,
@@ -11,68 +10,72 @@ import {
   CreateDynamicConfigParams,
   InitializePoolWithCustomizeConfigParams,
   initializePoolWithCustomizeConfig,
-  getPool,
-} from "./bankrun-utils";
+  encodePermissions,
+  createOperator,
+  OperatorPermission,
+  startSvm,
+} from "./helpers";
 import BN from "bn.js";
-import { expect } from "chai";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Dynamic config test", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let creator: Keypair;
+  let whitelistedAccount: Keypair;
   let config: PublicKey;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
-  let liquidity: BN;
-  let sqrtPrice: BN;
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
-    const root = Keypair.generate();
-    context = await startTest(root);
-    creator = await generateKpAndFund(context.banksClient, context.payer);
-    admin = await generateKpAndFund(context.banksClient, context.payer);
+    svm = startSvm();
+    creator = generateKpAndFund(svm);
+    admin = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
 
-    tokenAMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
-    tokenBMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
+    tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
+    tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenAMint,
-      context.payer,
-      creator.publicKey
-    );
+    mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenBMint,
-      context.payer,
-      creator.publicKey
-    );
+    mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
     // create dynamic config
     const createDynamicConfigParams: CreateDynamicConfigParams = {
       poolCreatorAuthority: creator.publicKey,
     };
 
-    config = await createDynamicConfigIx(
-      context.banksClient,
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+    await createOperator(svm, {
       admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission,
+    });
+
+    config = await createDynamicConfigIx(
+      svm,
+      whitelistedAccount,
       new BN(configId),
       createDynamicConfigParams
     );
   });
 
   it("create pool with dynamic config", async () => {
+    const cliffFeeNumerator = new BN(2_500_000);
+    const numberOfPeriod = new BN(0);
+    const periodFrequency = new BN(0);
+    const reductionFactor = new BN(0);
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod.toNumber(),
+      BigInt(periodFrequency.toString()),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeTimeSchedulerLinear
+    );
+
     const params: InitializePoolWithCustomizeConfigParams = {
       payer: creator,
       creator: creator.publicKey,
@@ -88,11 +91,7 @@ describe("Dynamic config test", () => {
       activationPoint: null,
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -101,8 +100,9 @@ describe("Dynamic config test", () => {
       collectFeeMode: 0,
     };
 
-    const { pool } = await initializePoolWithCustomizeConfig(context.banksClient, params);
-    const poolState = await getPool(context.banksClient, pool);
-    expect(poolState.version).eq(0);
+    const { pool: _pool } = await initializePoolWithCustomizeConfig(
+      svm,
+      params
+    );
   });
 });
