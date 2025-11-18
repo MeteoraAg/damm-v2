@@ -29,6 +29,8 @@ pub mod params;
 
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
 
+pub type CorrectContext<'a, 'b, 'info, T> = Context<'a, 'b, 'info, 'info, T>;
+
 #[program]
 pub mod cp_amm {
     use super::*;
@@ -69,8 +71,8 @@ pub mod cp_amm {
         instructions::handle_close_config(ctx)
     }
 
-    pub fn initialize_reward<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializeRewardCtx<'info>>,
+    pub fn initialize_reward(
+        ctx: CorrectContext<InitializeRewardCtx>,
         reward_index: u8,
         reward_duration: u64,
         funder: Pubkey,
@@ -136,22 +138,22 @@ pub mod cp_amm {
 
     /// USER FUNCTIONS ////
 
-    pub fn initialize_pool<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializePoolCtx<'info>>,
+    pub fn initialize_pool(
+        ctx: CorrectContext<InitializePoolCtx>,
         params: InitializePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_pool(ctx, params)
     }
 
-    pub fn initialize_pool_with_dynamic_config<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializePoolWithDynamicConfigCtx<'info>>,
+    pub fn initialize_pool_with_dynamic_config(
+        ctx: CorrectContext<InitializePoolWithDynamicConfigCtx>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_pool_with_dynamic_config(ctx, params)
     }
 
-    pub fn initialize_customizable_pool<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializeCustomizablePoolCtx<'info>>,
+    pub fn initialize_customizable_pool(
+        ctx: CorrectContext<InitializeCustomizablePoolCtx>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_customizable_pool(ctx, params)
@@ -197,7 +199,7 @@ pub mod cp_amm {
         instructions::handle_close_position(ctx)
     }
 
-    pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
+    pub fn swap(ctx: CorrectContext<SwapCtx>, params: SwapParameters) -> Result<()> {
         instructions::swap::handle_swap_wrapper(
             &ctx,
             SwapParameters2 {
@@ -208,7 +210,7 @@ pub mod cp_amm {
         )
     }
 
-    pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+    pub fn swap2(ctx: CorrectContext<SwapCtx>, params: SwapParameters2) -> Result<()> {
         instructions::swap::handle_swap_wrapper(&ctx, params)
     }
 
@@ -220,8 +222,8 @@ pub mod cp_amm {
         instructions::handle_lock_position(ctx, params)
     }
 
-    pub fn refresh_vesting<'a, 'b, 'c: 'info, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, RefreshVesting<'info>>,
+    pub fn refresh_vesting<'info>(
+        ctx: CorrectContext<'_, '_, 'info, RefreshVesting<'info>>,
     ) -> Result<()> {
         instructions::handle_refresh_vesting(ctx)
     }
