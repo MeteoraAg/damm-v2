@@ -151,7 +151,7 @@ pub fn get_epoch_transfer_fee<'info>(
     Ok(None)
 }
 
-pub fn transfer_from_user<'a, 'c: 'info, 'info>(
+pub fn transfer_from_user<'a, 'info>(
     authority: &'a Signer<'info>,
     token_mint: &'a InterfaceAccount<'info, Mint>,
     token_owner_account: &'a InterfaceAccount<'info, TokenAccount>,
@@ -184,7 +184,7 @@ pub fn transfer_from_user<'a, 'c: 'info, 'info>(
     Ok(())
 }
 
-pub fn transfer_from_pool<'c: 'info, 'info>(
+pub fn transfer_from_pool<'info>(
     pool_authority: AccountInfo<'info>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
@@ -258,9 +258,9 @@ pub fn is_supported_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> 
     Ok(true)
 }
 
-pub fn is_token_badge_initialized<'c: 'info, 'info>(
+pub fn is_token_badge_initialized<'info>(
     mint: Pubkey,
-    token_badge: &'c AccountInfo<'info>,
+    token_badge: &'info AccountInfo<'info>,
 ) -> Result<bool> {
     let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
     let token_badge = token_badge.load()?;

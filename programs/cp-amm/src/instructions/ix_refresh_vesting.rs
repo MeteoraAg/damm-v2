@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use crate::{
     activation_handler::ActivationHandler,
     state::{Pool, Position, Vesting},
-    PoolError,
+    CorrectContext, PoolError,
 };
 
 #[derive(Accounts)]
@@ -48,8 +48,8 @@ impl<'info> VestingRemainingAccount<'info> {
     }
 }
 
-pub fn handle_refresh_vesting<'a, 'b, 'c: 'info, 'info>(
-    ctx: Context<'a, 'b, 'c, 'info, RefreshVesting<'info>>,
+pub fn handle_refresh_vesting<'info>(
+    ctx: CorrectContext<'_, '_, 'info, RefreshVesting<'info>>,
 ) -> Result<()> {
     let pool = ctx.accounts.pool.load()?;
 

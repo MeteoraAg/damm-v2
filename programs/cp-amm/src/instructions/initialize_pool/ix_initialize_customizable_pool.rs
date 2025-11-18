@@ -23,7 +23,7 @@ use crate::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
-    EvtCreatePosition, EvtInitializePool, PoolError,
+    CorrectContext, EvtCreatePosition, EvtInitializePool, PoolError,
 };
 
 use super::{max_key, min_key};
@@ -220,8 +220,8 @@ pub struct InitializeCustomizablePoolCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializeCustomizablePoolCtx<'info>>,
+pub fn handle_initialize_customizable_pool(
+    ctx: CorrectContext<InitializeCustomizablePoolCtx>,
     params: InitializeCustomizablePoolParameters,
 ) -> Result<()> {
     params.validate()?;

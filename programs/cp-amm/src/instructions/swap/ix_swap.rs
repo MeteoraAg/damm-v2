@@ -9,7 +9,7 @@ use crate::{
     state::{fee::FeeMode, Pool, SwapResult2},
     swap::{ProcessSwapParams, ProcessSwapResult},
     token::{transfer_from_pool, transfer_from_user},
-    EvtSwap, EvtSwap2, PoolError,
+    CorrectContext, EvtSwap, EvtSwap2, PoolError,
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_lang::{
@@ -107,7 +107,7 @@ impl<'info> SwapCtx<'info> {
     }
 }
 
-pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+pub fn handle_swap_wrapper(ctx: &CorrectContext<SwapCtx>, params: SwapParameters2) -> Result<()> {
     let SwapParameters2 {
         amount_0,
         amount_1,
@@ -282,9 +282,9 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
     Ok(())
 }
 
-pub fn validate_single_swap_instruction<'c, 'info>(
+pub fn validate_single_swap_instruction<'info>(
     pool: &Pubkey,
-    remaining_accounts: &'c [AccountInfo<'info>],
+    remaining_accounts: &'info [AccountInfo<'info>],
 ) -> Result<()> {
     let instruction_sysvar_account_info = remaining_accounts
         .get(0)

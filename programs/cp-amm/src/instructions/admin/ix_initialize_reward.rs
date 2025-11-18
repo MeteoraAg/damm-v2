@@ -10,6 +10,7 @@ use crate::{
     event::EvtInitializeReward,
     state::Pool,
     token::{get_token_program_flags, is_supported_mint, is_token_badge_initialized},
+    CorrectContext,
 };
 
 #[event_cpi]
@@ -65,8 +66,8 @@ impl<'info> InitializeRewardCtx<'info> {
     }
 }
 
-pub fn handle_initialize_reward<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializeRewardCtx<'info>>,
+pub fn handle_initialize_reward(
+    ctx: CorrectContext<InitializeRewardCtx>,
     reward_index: u8,
     reward_duration: u64,
     funder: Pubkey,
