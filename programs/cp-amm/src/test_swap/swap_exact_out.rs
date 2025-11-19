@@ -1,15 +1,14 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    test_swap::{ProcessSwapParams, ProcessSwapResult, SwapParameters},
-    token::calculate_transfer_fee_included_amount,
-    PoolError,
+    test_swap::ProcessSwapTestParams, token::calculate_transfer_fee_included_amount, PoolError,
+    ProcessSwapResult,
 };
 
 pub fn process_swap_exact_out<'a, 'b, 'info>(
-    params: ProcessSwapParams<'a, 'b, 'info>,
+    params: ProcessSwapTestParams<'a, 'b, 'info>,
 ) -> Result<ProcessSwapResult> {
-    let ProcessSwapParams {
+    let ProcessSwapTestParams {
         pool,
         token_in_mint,
         token_out_mint,
@@ -53,10 +52,6 @@ pub fn process_swap_exact_out<'a, 'b, 'info>(
 
     Ok(ProcessSwapResult {
         swap_result,
-        swap_in_parameters: SwapParameters {
-            amount_in: included_transfer_fee_amount_in,
-            minimum_amount_out: amount_out,
-        },
         included_transfer_fee_amount_in,
         included_transfer_fee_amount_out,
         excluded_transfer_fee_amount_out: amount_out,

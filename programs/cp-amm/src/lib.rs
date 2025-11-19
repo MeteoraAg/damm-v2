@@ -340,10 +340,7 @@ pub mod cp_amm {
     }
 
     #[cfg(feature = "local")]
-    pub fn swap_test(
-        ctx: Context<SwapCtx>,
-        params: test_swap::ix_swap::SwapParameters2,
-    ) -> Result<()> {
+    pub fn swap_test(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
         test_swap::handle_test_swap_wrapper(&ctx, params)
     }
 }

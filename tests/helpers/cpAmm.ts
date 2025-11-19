@@ -2031,10 +2031,7 @@ export async function swap2Instruction(svm: LiteSVM, params: Swap2Params) {
   return transaction;
 }
 
-export async function swapTestInstruction(
-  banksClient: BanksClient,
-  params: Swap2Params
-) {
+export async function swapTestInstruction(svm: LiteSVM, params: Swap2Params) {
   const {
     payer,
     pool,
@@ -2047,14 +2044,12 @@ export async function swapTestInstruction(
   } = params;
 
   const program = createCpAmmProgram();
-  const poolState = await getPool(banksClient, pool);
+  const poolState = getPool(svm, pool);
 
   const poolAuthority = derivePoolAuthority();
-  const tokenAProgram = (await banksClient.getAccount(poolState.tokenAMint))
-    .owner;
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
 
-  const tokenBProgram = (await banksClient.getAccount(poolState.tokenBMint))
-    .owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
   const inputTokenAccount = getAssociatedTokenAddressSync(
     inputTokenMint,
     payer.publicKey,

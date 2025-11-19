@@ -4,10 +4,10 @@ use crate::{
     instruction::{Swap as SwapInstruction, Swap2 as Swap2Instruction},
     params::swap::TradeDirection,
     safe_math::SafeMath,
-    state::{fee::FeeMode, Pool, SwapResult, SwapResult2},
+    state::{fee::FeeMode, Pool, SwapResult2},
     test_swap::{process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill},
     token::{transfer_from_pool, transfer_from_user},
-    PoolError, SwapCtx,
+    EvtSwap2, PoolError, ProcessSwapResult, SwapCtx, SwapMode, SwapParameters2,
 };
 use anchor_lang::solana_program::sysvar;
 use anchor_lang::{
@@ -17,9 +17,8 @@ use anchor_lang::{
     },
 };
 use anchor_spl::token_interface::Mint;
-use num_enum::{FromPrimitive, IntoPrimitive};
 
-pub struct ProcessSwapParams<'a, 'b, 'info> {
+pub struct ProcessSwapTestParams<'a, 'b, 'info> {
     pub pool: &'a Pool,
     pub token_in_mint: &'b InterfaceAccount<'info, Mint>,
     pub token_out_mint: &'b InterfaceAccount<'info, Mint>,
@@ -28,70 +27,6 @@ pub struct ProcessSwapParams<'a, 'b, 'info> {
     pub current_point: u64,
     pub amount_0: u64,
     pub amount_1: u64,
-}
-
-pub struct ProcessSwapResult {
-    pub swap_result: SwapResult2,
-    pub swap_in_parameters: SwapParameters,
-    pub included_transfer_fee_amount_in: u64,
-    pub included_transfer_fee_amount_out: u64,
-    pub excluded_transfer_fee_amount_out: u64,
-}
-
-#[repr(u8)]
-#[derive(
-    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
-)]
-pub enum SwapMode {
-    #[num_enum(default)]
-    ExactIn,
-    PartialFill,
-    ExactOut,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct SwapParameters {
-    pub amount_in: u64,
-    pub minimum_amount_out: u64,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
-pub struct SwapParameters2 {
-    /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
-    pub amount_0: u64,
-    /// When it's exact in, partial fill, this will be minimum_amount_out. When it's exact out, this will be maximum_amount_in
-    pub amount_1: u64,
-    /// Swap mode, refer [SwapMode]
-    pub swap_mode: u8,
-}
-
-#[event]
-struct EvtSwapTest {
-    pub pool: Pubkey,
-    pub trade_direction: u8,
-    pub has_referral: bool,
-    pub params: SwapParameters,
-    pub swap_result: SwapResult,
-    pub actual_amount_in: u64,
-    pub current_timestamp: u64,
-}
-
-#[derive(Clone, Copy)]
-#[event]
-struct EvtSwapTest2 {
-    pub pool: Pubkey,
-    pub trade_direction: u8,
-    pub collect_fee_mode: u8,
-    pub has_referral: bool,
-    pub params: SwapParameters2,
-    // excluded_transfer_fee_amount_in is swap_result.included_fee_amount_in
-    pub swap_result: SwapResult2,
-    pub included_transfer_fee_amount_in: u64,
-    pub included_transfer_fee_amount_out: u64,
-    pub excluded_transfer_fee_amount_out: u64,
-    pub current_timestamp: u64,
-    pub reserve_a_amount: u64,
-    pub reserve_b_amount: u64,
 }
 
 pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
@@ -165,7 +100,7 @@ pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2)
 
     let fee_mode = FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
 
-    let process_swap_params = ProcessSwapParams {
+    let process_swap_params = ProcessSwapTestParams {
         pool: &pool,
         token_in_mint,
         token_out_mint,
@@ -177,11 +112,11 @@ pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2)
     };
 
     let ProcessSwapResult {
-        swap_in_parameters,
         swap_result,
         included_transfer_fee_amount_in,
         excluded_transfer_fee_amount_out,
         included_transfer_fee_amount_out,
+        ..
     } = match swap_mode {
         SwapMode::ExactIn => process_swap_exact_in(process_swap_params),
         SwapMode::PartialFill => process_swap_partial_fill(process_swap_params),
@@ -190,11 +125,7 @@ pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2)
 
     pool.apply_swap_result(&swap_result, &fee_mode, current_timestamp)?;
 
-    let SwapResult2 {
-        included_fee_input_amount,
-        referral_fee,
-        ..
-    } = swap_result;
+    let SwapResult2 { referral_fee, .. } = swap_result;
 
     // send to reserve
     transfer_from_user(
@@ -241,17 +172,7 @@ pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2)
 
     let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
 
-    emit_cpi!(EvtSwapTest {
-        pool: ctx.accounts.pool.key(),
-        trade_direction: trade_direction.into(),
-        has_referral,
-        params: swap_in_parameters,
-        swap_result: swap_result.into(),
-        actual_amount_in: included_fee_input_amount,
-        current_timestamp
-    });
-
-    emit_cpi!(EvtSwapTest2 {
+    emit_cpi!(EvtSwap2 {
         pool: ctx.accounts.pool.key(),
         trade_direction: trade_direction.into(),
         collect_fee_mode: pool.collect_fee_mode,

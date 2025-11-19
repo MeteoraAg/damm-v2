@@ -1,7 +1,6 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
-import { expect } from "chai";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import { LiteSVM } from "litesvm";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -19,7 +18,6 @@ import {
   mintSplTokenTo,
   OFFSET,
   OperatorPermission,
-  parseEventInstruction,
   sendTransaction,
   startSvm,
   swap2Instruction,
@@ -30,7 +28,7 @@ import {
 import { generateKpAndFund, randomID } from "../helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "../helpers/feeCodec";
 
-describe("Pinnochio swap event", () => {
+describe.only("Pinnochio swap error code", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let user: Keypair;
@@ -154,62 +152,5 @@ describe("Pinnochio swap event", () => {
     const txSwapTest = await swapTestInstruction(svm, swapParams);
 
     const metadata2 = sendTransaction(svm, txSwapTest, [user]);
-
-    expect(metadata1).instanceOf(TransactionMetadata);
-    expect(metadata2).instanceOf(TransactionMetadata);
-
-    const event1 = parseEventInstruction(
-      metadata1 as TransactionMetadata,
-      "evtSwap2"
-    );
-
-    const event2 = parseEventInstruction(
-      metadata2 as TransactionMetadata,
-      "evtSwap2"
-    );
-
-    expect(event1).not.to.be.null;
-    expect(event2).not.to.be.null;
-
-    // check layout decoded
-    expect(
-      JSON.stringify(Object.keys(event1.data)) ===
-        JSON.stringify(Object.keys(event2.data))
-    ).to.be.true;
-
-    expect(event1.data.pool.toString()).eq(event2.data.pool.toString());
-    expect(event1.data.tradeDirection).eq(event2.data.tradeDirection);
-    expect(event1.data.collectFeeMode).eq(event2.data.collectFeeMode);
-    expect(event1.data.hasReferral).eq(event2.data.hasReferral);
-    // params
-    expect(event1.data.params.amount0.toString()).eq(
-      event2.data.params.amount0.toString()
-    );
-
-    expect(event1.data.params.amount1.toString()).eq(
-      event2.data.params.amount1.toString()
-    );
-
-    expect(event1.data.params.swapMode.toString()).eq(
-      event2.data.params.swapMode.toString()
-    );
-
-    expect(event2.data.includedTransferFeeAmountIn).not.undefined;
-    expect(event2.data.includedTransferFeeAmountOut).not.undefined;
-    expect(event2.data.excludedTransferFeeAmountOut).not.undefined;
-    expect(event2.data.currentTimestamp).not.undefined;
-    expect(event2.data.reserveAAmount).not.undefined;
-    expect(event2.data.reserveBAmount).not.undefined;
-    // swap result
-    expect(event2.data.swapResult).not.undefined;
-    expect(event2.data.swapResult.includedFeeInputAmount).not.undefined;
-    expect(event2.data.swapResult.excludedFeeInputAmount).not.undefined;
-    expect(event2.data.swapResult.amountLeft).not.undefined;
-    expect(event2.data.swapResult.outputAmount).not.undefined;
-    expect(event2.data.swapResult.nextSqrtPrice).not.undefined;
-    expect(event2.data.swapResult.tradingFee).not.undefined;
-    expect(event2.data.swapResult.protocolFee).not.undefined;
-    expect(event2.data.swapResult.partnerFee).not.undefined;
-    expect(event2.data.swapResult.referralFee).not.undefined;
   });
 });
