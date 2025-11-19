@@ -68,61 +68,52 @@ pub fn p_handle_swap(
         return Err(ProgramError::NotEnoughAccountKeys.into());
     };
 
-    // TODO Should return identical errors as anchor on constraints to keep it simple, those are just placeholders
-    require!(payer.is_signer(), ErrorCode::ConstraintSigner);
+    require!(payer.is_signer(), ErrorCode::AccountNotSigner);
 
-    // TODO check the error code
     require!(
         pool.owner() == &crate::ID.to_bytes(),
-        PoolError::PoolDisabled
+        ErrorCode::AccountOwnedByWrongProgram
     );
     let pool_key = pool.key();
 
-    // TODO check the error code
     let mut pool_data = pool
         .try_borrow_mut_data()
-        .map_err(|_| PoolError::PoolDisabled)?;
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
 
     let pool = pool_load_mut(&mut pool_data)?;
 
-    // TODO check the error code
     require!(
         &pool.token_a_vault.to_bytes() == token_a_vault.key(),
-        PoolError::PoolDisabled
+        ErrorCode::ConstraintHasOne
     );
 
-    // TODO check the error code
     require!(
         &pool.token_b_vault.to_bytes() == token_b_vault.key(),
-        PoolError::PoolDisabled
+        ErrorCode::ConstraintHasOne
     );
 
-    // TODO check the error code
     require!(
         token_a_vault.owner() == token_a_program.key(),
-        PoolError::PoolDisabled
+        ErrorCode::ConstraintTokenTokenProgram
     );
     require!(
         token_b_vault.owner() == token_b_program.key(),
-        PoolError::PoolDisabled
+        ErrorCode::ConstraintTokenTokenProgram
     );
 
-    // TODO check the error code
     require!(
         &pool.token_a_mint.to_bytes() == token_a_mint.key(),
-        PoolError::PoolDisabled
+        ErrorCode::ConstraintTokenMint
     );
 
-    // TODO check the error code
     require!(
         &pool.token_b_mint.to_bytes() == token_b_mint.key(),
-        PoolError::PoolDisabled
+        ErrorCode::ConstraintTokenMint
     );
 
-    // TODO check the error code
     require!(
         event_authority.key() == &crate::EVENT_AUTHORITY_AND_BUMP.0,
-        PoolError::PoolDisabled
+        ErrorCode::ConstraintSeeds
     );
 
     {
@@ -354,8 +345,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         .get(0)
         .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
     if &INSTRUCTIONS_ID != instruction_sysvar_account_info.key() {
-        // return Err(ProgramError::UnsupportedSysvar);
-        return Err(PoolError::PoolDisabled.into()); // TODO fund a match error
+        return Err(ProgramError::UnsupportedSysvar.into());
     }
 
     let instruction_sysvar = instruction_sysvar_account_info

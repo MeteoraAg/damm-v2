@@ -16,9 +16,11 @@ pub fn process_swap_partial_fill<'a>(params: ProcessSwapParams<'a>) -> Result<Pr
         trade_direction,
         current_point,
     } = params;
-    // TODO fix unwrap
+
     let excluded_transfer_fee_amount_in = calculate_transfer_fee_excluded_amount(
-        &token_in_mint.try_borrow_data().unwrap(),
+        &token_in_mint
+            .try_borrow_data()
+            .map_err(|_| ProgramError::AccountBorrowFailed)?,
         amount_in,
     )?
     .amount;
@@ -39,9 +41,10 @@ pub fn process_swap_partial_fill<'a>(params: ProcessSwapParams<'a>) -> Result<Pr
         PoolError::AmountIsZero
     );
 
-    // TODO fix unwrap
     let excluded_transfer_fee_amount_out = calculate_transfer_fee_excluded_amount(
-        &token_out_mint.try_borrow_data().unwrap(),
+        &token_out_mint
+            .try_borrow_data()
+            .map_err(|_| ProgramError::AccountBorrowFailed)?,
         swap_result.output_amount,
     )?
     .amount;
@@ -51,9 +54,10 @@ pub fn process_swap_partial_fill<'a>(params: ProcessSwapParams<'a>) -> Result<Pr
         PoolError::ExceededSlippage
     );
 
-    // TODO fix unwrap
     let transfer_fee_included_consumed_in_amount = calculate_transfer_fee_included_amount(
-        &token_in_mint.try_borrow_data().unwrap(),
+        &token_in_mint
+            .try_borrow_data()
+            .map_err(|_| ProgramError::AccountBorrowFailed)?,
         swap_result.included_fee_input_amount,
     )?
     .amount;

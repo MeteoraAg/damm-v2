@@ -63,13 +63,11 @@ pub fn handle_fund_reward(
     ctx.accounts.validate(index)?;
 
     // actual amount need to transfer
-    // TODO fix unwrap
     let transfer_fee_excluded_amount_in = calculate_transfer_fee_excluded_amount(
         &ctx.accounts
             .reward_mint
             .to_account_info()
-            .try_borrow_data()
-            .unwrap(),
+            .try_borrow_data()?,
         amount,
     )?
     .amount;

@@ -20,6 +20,7 @@ pub mod base_fee;
 pub mod math;
 pub use math::*;
 pub mod curve;
+#[cfg(feature = "local")]
 pub mod test_swap;
 pub mod tests;
 

@@ -18,9 +18,10 @@ pub fn process_swap_exact_out<'a>(params: ProcessSwapParams<'a>) -> Result<Proce
         amount_1: maximum_amount_in,
     } = params;
 
-    // TODO fix unwrap
     let included_transfer_fee_amount_out = calculate_transfer_fee_included_amount(
-        &token_out_mint.try_borrow_data().unwrap(),
+        &token_out_mint
+            .try_borrow_data()
+            .map_err(|_| ProgramError::AccountBorrowFailed)?,
         amount_out,
     )?
     .amount;
@@ -36,9 +37,10 @@ pub fn process_swap_exact_out<'a>(params: ProcessSwapParams<'a>) -> Result<Proce
         current_point,
     )?;
 
-    // TODO fix unwrap
     let included_transfer_fee_amount_in = calculate_transfer_fee_included_amount(
-        &token_in_mint.try_borrow_data().unwrap(),
+        &token_in_mint
+            .try_borrow_data()
+            .map_err(|_| ProgramError::AccountBorrowFailed)?,
         swap_result.included_fee_input_amount,
     )?
     .amount;

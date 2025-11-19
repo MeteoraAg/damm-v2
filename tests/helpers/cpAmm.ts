@@ -2450,3 +2450,104 @@ export function getFeeShedulerParams(
     baseFeeMode,
   };
 }
+
+export async function buildSwapTestTxs(params: {
+  payer: PublicKey;
+  pool: PublicKey;
+  tokenAMint: PublicKey;
+  tokenBMint: PublicKey;
+  inputTokenAccount: PublicKey;
+  outputTokenAccount: PublicKey;
+  tokenAVault: PublicKey;
+  tokenBVault: PublicKey;
+  tokenAProgram: PublicKey;
+  tokenBProgram: PublicKey;
+  eventAuthority?: PublicKey;
+  sysvarInstructionPubkey?: PublicKey;
+  amount0: BN;
+  amount1: BN;
+  swapMode: number;
+}): Promise<{ swapTestTx: Transaction; swapPinocchioTx: Transaction }> {
+  const {
+    payer,
+    pool,
+    amount0,
+    amount1,
+    swapMode,
+    tokenAMint,
+    tokenBMint,
+    inputTokenAccount,
+    outputTokenAccount,
+    tokenAProgram,
+    tokenBProgram,
+    tokenAVault,
+    tokenBVault,
+    eventAuthority,
+    sysvarInstructionPubkey,
+  } = params;
+
+  const program = createCpAmmProgram();
+
+  const poolAuthority = derivePoolAuthority();
+  const swapPinocchioTx = await program.methods
+    .swap2({
+      amount0,
+      amount1,
+      swapMode,
+    })
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      payer,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint,
+      tokenBMint,
+      referralTokenAccount: null,
+      eventAuthority,
+    })
+    .remainingAccounts([
+      {
+        isSigner: false,
+        isWritable: false,
+        pubkey: sysvarInstructionPubkey ?? SYSVAR_INSTRUCTIONS_PUBKEY,
+      },
+    ])
+    .transaction();
+
+  const swapTestTx = await program.methods
+    .swapTest({
+      amount0,
+      amount1,
+      swapMode,
+    })
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      payer,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint,
+      tokenBMint,
+      referralTokenAccount: null,
+      eventAuthority,
+    })
+    .remainingAccounts([
+      {
+        isSigner: false,
+        isWritable: false,
+        pubkey: sysvarInstructionPubkey ?? SYSVAR_INSTRUCTIONS_PUBKEY,
+      },
+    ])
+    .transaction();
+
+  return { swapTestTx, swapPinocchioTx };
+}

@@ -1,15 +1,24 @@
-import { Keypair, PublicKey } from "@solana/web3.js";
+import {
+  getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
-import { LiteSVM } from "litesvm";
+import { expect } from "chai";
+import { AccountInfoBytes, FailedTransactionMetadata, LiteSVM } from "litesvm";
 import {
   addLiquidity,
   AddLiquidityParams,
+  buildSwapTestTxs,
+  CP_AMM_PROGRAM_ID,
   createConfigIx,
   CreateConfigParams,
   createOperator,
   createPosition,
   createToken,
   encodePermissions,
+  getPool,
   initializePool,
   InitializePoolParams,
   MAX_SQRT_PRICE,
@@ -20,15 +29,14 @@ import {
   OperatorPermission,
   sendTransaction,
   startSvm,
-  swap2Instruction,
   Swap2Params,
   SwapMode,
-  swapTestInstruction,
+  warpSlotBy,
 } from "../helpers";
 import { generateKpAndFund, randomID } from "../helpers/common";
-import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "../helpers/feeCodec";
+import { encodeFeeRateLimiterParams } from "../helpers/feeCodec";
 
-describe.only("Pinnochio swap error code", () => {
+describe("Pinnochio swap error code", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let user: Keypair;
@@ -42,6 +50,7 @@ describe.only("Pinnochio swap error code", () => {
 
   let inputTokenMint: PublicKey;
   let outputTokenMint: PublicKey;
+  let swapParams: Swap2Params;
 
   beforeEach(async () => {
     svm = startSvm();
@@ -59,17 +68,19 @@ describe.only("Pinnochio swap error code", () => {
     mintSplTokenTo(svm, inputTokenMint, admin, user.publicKey);
     mintSplTokenTo(svm, outputTokenMint, admin, user.publicKey);
 
-    const cliffFeeNumerator = new BN(2_500_000);
-    const numberOfPeriod = new BN(0);
-    const periodFrequency = new BN(0);
-    const reductionFactor = new BN(0);
+    const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
+    const maxRateLimiterDuration = new BN(10);
+    const maxFeeBps = new BN(5000);
 
-    const data = encodeFeeTimeSchedulerParams(
+    const cliffFeeNumerator = new BN(10_000_000);
+    const feeIncrementBps = 10;
+
+    const data = encodeFeeRateLimiterParams(
       BigInt(cliffFeeNumerator.toString()),
-      numberOfPeriod.toNumber(),
-      BigInt(periodFrequency.toString()),
-      BigInt(reductionFactor.toString()),
-      BaseFeeMode.FeeTimeSchedulerLinear
+      feeIncrementBps,
+      maxRateLimiterDuration.toNumber(),
+      maxFeeBps.toNumber(),
+      BigInt(referenceAmount.toString())
     );
 
     // create config
@@ -86,7 +97,7 @@ describe.only("Pinnochio swap error code", () => {
       vaultConfigKey: PublicKey.default,
       poolCreatorAuthority: PublicKey.default,
       activationType: 0,
-      collectFeeMode: 0,
+      collectFeeMode: 1,
     };
 
     let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
@@ -131,10 +142,8 @@ describe.only("Pinnochio swap error code", () => {
       tokenBAmountThreshold: new BN(200),
     };
     await addLiquidity(svm, addLiquidityParams);
-  });
 
-  it("Event swap", async () => {
-    const swapParams: Swap2Params = {
+    swapParams = {
       payer: user,
       pool,
       inputTokenMint,
@@ -144,13 +153,385 @@ describe.only("Pinnochio swap error code", () => {
       referralTokenAccount: null,
       swapMode: SwapMode.ExactIn,
     };
+  });
 
-    const txSwapPinocchio = await swap2Instruction(svm, swapParams);
+  it("pool owner is wrong", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
 
-    const metadata1 = sendTransaction(svm, txSwapPinocchio, [user]);
-    //
-    const txSwapTest = await swapTestInstruction(svm, swapParams);
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
 
-    const metadata2 = sendTransaction(svm, txSwapTest, [user]);
+    const info = svm.getAccount(pool);
+    const accountInfo: AccountInfoBytes = {
+      data: info.data,
+      executable: info.executable,
+      lamports: info.lamports,
+      owner: TOKEN_PROGRAM_ID, // change owner to token program id
+    };
+
+    svm.setAccount(pool, accountInfo);
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("token A vault is wrong", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault: tokenBVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("token B vault is wrong", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault: tokenAVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("token A vault owner not match with tokenAProgram", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_2022_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("token B vault owner not match with tokenBProgram", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_2022_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("token A mint is wrong", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint: tokenBMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("token B mint is wrong", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint: tokenAMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("event authority is wrong", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      eventAuthority: CP_AMM_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("sysvar is wrong", async () => {
+    const poolState = getPool(svm, pool);
+    warpSlotBy(svm, poolState.activationPoint.addn(1));
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+      sysvarInstructionPubkey: CP_AMM_PROGRAM_ID,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
   });
 });
+
+export function assertErrorCode(
+  metadata1: FailedTransactionMetadata,
+  metadata2: FailedTransactionMetadata
+) {
+  // console.log(metadata1.meta().logs());
+  // console.log(metadata2.meta().logs());
+  // @ts-ignore
+  const errorCode1 = metadata1.err().err().code;
+  // @ts-ignore
+  const errorCode2 = metadata2.err().err().code;
+
+  expect(errorCode1).not.to.be.null;
+  expect(errorCode2).not.to.be.null;
+  expect(errorCode1).eq(errorCode2);
+}
