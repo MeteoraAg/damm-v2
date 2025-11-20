@@ -2,7 +2,7 @@
   "scripts": {
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
-    "test": "anchor build -- --features local && yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.test.ts"
+    "test": "anchor build -- --features local && yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/*.test.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.0",

@@ -26,11 +26,11 @@ import {
   Swap2Params,
   SwapMode,
   swapTestInstruction,
-} from "../helpers";
-import { generateKpAndFund, randomID } from "../helpers/common";
-import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "../helpers/feeCodec";
+} from "./helpers";
+import { generateKpAndFund, randomID } from "./helpers/common";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 
-describe("Pinnochio swap event", () => {
+describe("Pinnochio swap", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let user: Keypair;
@@ -135,7 +135,7 @@ describe("Pinnochio swap event", () => {
     await addLiquidity(svm, addLiquidityParams);
   });
 
-  it("Event swap", async () => {
+  it("Swap event parsing backward compatible", async () => {
     const swapParams: Swap2Params = {
       payer: user,
       pool,
@@ -211,5 +211,41 @@ describe("Pinnochio swap event", () => {
     expect(event2.data.swapResult.protocolFee).not.undefined;
     expect(event2.data.swapResult.partnerFee).not.undefined;
     expect(event2.data.swapResult.referralFee).not.undefined;
+  });
+
+  it("Swap event parsing backward compatible", async () => {
+    const swapParams: Swap2Params = {
+      payer: user,
+      pool,
+      inputTokenMint,
+      outputTokenMint,
+      amount0: new BN(100000),
+      amount1: new BN(0),
+      referralTokenAccount: null,
+      swapMode: SwapMode.ExactIn,
+    };
+
+    const txSwapPinocchio = await swap2Instruction(svm, swapParams);
+
+    const swapPinocchioResult = sendTransaction(svm, txSwapPinocchio, [
+      user,
+    ]) as TransactionMetadata;
+    //
+    const txSwapTest = await swapTestInstruction(svm, swapParams);
+
+    const swapResult = sendTransaction(svm, txSwapTest, [
+      user,
+    ]) as TransactionMetadata;
+
+    const pinocchioCUsConsumed = swapPinocchioResult
+      .computeUnitsConsumed()
+      .toString();
+    const swapCUsConsumed = swapResult.computeUnitsConsumed().toString();
+
+    // { pinocchioCUsConsumed: '26_756', swapCUsConsumed: '44_933' }
+    console.log({
+      pinocchioCUsConsumed,
+      swapCUsConsumed,
+    });
   });
 });

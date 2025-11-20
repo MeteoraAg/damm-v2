@@ -32,9 +32,9 @@ import {
   Swap2Params,
   SwapMode,
   warpSlotBy,
-} from "../helpers";
-import { generateKpAndFund, randomID } from "../helpers/common";
-import { encodeFeeRateLimiterParams } from "../helpers/feeCodec";
+} from "./helpers";
+import { generateKpAndFund, randomID } from "./helpers/common";
+import { encodeFeeRateLimiterParams } from "./helpers/feeCodec";
 
 describe("Pinnochio swap error code", () => {
   let svm: LiteSVM;
