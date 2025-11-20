@@ -1,14 +1,13 @@
-use anchor_lang::prelude::*;
-
+use pinocchio::{account_info::AccountInfo, ProgramResult};
 pub fn p_transfer_from_user(
-    authority: &pinocchio::account_info::AccountInfo,
-    token_mint: &pinocchio::account_info::AccountInfo,
-    token_owner_account: &pinocchio::account_info::AccountInfo,
-    destination_token_account: &pinocchio::account_info::AccountInfo,
-    token_program: &pinocchio::account_info::AccountInfo,
+    authority: &AccountInfo,
+    token_mint: &AccountInfo,
+    token_owner_account: &AccountInfo,
+    destination_token_account: &AccountInfo,
+    token_program: &AccountInfo,
     amount: u64,
     token_flag: u8,
-) -> Result<()> {
+) -> ProgramResult {
     if token_flag == 0 {
         pinocchio_token::instructions::Transfer {
             from: token_owner_account,
@@ -16,12 +15,11 @@ pub fn p_transfer_from_user(
             authority,
             amount,
         }
-        .invoke()
-        .unwrap();
+        .invoke()?;
     } else {
         let decimals = {
             let mint = unsafe {
-                pinocchio_token_2022::state::Mint::from_account_info_unchecked(token_mint).unwrap()
+                pinocchio_token_2022::state::Mint::from_account_info_unchecked(token_mint)?
             };
             mint.decimals()
         };
@@ -34,22 +32,21 @@ pub fn p_transfer_from_user(
             decimals,
             token_program: token_program.key(),
         }
-        .invoke()
-        .unwrap();
+        .invoke()?
     }
 
     Ok(())
 }
 
 pub fn p_transfer_from_pool(
-    pool_authority: &pinocchio::account_info::AccountInfo,
-    token_mint: &pinocchio::account_info::AccountInfo,
-    token_vault: &pinocchio::account_info::AccountInfo,
-    token_owner_account: &pinocchio::account_info::AccountInfo,
-    token_program: &pinocchio::account_info::AccountInfo,
+    pool_authority: &AccountInfo,
+    token_mint: &AccountInfo,
+    token_vault: &AccountInfo,
+    token_owner_account: &AccountInfo,
+    token_program: &AccountInfo,
     amount: u64,
     token_flag: u8,
-) -> Result<()> {
+) -> ProgramResult {
     let seeds = pinocchio::seeds!(
         crate::constants::seeds::POOL_AUTHORITY_PREFIX,
         &[crate::const_pda::pool_authority::BUMP]
@@ -63,12 +60,11 @@ pub fn p_transfer_from_pool(
             authority: pool_authority,
             amount,
         }
-        .invoke_signed(signers)
-        .unwrap();
+        .invoke_signed(signers)?
     } else {
         let decimals = {
             let mint = unsafe {
-                pinocchio_token_2022::state::Mint::from_account_info_unchecked(token_mint).unwrap()
+                pinocchio_token_2022::state::Mint::from_account_info_unchecked(token_mint)?
             };
             mint.decimals()
         };
@@ -81,8 +77,7 @@ pub fn p_transfer_from_pool(
             decimals,
             token_program: token_program.key(),
         }
-        .invoke_signed(signers)
-        .unwrap();
+        .invoke_signed(signers)?
     }
 
     Ok(())
