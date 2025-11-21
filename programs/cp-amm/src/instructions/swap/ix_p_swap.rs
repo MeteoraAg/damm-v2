@@ -10,6 +10,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{
     get_processed_sibling_instruction, get_stack_height, Instruction,
 };
+use pinocchio::account_info::AccountInfo;
 use pinocchio::sysvars::instructions::{Instructions, IntrospectedInstruction, INSTRUCTIONS_ID};
 
 use crate::safe_math::SafeMath;
@@ -24,25 +25,27 @@ use crate::{
 pub const SWAP_IX_ACCOUNTS: usize = 14;
 
 pub fn get_trade_direction(
-    input_token_account: &pinocchio::account_info::AccountInfo,
-    token_a_mint: &pinocchio::account_info::AccountInfo,
-) -> TradeDirection {
+    input_token_account: &AccountInfo,
+    token_a_mint: &AccountInfo,
+) -> Result<TradeDirection> {
     // There is no interface like deserialization in pinocchio crates, there is no validation of the input token account but it will fail on transfers
-    let input_token_account_mint: pinocchio::pubkey::Pubkey =
-        input_token_account.try_borrow_data().unwrap()[..32]
-            .try_into()
-            .unwrap();
+    let input_token_account_mint: pinocchio::pubkey::Pubkey = input_token_account
+        .try_borrow_data()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?[..32]
+        .try_into()
+        .map_err(|_| ErrorCode::AccountDidNotDeserialize)?;
     if &input_token_account_mint == token_a_mint.key() {
-        return TradeDirection::AtoB;
+        Ok(TradeDirection::AtoB)
+    } else {
+        Ok(TradeDirection::BtoA)
     }
-    TradeDirection::BtoA
 }
 
 /// A pinocchio equivalent of the above handle_swap
 pub fn p_handle_swap(
     _program_id: &pinocchio::pubkey::Pubkey,
-    accounts: &[pinocchio::account_info::AccountInfo],
-    remaining_accounts: &[pinocchio::account_info::AccountInfo],
+    accounts: &[AccountInfo],
+    remaining_accounts: &[AccountInfo],
     params: &SwapParameters2,
 ) -> Result<()> {
     let [
@@ -134,7 +137,7 @@ pub fn p_handle_swap(
 
     let token_a_flag = pool.token_a_flag;
     let token_b_flag = pool.token_b_flag;
-    let trade_direction = get_trade_direction(&input_token_account, token_a_mint);
+    let trade_direction = get_trade_direction(&input_token_account, token_a_mint)?;
     let (
         token_in_mint,
         token_out_mint,
@@ -230,7 +233,8 @@ pub fn p_handle_swap(
         input_program,
         included_transfer_fee_amount_in,
         input_token_flag,
-    )?;
+    )
+    .map_err(|err| ProgramError::from(u64::from(err)))?;
     // send to user
     p_transfer_from_pool(
         pool_authority,
@@ -240,7 +244,8 @@ pub fn p_handle_swap(
         output_program,
         included_transfer_fee_amount_out,
         output_token_flag,
-    )?;
+    )
+    .map_err(|err| ProgramError::from(u64::from(err)))?;
     // send to referral
     if has_referral {
         if fee_mode.fees_on_token_a {
@@ -252,7 +257,8 @@ pub fn p_handle_swap(
                 token_a_program,
                 referral_fee,
                 input_token_flag,
-            )?;
+            )
+            .map_err(|err| ProgramError::from(u64::from(err)))?;
         } else {
             p_transfer_from_pool(
                 pool_authority,
@@ -262,7 +268,8 @@ pub fn p_handle_swap(
                 token_b_program,
                 referral_fee,
                 output_token_flag,
-            )?;
+            )
+            .map_err(|err| ProgramError::from(u64::from(err)))?;
         }
     }
 
@@ -307,7 +314,7 @@ pub fn pool_load_mut(data: &mut [u8]) -> Result<&mut Pool> {
 fn p_emit_cpi(
     // evt_swap: EvtSwap,
     inner_data: Vec<u8>,
-    authority_info: &pinocchio::account_info::AccountInfo,
+    authority_info: &AccountInfo,
 ) -> pinocchio::ProgramResult {
     let disc = anchor_lang::event::EVENT_IX_TAG_LE;
     // let inner_data = anchor_lang::Event::data(&evt_swap);
@@ -336,10 +343,9 @@ fn p_emit_cpi(
     )
 }
 
-// TODO check pinocchio
 pub fn validate_single_swap_instruction<'c, 'info>(
     pool: &Pubkey,
-    remaining_accounts: &'c [pinocchio::account_info::AccountInfo],
+    remaining_accounts: &'c [AccountInfo],
 ) -> Result<()> {
     let instruction_sysvar_account_info = remaining_accounts
         .get(0)

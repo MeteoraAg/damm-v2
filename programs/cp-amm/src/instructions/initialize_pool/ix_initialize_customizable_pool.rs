@@ -60,7 +60,7 @@ impl InitializeCustomizablePoolParameters {
             self.sqrt_price >= self.sqrt_min_price && self.sqrt_price <= self.sqrt_max_price,
             PoolError::InvalidPriceRange
         );
-        // TODO do we need more buffer here?
+
         require!(
             self.sqrt_min_price < self.sqrt_max_price,
             PoolError::InvalidPriceRange
