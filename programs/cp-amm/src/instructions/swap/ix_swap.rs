@@ -1,5 +1,4 @@
 use crate::p_helper::{p_accessor_mint, p_load_mut};
-use crate::PoolError;
 use crate::{const_pda, state::Pool};
 use anchor_lang::solana_program::system_program;
 use anchor_lang::{prelude::*, CheckId, CheckOwner};
@@ -224,6 +223,7 @@ impl<'info> SwapCtx<'info> {
                 referral_token_account.is_writable(),
                 ErrorCode::AccountNotMutable
             );
+            TokenAccount::check_owner(&Pubkey::new_from_array(*referral_token_account.owner()))?;
         }
 
         Ok(())

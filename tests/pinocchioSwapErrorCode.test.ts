@@ -10,6 +10,7 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   Transaction,
+  TransactionInstruction,
 } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
@@ -842,6 +843,68 @@ describe("Pinnochio swap error code", () => {
     //   swapPinocchioResult as FailedTransactionMetadata
     // );
   });
+
+  it("dezerializer parameters error code", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    // modify swap test instruction
+    const swapTestData = Array.from(swapTestTx.instructions[0].data);
+    let newIx = swapTestTx.instructions[0];
+    newIx.data = Buffer.concat([
+      Buffer.from(swapTestData.slice(0, 8)),
+      Buffer.from(swapTestData.slice(10)),
+    ]);
+    const newSwapTestTx = new Transaction().add(
+      new TransactionInstruction(swapTestTx.instructions[0])
+    );
+
+    // modify pinocchio swap test instruction
+    const pinocSwapData = Array.from(swapPinocchioTx.instructions[0].data);
+    let newPinoIx = swapPinocchioTx.instructions[0];
+    newPinoIx.data = Buffer.concat([
+      Buffer.from(pinocSwapData.slice(0, 8)),
+      Buffer.from(pinocSwapData.slice(10)),
+    ]);
+    const newSwapPinocchioTx = new Transaction().add(
+      new TransactionInstruction(swapPinocchioTx.instructions[0])
+    );
+
+    const swapResult = sendTransaction(svm, newSwapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, newSwapPinocchioTx, [
+      user,
+    ]);
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
 });
 
 export function assertErrorCode(
@@ -854,7 +917,6 @@ export function assertErrorCode(
   const errorCode1 = metadata1.err().err().code;
   // @ts-ignore
   const errorCode2 = metadata2.err().err().code;
-
   expect(errorCode1).not.to.be.null;
   expect(errorCode2).not.to.be.null;
   expect(errorCode1).eq(errorCode2);
