@@ -248,20 +248,6 @@ pub fn p_handle_swap(
     Ok(())
 }
 
-// pub fn pool_load_mut(data: &mut [u8]) -> Result<&mut Pool> {
-//     let disc = Pool::DISCRIMINATOR;
-//     if data.len() < disc.len() {
-//         return Err(ErrorCode::AccountDiscriminatorNotFound.into());
-//     }
-
-//     let given_disc = &data[..disc.len()];
-//     if given_disc != disc {
-//         return Err(ErrorCode::AccountDiscriminatorMismatch.into());
-//     }
-
-//     Ok(unsafe { &mut *(data[8..].as_mut_ptr() as *mut Pool) })
-// }
-
 fn p_emit_cpi(
     // evt_swap: EvtSwap,
     inner_data: Vec<u8>,

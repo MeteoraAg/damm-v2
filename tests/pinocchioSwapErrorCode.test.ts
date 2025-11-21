@@ -20,6 +20,7 @@ import {
   LiteSVM,
   TransactionMetadata,
 } from "litesvm";
+import CpAmmIDL from "../target/idl/cp_amm.json";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -793,7 +794,7 @@ describe("Pinnochio swap error code", () => {
     );
   });
 
-  it("referral account", async () => {
+  it("referral account owner wrong", async () => {
     const poolState = getPool(svm, pool);
     const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
 
@@ -820,31 +821,84 @@ describe("Pinnochio swap error code", () => {
       amount0: new BN(10),
       amount1: new BN(0),
       swapMode: SwapMode.ExactIn,
-      referralAccount: null,
+      referralAccount: user.publicKey,
     });
 
     const swapResult = sendTransaction(svm, swapTestTx, [user]);
-    // if (swapResult instanceof FailedTransactionMetadata) {
-    //   console.log(swapResult.meta().logs());
-    // } else {
-    //   console.log(swapResult.logs());
-    // }
-    // console.log(swapResult as TransactionMetadata);
 
     const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
-    if (swapPinocchioResult instanceof FailedTransactionMetadata) {
-      console.log(swapPinocchioResult.meta().logs());
-    } else {
-      console.log(swapPinocchioResult.logs());
-    }
 
-    // assertErrorCode(
-    //   swapResult as FailedTransactionMetadata,
-    //   swapPinocchioResult as FailedTransactionMetadata
-    // );
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
   });
 
   it("dezerializer parameters error code", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    // modify swap test instruction
+    const swapTestData = Array.from(swapTestTx.instructions[0].data);
+    let newIx = swapTestTx.instructions[0];
+    newIx.data = Buffer.concat([
+      Buffer.from(swapTestData.slice(0, 8)),
+      Buffer.from(swapTestData.slice(10)),
+    ]);
+    const newSwapTestTx = new Transaction().add(
+      new TransactionInstruction(swapTestTx.instructions[0])
+    );
+
+    // modify pinocchio swap test instruction
+    const pinocSwapData = Array.from(swapPinocchioTx.instructions[0].data);
+    let newPinoIx = swapPinocchioTx.instructions[0];
+    newPinoIx.data = Buffer.concat([
+      Buffer.from(
+        CpAmmIDL.instructions.find((item) => item.name == "swap").discriminator
+      ),
+      Buffer.from(pinocSwapData.slice(10)),
+    ]);
+    const newSwapPinocchioTx = new Transaction().add(
+      new TransactionInstruction(swapPinocchioTx.instructions[0])
+    );
+
+    const swapResult = sendTransaction(svm, newSwapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, newSwapPinocchioTx, [
+      user,
+    ]);
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("dezerializer parameters2 error code", async () => {
     const poolState = getPool(svm, pool);
     const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
 
@@ -911,8 +965,8 @@ export function assertErrorCode(
   metadata1: FailedTransactionMetadata,
   metadata2: FailedTransactionMetadata
 ) {
-  console.log(metadata1.meta().logs());
-  console.log(metadata2.meta().logs());
+  // console.log(metadata1.meta().logs());
+  // console.log(metadata2.meta().logs());
   // @ts-ignore
   const errorCode1 = metadata1.err().err().code;
   // @ts-ignore
