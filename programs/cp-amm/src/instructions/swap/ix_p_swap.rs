@@ -67,46 +67,8 @@ pub fn p_handle_swap(
         return Err(ProgramError::NotEnoughAccountKeys.into());
     };
 
-    // require!(payer.is_signer(), ErrorCode::AccountNotSigner);
-
     let pool_key = pool.key();
-
-    // let mut pool_data = pool
-    //     .try_borrow_mut_data()
-    //     .map_err(|_| ProgramError::AccountBorrowFailed)?;
-
-    // let pool = pool_load_mut(&mut pool_data)?;
-
     let pool: &mut Pool = p_load_mut(pool)?;
-
-    // require!(
-    //     &pool.token_a_vault.to_bytes() == token_a_vault.key(),
-    //     ErrorCode::ConstraintHasOne
-    // );
-
-    // require!(
-    //     &pool.token_b_vault.to_bytes() == token_b_vault.key(),
-    //     ErrorCode::ConstraintHasOne
-    // );
-
-    // require!(
-    //     token_a_vault.owner() == token_a_program.key(),
-    //     ErrorCode::ConstraintTokenTokenProgram
-    // );
-    // require!(
-    //     token_b_vault.owner() == token_b_program.key(),
-    //     ErrorCode::ConstraintTokenTokenProgram
-    // );
-
-    // require!(
-    //     &pool.token_a_mint.to_bytes() == token_a_mint.key(),
-    //     ErrorCode::ConstraintTokenMint
-    // );
-
-    // require!(
-    //     &pool.token_b_mint.to_bytes() == token_b_mint.key(),
-    //     ErrorCode::ConstraintTokenMint
-    // );
 
     {
         let access_validator = get_pool_access_validator(&pool)?;
