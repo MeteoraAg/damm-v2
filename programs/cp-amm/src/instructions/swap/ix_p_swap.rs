@@ -1,9 +1,9 @@
-use crate::p_token::{p_transfer_from_pool, p_transfer_from_user};
+use crate::p_helper::{p_accessor_mint, p_load_mut, p_transfer_from_pool, p_transfer_from_user};
 use crate::state::SwapResult2;
 use crate::{instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction};
 use crate::{
     process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill, EvtSwap2,
-    ProcessSwapParams, ProcessSwapResult,
+    ProcessSwapParams, ProcessSwapResult, SwapCtx,
 };
 use anchor_lang::prelude::ErrorCode;
 use anchor_lang::prelude::*;
@@ -28,12 +28,7 @@ pub fn get_trade_direction(
     input_token_account: &AccountInfo,
     token_a_mint: &AccountInfo,
 ) -> Result<TradeDirection> {
-    // There is no interface like deserialization in pinocchio crates, there is no validation of the input token account but it will fail on transfers
-    let input_token_account_mint: pinocchio::pubkey::Pubkey = input_token_account
-        .try_borrow_data()
-        .map_err(|_| ProgramError::AccountBorrowFailed)?[..32]
-        .try_into()
-        .map_err(|_| ErrorCode::AccountDidNotDeserialize)?;
+    let input_token_account_mint = p_accessor_mint(input_token_account)?;
     if &input_token_account_mint == token_a_mint.key() {
         Ok(TradeDirection::AtoB)
     } else {
@@ -48,6 +43,7 @@ pub fn p_handle_swap(
     remaining_accounts: &[AccountInfo],
     params: &SwapParameters2,
 ) -> Result<()> {
+    SwapCtx::validate_p_accounts(accounts)?;
     let [
         pool_authority,
         // #[account(mut, has_one = token_a_vault, has_one = token_b_vault)]
@@ -71,53 +67,50 @@ pub fn p_handle_swap(
         return Err(ProgramError::NotEnoughAccountKeys.into());
     };
 
-    require!(payer.is_signer(), ErrorCode::AccountNotSigner);
+    // require!(payer.is_signer(), ErrorCode::AccountNotSigner);
 
-    require!(
-        pool.owner() == &crate::ID.to_bytes(),
-        ErrorCode::AccountOwnedByWrongProgram
-    );
+    // require!(
+    //     pool.owner() == &crate::ID.to_bytes(),
+    //     ErrorCode::AccountOwnedByWrongProgram
+    // );
     let pool_key = pool.key();
 
-    let mut pool_data = pool
-        .try_borrow_mut_data()
-        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+    // let mut pool_data = pool
+    //     .try_borrow_mut_data()
+    //     .map_err(|_| ProgramError::AccountBorrowFailed)?;
 
-    let pool = pool_load_mut(&mut pool_data)?;
+    // let pool = pool_load_mut(&mut pool_data)?;
 
-    require!(
-        &pool.token_a_vault.to_bytes() == token_a_vault.key(),
-        ErrorCode::ConstraintHasOne
-    );
+    let pool: &mut Pool = p_load_mut(pool)?;
 
-    require!(
-        &pool.token_b_vault.to_bytes() == token_b_vault.key(),
-        ErrorCode::ConstraintHasOne
-    );
+    // require!(
+    //     &pool.token_a_vault.to_bytes() == token_a_vault.key(),
+    //     ErrorCode::ConstraintHasOne
+    // );
 
-    require!(
-        token_a_vault.owner() == token_a_program.key(),
-        ErrorCode::ConstraintTokenTokenProgram
-    );
-    require!(
-        token_b_vault.owner() == token_b_program.key(),
-        ErrorCode::ConstraintTokenTokenProgram
-    );
+    // require!(
+    //     &pool.token_b_vault.to_bytes() == token_b_vault.key(),
+    //     ErrorCode::ConstraintHasOne
+    // );
 
-    require!(
-        &pool.token_a_mint.to_bytes() == token_a_mint.key(),
-        ErrorCode::ConstraintTokenMint
-    );
+    // require!(
+    //     token_a_vault.owner() == token_a_program.key(),
+    //     ErrorCode::ConstraintTokenTokenProgram
+    // );
+    // require!(
+    //     token_b_vault.owner() == token_b_program.key(),
+    //     ErrorCode::ConstraintTokenTokenProgram
+    // );
 
-    require!(
-        &pool.token_b_mint.to_bytes() == token_b_mint.key(),
-        ErrorCode::ConstraintTokenMint
-    );
+    // require!(
+    //     &pool.token_a_mint.to_bytes() == token_a_mint.key(),
+    //     ErrorCode::ConstraintTokenMint
+    // );
 
-    require!(
-        event_authority.key() == &crate::EVENT_AUTHORITY_AND_BUMP.0,
-        ErrorCode::ConstraintSeeds
-    );
+    // require!(
+    //     &pool.token_b_mint.to_bytes() == token_b_mint.key(),
+    //     ErrorCode::ConstraintTokenMint
+    // );
 
     {
         let access_validator = get_pool_access_validator(&pool)?;
@@ -297,19 +290,19 @@ pub fn p_handle_swap(
     Ok(())
 }
 
-pub fn pool_load_mut(data: &mut [u8]) -> Result<&mut Pool> {
-    let disc = Pool::DISCRIMINATOR;
-    if data.len() < disc.len() {
-        return Err(ErrorCode::AccountDiscriminatorNotFound.into());
-    }
+// pub fn pool_load_mut(data: &mut [u8]) -> Result<&mut Pool> {
+//     let disc = Pool::DISCRIMINATOR;
+//     if data.len() < disc.len() {
+//         return Err(ErrorCode::AccountDiscriminatorNotFound.into());
+//     }
 
-    let given_disc = &data[..disc.len()];
-    if given_disc != disc {
-        return Err(ErrorCode::AccountDiscriminatorMismatch.into());
-    }
+//     let given_disc = &data[..disc.len()];
+//     if given_disc != disc {
+//         return Err(ErrorCode::AccountDiscriminatorMismatch.into());
+//     }
 
-    Ok(unsafe { &mut *(data[8..].as_mut_ptr() as *mut Pool) })
-}
+//     Ok(unsafe { &mut *(data[8..].as_mut_ptr() as *mut Pool) })
+// }
 
 fn p_emit_cpi(
     // evt_swap: EvtSwap,
