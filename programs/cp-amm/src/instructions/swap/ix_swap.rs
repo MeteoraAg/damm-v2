@@ -1,6 +1,7 @@
 use crate::p_helper::{p_accessor_mint, p_load_mut};
 use crate::PoolError;
-use crate::{const_pda, params::swap::TradeDirection, state::Pool};
+use crate::{const_pda, state::Pool};
+use anchor_lang::solana_program::system_program;
 use anchor_lang::{prelude::*, CheckId, CheckOwner};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -91,14 +92,6 @@ pub struct SwapCtx<'info> {
 }
 
 impl<'info> SwapCtx<'info> {
-    /// Get the trading direction of the current swap. Eg: USDT -> USDC
-    pub fn get_trade_direction(&self) -> TradeDirection {
-        if self.input_token_account.mint == self.token_a_mint.key() {
-            return TradeDirection::AtoB;
-        }
-        TradeDirection::BtoA
-    }
-
     pub fn validate_p_accounts(accounts: &[pinocchio::account_info::AccountInfo]) -> Result<()> {
         let [
             pool_authority,
@@ -117,18 +110,24 @@ impl<'info> SwapCtx<'info> {
             token_b_program,
             referral_token_account,
             event_authority,
-            _program,
+            program,
             ..
         ] = accounts else {
             return Err(ProgramError::NotEnoughAccountKeys.into());
         };
 
-        // TODO fix error code
+        // validate pool authority
         require!(
             pool_authority
                 .key()
                 .eq(&const_pda::pool_authority::ID.to_bytes()),
-            PoolError::PoolDisabled
+            ErrorCode::ConstraintAddress
+        );
+
+        // validate pool account
+        require!(
+            pool.owner() == &crate::ID.to_bytes(),
+            ErrorCode::AccountOwnedByWrongProgram
         );
 
         let pool: &mut Pool = p_load_mut(pool)?;
@@ -143,47 +142,89 @@ impl<'info> SwapCtx<'info> {
             ErrorCode::ConstraintHasOne
         );
 
-        require!(input_token_account.is_writable(), PoolError::PoolDisabled);
-        require!(output_token_account.is_writable(), PoolError::PoolDisabled);
-        // TODO can we skip check input_token_account and output_token_account is TokenAccount
+        // validate input token account
+        require!(
+            input_token_account.is_writable(),
+            ErrorCode::AccountNotMutable
+        );
+        require!(
+            input_token_account.owner() != &system_program::ID.to_bytes()
+                && input_token_account.lamports() > 0,
+            ErrorCode::AccountNotInitialized
+        );
         TokenAccount::check_owner(&Pubkey::new_from_array(*input_token_account.owner()))?;
+
+        // validate output token account
+        require!(
+            output_token_account.is_writable(),
+            ErrorCode::AccountNotMutable
+        );
+        require!(
+            output_token_account.owner() != &system_program::ID.to_bytes()
+                && input_token_account.lamports() > 0,
+            ErrorCode::AccountNotInitialized
+        );
         TokenAccount::check_owner(&Pubkey::new_from_array(*output_token_account.owner()))?;
 
-        // TODO fix error code
-        require!(token_a_vault.is_writable(), PoolError::PoolDisabled);
+        // validate token a vault
+        require!(token_a_vault.is_writable(), ErrorCode::AccountNotMutable);
+        require!(
+            token_a_vault.owner() != &system_program::ID.to_bytes() && token_a_vault.lamports() > 0,
+            ErrorCode::AccountNotInitialized
+        );
         require!(
             token_a_vault.owner() == token_a_program.key(),
             ErrorCode::ConstraintTokenTokenProgram
         );
-        let token_a_mint_pk = p_accessor_mint(token_a_vault)?;
+
+        // validate token b vault
+        require!(token_b_vault.is_writable(), ErrorCode::AccountNotMutable);
         require!(
-            token_a_mint.key() == &token_a_mint_pk,
-            PoolError::PoolDisabled
+            token_b_vault.owner() != &system_program::ID.to_bytes() && token_b_vault.lamports() > 0,
+            ErrorCode::AccountNotInitialized
         );
 
-        require!(token_b_vault.is_writable(), PoolError::PoolDisabled);
         require!(
             token_b_vault.owner() == token_b_program.key(),
             ErrorCode::ConstraintTokenTokenProgram
         );
+
+        // validate token a mint
+        let token_a_mint_pk = p_accessor_mint(token_a_vault)?;
+        require!(
+            token_a_mint.key() == &token_a_mint_pk.to_bytes(),
+            ErrorCode::ConstraintTokenMint
+        );
+        Mint::check_owner(&Pubkey::new_from_array(*token_a_mint.owner()))?;
+
+        // validate token b mint
         let token_b_mint_pk = p_accessor_mint(token_b_vault)?;
         require!(
-            token_b_mint.key() == &token_b_mint_pk,
-            PoolError::PoolDisabled
+            token_b_mint.key() == &token_b_mint_pk.to_bytes(),
+            ErrorCode::ConstraintTokenMint
         );
-
-        Mint::check_owner(&Pubkey::new_from_array(*token_a_mint.owner()))?;
         Mint::check_owner(&Pubkey::new_from_array(*token_b_mint.owner()))?;
 
+        // validate signer
         require!(payer.is_signer(), ErrorCode::AccountNotSigner);
+
+        // validate token program
         TokenInterface::check_id(&Pubkey::new_from_array(*token_a_program.key()))?;
         TokenInterface::check_id(&Pubkey::new_from_array(*token_b_program.key()))?;
 
-        // TODO valdate referral_token_account
+        // validate event authority
         require!(
             event_authority.key() == &crate::EVENT_AUTHORITY_AND_BUMP.0,
             ErrorCode::ConstraintSeeds
         );
+
+        // validate referral account
+        if referral_token_account.key() != program.key() {
+            require!(
+                referral_token_account.is_writable(),
+                ErrorCode::AccountNotMutable
+            );
+        }
 
         Ok(())
     }

@@ -1,12 +1,24 @@
 import {
+  createBurnInstruction,
+  createCloseAccountInstruction,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import {
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  Transaction,
+} from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import { AccountInfoBytes, FailedTransactionMetadata, LiteSVM } from "litesvm";
+import {
+  AccountInfoBytes,
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -18,7 +30,9 @@ import {
   createPosition,
   createToken,
   encodePermissions,
+  getOrCreateAssociatedTokenAccount,
   getPool,
+  getTokenBalance,
   initializePool,
   InitializePoolParams,
   MAX_SQRT_PRICE,
@@ -35,6 +49,10 @@ import {
 } from "./helpers";
 import { generateKpAndFund, randomID } from "./helpers/common";
 import { encodeFeeRateLimiterParams } from "./helpers/feeCodec";
+import {
+  createToken2022,
+  createTransferFeeExtensionWithInstruction,
+} from "./helpers/token2022";
 
 describe("Pinnochio swap error code", () => {
   let svm: LiteSVM;
@@ -51,6 +69,7 @@ describe("Pinnochio swap error code", () => {
   let inputTokenMint: PublicKey;
   let outputTokenMint: PublicKey;
   let swapParams: Swap2Params;
+  let token2022: PublicKey;
 
   beforeEach(async () => {
     svm = startSvm();
@@ -62,6 +81,13 @@ describe("Pinnochio swap error code", () => {
 
     inputTokenMint = createToken(svm, admin.publicKey, admin.publicKey);
     outputTokenMint = createToken(svm, admin.publicKey, admin.publicKey);
+    const mKP = Keypair.generate();
+    token2022 = createToken2022(
+      svm,
+      [createTransferFeeExtensionWithInstruction(mKP.publicKey)],
+      mKP,
+      admin.publicKey
+    );
 
     mintSplTokenTo(svm, inputTokenMint, admin, creator.publicKey);
     mintSplTokenTo(svm, outputTokenMint, admin, creator.publicKey);
@@ -155,7 +181,52 @@ describe("Pinnochio swap error code", () => {
     };
   });
 
-  it("pool owner is wrong", async () => {
+  it("validate pool authority", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const incorrectPoolAuthority = PublicKey.findProgramAddressSync(
+      [Buffer.from("pool_authority"), PublicKey.default.toBuffer()],
+      CP_AMM_PROGRAM_ID
+    )[0];
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+      poolAuthority: incorrectPoolAuthority,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("validate pool owner", async () => {
     const poolState = getPool(svm, pool);
     const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
 
@@ -204,7 +275,7 @@ describe("Pinnochio swap error code", () => {
     );
   });
 
-  it("token A vault is wrong", async () => {
+  it("pool constraint token a vault", async () => {
     const poolState = getPool(svm, pool);
     const { tokenAMint, tokenBMint, tokenBVault } = poolState;
 
@@ -243,7 +314,7 @@ describe("Pinnochio swap error code", () => {
     );
   });
 
-  it("token B vault is wrong", async () => {
+  it("pool constraint token b vault", async () => {
     const poolState = getPool(svm, pool);
     const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
 
@@ -265,6 +336,208 @@ describe("Pinnochio swap error code", () => {
       outputTokenAccount,
       tokenAVault,
       tokenBVault: tokenAVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("input token account is not initialize", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+
+    const tx = new Transaction().add(
+      ...[
+        createBurnInstruction(
+          inputTokenAccount,
+          tokenAMint,
+          user.publicKey,
+          BigInt(getTokenBalance(svm, inputTokenAccount).toString())
+        ),
+        createCloseAccountInstruction(
+          inputTokenAccount,
+          user.publicKey,
+          user.publicKey
+        ),
+      ]
+    );
+    const res = sendTransaction(svm, tx, [user]);
+    expect(res).instanceOf(TransactionMetadata);
+
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("input token account wrong owner", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getOrCreateAssociatedTokenAccount(
+      svm,
+      user,
+      token2022,
+      user.publicKey,
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("output token account is not initialize", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const tx = new Transaction().add(
+      ...[
+        createBurnInstruction(
+          outputTokenAccount,
+          tokenBMint,
+          user.publicKey,
+          BigInt(getTokenBalance(svm, outputTokenAccount).toString())
+        ),
+        createCloseAccountInstruction(
+          outputTokenAccount,
+          user.publicKey,
+          user.publicKey
+        ),
+      ]
+    );
+    const res = sendTransaction(svm, tx, [user]);
+    expect(res).instanceOf(TransactionMetadata);
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata
+    );
+  });
+
+  it("output token account wrong owner", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const outputTokenAccount = getOrCreateAssociatedTokenAccount(
+      svm,
+      user,
+      token2022,
+      user.publicKey,
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
       tokenAProgram: TOKEN_PROGRAM_ID,
       tokenBProgram: TOKEN_PROGRAM_ID,
       amount0: new BN(10),
@@ -518,14 +791,65 @@ describe("Pinnochio swap error code", () => {
       swapPinocchioResult as FailedTransactionMetadata
     );
   });
+
+  it("referral account", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+      referralAccount: null,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+    // if (swapResult instanceof FailedTransactionMetadata) {
+    //   console.log(swapResult.meta().logs());
+    // } else {
+    //   console.log(swapResult.logs());
+    // }
+    // console.log(swapResult as TransactionMetadata);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+    if (swapPinocchioResult instanceof FailedTransactionMetadata) {
+      console.log(swapPinocchioResult.meta().logs());
+    } else {
+      console.log(swapPinocchioResult.logs());
+    }
+
+    // assertErrorCode(
+    //   swapResult as FailedTransactionMetadata,
+    //   swapPinocchioResult as FailedTransactionMetadata
+    // );
+  });
 });
 
 export function assertErrorCode(
   metadata1: FailedTransactionMetadata,
   metadata2: FailedTransactionMetadata
 ) {
-  // console.log(metadata1.meta().logs());
-  // console.log(metadata2.meta().logs());
+  console.log(metadata1.meta().logs());
+  console.log(metadata2.meta().logs());
   // @ts-ignore
   const errorCode1 = metadata1.err().err().code;
   // @ts-ignore

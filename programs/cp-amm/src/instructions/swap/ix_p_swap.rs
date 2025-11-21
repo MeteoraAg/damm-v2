@@ -5,7 +5,6 @@ use crate::{
     process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill, EvtSwap2,
     ProcessSwapParams, ProcessSwapResult, SwapCtx,
 };
-use anchor_lang::prelude::ErrorCode;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{
     get_processed_sibling_instruction, get_stack_height, Instruction,
@@ -24,12 +23,13 @@ use crate::{
 
 pub const SWAP_IX_ACCOUNTS: usize = 14;
 
+/// Get the trading direction of the current swap. Eg: USDT -> USDC
 pub fn get_trade_direction(
     input_token_account: &AccountInfo,
     token_a_mint: &AccountInfo,
 ) -> Result<TradeDirection> {
     let input_token_account_mint = p_accessor_mint(input_token_account)?;
-    if &input_token_account_mint == token_a_mint.key() {
+    if &input_token_account_mint.to_bytes() == token_a_mint.key() {
         Ok(TradeDirection::AtoB)
     } else {
         Ok(TradeDirection::BtoA)
@@ -69,10 +69,6 @@ pub fn p_handle_swap(
 
     // require!(payer.is_signer(), ErrorCode::AccountNotSigner);
 
-    // require!(
-    //     pool.owner() == &crate::ID.to_bytes(),
-    //     ErrorCode::AccountOwnedByWrongProgram
-    // );
     let pool_key = pool.key();
 
     // let mut pool_data = pool

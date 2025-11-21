@@ -2462,8 +2462,10 @@ export async function buildSwapTestTxs(params: {
   tokenBVault: PublicKey;
   tokenAProgram: PublicKey;
   tokenBProgram: PublicKey;
+  poolAuthority?: PublicKey;
   eventAuthority?: PublicKey;
   sysvarInstructionPubkey?: PublicKey;
+  referralAccount?: PublicKey;
   amount0: BN;
   amount1: BN;
   swapMode: number;
@@ -2483,12 +2485,13 @@ export async function buildSwapTestTxs(params: {
     tokenAVault,
     tokenBVault,
     eventAuthority,
+    poolAuthority,
     sysvarInstructionPubkey,
+    referralAccount,
   } = params;
 
   const program = createCpAmmProgram();
 
-  const poolAuthority = derivePoolAuthority();
   const swapPinocchioTx = await program.methods
     .swap2({
       amount0,
@@ -2496,7 +2499,7 @@ export async function buildSwapTestTxs(params: {
       swapMode,
     })
     .accountsPartial({
-      poolAuthority,
+      poolAuthority: poolAuthority ?? derivePoolAuthority(),
       pool,
       payer,
       inputTokenAccount,
@@ -2507,7 +2510,7 @@ export async function buildSwapTestTxs(params: {
       tokenBProgram,
       tokenAMint,
       tokenBMint,
-      referralTokenAccount: null,
+      referralTokenAccount: referralAccount ?? null,
       eventAuthority,
     })
     .remainingAccounts([
@@ -2537,7 +2540,7 @@ export async function buildSwapTestTxs(params: {
       tokenBProgram,
       tokenAMint,
       tokenBMint,
-      referralTokenAccount: null,
+      referralTokenAccount: referralAccount ?? null,
       eventAuthority,
     })
     .remainingAccounts([

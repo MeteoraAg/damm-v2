@@ -1,5 +1,9 @@
-use anchor_lang::{error::ErrorCode, prelude::ProgramError, Result};
-use pinocchio::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
+use anchor_lang::{
+    error::ErrorCode,
+    prelude::{ProgramError, Pubkey},
+    Result,
+};
+use pinocchio::{account_info::AccountInfo, entrypoint::ProgramResult};
 pub fn p_transfer_from_user(
     authority: &AccountInfo,
     token_mint: &AccountInfo,
@@ -114,5 +118,6 @@ pub fn p_accessor_mint(token_account: &AccountInfo) -> Result<Pubkey> {
         .map_err(|_| ProgramError::AccountBorrowFailed)?[..32]
         .try_into()
         .map_err(|_| ErrorCode::AccountDidNotDeserialize)?;
+
     Ok(mint)
 }
