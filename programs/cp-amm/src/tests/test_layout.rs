@@ -1,3 +1,5 @@
+use anchor_lang::Discriminator;
+
 use crate::{
     base_fee::fee_time_scheduler::PodAlignedFeeTimeScheduler,
     state::{Config, Pool},
@@ -11,7 +13,7 @@ fn config_account_layout_backward_compatible() {
     let config_account_data =
         fs::read("./src/tests/fixtures/config_account.bin").expect("Failed to read account data");
 
-    let data_without_discriminator = &config_account_data[8..];
+    let data_without_discriminator = &config_account_data[Config::DISCRIMINATOR.len()..];
     let config_state: Config = bytemuck::pod_read_unaligned(data_without_discriminator);
 
     let fee_scheduler = bytemuck::from_bytes::<PodAlignedFeeTimeScheduler>(
@@ -38,7 +40,7 @@ fn pool_account_layout_backward_compatible() {
     let pool_account_data =
         fs::read("./src/tests/fixtures/pool_account.bin").expect("Failed to read account data");
 
-    let data_without_discriminator = &pool_account_data[8..];
+    let data_without_discriminator = &pool_account_data[Pool::DISCRIMINATOR.len()..];
     let pool_state: Pool = bytemuck::pod_read_unaligned(data_without_discriminator);
 
     let fee_scheduler = bytemuck::from_bytes::<PodAlignedFeeTimeScheduler>(

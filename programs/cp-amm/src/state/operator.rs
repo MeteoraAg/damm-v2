@@ -48,7 +48,7 @@ impl Operator {
     pub fn is_permission_allow(&self, permission: OperatorPermission) -> bool {
         let result: u128 = self
             .permission
-            .bitand(1u128 << Into::<u8>::into(permission)); // it is fine to use unwrap
+            .bitand(1u128 << Into::<u8>::into(permission));
         result != 0
     }
 }

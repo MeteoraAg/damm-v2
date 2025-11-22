@@ -71,7 +71,7 @@ pub fn handle_create_static_config(
         sqrt_min_price >= MIN_SQRT_PRICE && sqrt_max_price <= MAX_SQRT_PRICE,
         PoolError::InvalidPriceRange
     );
-    // TODO do we need more buffer here?
+
     require!(
         sqrt_min_price < sqrt_max_price,
         PoolError::InvalidPriceRange

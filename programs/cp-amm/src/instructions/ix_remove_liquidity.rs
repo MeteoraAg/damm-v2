@@ -115,10 +115,23 @@ pub fn handle_remove_liquidity(
         PoolError::AmountIsZero
     );
 
-    let transfer_fee_excluded_amount_a =
-        calculate_transfer_fee_excluded_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
-    let transfer_fee_excluded_amount_b =
-        calculate_transfer_fee_excluded_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
+    let transfer_fee_excluded_amount_a = calculate_transfer_fee_excluded_amount(
+        &ctx.accounts
+            .token_a_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_a_amount,
+    )?
+    .amount;
+
+    let transfer_fee_excluded_amount_b = calculate_transfer_fee_excluded_amount(
+        &ctx.accounts
+            .token_b_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_b_amount,
+    )?
+    .amount;
     // Slippage check
     require!(
         transfer_fee_excluded_amount_a >= token_a_amount_threshold,

@@ -156,7 +156,7 @@ pub struct Pool {
     pub fee_a_per_liquidity: [u8; 32], // U256
     /// cumulative
     pub fee_b_per_liquidity: [u8; 32], // U256
-    // TODO: Is this large enough?
+    // permanent lock liquidity
     pub permanent_lock_liquidity: u128,
     /// metrics
     pub metrics: PoolMetrics,
