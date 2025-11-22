@@ -143,27 +143,6 @@ fn get_epoch_transfer_fee(token_mint_data: &[u8]) -> Result<Option<TransferFee>>
     Ok(None)
 }
 
-// pub fn get_epoch_transfer_fee<'info>(
-//     token_mint: &InterfaceAccount<'info, Mint>,
-// ) -> Result<Option<TransferFee>> {
-//     let token_mint_info = token_mint.to_account_info();
-//     if *token_mint_info.owner == Token::id() {
-//         return Ok(None);
-//     }
-
-//     let token_mint_data = token_mint_info.try_borrow_data()?;
-//     let token_mint_unpacked =
-//         StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
-//     if let Ok(transfer_fee_config) =
-//         token_mint_unpacked.get_extension::<extension::transfer_fee::TransferFeeConfig>()
-//     {
-//         let epoch = Clock::get()?.epoch;
-//         return Ok(Some(transfer_fee_config.get_epoch_fee(epoch).clone()));
-//     }
-
-//     Ok(None)
-// }
-
 pub fn transfer_from_user<'a, 'c: 'info, 'info>(
     authority: &'a Signer<'info>,
     token_mint: &'a InterfaceAccount<'info, Mint>,

@@ -1,15 +1,17 @@
-use crate::p_token::{p_transfer_from_pool, p_transfer_from_user};
+use crate::p_helper::{
+    p_accessor_mint, p_load_mut_unchecked, p_transfer_from_pool, p_transfer_from_user,
+};
 use crate::state::SwapResult2;
 use crate::{instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction};
 use crate::{
     process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill, EvtSwap2,
-    ProcessSwapParams, ProcessSwapResult,
+    ProcessSwapParams, ProcessSwapResult, SwapCtx,
 };
-use anchor_lang::prelude::ErrorCode;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{
     get_processed_sibling_instruction, get_stack_height, Instruction,
 };
+use pinocchio::account_info::AccountInfo;
 use pinocchio::sysvars::instructions::{Instructions, IntrospectedInstruction, INSTRUCTIONS_ID};
 
 use crate::safe_math::SafeMath;
@@ -23,28 +25,29 @@ use crate::{
 
 pub const SWAP_IX_ACCOUNTS: usize = 14;
 
+/// Get the trading direction of the current swap. Eg: USDT -> USDC
 pub fn get_trade_direction(
-    input_token_account: &pinocchio::account_info::AccountInfo,
-    token_a_mint: &pinocchio::account_info::AccountInfo,
-) -> TradeDirection {
-    // There is no interface like deserialization in pinocchio crates, there is no validation of the input token account but it will fail on transfers
-    let input_token_account_mint: pinocchio::pubkey::Pubkey =
-        input_token_account.try_borrow_data().unwrap()[..32]
-            .try_into()
-            .unwrap();
-    if &input_token_account_mint == token_a_mint.key() {
-        return TradeDirection::AtoB;
+    input_token_account: &AccountInfo,
+    token_a_mint: &AccountInfo,
+) -> Result<TradeDirection> {
+    let input_token_account_mint = p_accessor_mint(input_token_account)?;
+    if &input_token_account_mint.to_bytes() == token_a_mint.key() {
+        Ok(TradeDirection::AtoB)
+    } else {
+        Ok(TradeDirection::BtoA)
     }
-    TradeDirection::BtoA
 }
 
 /// A pinocchio equivalent of the above handle_swap
 pub fn p_handle_swap(
     _program_id: &pinocchio::pubkey::Pubkey,
-    accounts: &[pinocchio::account_info::AccountInfo],
-    remaining_accounts: &[pinocchio::account_info::AccountInfo],
+    accounts: &[AccountInfo],
+    remaining_accounts: &[AccountInfo],
     params: &SwapParameters2,
 ) -> Result<()> {
+    //validate accounts to match with anchor macro
+    SwapCtx::validate_p_accounts(accounts)?;
+
     let [
         pool_authority,
         // #[account(mut, has_one = token_a_vault, has_one = token_b_vault)]
@@ -68,62 +71,8 @@ pub fn p_handle_swap(
         return Err(ProgramError::NotEnoughAccountKeys.into());
     };
 
-    // TODO Should return identical errors as anchor on constraints to keep it simple, those are just placeholders
-    require!(payer.is_signer(), ErrorCode::ConstraintSigner);
-
-    // TODO check the error code
-    require!(
-        pool.owner() == &crate::ID.to_bytes(),
-        PoolError::PoolDisabled
-    );
     let pool_key = pool.key();
-
-    // TODO check the error code
-    let mut pool_data = pool
-        .try_borrow_mut_data()
-        .map_err(|_| PoolError::PoolDisabled)?;
-
-    let pool = pool_load_mut(&mut pool_data)?;
-
-    // TODO check the error code
-    require!(
-        &pool.token_a_vault.to_bytes() == token_a_vault.key(),
-        PoolError::PoolDisabled
-    );
-
-    // TODO check the error code
-    require!(
-        &pool.token_b_vault.to_bytes() == token_b_vault.key(),
-        PoolError::PoolDisabled
-    );
-
-    // TODO check the error code
-    require!(
-        token_a_vault.owner() == token_a_program.key(),
-        PoolError::PoolDisabled
-    );
-    require!(
-        token_b_vault.owner() == token_b_program.key(),
-        PoolError::PoolDisabled
-    );
-
-    // TODO check the error code
-    require!(
-        &pool.token_a_mint.to_bytes() == token_a_mint.key(),
-        PoolError::PoolDisabled
-    );
-
-    // TODO check the error code
-    require!(
-        &pool.token_b_mint.to_bytes() == token_b_mint.key(),
-        PoolError::PoolDisabled
-    );
-
-    // TODO check the error code
-    require!(
-        event_authority.key() == &crate::EVENT_AUTHORITY_AND_BUMP.0,
-        PoolError::PoolDisabled
-    );
+    let pool: &mut Pool = p_load_mut_unchecked(pool)?;
 
     {
         let access_validator = get_pool_access_validator(&pool)?;
@@ -143,7 +92,7 @@ pub fn p_handle_swap(
 
     let token_a_flag = pool.token_a_flag;
     let token_b_flag = pool.token_b_flag;
-    let trade_direction = get_trade_direction(&input_token_account, token_a_mint);
+    let trade_direction = get_trade_direction(&input_token_account, token_a_mint)?;
     let (
         token_in_mint,
         token_out_mint,
@@ -179,7 +128,7 @@ pub fn p_handle_swap(
     // redundant validation, but we can just keep it
     require!(amount_0 > 0, PoolError::AmountIsZero);
 
-    let has_referral = referral_token_account.key() != &crate::ID.to_bytes();
+    let has_referral = referral_token_account.key().ne(&crate::ID.to_bytes());
 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
@@ -239,7 +188,8 @@ pub fn p_handle_swap(
         input_program,
         included_transfer_fee_amount_in,
         input_token_flag,
-    )?;
+    )
+    .map_err(|err| ProgramError::from(u64::from(err)))?;
     // send to user
     p_transfer_from_pool(
         pool_authority,
@@ -249,7 +199,8 @@ pub fn p_handle_swap(
         output_program,
         included_transfer_fee_amount_out,
         output_token_flag,
-    )?;
+    )
+    .map_err(|err| ProgramError::from(u64::from(err)))?;
     // send to referral
     if has_referral {
         if fee_mode.fees_on_token_a {
@@ -261,7 +212,8 @@ pub fn p_handle_swap(
                 token_a_program,
                 referral_fee,
                 input_token_flag,
-            )?;
+            )
+            .map_err(|err| ProgramError::from(u64::from(err)))?;
         } else {
             p_transfer_from_pool(
                 pool_authority,
@@ -271,7 +223,8 @@ pub fn p_handle_swap(
                 token_b_program,
                 referral_fee,
                 output_token_flag,
-            )?;
+            )
+            .map_err(|err| ProgramError::from(u64::from(err)))?;
         }
     }
 
@@ -299,27 +252,12 @@ pub fn p_handle_swap(
     Ok(())
 }
 
-pub fn pool_load_mut(data: &mut [u8]) -> Result<&mut Pool> {
-    let disc = Pool::DISCRIMINATOR;
-    if data.len() < disc.len() {
-        return Err(ErrorCode::AccountDiscriminatorNotFound.into());
-    }
-
-    let given_disc = &data[..disc.len()];
-    if given_disc != disc {
-        return Err(ErrorCode::AccountDiscriminatorMismatch.into());
-    }
-
-    Ok(unsafe { &mut *(data[8..].as_mut_ptr() as *mut Pool) })
-}
-
 fn p_emit_cpi(
     // evt_swap: EvtSwap,
     inner_data: Vec<u8>,
-    authority_info: &pinocchio::account_info::AccountInfo,
+    authority_info: &AccountInfo,
 ) -> pinocchio::ProgramResult {
     let disc = anchor_lang::event::EVENT_IX_TAG_LE;
-    // let inner_data = anchor_lang::Event::data(&evt_swap);
     let ix_data: Vec<u8> = disc
         .into_iter()
         .map(|b| *b)
@@ -345,17 +283,15 @@ fn p_emit_cpi(
     )
 }
 
-// TODO check pinocchio
 pub fn validate_single_swap_instruction<'c, 'info>(
     pool: &Pubkey,
-    remaining_accounts: &'c [pinocchio::account_info::AccountInfo],
+    remaining_accounts: &'c [AccountInfo],
 ) -> Result<()> {
     let instruction_sysvar_account_info = remaining_accounts
         .get(0)
         .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
     if &INSTRUCTIONS_ID != instruction_sysvar_account_info.key() {
-        // return Err(ProgramError::UnsupportedSysvar);
-        return Err(PoolError::PoolDisabled.into()); // TODO fund a match error
+        return Err(ProgramError::UnsupportedSysvar.into());
     }
 
     let instruction_sysvar = instruction_sysvar_account_info

@@ -1,12 +1,13 @@
-use crate::token::calculate_transfer_fee_excluded_amount;
 use crate::{
-    swap::{ProcessSwapParams, ProcessSwapResult},
-    PoolError,
+    test_swap::ProcessSwapTestParams, token::calculate_transfer_fee_excluded_amount, PoolError,
+    ProcessSwapResult,
 };
 use anchor_lang::prelude::*;
 
-pub fn process_swap_exact_in<'a>(params: ProcessSwapParams<'a>) -> Result<ProcessSwapResult> {
-    let ProcessSwapParams {
+pub fn process_swap_exact_in<'a, 'b, 'info>(
+    params: ProcessSwapTestParams<'a, 'b, 'info>,
+) -> Result<ProcessSwapResult> {
+    let ProcessSwapTestParams {
         amount_0: amount_in,
         amount_1: minimum_amount_out,
         pool,
@@ -17,13 +18,12 @@ pub fn process_swap_exact_in<'a>(params: ProcessSwapParams<'a>) -> Result<Proces
         current_point,
     } = params;
 
-    let excluded_transfer_fee_amount_in = calculate_transfer_fee_excluded_amount(
-        &token_in_mint
-            .try_borrow_data()
-            .map_err(|_| ProgramError::AccountBorrowFailed)?,
-        amount_in,
-    )?
-    .amount;
+    let token_out_mint_info = token_out_mint.to_account_info();
+    let token_in_mint_info = token_in_mint.to_account_info();
+
+    let excluded_transfer_fee_amount_in =
+        calculate_transfer_fee_excluded_amount(&token_in_mint_info.try_borrow_data()?, amount_in)?
+            .amount;
 
     require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
 
@@ -35,9 +35,7 @@ pub fn process_swap_exact_in<'a>(params: ProcessSwapParams<'a>) -> Result<Proces
     )?;
 
     let excluded_transfer_fee_amount_out = calculate_transfer_fee_excluded_amount(
-        &token_out_mint
-            .try_borrow_data()
-            .map_err(|_| ProgramError::AccountBorrowFailed)?,
+        &token_out_mint_info.try_borrow_data()?,
         swap_result.output_amount,
     )?
     .amount;

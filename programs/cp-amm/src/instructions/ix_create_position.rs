@@ -141,7 +141,7 @@ pub fn create_position_nft<'info>(
         cpi_ctx,
         String::from("Meteora Position NFT"), // TODO do we need to allow user to input custom name?
         String::from("MPN"),
-        String::from("https://raw.githubusercontent.com/MeteoraAg/token-metadata/main/meteora_position_nft.png"), // TODO update image
+        String::from("https://raw.githubusercontent.com/MeteoraAg/token-metadata/main/meteora_position_nft.png"), 
     )?;
 
     // transfer minimum rent to mint account

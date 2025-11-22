@@ -33,11 +33,23 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
                 count.checked_sub(SWAP_IX_ACCOUNTS)?,
             );
             let params = if instruction_bits[0] {
-                let swap_parameters =
-                    SwapParameters::deserialize(&mut &instruction_data[8..]).unwrap();
+                let swap_parameters = unwrap_or_return!(
+                    SwapParameters::deserialize(
+                        &mut &instruction_data[crate::instruction::Swap::DISCRIMINATOR.len()..]
+                    ),
+                    Some(ErrorCode::InstructionDidNotDeserialize as u64)
+                );
+
                 swap_parameters.to_swap_parameters2()
             } else {
-                SwapParameters2::deserialize(&mut &instruction_data[8..]).unwrap()
+                let swap_parameters = unwrap_or_return!(
+                    SwapParameters2::deserialize(
+                        &mut &instruction_data[crate::instruction::Swap2::DISCRIMINATOR.len()..]
+                    ),
+                    Some(ErrorCode::InstructionDidNotDeserialize as u64)
+                );
+
+                swap_parameters
             };
 
             Some(p_handle_swap(

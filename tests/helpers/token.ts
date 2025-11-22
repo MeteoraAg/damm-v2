@@ -19,14 +19,10 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import BN from "bn.js";
-import { DECIMALS, NATIVE_MINT } from "./constants";
-import {
-  FailedTransactionMetadata,
-  LiteSVM,
-  TransactionMetadata,
-} from "litesvm";
-import { sendTransaction } from "./svm";
 import { expect } from "chai";
+import { LiteSVM, TransactionMetadata } from "litesvm";
+import { DECIMALS, NATIVE_MINT } from "./constants";
+import { sendTransaction } from "./svm";
 const rawAmount = 100_000_000 * 10 ** DECIMALS; // 1 millions
 
 export function getOrCreateAssociatedTokenAccount(

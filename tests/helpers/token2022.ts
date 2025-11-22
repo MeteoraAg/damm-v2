@@ -1,16 +1,15 @@
 import {
+  AuthorityType,
   createInitializeMint2Instruction,
+  createInitializePermanentDelegateInstruction,
   createInitializeTransferFeeConfigInstruction,
+  createInitializeTransferHookInstruction,
+  createMintToInstruction,
+  createSetAuthorityInstruction,
+  createUpdateTransferHookInstruction,
   ExtensionType,
   getMintLen,
   TOKEN_2022_PROGRAM_ID,
-  createInitializeMetadataPointerInstruction,
-  createMintToInstruction,
-  createInitializePermanentDelegateInstruction,
-  createInitializeTransferHookInstruction,
-  createUpdateTransferHookInstruction,
-  createSetAuthorityInstruction,
-  AuthorityType,
 } from "@solana/spl-token";
 import {
   Keypair,
@@ -20,12 +19,12 @@ import {
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
+import { expect } from "chai";
+import { LiteSVM, TransactionMetadata } from "litesvm";
+import { sendTransaction } from ".";
 import { DECIMALS } from "./constants";
 import { getOrCreateAssociatedTokenAccount } from "./token";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
-import { LiteSVM, TransactionMetadata } from "litesvm";
-import { sendTransaction } from ".";
-import { expect } from "chai";
 const rawAmount = 1_000_000_000 * 10 ** DECIMALS; // 1 millions
 
 interface ExtensionWithInstruction {
@@ -86,12 +85,12 @@ export function createTransferHookExtensionWithInstruction(
   };
 }
 
-export async function createToken2022(
+export function createToken2022(
   svm: LiteSVM,
   extensions: ExtensionWithInstruction[],
   mintKeypair: Keypair,
   mintAuthority: PublicKey
-): Promise<PublicKey> {
+): PublicKey {
   const payer = Keypair.generate();
   svm.airdrop(payer.publicKey, BigInt(LAMPORTS_PER_SOL));
   let mintLen = getMintLen(extensions.map((ext) => ext.extension));
@@ -115,7 +114,6 @@ export async function createToken2022(
   );
 
   const result = sendTransaction(svm, transaction, [payer, mintKeypair]);
-
   expect(result).instanceOf(TransactionMetadata);
 
   return mintKeypair.publicKey;

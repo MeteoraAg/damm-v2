@@ -20,6 +20,8 @@ pub mod base_fee;
 pub mod math;
 pub use math::*;
 pub mod curve;
+#[cfg(feature = "local")]
+pub mod test_swap;
 pub mod tests;
 
 pub mod pool_action_access;
@@ -78,6 +80,7 @@ pub struct DummyParams {
 
 #[program]
 pub mod cp_amm {
+
     use super::*;
 
     /// ADMIN FUNCTIONS /////
@@ -335,5 +338,11 @@ pub mod cp_amm {
         _ixs: DummyParams,
     ) -> Result<()> {
         Ok(())
+    }
+
+    /// used to test with old endpoint
+    #[cfg(feature = "local")]
+    pub fn swap_test(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+        test_swap::handle_test_swap_wrapper(&ctx, params)
     }
 }
