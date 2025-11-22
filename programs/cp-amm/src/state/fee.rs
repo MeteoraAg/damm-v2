@@ -384,7 +384,7 @@ impl DynamicFeeStruct {
                 .volatility_accumulator
                 .safe_mul(self.bin_step.into())?
                 .checked_pow(2)
-                .unwrap();
+                .ok_or_else(|| PoolError::TypeCastFailed)?;
             // Variable fee control, volatility accumulator, bin step are in basis point unit (10_000)
             // This is 1e20. Which > 1e9. Scale down it to 1e9 unit and ceiling the remaining.
             let v_fee = square_vfa_bin.safe_mul(self.variable_fee_control.into())?;

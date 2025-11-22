@@ -1,4 +1,6 @@
-use crate::p_helper::{p_accessor_mint, p_load_mut, p_transfer_from_pool, p_transfer_from_user};
+use crate::p_helper::{
+    p_accessor_mint, p_load_mut_unchecked, p_transfer_from_pool, p_transfer_from_user,
+};
 use crate::state::SwapResult2;
 use crate::{instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction};
 use crate::{
@@ -43,7 +45,9 @@ pub fn p_handle_swap(
     remaining_accounts: &[AccountInfo],
     params: &SwapParameters2,
 ) -> Result<()> {
+    //validate accounts to match with anchor macro
     SwapCtx::validate_p_accounts(accounts)?;
+
     let [
         pool_authority,
         // #[account(mut, has_one = token_a_vault, has_one = token_b_vault)]
@@ -68,7 +72,7 @@ pub fn p_handle_swap(
     };
 
     let pool_key = pool.key();
-    let pool: &mut Pool = p_load_mut(pool)?;
+    let pool: &mut Pool = p_load_mut_unchecked(pool)?;
 
     {
         let access_validator = get_pool_access_validator(&pool)?;
@@ -124,7 +128,7 @@ pub fn p_handle_swap(
     // redundant validation, but we can just keep it
     require!(amount_0 > 0, PoolError::AmountIsZero);
 
-    let has_referral = referral_token_account.key() != &crate::ID.to_bytes();
+    let has_referral = referral_token_account.key().ne(&crate::ID.to_bytes());
 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
@@ -254,7 +258,6 @@ fn p_emit_cpi(
     authority_info: &AccountInfo,
 ) -> pinocchio::ProgramResult {
     let disc = anchor_lang::event::EVENT_IX_TAG_LE;
-    // let inner_data = anchor_lang::Event::data(&evt_swap);
     let ix_data: Vec<u8> = disc
         .into_iter()
         .map(|b| *b)

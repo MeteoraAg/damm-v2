@@ -1,4 +1,4 @@
-use crate::p_helper::{p_accessor_mint, p_load_mut};
+use crate::p_helper::{p_accessor_mint, p_load_mut_checked};
 use crate::{const_pda, state::Pool};
 use anchor_lang::solana_program::system_program;
 use anchor_lang::{prelude::*, CheckId, CheckOwner};
@@ -123,13 +123,7 @@ impl<'info> SwapCtx<'info> {
             ErrorCode::ConstraintAddress
         );
 
-        // validate pool account
-        require!(
-            pool.owner() == &crate::ID.to_bytes(),
-            ErrorCode::AccountOwnedByWrongProgram
-        );
-
-        let pool: &mut Pool = p_load_mut(pool)?;
+        let pool: &mut Pool = p_load_mut_checked(pool)?;
 
         require!(
             &pool.token_a_vault.to_bytes() == token_a_vault.key(),
@@ -146,6 +140,7 @@ impl<'info> SwapCtx<'info> {
             input_token_account.is_writable(),
             ErrorCode::AccountNotMutable
         );
+        // we validate this to match with anchor error
         require!(
             input_token_account.owner() != &system_program::ID.to_bytes()
                 && input_token_account.lamports() > 0,
@@ -158,6 +153,7 @@ impl<'info> SwapCtx<'info> {
             output_token_account.is_writable(),
             ErrorCode::AccountNotMutable
         );
+        // we validate this to match with anchor error
         require!(
             output_token_account.owner() != &system_program::ID.to_bytes()
                 && input_token_account.lamports() > 0,

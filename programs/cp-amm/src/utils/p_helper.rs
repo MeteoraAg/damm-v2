@@ -1,7 +1,7 @@
 use anchor_lang::{
     error::ErrorCode,
     prelude::{ProgramError, Pubkey},
-    Result,
+    require, Discriminator, Owner, Result,
 };
 use pinocchio::{account_info::AccountInfo, entrypoint::ProgramResult};
 pub fn p_transfer_from_user(
@@ -88,8 +88,14 @@ pub fn p_transfer_from_pool(
     Ok(())
 }
 
-// same code as AccountLoader load_mut
-pub fn p_load_mut<T: anchor_lang::Discriminator>(acc_info: &AccountInfo) -> Result<&mut T> {
+// same as AccounLoader load_mut() but check for discriminator and owner
+pub fn p_load_mut_checked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> Result<&mut T> {
+    // validate owner
+    require!(
+        acc_info.owner().eq(&T::owner().to_bytes()),
+        ErrorCode::AccountOwnedByWrongProgram
+    );
+
     if !acc_info.is_writable() {
         return Err(ErrorCode::AccountNotMutable.into());
     }
@@ -108,7 +114,15 @@ pub fn p_load_mut<T: anchor_lang::Discriminator>(acc_info: &AccountInfo) -> Resu
         return Err(ErrorCode::AccountDiscriminatorMismatch.into());
     }
 
-    Ok(unsafe { &mut *(data[8..].as_mut_ptr() as *mut T) })
+    Ok(unsafe { &mut *(data[disc.len()..].as_mut_ptr() as *mut T) })
+}
+
+pub fn p_load_mut_unchecked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> Result<&mut T> {
+    let mut data = acc_info
+        .try_borrow_mut_data()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+
+    Ok(unsafe { &mut *(data[T::DISCRIMINATOR.len()..].as_mut_ptr() as *mut T) })
 }
 
 pub fn p_accessor_mint(token_account: &AccountInfo) -> Result<Pubkey> {
