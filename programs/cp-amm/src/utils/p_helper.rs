@@ -1,4 +1,9 @@
-use pinocchio::{account_info::AccountInfo, ProgramResult};
+use anchor_lang::{
+    error::ErrorCode,
+    prelude::{ProgramError, Pubkey},
+    Result,
+};
+use pinocchio::{account_info::AccountInfo, entrypoint::ProgramResult};
 pub fn p_transfer_from_user(
     authority: &AccountInfo,
     token_mint: &AccountInfo,
@@ -81,4 +86,38 @@ pub fn p_transfer_from_pool(
     }
 
     Ok(())
+}
+
+// same code as AccountLoader load_mut
+pub fn p_load_mut<T: anchor_lang::Discriminator>(acc_info: &AccountInfo) -> Result<&mut T> {
+    if !acc_info.is_writable() {
+        return Err(ErrorCode::AccountNotMutable.into());
+    }
+
+    let disc = T::DISCRIMINATOR;
+    let mut data = acc_info
+        .try_borrow_mut_data()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+
+    if data.len() < disc.len() {
+        return Err(ErrorCode::AccountDiscriminatorNotFound.into());
+    }
+
+    let given_disc = &data[..disc.len()];
+    if given_disc != disc {
+        return Err(ErrorCode::AccountDiscriminatorMismatch.into());
+    }
+
+    Ok(unsafe { &mut *(data[8..].as_mut_ptr() as *mut T) })
+}
+
+pub fn p_accessor_mint(token_account: &AccountInfo) -> Result<Pubkey> {
+    // TODO fix error code
+    let mint: Pubkey = token_account
+        .try_borrow_data()
+        .map_err(|_| ProgramError::AccountBorrowFailed)?[..32]
+        .try_into()
+        .map_err(|_| ErrorCode::AccountDidNotDeserialize)?;
+
+    Ok(mint)
 }

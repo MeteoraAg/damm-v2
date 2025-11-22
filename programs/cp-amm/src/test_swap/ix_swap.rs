@@ -16,7 +16,7 @@ use anchor_lang::{
         get_processed_sibling_instruction, get_stack_height, Instruction,
     },
 };
-use anchor_spl::token_interface::Mint;
+use anchor_spl::token_interface::{Mint, TokenAccount};
 
 pub struct ProcessSwapTestParams<'a, 'b, 'info> {
     pub pool: &'a Pool,
@@ -27,6 +27,16 @@ pub struct ProcessSwapTestParams<'a, 'b, 'info> {
     pub current_point: u64,
     pub amount_0: u64,
     pub amount_1: u64,
+}
+
+fn get_trade_direction(
+    input_token_account: &InterfaceAccount<'_, TokenAccount>,
+    token_a_mint: &InterfaceAccount<'_, Mint>,
+) -> TradeDirection {
+    if input_token_account.mint == token_a_mint.key() {
+        return TradeDirection::AtoB;
+    }
+    TradeDirection::BtoA
 }
 
 pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
@@ -47,7 +57,10 @@ pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2)
     }
 
     let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::InvalidInput)?;
-    let trade_direction = ctx.accounts.get_trade_direction();
+    let trade_direction = get_trade_direction(
+        &ctx.accounts.input_token_account,
+        &ctx.accounts.token_a_mint,
+    );
 
     let (
         token_in_mint,

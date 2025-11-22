@@ -213,7 +213,7 @@ describe("Pinnochio swap", () => {
     expect(event2.data.swapResult.referralFee).not.undefined;
   });
 
-  it("Swap event parsing backward compatible", async () => {
+  it("Show CUs consumed", async () => {
     const swapParams: Swap2Params = {
       payer: user,
       pool,

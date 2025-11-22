@@ -35,14 +35,14 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
             let params = if instruction_bits[0] {
                 let swap_parameters = unwrap_or_return!(
                     SwapParameters::deserialize(&mut &instruction_data[8..]),
-                    Some(ErrorCode::InstructionDidNotDeserialize as u64) // TODO test this
+                    Some(ErrorCode::InstructionDidNotDeserialize as u64)
                 );
 
                 swap_parameters.to_swap_parameters2()
             } else {
                 let swap_parameters = unwrap_or_return!(
                     SwapParameters2::deserialize(&mut &instruction_data[8..]),
-                    Some(ErrorCode::InstructionDidNotDeserialize as u64) // TODO test this
+                    Some(ErrorCode::InstructionDidNotDeserialize as u64)
                 );
 
                 swap_parameters
