@@ -120,16 +120,15 @@ pub fn p_load_mut_checked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> R
 pub fn p_load_mut_unchecked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> Result<&mut T> {
     let mut data = acc_info
         .try_borrow_mut_data()
-        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+        .map_err(|err| ProgramError::from(u64::from(err)))?;
 
     Ok(unsafe { &mut *(data[T::DISCRIMINATOR.len()..].as_mut_ptr() as *mut T) })
 }
 
 pub fn p_accessor_mint(token_account: &AccountInfo) -> Result<Pubkey> {
-    // TODO fix error code
     let mint: Pubkey = token_account
         .try_borrow_data()
-        .map_err(|_| ProgramError::AccountBorrowFailed)?[..32]
+        .map_err(|err| ProgramError::from(u64::from(err)))?[..32]
         .try_into()
         .map_err(|_| ErrorCode::AccountDidNotDeserialize)?;
 

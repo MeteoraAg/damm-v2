@@ -247,16 +247,12 @@ pub fn p_handle_swap(
         }),
         event_authority,
     )
-    .map_err(|_| PoolError::PoolDisabled)?;
+    .map_err(|err| ProgramError::from(u64::from(err)))?;
 
     Ok(())
 }
 
-fn p_emit_cpi(
-    // evt_swap: EvtSwap,
-    inner_data: Vec<u8>,
-    authority_info: &AccountInfo,
-) -> pinocchio::ProgramResult {
+fn p_emit_cpi(inner_data: Vec<u8>, authority_info: &AccountInfo) -> pinocchio::ProgramResult {
     let disc = anchor_lang::event::EVENT_IX_TAG_LE;
     let ix_data: Vec<u8> = disc
         .into_iter()
@@ -296,13 +292,13 @@ pub fn validate_single_swap_instruction<'c, 'info>(
 
     let instruction_sysvar = instruction_sysvar_account_info
         .try_borrow_data()
-        .map_err(|_| PoolError::PoolDisabled)?;
+        .map_err(|err| ProgramError::from(u64::from(err)))?;
     let instruction_sysvar_instructions =
         unsafe { Instructions::new_unchecked(instruction_sysvar) };
     let current_index = instruction_sysvar_instructions.load_current_index();
     let current_instruction = instruction_sysvar_instructions
         .load_instruction_at(current_index.into())
-        .map_err(|_| PoolError::PoolDisabled)?;
+        .map_err(|err| ProgramError::from(u64::from(err)))?;
 
     if current_instruction.get_program_id() != &crate::ID.to_bytes() {
         // check if current instruction is CPI
@@ -330,7 +326,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
     for i in 0..current_index {
         let instruction = instruction_sysvar_instructions
             .load_instruction_at(i.into())
-            .map_err(|_| PoolError::PoolDisabled)?;
+            .map_err(|err| ProgramError::from(u64::from(err)))?;
 
         if instruction.get_program_id() != &crate::ID.to_bytes() {
             // we treat any instruction including that pool address is other swap ix
@@ -383,7 +379,7 @@ fn is_p_instruction_include_pool_swap(
     {
         let account_metadata = instruction
             .get_account_meta_at(1)
-            .map_err(|_| PoolError::PoolDisabled)?;
+            .map_err(|err| ProgramError::from(u64::from(err)))?;
         return Ok(account_metadata.key == pool.to_bytes());
     }
     Ok(false)

@@ -49,10 +49,13 @@ fn p_event_dispatch(
     _data: &[u8],
 ) -> Result<()> {
     let given_event_authority = &accounts[0];
-    require!(given_event_authority.is_signer(), PoolError::PoolDisabled);
+    require!(
+        given_event_authority.is_signer(),
+        ErrorCode::ConstraintSeeds
+    );
     require!(
         given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
-        PoolError::PoolDisabled
+        ErrorCode::ConstraintSeeds
     );
     Ok(())
 }
