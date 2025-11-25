@@ -1,6 +1,5 @@
-use crate::p_helper::{p_accessor_mint, p_load_mut_checked};
+use crate::p_helper::{p_accessor_mint, p_load_mut_checked, validate_mut_token_account};
 use crate::{const_pda, state::Pool};
-use anchor_lang::solana_program::system_program;
 use anchor_lang::{prelude::*, CheckId, CheckOwner};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -109,7 +108,7 @@ impl<'info> SwapCtx<'info> {
             token_b_program,
             referral_token_account,
             event_authority,
-            program,
+            _program,
             ..
         ] = accounts else {
             return Err(ProgramError::NotEnoughAccountKeys.into());
@@ -119,66 +118,37 @@ impl<'info> SwapCtx<'info> {
         require!(
             pool_authority
                 .key()
-                .eq(&const_pda::pool_authority::ID.to_bytes()),
+                .eq(const_pda::pool_authority::ID.as_array()),
             ErrorCode::ConstraintAddress
         );
 
         let pool: &mut Pool = p_load_mut_checked(pool)?;
 
         require!(
-            &pool.token_a_vault.to_bytes() == token_a_vault.key(),
+            pool.token_a_vault.as_array() == token_a_vault.key(),
             ErrorCode::ConstraintHasOne
         );
 
         require!(
-            &pool.token_b_vault.to_bytes() == token_b_vault.key(),
+            pool.token_b_vault.as_array() == token_b_vault.key(),
             ErrorCode::ConstraintHasOne
         );
 
-        // validate input token account
-        require!(
-            input_token_account.is_writable(),
-            ErrorCode::AccountNotMutable
-        );
-        // we validate this to match with anchor error
-        require!(
-            input_token_account.owner() != &system_program::ID.to_bytes()
-                && input_token_account.lamports() > 0,
-            ErrorCode::AccountNotInitialized
-        );
-        TokenAccount::check_owner(&Pubkey::new_from_array(*input_token_account.owner()))?;
+        // validate input_token_account
+        validate_mut_token_account(input_token_account)?;
 
-        // validate output token account
-        require!(
-            output_token_account.is_writable(),
-            ErrorCode::AccountNotMutable
-        );
-        // we validate this to match with anchor error
-        require!(
-            output_token_account.owner() != &system_program::ID.to_bytes()
-                && input_token_account.lamports() > 0,
-            ErrorCode::AccountNotInitialized
-        );
-        TokenAccount::check_owner(&Pubkey::new_from_array(*output_token_account.owner()))?;
+        // validate output_token_account
+        validate_mut_token_account(output_token_account)?;
 
-        // validate token a vault
-        require!(token_a_vault.is_writable(), ErrorCode::AccountNotMutable);
-        require!(
-            token_a_vault.owner() != &system_program::ID.to_bytes() && token_a_vault.lamports() > 0,
-            ErrorCode::AccountNotInitialized
-        );
+        // validate token_a_vault
+        validate_mut_token_account(token_a_vault)?;
         require!(
             token_a_vault.owner() == token_a_program.key(),
             ErrorCode::ConstraintTokenTokenProgram
         );
 
-        // validate token b vault
-        require!(token_b_vault.is_writable(), ErrorCode::AccountNotMutable);
-        require!(
-            token_b_vault.owner() != &system_program::ID.to_bytes() && token_b_vault.lamports() > 0,
-            ErrorCode::AccountNotInitialized
-        );
-
+        // validate token_b_vault
+        validate_mut_token_account(token_b_vault)?;
         require!(
             token_b_vault.owner() == token_b_program.key(),
             ErrorCode::ConstraintTokenTokenProgram
@@ -187,7 +157,7 @@ impl<'info> SwapCtx<'info> {
         // validate token a mint
         let token_a_mint_pk = p_accessor_mint(token_a_vault)?;
         require!(
-            token_a_mint.key() == &token_a_mint_pk.to_bytes(),
+            token_a_mint.key() == token_a_mint_pk.as_array(),
             ErrorCode::ConstraintTokenMint
         );
         Mint::check_owner(&Pubkey::new_from_array(*token_a_mint.owner()))?;
@@ -195,7 +165,7 @@ impl<'info> SwapCtx<'info> {
         // validate token b mint
         let token_b_mint_pk = p_accessor_mint(token_b_vault)?;
         require!(
-            token_b_mint.key() == &token_b_mint_pk.to_bytes(),
+            token_b_mint.key() == token_b_mint_pk.as_array(),
             ErrorCode::ConstraintTokenMint
         );
         Mint::check_owner(&Pubkey::new_from_array(*token_b_mint.owner()))?;
@@ -213,8 +183,15 @@ impl<'info> SwapCtx<'info> {
             ErrorCode::ConstraintSeeds
         );
 
+        // In anchor, emit_cpi wont be failed if the last account is not program account
+        // require!(
+        //     program.key() == crate::ID.as_array(),
+        //     ErrorCode::ConstraintSeeds
+        // );
+
         // validate referral account
-        if referral_token_account.key() != program.key() {
+        if referral_token_account.key() != crate::ID.as_array() {
+            // we dont use validate_mut_token_account because error code AccountNotInitialized is not matched in this case
             require!(
                 referral_token_account.is_writable(),
                 ErrorCode::AccountNotMutable

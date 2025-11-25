@@ -753,6 +753,45 @@ describe("Pinnochio swap error code", () => {
     );
   });
 
+  it("programs are wrong but txs are still sucessful", async () => {
+    const poolState = getPool(svm, pool);
+    const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
+
+    const inputTokenAccount = getAssociatedTokenAddressSync(
+      tokenAMint,
+      user.publicKey
+    );
+    const outputTokenAccount = getAssociatedTokenAddressSync(
+      tokenBMint,
+      user.publicKey
+    );
+
+    const { swapTestTx, swapPinocchioTx } = await buildSwapTestTxs({
+      payer: user.publicKey,
+      pool,
+      tokenAMint,
+      tokenBMint,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram: TOKEN_PROGRAM_ID,
+      tokenBProgram: TOKEN_PROGRAM_ID,
+      programPk: user.publicKey,
+      amount0: new BN(10),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+    });
+
+    const swapResult = sendTransaction(svm, swapTestTx, [user]);
+
+    const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
+
+    expect(swapResult).instanceOf(TransactionMetadata);
+    expect(swapPinocchioResult).instanceOf(TransactionMetadata);
+
+  });
+
   it("sysvar is wrong", async () => {
     const poolState = getPool(svm, pool);
     warpSlotBy(svm, poolState.activationPoint.addn(1));
@@ -963,10 +1002,16 @@ describe("Pinnochio swap error code", () => {
 
 export function assertErrorCode(
   metadata1: FailedTransactionMetadata,
-  metadata2: FailedTransactionMetadata
+  metadata2: FailedTransactionMetadata,
+  debug?: boolean,
 ) {
-  // console.log(metadata1.meta().logs());
-  // console.log(metadata2.meta().logs());
+  if (debug) {
+    console.log(metadata1);
+    console.log(metadata2);
+    console.log(metadata1.meta().logs());
+    console.log(metadata2.meta().logs());
+  }
+
   // @ts-ignore
   const errorCode1 = metadata1.err().err().code;
   // @ts-ignore

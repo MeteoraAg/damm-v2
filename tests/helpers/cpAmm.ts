@@ -43,6 +43,7 @@ import {
   deriveClaimFeeOperatorAddress,
   deriveConfigAddress,
   deriveCustomizablePoolAddress,
+  deriveEventAuthority,
   deriveOperatorAddress,
   derivePoolAddress,
   derivePoolAuthority,
@@ -1211,12 +1212,12 @@ export async function initializeReward(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
@@ -1266,12 +1267,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1308,12 +1309,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -2464,12 +2465,40 @@ export async function buildSwapTestTxs(params: {
   tokenBProgram: PublicKey;
   poolAuthority?: PublicKey;
   eventAuthority?: PublicKey;
+  programPk?: PublicKey;
   sysvarInstructionPubkey?: PublicKey;
   referralAccount?: PublicKey;
   amount0: BN;
   amount1: BN;
   swapMode: number;
 }): Promise<{ swapTestTx: Transaction; swapPinocchioTx: Transaction }> {
+  const program = createCpAmmProgram();
+  const swapTestTx = await getSwapTransaction(program.methods.swapTest, params);
+  const swapPinocchioTx = await getSwapTransaction(program.methods.swap2, params);
+  return { swapTestTx, swapPinocchioTx };
+}
+
+
+async function getSwapTransaction(swapMethod, params: {
+  payer: PublicKey;
+  pool: PublicKey;
+  tokenAMint: PublicKey;
+  tokenBMint: PublicKey;
+  inputTokenAccount: PublicKey;
+  outputTokenAccount: PublicKey;
+  tokenAVault: PublicKey;
+  tokenBVault: PublicKey;
+  tokenAProgram: PublicKey;
+  tokenBProgram: PublicKey;
+  poolAuthority?: PublicKey;
+  eventAuthority?: PublicKey;
+  programPk?: PublicKey;
+  sysvarInstructionPubkey?: PublicKey;
+  referralAccount?: PublicKey;
+  amount0: BN;
+  amount1: BN;
+  swapMode: number;
+}): Promise<Transaction> {
   const {
     payer,
     pool,
@@ -2485,20 +2514,18 @@ export async function buildSwapTestTxs(params: {
     tokenAVault,
     tokenBVault,
     eventAuthority,
+    programPk,
     poolAuthority,
     sysvarInstructionPubkey,
     referralAccount,
   } = params;
-
-  const program = createCpAmmProgram();
-
-  const swapPinocchioTx = await program.methods
-    .swap2({
+  const tx = await swapMethod
+    ({
       amount0,
       amount1,
       swapMode,
     })
-    .accountsPartial({
+    .accountsStrict({
       poolAuthority: poolAuthority ?? derivePoolAuthority(),
       pool,
       payer,
@@ -2511,7 +2538,8 @@ export async function buildSwapTestTxs(params: {
       tokenAMint,
       tokenBMint,
       referralTokenAccount: referralAccount ?? null,
-      eventAuthority,
+      eventAuthority: eventAuthority ?? deriveEventAuthority(),
+      program: programPk ?? CP_AMM_PROGRAM_ID,
     })
     .remainingAccounts([
       {
@@ -2521,36 +2549,5 @@ export async function buildSwapTestTxs(params: {
       },
     ])
     .transaction();
-
-  const swapTestTx = await program.methods
-    .swapTest({
-      amount0,
-      amount1,
-      swapMode,
-    })
-    .accountsPartial({
-      poolAuthority,
-      pool,
-      payer,
-      inputTokenAccount,
-      outputTokenAccount,
-      tokenAVault,
-      tokenBVault,
-      tokenAProgram,
-      tokenBProgram,
-      tokenAMint,
-      tokenBMint,
-      referralTokenAccount: referralAccount ?? null,
-      eventAuthority,
-    })
-    .remainingAccounts([
-      {
-        isSigner: false,
-        isWritable: false,
-        pubkey: sysvarInstructionPubkey ?? SYSVAR_INSTRUCTIONS_PUBKEY,
-      },
-    ])
-    .transaction();
-
-  return { swapTestTx, swapPinocchioTx };
+  return tx;
 }

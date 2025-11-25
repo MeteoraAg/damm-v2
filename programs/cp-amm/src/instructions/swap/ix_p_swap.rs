@@ -23,6 +23,7 @@ use crate::{
     PoolError, SwapMode, SwapParameters2,
 };
 
+// 14 accounts are calculated from SwapCtx accounts + event authority account + program account
 pub const SWAP_IX_ACCOUNTS: usize = 14;
 
 /// Get the trading direction of the current swap. Eg: USDT -> USDC
@@ -31,7 +32,7 @@ pub fn get_trade_direction(
     token_a_mint: &AccountInfo,
 ) -> Result<TradeDirection> {
     let input_token_account_mint = p_accessor_mint(input_token_account)?;
-    if &input_token_account_mint.to_bytes() == token_a_mint.key() {
+    if input_token_account_mint.as_array() == token_a_mint.key() {
         Ok(TradeDirection::AtoB)
     } else {
         Ok(TradeDirection::BtoA)
@@ -128,7 +129,7 @@ pub fn p_handle_swap(
     // redundant validation, but we can just keep it
     require!(amount_0 > 0, PoolError::AmountIsZero);
 
-    let has_referral = referral_token_account.key().ne(&crate::ID.to_bytes());
+    let has_referral = referral_token_account.key().ne(crate::ID.as_array());
 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
@@ -211,7 +212,7 @@ pub fn p_handle_swap(
                 referral_token_account,
                 token_a_program,
                 referral_fee,
-                input_token_flag,
+                token_a_flag,
             )
             .map_err(|err| ProgramError::from(u64::from(err)))?;
         } else {
@@ -222,7 +223,7 @@ pub fn p_handle_swap(
                 referral_token_account,
                 token_b_program,
                 referral_fee,
-                output_token_flag,
+                token_b_flag,
             )
             .map_err(|err| ProgramError::from(u64::from(err)))?;
         }
@@ -260,7 +261,7 @@ fn p_emit_cpi(inner_data: Vec<u8>, authority_info: &AccountInfo) -> pinocchio::P
         .chain(inner_data.into_iter())
         .collect();
     let instruction = pinocchio::instruction::Instruction {
-        program_id: &crate::ID.to_bytes(),
+        program_id: crate::ID.as_array(),
         data: &ix_data,
         accounts: &[pinocchio::instruction::AccountMeta::new(
             authority_info.key(),
@@ -300,7 +301,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         .load_instruction_at(current_index.into())
         .map_err(|err| ProgramError::from(u64::from(err)))?;
 
-    if current_instruction.get_program_id() != &crate::ID.to_bytes() {
+    if current_instruction.get_program_id() != crate::ID.as_array() {
         // check if current instruction is CPI
         // disable any stack height greater than 2
         if get_stack_height() > 2 {
@@ -328,12 +329,12 @@ pub fn validate_single_swap_instruction<'c, 'info>(
             .load_instruction_at(i.into())
             .map_err(|err| ProgramError::from(u64::from(err)))?;
 
-        if instruction.get_program_id() != &crate::ID.to_bytes() {
+        if instruction.get_program_id() != crate::ID.as_array() {
             // we treat any instruction including that pool address is other swap ix
             loop {
                 match instruction.get_account_meta_at(i.into()) {
                     Ok(account_metadata) => {
-                        if account_metadata.key == pool.to_bytes() {
+                        if &account_metadata.key == pool.as_array() {
                             msg!("Multiple swaps not allowed");
                             return Err(PoolError::FailToValidateSingleSwapInstruction.into());
                         }
@@ -380,7 +381,7 @@ fn is_p_instruction_include_pool_swap(
         let account_metadata = instruction
             .get_account_meta_at(1)
             .map_err(|err| ProgramError::from(u64::from(err)))?;
-        return Ok(account_metadata.key == pool.to_bytes());
+        return Ok(&account_metadata.key == pool.as_array());
     }
     Ok(false)
 }

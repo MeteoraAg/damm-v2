@@ -1,8 +1,9 @@
 use anchor_lang::{
     error::ErrorCode,
     prelude::{ProgramError, Pubkey},
-    require, Discriminator, Owner, Result,
+    require, system_program, CheckOwner, Discriminator, Owner, Result,
 };
+use anchor_spl::token_interface::TokenAccount;
 use pinocchio::{account_info::AccountInfo, entrypoint::ProgramResult};
 pub fn p_transfer_from_user(
     authority: &AccountInfo,
@@ -88,7 +89,7 @@ pub fn p_transfer_from_pool(
     Ok(())
 }
 
-// same as AccounLoader load_mut() but check for discriminator and owner
+// same as AccountLoader load_mut() but check for discriminator and owner
 pub fn p_load_mut_checked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> Result<&mut T> {
     // validate owner
     require!(
@@ -133,4 +134,14 @@ pub fn p_accessor_mint(token_account: &AccountInfo) -> Result<Pubkey> {
         .map_err(|_| ErrorCode::AccountDidNotDeserialize)?;
 
     Ok(mint)
+}
+
+pub fn validate_mut_token_account(token_account: &AccountInfo) -> Result<()> {
+    require!(token_account.is_writable(), ErrorCode::AccountNotMutable);
+    require!(
+        token_account.owner() != system_program::ID.as_array() && token_account.lamports() > 0,
+        ErrorCode::AccountNotInitialized
+    );
+    TokenAccount::check_owner(&Pubkey::new_from_array(*token_account.owner()))?;
+    Ok(())
 }
