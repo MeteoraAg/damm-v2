@@ -91,8 +91,6 @@ pub fn p_handle_swap(
 
     let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::InvalidInput)?;
 
-    let token_a_flag = pool.token_a_flag;
-    let token_b_flag = pool.token_b_flag;
     let trade_direction = get_trade_direction(&input_token_account, token_a_mint)?;
     let (
         token_in_mint,
@@ -101,8 +99,6 @@ pub fn p_handle_swap(
         output_vault_account,
         input_program,
         output_program,
-        input_token_flag,
-        output_token_flag,
     ) = match trade_direction {
         TradeDirection::AtoB => (
             token_a_mint,
@@ -111,8 +107,6 @@ pub fn p_handle_swap(
             token_b_vault,
             token_a_program,
             token_b_program,
-            token_a_flag,
-            token_b_flag,
         ),
         TradeDirection::BtoA => (
             token_b_mint,
@@ -121,8 +115,6 @@ pub fn p_handle_swap(
             token_a_vault,
             token_b_program,
             token_a_program,
-            token_b_flag,
-            token_a_flag,
         ),
     };
 
@@ -188,7 +180,6 @@ pub fn p_handle_swap(
         input_vault_account,
         input_program,
         included_transfer_fee_amount_in,
-        input_token_flag,
     )
     .map_err(|err| ProgramError::from(u64::from(err)))?;
     // send to user
@@ -199,7 +190,6 @@ pub fn p_handle_swap(
         &output_token_account,
         output_program,
         included_transfer_fee_amount_out,
-        output_token_flag,
     )
     .map_err(|err| ProgramError::from(u64::from(err)))?;
     // send to referral
@@ -212,7 +202,6 @@ pub fn p_handle_swap(
                 referral_token_account,
                 token_a_program,
                 referral_fee,
-                token_a_flag,
             )
             .map_err(|err| ProgramError::from(u64::from(err)))?;
         } else {
@@ -223,7 +212,6 @@ pub fn p_handle_swap(
                 referral_token_account,
                 token_b_program,
                 referral_fee,
-                token_b_flag,
             )
             .map_err(|err| ProgramError::from(u64::from(err)))?;
         }

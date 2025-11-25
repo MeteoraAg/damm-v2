@@ -183,20 +183,9 @@ impl<'info> SwapCtx<'info> {
             ErrorCode::ConstraintSeeds
         );
 
-        // In anchor, emit_cpi wont be failed if the last account is not program account
-        // require!(
-        //     program.key() == crate::ID.as_array(),
-        //     ErrorCode::ConstraintSeeds
-        // );
-
         // validate referral account
         if referral_token_account.key() != crate::ID.as_array() {
-            // we dont use validate_mut_token_account because error code AccountNotInitialized is not matched in this case
-            require!(
-                referral_token_account.is_writable(),
-                ErrorCode::AccountNotMutable
-            );
-            TokenAccount::check_owner(&Pubkey::new_from_array(*referral_token_account.owner()))?;
+            validate_mut_token_account(referral_token_account)?;
         }
 
         Ok(())

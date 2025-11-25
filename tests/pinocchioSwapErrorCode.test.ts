@@ -753,7 +753,7 @@ describe("Pinnochio swap error code", () => {
     );
   });
 
-  it("programs are wrong but txs are still sucessful", async () => {
+  it("programs are wrong", async () => {
     const poolState = getPool(svm, pool);
     const { tokenAMint, tokenBMint, tokenAVault, tokenBVault } = poolState;
 
@@ -781,14 +781,20 @@ describe("Pinnochio swap error code", () => {
       amount0: new BN(10),
       amount1: new BN(0),
       swapMode: SwapMode.ExactIn,
+      referralAccount: getAssociatedTokenAddressSync(
+        tokenBMint,
+        user.publicKey
+      ),
     });
 
     const swapResult = sendTransaction(svm, swapTestTx, [user]);
 
     const swapPinocchioResult = sendTransaction(svm, swapPinocchioTx, [user]);
 
-    expect(swapResult).instanceOf(TransactionMetadata);
-    expect(swapPinocchioResult).instanceOf(TransactionMetadata);
+    assertErrorCode(
+      swapResult as FailedTransactionMetadata,
+      swapPinocchioResult as FailedTransactionMetadata,
+    );
 
   });
 
@@ -869,7 +875,7 @@ describe("Pinnochio swap error code", () => {
 
     assertErrorCode(
       swapResult as FailedTransactionMetadata,
-      swapPinocchioResult as FailedTransactionMetadata
+      swapPinocchioResult as FailedTransactionMetadata,
     );
   });
 
