@@ -11,6 +11,13 @@ export function derivePoolAuthority(): PublicKey {
   )[0];
 }
 
+export function deriveEventAuthority(): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("__event_authority")],
+    CP_AMM_PROGRAM_ID
+  )[0];
+}
+
 export function deriveConfigAddress(index: BN): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("config"), index.toArrayLike(Buffer, "le", 8)],

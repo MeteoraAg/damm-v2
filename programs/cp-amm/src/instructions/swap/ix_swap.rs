@@ -1,25 +1,8 @@
-use crate::{
-    activation_handler::ActivationHandler,
-    const_pda, get_pool_access_validator,
-    instruction::{Swap as SwapInstruction, Swap2 as Swap2Instruction},
-    params::swap::TradeDirection,
-    process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill,
-    safe_math::SafeMath,
-    state::{fee::FeeMode, Pool, SwapResult2},
-    swap::{ProcessSwapParams, ProcessSwapResult},
-    token::{transfer_from_pool, transfer_from_user},
-    EvtSwap2, PoolError,
-};
-use anchor_lang::solana_program::sysvar;
-use anchor_lang::{
-    prelude::*,
-    solana_program::instruction::{
-        get_processed_sibling_instruction, get_stack_height, Instruction,
-    },
-};
+use crate::p_helper::{p_accessor_mint, p_load_mut_checked, validate_mut_token_account};
+use crate::{const_pda, state::Pool};
+use anchor_lang::{prelude::*, CheckId, CheckOwner};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use num_enum::{FromPrimitive, IntoPrimitive};
-
 #[repr(u8)]
 #[derive(
     Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
@@ -37,7 +20,17 @@ pub struct SwapParameters {
     pub minimum_amount_out: u64,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
+impl SwapParameters {
+    pub fn to_swap_parameters2(&self) -> SwapParameters2 {
+        SwapParameters2 {
+            amount_0: self.amount_in,
+            amount_1: self.minimum_amount_out,
+            swap_mode: SwapMode::ExactIn.into(),
+        }
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default)]
 pub struct SwapParameters2 {
     /// When it's exact in, partial fill, this will be amount_in. When it's exact out, this will be amount_out
     pub amount_0: u64,
@@ -97,245 +90,104 @@ pub struct SwapCtx<'info> {
 }
 
 impl<'info> SwapCtx<'info> {
-    /// Get the trading direction of the current swap. Eg: USDT -> USDC
-    pub fn get_trade_direction(&self) -> TradeDirection {
-        if self.input_token_account.mint == self.token_a_mint.key() {
-            return TradeDirection::AtoB;
-        }
-        TradeDirection::BtoA
-    }
-}
+    pub fn validate_p_accounts(accounts: &[pinocchio::account_info::AccountInfo]) -> Result<()> {
+        let [
+            pool_authority,
+            // #[account(mut, has_one = token_a_vault, has_one = token_b_vault)]
+            pool,
+            input_token_account,
+            output_token_account,
+            // #[account(mut, token::token_program = token_a_program, token::mint = token_a_mint)]
+            token_a_vault,
+            // #[account(mut, token::token_program = token_b_program, token::mint = token_b_mint)]
+            token_b_vault,
+            token_a_mint,
+            token_b_mint,
+            payer,
+            token_a_program,
+            token_b_program,
+            referral_token_account,
+            event_authority,
+            _program,
+            ..
+        ] = accounts else {
+            return Err(ProgramError::NotEnoughAccountKeys.into());
+        };
 
-pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
-    let SwapParameters2 {
-        amount_0,
-        amount_1,
-        swap_mode,
-        ..
-    } = params;
-
-    {
-        let pool = ctx.accounts.pool.load()?;
-        let access_validator = get_pool_access_validator(&pool)?;
+        // validate pool authority
         require!(
-            access_validator.can_swap(&ctx.accounts.payer.key()),
-            PoolError::PoolDisabled
+            pool_authority
+                .key()
+                .eq(const_pda::pool_authority::ID.as_array()),
+            ErrorCode::ConstraintAddress
         );
-    }
 
-    let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::InvalidInput)?;
-    let trade_direction = ctx.accounts.get_trade_direction();
+        let pool: &mut Pool = p_load_mut_checked(pool)?;
 
-    let (
-        token_in_mint,
-        token_out_mint,
-        input_vault_account,
-        output_vault_account,
-        input_program,
-        output_program,
-    ) = match trade_direction {
-        TradeDirection::AtoB => (
-            &ctx.accounts.token_a_mint,
-            &ctx.accounts.token_b_mint,
-            &ctx.accounts.token_a_vault,
-            &ctx.accounts.token_b_vault,
-            &ctx.accounts.token_a_program,
-            &ctx.accounts.token_b_program,
-        ),
-        TradeDirection::BtoA => (
-            &ctx.accounts.token_b_mint,
-            &ctx.accounts.token_a_mint,
-            &ctx.accounts.token_b_vault,
-            &ctx.accounts.token_a_vault,
-            &ctx.accounts.token_b_program,
-            &ctx.accounts.token_a_program,
-        ),
-    };
+        require!(
+            pool.token_a_vault.as_array() == token_a_vault.key(),
+            ErrorCode::ConstraintHasOne
+        );
 
-    // redundant validation, but we can just keep it
-    require!(amount_0 > 0, PoolError::AmountIsZero);
+        require!(
+            pool.token_b_vault.as_array() == token_b_vault.key(),
+            ErrorCode::ConstraintHasOne
+        );
 
-    let has_referral = ctx.accounts.referral_token_account.is_some();
-    let mut pool = ctx.accounts.pool.load_mut()?;
-    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
+        // validate input_token_account
+        validate_mut_token_account(input_token_account)?;
 
-    // another validation to prevent snipers to craft multiple swap instructions in 1 tx
-    // (if we dont do this, they are able to concat 16 swap instructions in 1 tx)
-    if let Ok(rate_limiter) = pool.pool_fees.base_fee.to_fee_rate_limiter() {
-        if rate_limiter.is_rate_limiter_applied(
-            current_point,
-            pool.activation_point,
-            trade_direction,
-        )? {
-            validate_single_swap_instruction(&ctx.accounts.pool.key(), ctx.remaining_accounts)?;
+        // validate output_token_account
+        validate_mut_token_account(output_token_account)?;
+
+        // validate token_a_vault
+        validate_mut_token_account(token_a_vault)?;
+        require!(
+            token_a_vault.owner() == token_a_program.key(),
+            ErrorCode::ConstraintTokenTokenProgram
+        );
+
+        // validate token_b_vault
+        validate_mut_token_account(token_b_vault)?;
+        require!(
+            token_b_vault.owner() == token_b_program.key(),
+            ErrorCode::ConstraintTokenTokenProgram
+        );
+
+        // validate token a mint
+        let token_a_mint_pk = p_accessor_mint(token_a_vault)?;
+        require!(
+            token_a_mint.key() == token_a_mint_pk.as_array(),
+            ErrorCode::ConstraintTokenMint
+        );
+        Mint::check_owner(&Pubkey::new_from_array(*token_a_mint.owner()))?;
+
+        // validate token b mint
+        let token_b_mint_pk = p_accessor_mint(token_b_vault)?;
+        require!(
+            token_b_mint.key() == token_b_mint_pk.as_array(),
+            ErrorCode::ConstraintTokenMint
+        );
+        Mint::check_owner(&Pubkey::new_from_array(*token_b_mint.owner()))?;
+
+        // validate signer
+        require!(payer.is_signer(), ErrorCode::AccountNotSigner);
+
+        // validate token program
+        TokenInterface::check_id(&Pubkey::new_from_array(*token_a_program.key()))?;
+        TokenInterface::check_id(&Pubkey::new_from_array(*token_b_program.key()))?;
+
+        // validate event authority
+        require!(
+            event_authority.key() == &crate::EVENT_AUTHORITY_AND_BUMP.0,
+            ErrorCode::ConstraintSeeds
+        );
+
+        // validate referral account
+        if referral_token_account.key() != crate::ID.as_array() {
+            validate_mut_token_account(referral_token_account)?;
         }
+
+        Ok(())
     }
-
-    // update for dynamic fee reference
-    let current_timestamp = Clock::get()?.unix_timestamp as u64;
-    pool.update_pre_swap(current_timestamp)?;
-
-    let fee_mode = FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
-
-    let process_swap_params = ProcessSwapParams {
-        pool: &pool,
-        token_in_mint,
-        token_out_mint,
-        amount_0,
-        amount_1,
-        fee_mode: &fee_mode,
-        trade_direction,
-        current_point,
-    };
-
-    let ProcessSwapResult {
-        swap_result,
-        included_transfer_fee_amount_in,
-        excluded_transfer_fee_amount_out,
-        included_transfer_fee_amount_out,
-    } = match swap_mode {
-        SwapMode::ExactIn => process_swap_exact_in(process_swap_params),
-        SwapMode::PartialFill => process_swap_partial_fill(process_swap_params),
-        SwapMode::ExactOut => process_swap_exact_out(process_swap_params),
-    }?;
-
-    pool.apply_swap_result(&swap_result, &fee_mode, current_timestamp)?;
-
-    let SwapResult2 { referral_fee, .. } = swap_result;
-
-    // send to reserve
-    transfer_from_user(
-        &ctx.accounts.payer,
-        token_in_mint,
-        &ctx.accounts.input_token_account,
-        input_vault_account,
-        input_program,
-        included_transfer_fee_amount_in,
-    )?;
-
-    // send to user
-    transfer_from_pool(
-        ctx.accounts.pool_authority.to_account_info(),
-        token_out_mint,
-        output_vault_account,
-        &ctx.accounts.output_token_account,
-        output_program,
-        included_transfer_fee_amount_out,
-    )?;
-
-    // send to referral
-    if has_referral {
-        if fee_mode.fees_on_token_a {
-            transfer_from_pool(
-                ctx.accounts.pool_authority.to_account_info(),
-                &ctx.accounts.token_a_mint,
-                &ctx.accounts.token_a_vault,
-                &ctx.accounts.referral_token_account.clone().unwrap(),
-                &ctx.accounts.token_a_program,
-                referral_fee,
-            )?;
-        } else {
-            transfer_from_pool(
-                ctx.accounts.pool_authority.to_account_info(),
-                &ctx.accounts.token_b_mint,
-                &ctx.accounts.token_b_vault,
-                &ctx.accounts.referral_token_account.clone().unwrap(),
-                &ctx.accounts.token_b_program,
-                referral_fee,
-            )?;
-        }
-    }
-
-    let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
-
-    emit_cpi!(EvtSwap2 {
-        pool: ctx.accounts.pool.key(),
-        trade_direction: trade_direction.into(),
-        collect_fee_mode: pool.collect_fee_mode,
-        has_referral,
-        params,
-        swap_result,
-        current_timestamp,
-        included_transfer_fee_amount_in,
-        included_transfer_fee_amount_out,
-        excluded_transfer_fee_amount_out,
-        reserve_a_amount,
-        reserve_b_amount
-    });
-
-    Ok(())
-}
-
-pub fn validate_single_swap_instruction<'c, 'info>(
-    pool: &Pubkey,
-    remaining_accounts: &'c [AccountInfo<'info>],
-) -> Result<()> {
-    let instruction_sysvar_account_info = remaining_accounts
-        .get(0)
-        .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
-
-    // get current index of instruction
-    let current_index =
-        sysvar::instructions::load_current_index_checked(instruction_sysvar_account_info)?;
-    let current_instruction = sysvar::instructions::load_instruction_at_checked(
-        current_index.into(),
-        instruction_sysvar_account_info,
-    )?;
-
-    if current_instruction.program_id != crate::ID {
-        // check if current instruction is CPI
-        // disable any stack height greater than 2
-        if get_stack_height() > 2 {
-            return Err(PoolError::FailToValidateSingleSwapInstruction.into());
-        }
-        // check for any sibling instruction
-        let mut sibling_index = 0;
-        while let Some(sibling_instruction) = get_processed_sibling_instruction(sibling_index) {
-            if sibling_instruction.program_id == crate::ID {
-                require!(
-                    !is_instruction_include_pool_swap(&sibling_instruction, pool),
-                    PoolError::FailToValidateSingleSwapInstruction
-                );
-            }
-            sibling_index = sibling_index.safe_add(1)?;
-        }
-    }
-
-    if current_index == 0 {
-        // skip for first instruction
-        return Ok(());
-    }
-    for i in 0..current_index {
-        let instruction = sysvar::instructions::load_instruction_at_checked(
-            i.into(),
-            instruction_sysvar_account_info,
-        )?;
-
-        if instruction.program_id != crate::ID {
-            // we treat any instruction including that pool address is other swap ix
-            for i in 0..instruction.accounts.len() {
-                if instruction.accounts[i].pubkey.eq(pool) {
-                    msg!("Multiple swaps not allowed");
-                    return Err(PoolError::FailToValidateSingleSwapInstruction.into());
-                }
-            }
-        } else {
-            require!(
-                !is_instruction_include_pool_swap(&instruction, pool),
-                PoolError::FailToValidateSingleSwapInstruction
-            );
-        }
-    }
-
-    Ok(())
-}
-
-fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) -> bool {
-    let instruction_discriminator = &instruction.data[..8];
-    if instruction_discriminator.eq(SwapInstruction::DISCRIMINATOR)
-        || instruction_discriminator.eq(Swap2Instruction::DISCRIMINATOR)
-    {
-        return instruction.accounts[1].pubkey.eq(pool);
-    }
-    false
 }

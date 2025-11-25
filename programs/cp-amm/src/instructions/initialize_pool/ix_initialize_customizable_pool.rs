@@ -60,7 +60,7 @@ impl InitializeCustomizablePoolParameters {
             self.sqrt_price >= self.sqrt_min_price && self.sqrt_price <= self.sqrt_max_price,
             PoolError::InvalidPriceRange
         );
-        // TODO do we need more buffer here?
+
         require!(
             self.sqrt_min_price < self.sqrt_max_price,
             PoolError::InvalidPriceRange
@@ -331,10 +331,24 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
     });
 
     // transfer token
-    let mut total_amount_a =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
-    let mut total_amount_b =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
+
+    let mut total_amount_a = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_a_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_a_amount,
+    )?
+    .amount;
+
+    let mut total_amount_b = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_b_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_b_amount,
+    )?
+    .amount;
 
     // require at least 1 lamport to prove ownership of token mints
     total_amount_a = total_amount_a.max(1);

@@ -7,14 +7,14 @@ import {
   Wallet,
 } from "@coral-xyz/anchor";
 import {
-  AccountLayout,
-  getAssociatedTokenAddressSync,
-  TOKEN_2022_PROGRAM_ID,
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,
-  getExtensionData,
+  AccountLayout,
   ExtensionType,
+  getAssociatedTokenAddressSync,
+  getExtensionData,
   MetadataPointerLayout,
+  TOKEN_2022_PROGRAM_ID,
   unpackAccount,
 } from "@solana/spl-token";
 import { unpack } from "@solana/spl-token-metadata";
@@ -30,13 +30,20 @@ import {
   SYSVAR_INSTRUCTIONS_PUBKEY,
   Transaction,
 } from "@solana/web3.js";
+import { expect } from "chai";
+import Decimal from "decimal.js";
+import {
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { CpAmm } from "../../target/types/cp_amm";
-import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 import {
   deriveClaimFeeOperatorAddress,
   deriveConfigAddress,
   deriveCustomizablePoolAddress,
+  deriveEventAuthority,
   deriveOperatorAddress,
   derivePoolAddress,
   derivePoolAuthority,
@@ -46,15 +53,6 @@ import {
   deriveTokenBadgeAddress,
   deriveTokenVaultAddress,
 } from "./accounts";
-import {
-  BaseFeeMode,
-  decodePodAlignedFeeMarketCapScheduler,
-  decodeFeeMarketCapSchedulerParams,
-  decodePodAlignedFeeRateLimiter,
-  decodeFeeRateLimiterParams,
-  decodePodAlignedFeeTimeScheduler,
-  decodeFeeTimeSchedulerParams,
-} from "./feeCodec";
 import { convertToByteArray } from "./common";
 import {
   BASIS_POINT_MAX,
@@ -68,14 +66,17 @@ import {
   NATIVE_MINT,
   ONE,
 } from "./constants";
-import { expect } from "chai";
-import Decimal from "decimal.js";
 import {
-  FailedTransactionMetadata,
-  LiteSVM,
-  TransactionMetadata,
-} from "litesvm";
+  BaseFeeMode,
+  decodeFeeMarketCapSchedulerParams,
+  decodeFeeRateLimiterParams,
+  decodeFeeTimeSchedulerParams,
+  decodePodAlignedFeeMarketCapScheduler,
+  decodePodAlignedFeeRateLimiter,
+  decodePodAlignedFeeTimeScheduler,
+} from "./feeCodec";
 import { sendTransaction } from "./svm";
+import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
 export type Position = IdlAccounts<CpAmm>["position"];
@@ -1211,12 +1212,12 @@ export async function initializeReward(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
@@ -1266,12 +1267,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1308,12 +1309,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -1943,7 +1944,6 @@ export async function swapInstruction(
 
   return transaction;
 }
-
 export enum SwapMode {
   ExactIn,
   PartialFillIn,
@@ -1999,6 +1999,77 @@ export async function swap2Instruction(svm: LiteSVM, params: Swap2Params) {
 
   const transaction = await program.methods
     .swap2({
+      amount0,
+      amount1,
+      swapMode,
+    })
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      payer: payer.publicKey,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint,
+      tokenBMint,
+      referralTokenAccount,
+    })
+    .remainingAccounts(
+      // TODO should check condition to add this in remaining accounts
+      [
+        {
+          isSigner: false,
+          isWritable: false,
+          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+        },
+      ]
+    )
+    .transaction();
+
+  return transaction;
+}
+
+export async function swapTestInstruction(svm: LiteSVM, params: Swap2Params) {
+  const {
+    payer,
+    pool,
+    inputTokenMint,
+    outputTokenMint,
+    amount0,
+    amount1,
+    swapMode,
+    referralTokenAccount,
+  } = params;
+
+  const program = createCpAmmProgram();
+  const poolState = getPool(svm, pool);
+
+  const poolAuthority = derivePoolAuthority();
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
+
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
+  const inputTokenAccount = getAssociatedTokenAddressSync(
+    inputTokenMint,
+    payer.publicKey,
+    true,
+    tokenAProgram
+  );
+  const outputTokenAccount = getAssociatedTokenAddressSync(
+    outputTokenMint,
+    payer.publicKey,
+    true,
+    tokenBProgram
+  );
+  const tokenAVault = poolState.tokenAVault;
+  const tokenBVault = poolState.tokenBVault;
+  const tokenAMint = poolState.tokenAMint;
+  const tokenBMint = poolState.tokenBMint;
+
+  const transaction = await program.methods
+    .swapTest({
       amount0,
       amount1,
       swapMode,
@@ -2379,4 +2450,104 @@ export function getFeeShedulerParams(
     reductionFactor,
     baseFeeMode,
   };
+}
+
+export async function buildSwapTestTxs(params: {
+  payer: PublicKey;
+  pool: PublicKey;
+  tokenAMint: PublicKey;
+  tokenBMint: PublicKey;
+  inputTokenAccount: PublicKey;
+  outputTokenAccount: PublicKey;
+  tokenAVault: PublicKey;
+  tokenBVault: PublicKey;
+  tokenAProgram: PublicKey;
+  tokenBProgram: PublicKey;
+  poolAuthority?: PublicKey;
+  eventAuthority?: PublicKey;
+  programPk?: PublicKey;
+  sysvarInstructionPubkey?: PublicKey;
+  referralAccount?: PublicKey;
+  amount0: BN;
+  amount1: BN;
+  swapMode: number;
+}): Promise<{ swapTestTx: Transaction; swapPinocchioTx: Transaction }> {
+  const program = createCpAmmProgram();
+  const swapTestTx = await getSwapTransaction(program.methods.swapTest, params);
+  const swapPinocchioTx = await getSwapTransaction(program.methods.swap2, params);
+  return { swapTestTx, swapPinocchioTx };
+}
+
+
+async function getSwapTransaction(swapMethod, params: {
+  payer: PublicKey;
+  pool: PublicKey;
+  tokenAMint: PublicKey;
+  tokenBMint: PublicKey;
+  inputTokenAccount: PublicKey;
+  outputTokenAccount: PublicKey;
+  tokenAVault: PublicKey;
+  tokenBVault: PublicKey;
+  tokenAProgram: PublicKey;
+  tokenBProgram: PublicKey;
+  poolAuthority?: PublicKey;
+  eventAuthority?: PublicKey;
+  programPk?: PublicKey;
+  sysvarInstructionPubkey?: PublicKey;
+  referralAccount?: PublicKey;
+  amount0: BN;
+  amount1: BN;
+  swapMode: number;
+}): Promise<Transaction> {
+  const {
+    payer,
+    pool,
+    amount0,
+    amount1,
+    swapMode,
+    tokenAMint,
+    tokenBMint,
+    inputTokenAccount,
+    outputTokenAccount,
+    tokenAProgram,
+    tokenBProgram,
+    tokenAVault,
+    tokenBVault,
+    eventAuthority,
+    programPk,
+    poolAuthority,
+    sysvarInstructionPubkey,
+    referralAccount,
+  } = params;
+  const tx = await swapMethod
+    ({
+      amount0,
+      amount1,
+      swapMode,
+    })
+    .accountsStrict({
+      poolAuthority: poolAuthority ?? derivePoolAuthority(),
+      pool,
+      payer,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault,
+      tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint,
+      tokenBMint,
+      referralTokenAccount: referralAccount ?? null,
+      eventAuthority: eventAuthority ?? deriveEventAuthority(),
+      program: programPk ?? CP_AMM_PROGRAM_ID,
+    })
+    .remainingAccounts([
+      {
+        isSigner: false,
+        isWritable: false,
+        pubkey: sysvarInstructionPubkey ?? SYSVAR_INSTRUCTIONS_PUBKEY,
+      },
+    ])
+    .transaction();
+  return tx;
 }

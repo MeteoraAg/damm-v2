@@ -1,12 +1,14 @@
 use crate::{
-    swap::{ProcessSwapParams, ProcessSwapResult},
+    test_swap::ProcessSwapTestParams,
     token::{calculate_transfer_fee_excluded_amount, calculate_transfer_fee_included_amount},
-    PoolError,
+    PoolError, ProcessSwapResult,
 };
 use anchor_lang::prelude::*;
 
-pub fn process_swap_partial_fill<'a>(params: ProcessSwapParams<'a>) -> Result<ProcessSwapResult> {
-    let ProcessSwapParams {
+pub fn process_swap_partial_fill<'a, 'b, 'info>(
+    params: ProcessSwapTestParams<'a, 'b, 'info>,
+) -> Result<ProcessSwapResult> {
+    let ProcessSwapTestParams {
         pool,
         token_in_mint,
         token_out_mint,
@@ -17,13 +19,12 @@ pub fn process_swap_partial_fill<'a>(params: ProcessSwapParams<'a>) -> Result<Pr
         current_point,
     } = params;
 
-    let excluded_transfer_fee_amount_in = calculate_transfer_fee_excluded_amount(
-        &token_in_mint
-            .try_borrow_data()
-            .map_err(|_| ProgramError::AccountBorrowFailed)?,
-        amount_in,
-    )?
-    .amount;
+    let token_out_mint_info = token_out_mint.to_account_info();
+    let token_in_mint_info = token_in_mint.to_account_info();
+
+    let excluded_transfer_fee_amount_in =
+        calculate_transfer_fee_excluded_amount(&token_in_mint_info.try_borrow_data()?, amount_in)?
+            .amount;
 
     // redundant check, but it is fine to keep it
     require!(excluded_transfer_fee_amount_in > 0, PoolError::AmountIsZero);
@@ -42,9 +43,7 @@ pub fn process_swap_partial_fill<'a>(params: ProcessSwapParams<'a>) -> Result<Pr
     );
 
     let excluded_transfer_fee_amount_out = calculate_transfer_fee_excluded_amount(
-        &token_out_mint
-            .try_borrow_data()
-            .map_err(|_| ProgramError::AccountBorrowFailed)?,
+        &token_out_mint_info.try_borrow_data()?,
         swap_result.output_amount,
     )?
     .amount;
@@ -55,9 +54,7 @@ pub fn process_swap_partial_fill<'a>(params: ProcessSwapParams<'a>) -> Result<Pr
     );
 
     let transfer_fee_included_consumed_in_amount = calculate_transfer_fee_included_amount(
-        &token_in_mint
-            .try_borrow_data()
-            .map_err(|_| ProgramError::AccountBorrowFailed)?,
+        &token_in_mint_info.try_borrow_data()?,
         swap_result.included_fee_input_amount,
     )?
     .amount;

@@ -111,10 +111,23 @@ pub fn handle_add_liquidity(
 
     pool.apply_add_liquidity(&mut position, liquidity_delta)?;
 
-    let total_amount_a =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
-    let total_amount_b =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
+    let total_amount_a = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_a_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_a_amount,
+    )?
+    .amount;
+
+    let total_amount_b = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_b_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_b_amount,
+    )?
+    .amount;
 
     require!(
         total_amount_a <= token_a_amount_threshold,
