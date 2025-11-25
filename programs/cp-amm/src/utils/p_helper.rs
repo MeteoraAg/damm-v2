@@ -13,7 +13,7 @@ pub fn p_transfer_from_user(
     token_program: &AccountInfo,
     amount: u64,
 ) -> ProgramResult {
-    let decimals = token_mint.try_borrow_data()?[44..45][0];
+    let decimals = p_accessor_decimals(token_mint)?;
     pinocchio_token_2022::instructions::TransferChecked {
         from: token_owner_account,
         mint: token_mint,
@@ -42,7 +42,7 @@ pub fn p_transfer_from_pool(
     );
     let signers = &[pinocchio::instruction::Signer::from(&seeds)];
 
-    let decimals = token_mint.try_borrow_data()?[44..45][0];
+    let decimals = p_accessor_decimals(token_mint)?;
     pinocchio_token_2022::instructions::TransferChecked {
         from: token_vault,
         mint: token_mint,
@@ -102,6 +102,13 @@ pub fn p_accessor_mint(token_account: &AccountInfo) -> Result<Pubkey> {
         .map_err(|_| ErrorCode::AccountDidNotDeserialize)?;
 
     Ok(mint)
+}
+
+pub fn p_accessor_decimals(
+    token_mint: &AccountInfo,
+) -> std::result::Result<u8, pinocchio::program_error::ProgramError> {
+    let decimals = token_mint.try_borrow_data()?[44..45][0];
+    Ok(decimals)
 }
 
 pub fn validate_mut_token_account(token_account: &AccountInfo) -> Result<()> {
