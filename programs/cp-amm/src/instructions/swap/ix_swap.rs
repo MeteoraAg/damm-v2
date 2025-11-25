@@ -254,6 +254,8 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
 
     let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
 
+    msg!("program id: {:?}", ctx.accounts.program.key());
+
     emit_cpi!(EvtSwap {
         pool: ctx.accounts.pool.key(),
         trade_direction: trade_direction.into(),
@@ -278,6 +280,8 @@ pub fn handle_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2) -> R
         reserve_a_amount,
         reserve_b_amount
     });
+
+    msg!("passed here");
 
     Ok(())
 }
