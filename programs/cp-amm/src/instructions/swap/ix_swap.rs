@@ -2,13 +2,20 @@ use crate::p_helper::{p_accessor_mint, p_load_mut_checked, validate_mut_token_ac
 use crate::{const_pda, state::Pool};
 use anchor_lang::{prelude::*, CheckId, CheckOwner};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use num_enum::{FromPrimitive, IntoPrimitive};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
 #[repr(u8)]
 #[derive(
-    Clone, Copy, Debug, PartialEq, IntoPrimitive, FromPrimitive, AnchorDeserialize, AnchorSerialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
 )]
 pub enum SwapMode {
-    #[num_enum(default)]
     ExactIn,
     PartialFill,
     ExactOut,
