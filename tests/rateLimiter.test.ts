@@ -3,12 +3,12 @@ import {
   convertToRateLimiterSecondFactor,
   expectThrowsAsync,
   generateKpAndFund,
-  getCpAmmProgramErrorCodeHexString,
   processTransactionMaybeThrow,
   randomID,
   startTest,
   warpSlotBy,
 } from "./bankrun-utils/common";
+import { getCpAmmProgramErrorCodeHexString } from "./bankrun-utils";
 import {
   Keypair,
   LAMPORTS_PER_SOL,
