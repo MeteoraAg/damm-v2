@@ -33,3 +33,6 @@ mod test_rate_limiter;
 
 #[cfg(test)]
 mod layout_test;
+
+#[cfg(test)]
+mod extract_vectors;
