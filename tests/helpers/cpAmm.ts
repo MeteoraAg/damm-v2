@@ -32,11 +32,7 @@ import {
 } from "@solana/web3.js";
 import { expect } from "chai";
 import Decimal from "decimal.js";
-import {
-  FailedTransactionMetadata,
-  LiteSVM,
-  TransactionMetadata,
-} from "litesvm";
+import { LiteSVM, TransactionMetadata } from "litesvm";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { CpAmm } from "../../target/types/cp_amm";
 import {
@@ -75,7 +71,7 @@ import {
   decodePodAlignedFeeRateLimiter,
   decodePodAlignedFeeTimeScheduler,
 } from "./feeCodec";
-import { sendTransaction } from "./svm";
+import { sendTransaction, sendTransactionThrowError } from "./svm";
 import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
@@ -206,9 +202,7 @@ export async function createConfigIx(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [whitelistedAddress]);
 
   // Check data
   const configState = getConfig(svm, config);
@@ -343,8 +337,7 @@ export async function closeConfigIx(
       rentReceiver: whitelistedAddress.publicKey,
     })
     .transaction();
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [whitelistedAddress]);
 
   const configState = svm.getAccount(config);
   expect(configState.data.length).eq(0);
@@ -374,9 +367,7 @@ export async function createTokenBadge(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-  expect(result).instanceOf(TransactionMetadata);
-
+  sendTransactionThrowError(svm, transaction, [whitelistedAddress]);
   const tokenBadgeState = getTokenBadge(svm, tokenBadge);
 
   expect(tokenBadgeState.tokenMint.toString()).eq(tokenMint.toString());
@@ -404,8 +395,8 @@ export async function closeTokenBadge(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [whitelistedAddress]);
+
   const tokenBadgeAccount = svm.getAccount(tokenBadge);
   expect(tokenBadgeAccount.data.length).eq(0);
 }
@@ -436,9 +427,7 @@ export async function createClaimFeeOperator(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [whitelistedAddress]);
 }
 
 export enum OperatorPermission {
@@ -484,9 +473,7 @@ export async function createOperator(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [admin]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [admin]);
 }
 
 export type CloseFeeOperatorParams = {
@@ -511,8 +498,7 @@ export async function closeClaimFeeOperator(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [whitelistedAddress]);
 
   const account = svm.getAccount(claimFeeOperator);
 
@@ -529,7 +515,7 @@ export type UpdatePoolFeesParams = {
 export async function updatePoolFeesParameters(
   svm: LiteSVM,
   params: UpdatePoolFeesParams
-): Promise<TransactionMetadata | FailedTransactionMetadata> {
+): Promise<void> {
   const { pool, whitelistedOperator, cliffFeeNumerator, dynamicFee } = params;
   const program = createCpAmmProgram();
   const transaction = await program.methods
@@ -544,8 +530,7 @@ export async function updatePoolFeesParameters(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedOperator]);
-  return result;
+  sendTransactionThrowError(svm, transaction, [whitelistedOperator]);
 }
 
 export type ClaimProtocolFeeParams = {
@@ -630,8 +615,7 @@ export async function claimProtocolFee(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [claimFeeOperator]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [claimFeeOperator]);
 }
 
 export type ClaimPartnerFeeParams = {
@@ -682,9 +666,7 @@ export async function claimPartnerFee(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [partner]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [partner]);
 }
 
 export type InitializePoolParams = {
@@ -704,7 +686,6 @@ export async function initializePool(
 ): Promise<{
   pool: PublicKey;
   position: PublicKey;
-  result: TransactionMetadata | FailedTransactionMetadata;
 }> {
   const {
     config,
@@ -778,25 +759,22 @@ export async function initializePool(
     })
   );
 
-  const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
-  if (result instanceof TransactionMetadata) {
-    // validate pool data
-    const poolState = getPool(svm, pool);
-    expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
-    expect(poolState.tokenBMint.toString()).eq(tokenBMint.toString());
-    expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
-    expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
-    expect(poolState.liquidity.toString()).eq(liquidity.toString());
-    expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
+  sendTransactionThrowError(svm, transaction, [payer, positionNftKP]);
 
-    expect(poolState.rewardInfos[0].initialized).eq(0);
-    expect(poolState.rewardInfos[1].initialized).eq(0);
-    expect(poolState.poolFees.initSqrtPrice.toString()).eq(
-      sqrtPrice.toString()
-    );
-  }
+  // validate pool data
+  const poolState = getPool(svm, pool);
+  expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
+  expect(poolState.tokenBMint.toString()).eq(tokenBMint.toString());
+  expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
+  expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
+  expect(poolState.liquidity.toString()).eq(liquidity.toString());
+  expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
 
-  return { pool, position: position, result };
+  expect(poolState.rewardInfos[0].initialized).eq(0);
+  expect(poolState.rewardInfos[1].initialized).eq(0);
+  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
+
+  return { pool, position: position };
 }
 
 export type InitializePoolWithCustomizeConfigParams = {
@@ -910,12 +888,11 @@ export async function initializePoolWithCustomizeConfig(
     })
   );
 
-  const result = sendTransaction(svm, transaction, [
+  sendTransactionThrowError(svm, transaction, [
     payer,
     positionNftKP,
     poolCreatorAuthority,
   ]);
-  expect(result).instanceOf(TransactionMetadata);
 
   // validate pool data
   const poolState = getPool(svm, pool);
@@ -954,9 +931,7 @@ export async function setPoolStatus(svm: LiteSVM, params: SetPoolStatusParams) {
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [whitelistedAddress]);
 }
 
 export type PoolFeesParams = {
@@ -1072,8 +1047,7 @@ export async function initializeCustomizablePool(
     })
   );
 
-  const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [payer, positionNftKP]);
 
   // validate pool data
   const poolState = getPool(svm, pool);
@@ -1199,7 +1173,7 @@ export type InitializeRewardParams = {
 export async function initializeReward(
   svm: LiteSVM,
   params: InitializeRewardParams
-): Promise<TransactionMetadata | FailedTransactionMetadata> {
+): Promise<void> {
   const { index, rewardDuration, pool, rewardMint, payer, funder, operator } =
     params;
   const program = createCpAmmProgram();
@@ -1212,12 +1186,12 @@ export async function initializeReward(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
@@ -1233,20 +1207,17 @@ export async function initializeReward(
     .remainingAccounts(remainingAccounts)
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [payer]);
-  if (result instanceof TransactionMetadata) {
-    // validate reward data
-    const poolState = getPool(svm, pool);
-    expect(poolState.rewardInfos[index].initialized).eq(1);
-    expect(poolState.rewardInfos[index].vault.toString()).eq(
-      rewardVault.toString()
-    );
-    expect(poolState.rewardInfos[index].mint.toString()).eq(
-      rewardMint.toString()
-    );
-  }
+  sendTransactionThrowError(svm, transaction, [payer]);
 
-  return result;
+  // validate reward data
+  const poolState = getPool(svm, pool);
+  expect(poolState.rewardInfos[index].initialized).eq(1);
+  expect(poolState.rewardInfos[index].vault.toString()).eq(
+    rewardVault.toString()
+  );
+  expect(poolState.rewardInfos[index].mint.toString()).eq(
+    rewardMint.toString()
+  );
 }
 
 export type UpdateRewardDurationParams = {
@@ -1267,12 +1238,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1282,8 +1253,7 @@ export async function updateRewardDuration(
     .remainingAccounts(remainingAccounts)
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [signer]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [signer]);
 
   const poolState = getPool(svm, pool);
   expect(poolState.rewardInfos[index].rewardDuration.toNumber()).eq(
@@ -1309,12 +1279,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -1324,8 +1294,7 @@ export async function updateRewardFunder(
     .remainingAccounts(remainingAccounts)
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [signer]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [signer]);
 
   const poolState = getPool(svm, pool);
   expect(poolState.rewardInfos[index].funder.toString()).eq(
@@ -1370,8 +1339,7 @@ export async function fundReward(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [funder]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [funder]);
 }
 
 export type ClaimRewardParams = {
@@ -1385,7 +1353,7 @@ export type ClaimRewardParams = {
 export async function claimReward(
   svm: LiteSVM,
   params: ClaimRewardParams
-): Promise<TransactionMetadata | FailedTransactionMetadata> {
+): Promise<void> {
   const { index, pool, user, position, skipReward } = params;
   const program = createCpAmmProgram();
 
@@ -1420,8 +1388,7 @@ export async function claimReward(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [user]);
-  return result;
+  sendTransactionThrowError(svm, transaction, [user]);
 }
 
 export type WithdrawIneligibleRewardParams = {
@@ -1460,8 +1427,7 @@ export async function withdrawIneligibleReward(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [funder]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [funder]);
 }
 
 export async function refreshVestings(
@@ -1494,8 +1460,7 @@ export async function refreshVestings(
     )
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [payer]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [payer]);
 }
 
 export async function permanentLockPosition(
@@ -1519,8 +1484,7 @@ export async function permanentLockPosition(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [payer, owner]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [payer, owner]);
 }
 
 export async function lockPosition(
@@ -1550,8 +1514,7 @@ export async function lockPosition(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [payer, owner, vestingKP]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [payer, owner, vestingKP]);
 
   return vestingKP.publicKey;
 }
@@ -1584,8 +1547,7 @@ export async function createPosition(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [payer, positionNftKP]);
 
   const positionState = getPosition(svm, position);
 
@@ -1689,9 +1651,7 @@ export async function addLiquidity(svm: LiteSVM, params: AddLiquidityParams) {
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [owner]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [owner]);
 }
 
 export type RemoveLiquidityParams = AddLiquidityParams;
@@ -1758,8 +1718,7 @@ export async function removeLiquidity(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [owner]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [owner]);
 }
 
 export type RemoveAllLiquidityParams = {
@@ -1827,8 +1786,7 @@ export async function removeAllLiquidity(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [owner]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [owner]);
 }
 
 export async function closePosition(
@@ -1858,8 +1816,7 @@ export async function closePosition(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [owner]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [owner]);
 }
 
 export type SwapParams = {
@@ -2112,8 +2069,7 @@ export async function swap2ExactIn(
     swapMode: SwapMode.ExactIn,
   });
 
-  const result = sendTransaction(svm, swapIx, [params.payer]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, swapIx, [params.payer]);
 }
 
 export async function swap2ExactOut(
@@ -2125,9 +2081,7 @@ export async function swap2ExactOut(
     swapMode: SwapMode.ExactOut,
   });
 
-  const result = sendTransaction(svm, swapIx, [params.payer]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, swapIx, [params.payer]);
 }
 
 export async function swap2PartialFillIn(
@@ -2139,16 +2093,13 @@ export async function swap2PartialFillIn(
     swapMode: SwapMode.PartialFillIn,
   });
 
-  const result = sendTransaction(svm, swapIx, [params.payer]);
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, swapIx, [params.payer]);
 }
 
 export async function swapExactIn(svm: LiteSVM, params: SwapParams) {
   const transaction = await swapInstruction(svm, params);
 
-  const result = sendTransaction(svm, transaction, [params.payer]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [params.payer]);
 }
 
 export type ClaimPositionFeeParams = {
@@ -2208,9 +2159,7 @@ export async function claimPositionFee(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [owner]);
-
-  expect(result).instanceOf(TransactionMetadata);
+  sendTransactionThrowError(svm, transaction, [owner]);
 }
 
 export type SplitPositionParams = {
@@ -2266,12 +2215,10 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [
+  sendTransactionThrowError(svm, transaction, [
     firstPositionOwner,
     secondPositionOwner,
   ]);
-
-  return result;
 }
 
 export type SplitPosition2Params = {
@@ -2312,12 +2259,10 @@ export async function splitPosition2(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [
+  sendTransactionThrowError(svm, transaction, [
     firstPositionOwner,
     secondPositionOwner,
   ]);
-
-  return result;
 }
 
 export function getPool(svm: LiteSVM, pool: PublicKey): Pool {
@@ -2474,31 +2419,36 @@ export async function buildSwapTestTxs(params: {
 }): Promise<{ swapTestTx: Transaction; swapPinocchioTx: Transaction }> {
   const program = createCpAmmProgram();
   const swapTestTx = await getSwapTransaction(program.methods.swapTest, params);
-  const swapPinocchioTx = await getSwapTransaction(program.methods.swap2, params);
+  const swapPinocchioTx = await getSwapTransaction(
+    program.methods.swap2,
+    params
+  );
   return { swapTestTx, swapPinocchioTx };
 }
 
-
-async function getSwapTransaction(swapMethod, params: {
-  payer: PublicKey;
-  pool: PublicKey;
-  tokenAMint: PublicKey;
-  tokenBMint: PublicKey;
-  inputTokenAccount: PublicKey;
-  outputTokenAccount: PublicKey;
-  tokenAVault: PublicKey;
-  tokenBVault: PublicKey;
-  tokenAProgram: PublicKey;
-  tokenBProgram: PublicKey;
-  poolAuthority?: PublicKey;
-  eventAuthority?: PublicKey;
-  programPk?: PublicKey;
-  sysvarInstructionPubkey?: PublicKey;
-  referralAccount?: PublicKey;
-  amount0: BN;
-  amount1: BN;
-  swapMode: number;
-}): Promise<Transaction> {
+async function getSwapTransaction(
+  swapMethod,
+  params: {
+    payer: PublicKey;
+    pool: PublicKey;
+    tokenAMint: PublicKey;
+    tokenBMint: PublicKey;
+    inputTokenAccount: PublicKey;
+    outputTokenAccount: PublicKey;
+    tokenAVault: PublicKey;
+    tokenBVault: PublicKey;
+    tokenAProgram: PublicKey;
+    tokenBProgram: PublicKey;
+    poolAuthority?: PublicKey;
+    eventAuthority?: PublicKey;
+    programPk?: PublicKey;
+    sysvarInstructionPubkey?: PublicKey;
+    referralAccount?: PublicKey;
+    amount0: BN;
+    amount1: BN;
+    swapMode: number;
+  }
+): Promise<Transaction> {
   const {
     payer,
     pool,
@@ -2519,12 +2469,11 @@ async function getSwapTransaction(swapMethod, params: {
     sysvarInstructionPubkey,
     referralAccount,
   } = params;
-  const tx = await swapMethod
-    ({
-      amount0,
-      amount1,
-      swapMode,
-    })
+  const tx = await swapMethod({
+    amount0,
+    amount1,
+    swapMode,
+  })
     .accountsStrict({
       poolAuthority: poolAuthority ?? derivePoolAuthority(),
       pool,

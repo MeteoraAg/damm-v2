@@ -1,40 +1,39 @@
-import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
+import { describe } from "mocha";
 import {
   addLiquidity,
   AddLiquidityParams,
   claimReward,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
   createPosition,
+  createToken,
+  deriveRewardVaultAddress,
+  encodePermissions,
+  expectThrowsErrorMessage,
+  freezeTokenAccount,
   fundReward,
+  getPosition,
+  getTokenAccount,
   initializePool,
   InitializePoolParams,
   initializeReward,
   InitializeRewardParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
-  createToken,
   mintSplTokenTo,
-  freezeTokenAccount,
-  deriveRewardVaultAddress,
-  getTokenAccount,
-  U64_MAX,
-  getCpAmmProgramErrorCode,
-  getPosition,
-  encodePermissions,
   OperatorPermission,
-  createOperator,
   startSvm,
+  U64_MAX,
   warpToTimestamp,
-  expectThrowsErrorCode,
 } from "./helpers";
-import BN from "bn.js";
-import { describe } from "mocha";
-import { expect } from "chai";
+import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
 
 describe("Frozen reward vault", () => {
   let svm: LiteSVM;
@@ -187,17 +186,15 @@ describe("Frozen reward vault", () => {
     expect(rewardVaultInfo.state).eq(2); // frozen
 
     // check error
-    const errorCode = getCpAmmProgramErrorCode("RewardVaultFrozenSkipRequired");
-    expectThrowsErrorCode(
+    await expectThrowsErrorMessage(async () => {
       await claimReward(svm, {
         index,
         user,
         pool,
         position,
         skipReward: 0, // skip_reward is required in case reward vault frozen
-      }),
-      errorCode
-    );
+      });
+    }, "RewardVaultFrozenSkipRequired");
 
     // // claim reward
     await claimReward(svm, {

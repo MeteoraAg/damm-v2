@@ -1,36 +1,34 @@
-import { expect } from "chai";
-import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
 import {
+  addLiquidity,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
+  createPosition,
+  createToken,
+  derivePositionNftAccount,
+  encodePermissions,
+  expectThrowsErrorMessage,
   getPool,
+  getPosition,
   initializePool,
   InitializePoolParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
-  createToken,
   mintSplTokenTo,
-  createPosition,
-  getPosition,
-  splitPosition,
-  derivePositionNftAccount,
-  permanentLockPosition,
-  U64_MAX,
-  addLiquidity,
-  swapExactIn,
-  convertToByteArray,
   OperatorPermission,
-  encodePermissions,
-  createOperator,
+  permanentLockPosition,
+  splitPosition,
   startSvm,
-  getCpAmmProgramErrorCode,
-  expectThrowsErrorCode,
+  swapExactIn,
+  U64_MAX,
 } from "./helpers";
-import BN from "bn.js";
+import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
 
 describe("Split position", () => {
   let svm: LiteSVM;
@@ -130,7 +128,7 @@ describe("Split position", () => {
   });
 
   it("Cannot split two same position", async () => {
-    const positionState = await getPosition(svm, position);
+    const positionState = getPosition(svm, position);
 
     const splitParams = {
       unlockedLiquidityPercentage: 50,
@@ -141,19 +139,22 @@ describe("Split position", () => {
       reward1Percentage: 0,
     };
 
-    const errorCode = getCpAmmProgramErrorCode("SamePosition");
-    const res = await splitPosition(svm, {
-      firstPositionOwner: creator,
-      secondPositionOwner: creator,
-      pool,
-      firstPosition: position,
-      secondPosition: position,
-      firstPositionNftAccount: derivePositionNftAccount(positionState.nftMint),
-      secondPositionNftAccount: derivePositionNftAccount(positionState.nftMint),
-      ...splitParams,
-    });
-
-    expectThrowsErrorCode(res, errorCode);
+    await expectThrowsErrorMessage(async () => {
+      await splitPosition(svm, {
+        firstPositionOwner: creator,
+        secondPositionOwner: creator,
+        pool,
+        firstPosition: position,
+        secondPosition: position,
+        firstPositionNftAccount: derivePositionNftAccount(
+          positionState.nftMint
+        ),
+        secondPositionNftAccount: derivePositionNftAccount(
+          positionState.nftMint
+        ),
+        ...splitParams,
+      });
+    }, "SamePosition");
   });
 
   it("Invalid parameters", async () => {
@@ -175,25 +176,22 @@ describe("Split position", () => {
       reward0Percentage: 0,
       reward1Percentage: 0,
     };
-
-    const errorCode = getCpAmmProgramErrorCode(
-      "InvalidSplitPositionParameters"
-    );
-
-    const res = await splitPosition(svm, {
-      firstPositionOwner: creator,
-      secondPositionOwner: user,
-      pool,
-      firstPosition: position,
-      secondPosition,
-      firstPositionNftAccount: derivePositionNftAccount(positionState.nftMint),
-      secondPositionNftAccount: derivePositionNftAccount(
-        secondPositionState.nftMint
-      ),
-      ...splitParams,
-    });
-
-    expectThrowsErrorCode(res, errorCode);
+    await expectThrowsErrorMessage(async () => {
+      await splitPosition(svm, {
+        firstPositionOwner: creator,
+        secondPositionOwner: user,
+        pool,
+        firstPosition: position,
+        secondPosition,
+        firstPositionNftAccount: derivePositionNftAccount(
+          positionState.nftMint
+        ),
+        secondPositionNftAccount: derivePositionNftAccount(
+          secondPositionState.nftMint
+        ),
+        ...splitParams,
+      });
+    }, "InvalidSplitPositionParameters");
   });
 
   it("Split position into two position", async () => {
