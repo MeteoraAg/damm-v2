@@ -189,6 +189,11 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
             PoolError::InvalidFeeMarketCapScheduler
         );
 
+        require!(
+            self.number_of_period > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
         let min_fee_numerator = self.get_min_base_fee_numerator()?;
         let max_fee_numerator = self.cliff_fee_numerator;
         validate_fee_fraction(min_fee_numerator, FEE_DENOMINATOR)?;
