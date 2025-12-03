@@ -1,5 +1,6 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
+import { LiteSVM } from "litesvm";
 import { describe } from "mocha";
 import {
   addLiquidity,
@@ -7,8 +8,12 @@ import {
   claimReward,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
   createPosition,
   createToken,
+  createTokenBadge,
+  deriveOperatorAddress,
+  encodePermissions,
   fundReward,
   getPool,
   initializePool,
@@ -19,24 +24,21 @@ import {
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
   mintSplTokenTo,
+  OperatorPermission,
+  startSvm,
   updateRewardDuration,
   updateRewardFunder,
-  withdrawIneligibleReward,
-  encodePermissions,
-  createOperator,
-  OperatorPermission,
-  deriveOperatorAddress,
-  startSvm,
   warpToTimestamp,
+  withdrawIneligibleReward,
 } from "./helpers";
 import { generateKpAndFund } from "./helpers/common";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import {
+  createPermenantDelegateExtensionWithInstruction,
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./helpers/token2022";
-import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
 
 describe("Reward by admin", () => {
   // SPL-Token
@@ -305,6 +307,7 @@ describe("Reward by admin", () => {
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
     let rewardMint: PublicKey;
+    let rewardMintNonSupportExtension: PublicKey;
 
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -312,14 +315,22 @@ describe("Reward by admin", () => {
 
     beforeEach(async () => {
       svm = startSvm();
+      user = generateKpAndFund(svm);
+      funder = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
       const tokenAMintKeypair = Keypair.generate();
       const tokenBMintKeypair = Keypair.generate();
       const rewardMintKeypair = Keypair.generate();
+      const rewardMintNonSupportExtensionKeypair = Keypair.generate();
 
       tokenAMint = tokenAMintKeypair.publicKey;
       tokenBMint = tokenBMintKeypair.publicKey;
       rewardMint = rewardMintKeypair.publicKey;
+      rewardMintNonSupportExtension =
+        rewardMintNonSupportExtensionKeypair.publicKey;
 
       const tokenAExtensions = [
         createTransferFeeExtensionWithInstruction(tokenAMint),
@@ -331,29 +342,37 @@ describe("Reward by admin", () => {
         createTransferFeeExtensionWithInstruction(rewardMint),
       ];
 
-      user = generateKpAndFund(svm);
-      funder = generateKpAndFund(svm);
-      creator = generateKpAndFund(svm);
-      admin = generateKpAndFund(svm);
-      whitelistedAccount = generateKpAndFund(svm);
+      const rewardNonSupportExtension = [
+        createPermenantDelegateExtensionWithInstruction(
+          rewardMintNonSupportExtension,
+          admin.publicKey
+        ),
+      ];
 
-      await createToken2022(
+      createToken2022(
         svm,
         tokenAExtensions,
         tokenAMintKeypair,
         admin.publicKey
       );
-      await createToken2022(
+      createToken2022(
         svm,
         tokenBExtensions,
         tokenBMintKeypair,
         admin.publicKey
       );
 
-      await createToken2022(
+      createToken2022(
         svm,
         rewardExtensions,
         rewardMintKeypair,
+        admin.publicKey
+      );
+
+      createToken2022(
+        svm,
+        rewardNonSupportExtension,
+        rewardMintNonSupportExtensionKeypair,
         admin.publicKey
       );
 
@@ -404,6 +423,7 @@ describe("Reward by admin", () => {
         OperatorPermission.InitializeReward,
         OperatorPermission.UpdateRewardDuration,
         OperatorPermission.UpdateRewardFunder,
+        OperatorPermission.CreateTokenBadge,
       ]);
 
       await createOperator(svm, {
@@ -418,6 +438,55 @@ describe("Reward by admin", () => {
         new BN(configId),
         createConfigParams
       );
+
+      await createTokenBadge(svm, {
+        tokenMint: rewardMintNonSupportExtension,
+        whitelistedAddress: whitelistedAccount,
+      });
+    });
+
+    it("operator create reward with non-support extension", async () => {
+      liquidity = new BN(MIN_LP_AMOUNT);
+      sqrtPrice = new BN(MIN_SQRT_PRICE);
+
+      const initPoolParams: InitializePoolParams = {
+        payer: creator,
+        creator: creator.publicKey,
+        config,
+        tokenAMint,
+        tokenBMint,
+        liquidity,
+        sqrtPrice,
+        activationPoint: null,
+      };
+
+      const { pool } = await initializePool(svm, initPoolParams);
+
+      // user create postion and add liquidity
+      const position = await createPosition(svm, user, user.publicKey, pool);
+
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(100),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(svm, addLiquidityParams);
+
+      // init reward
+      const index = 1;
+      const initRewardParams: InitializeRewardParams = {
+        index,
+        payer: whitelistedAccount,
+        rewardDuration: new BN(24 * 60 * 60),
+        pool,
+        rewardMint: rewardMintNonSupportExtension,
+        funder: admin.publicKey,
+        operator: deriveOperatorAddress(whitelistedAccount.publicKey),
+      };
+      await initializeReward(svm, initRewardParams);
     });
 
     it("Full flow for reward", async () => {

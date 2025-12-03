@@ -20,6 +20,7 @@ import {
 import { unpack } from "@solana/spl-token-metadata";
 import {
   AccountInfo,
+  AccountMeta,
   clusterApiUrl,
   ComputeBudgetProgram,
   Connection,
@@ -1208,16 +1209,22 @@ export async function initializeReward(
   const rewardVault = deriveRewardVaultAddress(pool, index);
 
   const tokenProgram = svm.getAccount(rewardMint).owner;
-  let remainingAccounts =
-    operator == null
-      ? []
-      : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+  const tokenBadge = deriveTokenBadgeAddress(rewardMint);
+  const remainingAccounts: AccountMeta[] = [];
+  if (svm.getAccount(tokenBadge)) {
+    remainingAccounts.push({
+      pubkey: tokenBadge,
+      isSigner: false,
+      isWritable: false,
+    });
+  }
+  if (operator) {
+    remainingAccounts.push({
+      pubkey: operator,
+      isSigner: false,
+      isWritable: false,
+    });
+  }
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
@@ -1245,7 +1252,6 @@ export async function initializeReward(
       rewardMint.toString()
     );
   }
-
   return result;
 }
 
@@ -1267,12 +1273,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1309,12 +1315,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -2474,31 +2480,36 @@ export async function buildSwapTestTxs(params: {
 }): Promise<{ swapTestTx: Transaction; swapPinocchioTx: Transaction }> {
   const program = createCpAmmProgram();
   const swapTestTx = await getSwapTransaction(program.methods.swapTest, params);
-  const swapPinocchioTx = await getSwapTransaction(program.methods.swap2, params);
+  const swapPinocchioTx = await getSwapTransaction(
+    program.methods.swap2,
+    params
+  );
   return { swapTestTx, swapPinocchioTx };
 }
 
-
-async function getSwapTransaction(swapMethod, params: {
-  payer: PublicKey;
-  pool: PublicKey;
-  tokenAMint: PublicKey;
-  tokenBMint: PublicKey;
-  inputTokenAccount: PublicKey;
-  outputTokenAccount: PublicKey;
-  tokenAVault: PublicKey;
-  tokenBVault: PublicKey;
-  tokenAProgram: PublicKey;
-  tokenBProgram: PublicKey;
-  poolAuthority?: PublicKey;
-  eventAuthority?: PublicKey;
-  programPk?: PublicKey;
-  sysvarInstructionPubkey?: PublicKey;
-  referralAccount?: PublicKey;
-  amount0: BN;
-  amount1: BN;
-  swapMode: number;
-}): Promise<Transaction> {
+async function getSwapTransaction(
+  swapMethod,
+  params: {
+    payer: PublicKey;
+    pool: PublicKey;
+    tokenAMint: PublicKey;
+    tokenBMint: PublicKey;
+    inputTokenAccount: PublicKey;
+    outputTokenAccount: PublicKey;
+    tokenAVault: PublicKey;
+    tokenBVault: PublicKey;
+    tokenAProgram: PublicKey;
+    tokenBProgram: PublicKey;
+    poolAuthority?: PublicKey;
+    eventAuthority?: PublicKey;
+    programPk?: PublicKey;
+    sysvarInstructionPubkey?: PublicKey;
+    referralAccount?: PublicKey;
+    amount0: BN;
+    amount1: BN;
+    swapMode: number;
+  }
+): Promise<Transaction> {
   const {
     payer,
     pool,
@@ -2519,12 +2530,11 @@ async function getSwapTransaction(swapMethod, params: {
     sysvarInstructionPubkey,
     referralAccount,
   } = params;
-  const tx = await swapMethod
-    ({
-      amount0,
-      amount1,
-      swapMode,
-    })
+  const tx = await swapMethod({
+    amount0,
+    amount1,
+    swapMode,
+  })
     .accountsStrict({
       poolAuthority: poolAuthority ?? derivePoolAuthority(),
       pool,

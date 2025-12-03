@@ -1,43 +1,43 @@
-import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { LiteSVM } from "litesvm";
+import { describe } from "mocha";
 import {
   addLiquidity,
   AddLiquidityParams,
   claimReward,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
   createPosition,
+  createToken,
+  encodePermissions,
+  expectThrowsErrorCode,
   fundReward,
+  getCpAmmProgramErrorCode,
   getPool,
   initializePool,
   InitializePoolParams,
   initializeReward,
   InitializeRewardParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
+  mintSplTokenTo,
+  OperatorPermission,
+  startSvm,
   updateRewardDuration,
   updateRewardFunder,
-  withdrawIneligibleReward,
-  createToken,
-  mintSplTokenTo,
-  encodePermissions,
-  OperatorPermission,
-  createOperator,
-  startSvm,
   warpToTimestamp,
-  getCpAmmProgramErrorCode,
-  expectThrowsErrorCode,
+  withdrawIneligibleReward,
 } from "./helpers";
-import BN from "bn.js";
-import { describe } from "mocha";
+import { generateKpAndFund } from "./helpers/common";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./helpers/token2022";
-import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
 
 describe("Reward by creator", () => {
   // SPL-Token
