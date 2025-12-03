@@ -319,13 +319,15 @@ pub fn validate_single_swap_instruction<'c, 'info>(
 
         if instruction.get_program_id() != crate::ID.as_array() {
             // we treat any instruction including that pool address is other swap ix
+            let mut j: usize = 0;
             loop {
-                match instruction.get_account_meta_at(i.into()) {
+                match instruction.get_account_meta_at(j.into()) {
                     Ok(account_metadata) => {
                         if &account_metadata.key == pool.as_array() {
                             msg!("Multiple swaps not allowed");
                             return Err(PoolError::FailToValidateSingleSwapInstruction.into());
                         }
+                        j = j.safe_add(1)?;
                     }
                     Err(err) => {
                         if err == pinocchio::program_error::ProgramError::InvalidArgument {
