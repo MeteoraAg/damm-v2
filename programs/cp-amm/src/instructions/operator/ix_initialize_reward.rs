@@ -69,22 +69,17 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
     reward_duration: u64,
     funder: Pubkey,
 ) -> Result<()> {
-    let remaining_accounts = if !is_supported_mint(&ctx.accounts.reward_mint)? {
+    if !is_supported_mint(&ctx.accounts.reward_mint)? {
         require!(
             is_token_badge_initialized(
                 ctx.accounts.reward_mint.key(),
                 ctx.remaining_accounts
-                    .get(0)
+                    .get(1)
                     .ok_or(PoolError::InvalidTokenBadge)?
             )?,
             PoolError::InvalidTokenBadge
         );
-        // remaining for operator account
-        &ctx.remaining_accounts[1..]
-    } else {
-        ctx.remaining_accounts
-    };
-
+    }
     let index: usize = reward_index
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
@@ -95,7 +90,7 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
     pool.validate_authority_to_edit_reward(
         index,
         ctx.accounts.signer.key(),
-        remaining_accounts,
+        ctx.remaining_accounts,
         OperatorPermission::InitializeReward,
     )?;
 
