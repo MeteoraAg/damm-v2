@@ -72,7 +72,7 @@ pub fn p_load_mut_checked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> R
     let disc = T::DISCRIMINATOR;
     let mut data = acc_info
         .try_borrow_mut_data()
-        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+        .map_err(|err| ProgramError::from(u64::from(err)))?;
 
     if data.len() < disc.len() {
         return Err(ErrorCode::AccountDiscriminatorNotFound.into());
