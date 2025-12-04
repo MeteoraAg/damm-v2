@@ -1,6 +1,7 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
-import { LiteSVM } from "litesvm";
+import { expect } from "chai";
+import { LiteSVM, TransactionMetadata } from "litesvm";
 import { describe } from "mocha";
 import {
   addLiquidity,
@@ -486,7 +487,8 @@ describe("Reward by admin", () => {
         funder: admin.publicKey,
         operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       };
-      await initializeReward(svm, initRewardParams);
+      const res = await initializeReward(svm, initRewardParams);
+      expect(res).instanceOf(TransactionMetadata);
     });
 
     it("Full flow for reward", async () => {

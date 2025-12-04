@@ -1211,6 +1211,12 @@ export async function initializeReward(
   const tokenProgram = svm.getAccount(rewardMint).owner;
   const tokenBadge = deriveTokenBadgeAddress(rewardMint);
   const remainingAccounts: AccountMeta[] = [];
+  remainingAccounts.push({
+    pubkey: operator ?? CP_AMM_PROGRAM_ID,
+    isSigner: false,
+    isWritable: false,
+  });
+
   if (svm.getAccount(tokenBadge)) {
     remainingAccounts.push({
       pubkey: tokenBadge,
@@ -1218,13 +1224,7 @@ export async function initializeReward(
       isWritable: false,
     });
   }
-  if (operator) {
-    remainingAccounts.push({
-      pubkey: operator,
-      isSigner: false,
-      isWritable: false,
-    });
-  }
+
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({

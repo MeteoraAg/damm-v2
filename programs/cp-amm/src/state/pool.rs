@@ -1,5 +1,6 @@
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
+use std::cell::Ref;
 use std::cmp::min;
 
 use anchor_lang::prelude::*;
@@ -11,6 +12,7 @@ use crate::constants::fee::{
     get_max_fee_numerator, CURRENT_POOL_VERSION, MAX_FEE_NUMERATOR_POST_UPDATE,
 };
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
+use crate::p_helper::load_account_info;
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::state::{Operator, OperatorPermission};
 use crate::{
@@ -1262,28 +1264,27 @@ impl Pool {
         U256::from_le_bytes(self.fee_b_per_liquidity)
     }
 
-    pub fn validate_authority_to_edit_reward<'c: 'info, 'info>(
+    pub fn validate_authority_to_edit_reward<'info>(
         &self,
         reward_index: usize,
         signer: Pubkey,
-        remaining_accounts: &'c [AccountInfo<'info>],
+        operator_account: Option<&AccountInfo<'info>>,
         permission: OperatorPermission,
     ) -> Result<()> {
         // pool creator is allowed to initialize reward with only index 0
         if signer == self.creator {
             require!(reward_index == 0, PoolError::InvalidRewardIndex)
         } else {
-            let operator_account = remaining_accounts
-                .get(0)
-                .ok_or_else(|| PoolError::InvalidAuthority)?;
-            let operator_loader: AccountLoader<'_, Operator> =
-                AccountLoader::try_from(operator_account)?;
-            let operator = operator_loader.load()?;
-            require!(
-                operator.whitelisted_address.eq(&signer)
-                    && operator.is_permission_allow(permission),
-                PoolError::InvalidAuthority
-            );
+            if let Some(operator_account) = operator_account {
+                let operator: Ref<'_, Operator> = load_account_info(operator_account)?;
+                require!(
+                    operator.whitelisted_address.eq(&signer)
+                        && operator.is_permission_allow(permission),
+                    PoolError::InvalidAuthority
+                )
+            } else {
+                return Err(PoolError::InvalidOperatorAccount.into());
+            }
         }
         Ok(())
     }

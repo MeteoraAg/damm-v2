@@ -42,10 +42,11 @@ pub fn handle_update_reward_funder<'c: 'info, 'info>(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
 
+    let operator_account = ctx.remaining_accounts.get(0);
     pool.validate_authority_to_edit_reward(
         index,
         ctx.accounts.signer.key(),
-        ctx.remaining_accounts,
+        operator_account,
         OperatorPermission::UpdateRewardFunder,
     )?;
 
