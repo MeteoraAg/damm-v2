@@ -27,6 +27,7 @@ pub enum OperatorPermission {
     UpdateRewardDuration,           // 8
     UpdateRewardFunder,             // 9
     UpdatePoolFees,                 // 10
+    ClaimProtocolFees,              // 11
 }
 
 #[account(zero_copy)]

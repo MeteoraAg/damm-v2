@@ -1,8 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 
-import { getFirstKey, getSecondKey } from "./cpAmm";
 import { CP_AMM_PROGRAM_ID } from "./constants";
+import { getFirstKey, getSecondKey } from "./cpAmm";
 
 export function derivePoolAuthority(): PublicKey {
   return PublicKey.findProgramAddressSync(
@@ -85,13 +85,6 @@ export function deriveCustomizablePoolAddress(
 export function deriveTokenBadgeAddress(tokenMint: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("token_badge"), tokenMint.toBuffer()],
-    CP_AMM_PROGRAM_ID
-  )[0];
-}
-
-export function deriveClaimFeeOperatorAddress(operator: PublicKey): PublicKey {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("cf_operator"), operator.toBuffer()],
     CP_AMM_PROGRAM_ID
   )[0];
 }

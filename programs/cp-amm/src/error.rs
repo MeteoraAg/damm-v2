@@ -181,4 +181,7 @@ pub enum PoolError {
 
     #[msg("Invalid update pool fees parameters")]
     InvalidUpdatePoolFeesParameters,
+
+    #[msg("Incorrect ATA")]
+    IncorrectATA,
 }

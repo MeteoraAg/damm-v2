@@ -40,7 +40,6 @@ import {
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { CpAmm } from "../../target/types/cp_amm";
 import {
-  deriveClaimFeeOperatorAddress,
   deriveConfigAddress,
   deriveCustomizablePoolAddress,
   deriveEventAuthority,
@@ -410,37 +409,6 @@ export async function closeTokenBadge(
   expect(tokenBadgeAccount.data.length).eq(0);
 }
 
-export type ClaimFeeOperatorParams = {
-  whitelistedAddress: Keypair;
-  claimFeeOperatorAddress: PublicKey;
-};
-export async function createClaimFeeOperator(
-  svm: LiteSVM,
-  params: ClaimFeeOperatorParams
-) {
-  const program = createCpAmmProgram();
-  const { whitelistedAddress, claimFeeOperatorAddress } = params;
-
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(
-    claimFeeOperatorAddress
-  );
-  const transaction = await program.methods
-    .createClaimFeeOperator()
-    .accountsPartial({
-      claimFeeOperator,
-      claimFeeOperatorAddress,
-      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      payer: whitelistedAddress.publicKey,
-      whitelistedAddress: whitelistedAddress.publicKey,
-      systemProgram: SystemProgram.programId,
-    })
-    .transaction();
-
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-
-  expect(result).instanceOf(TransactionMetadata);
-}
-
 export enum OperatorPermission {
   CreateConfigKey, // 0
   RemoveConfigKey, // 1
@@ -453,6 +421,7 @@ export enum OperatorPermission {
   UpdateRewardDuration, // 8
   UpdateRewardFunder, // 9
   UpdatePoolFees, // 10
+  ClaimProtocolFees, // 11
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -489,36 +458,6 @@ export async function createOperator(
   expect(result).instanceOf(TransactionMetadata);
 }
 
-export type CloseFeeOperatorParams = {
-  whitelistedAddress: Keypair;
-  operator: PublicKey;
-  rentReceiver: PublicKey;
-};
-export async function closeClaimFeeOperator(
-  svm: LiteSVM,
-  params: CloseFeeOperatorParams
-) {
-  const program = createCpAmmProgram();
-  const { whitelistedAddress, operator, rentReceiver } = params;
-  const claimFeeOperator = deriveClaimFeeOperatorAddress(operator);
-  const transaction = await program.methods
-    .closeClaimFeeOperator()
-    .accountsPartial({
-      claimFeeOperator,
-      rentReceiver,
-      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      whitelistedAddress: whitelistedAddress.publicKey,
-    })
-    .transaction();
-
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-  expect(result).instanceOf(TransactionMetadata);
-
-  const account = svm.getAccount(claimFeeOperator);
-
-  expect(account.data.length).eq(0);
-}
-
 export type UpdatePoolFeesParams = {
   pool: PublicKey;
   whitelistedOperator: Keypair;
@@ -549,7 +488,7 @@ export async function updatePoolFeesParameters(
 }
 
 export type ClaimProtocolFeeParams = {
-  claimFeeOperator: Keypair;
+  whitelistedAccount: Keypair;
   pool: PublicKey;
   treasury: PublicKey;
 };
@@ -558,11 +497,9 @@ export async function claimProtocolFee(
   params: ClaimProtocolFeeParams
 ) {
   const program = createCpAmmProgram();
-  const { claimFeeOperator, pool, treasury } = params;
+  const { whitelistedAccount, pool, treasury } = params;
   const poolAuthority = derivePoolAuthority();
-  const claimFeeOperatorAddress = deriveClaimFeeOperatorAddress(
-    claimFeeOperator.publicKey
-  );
+  const operatorAddress = deriveOperatorAddress(whitelistedAccount.publicKey);
   const poolState = getPool(svm, pool);
 
   const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
@@ -598,7 +535,7 @@ export async function claimProtocolFee(
 
   const tokenAAccount = getOrCreateAssociatedTokenAccount(
     svm,
-    claimFeeOperator,
+    whitelistedAccount,
     poolState.tokenAMint,
     treasury,
     tokenAProgram
@@ -606,7 +543,7 @@ export async function claimProtocolFee(
 
   const tokenBAccount = getOrCreateAssociatedTokenAccount(
     svm,
-    claimFeeOperator,
+    whitelistedAccount,
     poolState.tokenBMint,
     treasury,
     tokenBProgram
@@ -623,14 +560,14 @@ export async function claimProtocolFee(
       tokenBMint: poolState.tokenBMint,
       tokenAAccount,
       tokenBAccount,
-      claimFeeOperator: claimFeeOperatorAddress,
-      operator: claimFeeOperator.publicKey,
+      whitelistedAddress: whitelistedAccount.publicKey,
+      operator: operatorAddress,
       tokenAProgram,
       tokenBProgram,
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [claimFeeOperator]);
+  const result = sendTransaction(svm, transaction, [whitelistedAccount]);
   expect(result).instanceOf(TransactionMetadata);
 }
 
@@ -1212,12 +1149,12 @@ export async function initializeReward(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .initializeReward(index, rewardDuration, funder)
     .accountsPartial({
@@ -1267,12 +1204,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1309,12 +1246,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -2474,31 +2411,36 @@ export async function buildSwapTestTxs(params: {
 }): Promise<{ swapTestTx: Transaction; swapPinocchioTx: Transaction }> {
   const program = createCpAmmProgram();
   const swapTestTx = await getSwapTransaction(program.methods.swapTest, params);
-  const swapPinocchioTx = await getSwapTransaction(program.methods.swap2, params);
+  const swapPinocchioTx = await getSwapTransaction(
+    program.methods.swap2,
+    params
+  );
   return { swapTestTx, swapPinocchioTx };
 }
 
-
-async function getSwapTransaction(swapMethod, params: {
-  payer: PublicKey;
-  pool: PublicKey;
-  tokenAMint: PublicKey;
-  tokenBMint: PublicKey;
-  inputTokenAccount: PublicKey;
-  outputTokenAccount: PublicKey;
-  tokenAVault: PublicKey;
-  tokenBVault: PublicKey;
-  tokenAProgram: PublicKey;
-  tokenBProgram: PublicKey;
-  poolAuthority?: PublicKey;
-  eventAuthority?: PublicKey;
-  programPk?: PublicKey;
-  sysvarInstructionPubkey?: PublicKey;
-  referralAccount?: PublicKey;
-  amount0: BN;
-  amount1: BN;
-  swapMode: number;
-}): Promise<Transaction> {
+async function getSwapTransaction(
+  swapMethod,
+  params: {
+    payer: PublicKey;
+    pool: PublicKey;
+    tokenAMint: PublicKey;
+    tokenBMint: PublicKey;
+    inputTokenAccount: PublicKey;
+    outputTokenAccount: PublicKey;
+    tokenAVault: PublicKey;
+    tokenBVault: PublicKey;
+    tokenAProgram: PublicKey;
+    tokenBProgram: PublicKey;
+    poolAuthority?: PublicKey;
+    eventAuthority?: PublicKey;
+    programPk?: PublicKey;
+    sysvarInstructionPubkey?: PublicKey;
+    referralAccount?: PublicKey;
+    amount0: BN;
+    amount1: BN;
+    swapMode: number;
+  }
+): Promise<Transaction> {
   const {
     payer,
     pool,
@@ -2519,12 +2461,11 @@ async function getSwapTransaction(swapMethod, params: {
     sysvarInstructionPubkey,
     referralAccount,
   } = params;
-  const tx = await swapMethod
-    ({
-      amount0,
-      amount1,
-      swapMode,
-    })
+  const tx = await swapMethod({
+    amount0,
+    amount1,
+    swapMode,
+  })
     .accountsStrict({
       poolAuthority: poolAuthority ?? derivePoolAuthority(),
       pool,

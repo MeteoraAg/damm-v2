@@ -4,9 +4,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     const_pda,
     constants::treasury,
-    state::{ClaimFeeOperator, Pool},
-    token::transfer_from_pool,
-    EvtClaimProtocolFee,
+    state::{Operator, OperatorPermission, Pool},
+    token::{transfer_from_pool, validate_token_account},
+    EvtClaimProtocolFee, PoolError,
 };
 
 /// Accounts for withdraw protocol fees
@@ -35,29 +35,20 @@ pub struct ClaimProtocolFeesCtx<'info> {
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// The treasury token a account
-    #[account(
-        mut,
-        associated_token::authority = treasury::ID,
-        associated_token::mint = token_a_mint,
-        associated_token::token_program = token_a_program,
-    )]
+    #[account(mut)]
     pub token_a_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// The treasury token b account
-    #[account(
-        mut,
-        associated_token::authority = treasury::ID,
-        associated_token::mint = token_b_mint,
-        associated_token::token_program = token_b_program,
-    )]
+    #[account(mut)]
     pub token_b_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Claim fee operator
-    #[account(has_one = operator)]
-    pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
+    #[account(
+        has_one = whitelisted_address
+    )]
+    pub operator: AccountLoader<'info, Operator>,
 
-    /// Operator
-    pub operator: Signer<'info>,
+    /// signer
+    pub whitelisted_address: Signer<'info>,
 
     /// Token a program
     pub token_a_program: Interface<'info, TokenInterface>,
@@ -72,11 +63,23 @@ pub fn handle_claim_protocol_fee(
     max_amount_a: u64,
     max_amount_b: u64,
 ) -> Result<()> {
+    let operator = ctx.accounts.operator.load()?;
+    require!(
+        operator.is_permission_allow(OperatorPermission::ClaimProtocolFees),
+        PoolError::InvalidAuthority
+    );
+
     let mut pool = ctx.accounts.pool.load_mut()?;
 
     let (token_a_amount, token_b_amount) = pool.claim_protocol_fee(max_amount_a, max_amount_b)?;
 
     if token_a_amount > 0 {
+        validate_token_account(
+            &ctx.accounts.token_a_account.to_account_info(),
+            &treasury::ID,
+            &ctx.accounts.token_a_mint.key(),
+            &ctx.accounts.token_a_program.key(),
+        )?;
         transfer_from_pool(
             ctx.accounts.pool_authority.to_account_info(),
             &ctx.accounts.token_a_mint,
@@ -88,6 +91,13 @@ pub fn handle_claim_protocol_fee(
     }
 
     if token_b_amount > 0 {
+        validate_token_account(
+            &ctx.accounts.token_b_account.to_account_info(),
+            &treasury::ID,
+            &ctx.accounts.token_b_mint.key(),
+            &ctx.accounts.token_b_program.key(),
+        )?;
+
         transfer_from_pool(
             ctx.accounts.pool_authority.to_account_info(),
             &ctx.accounts.token_b_mint,

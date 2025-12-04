@@ -6,6 +6,8 @@ use anchor_lang::{
     prelude::InterfaceAccount,
     solana_program::program::{invoke, invoke_signed},
 };
+use anchor_spl::associated_token::get_associated_token_address_with_program_id;
+use anchor_spl::token::accessor;
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -274,5 +276,21 @@ pub fn update_account_lamports_to_minimum_balance<'info>(
         )?;
     }
 
+    Ok(())
+}
+
+pub fn validate_token_account<'info>(
+    token_account: &AccountInfo<'info>,
+    owner: &Pubkey,
+    mint: &Pubkey,
+    token_program_id: &Pubkey,
+) -> Result<()> {
+    // validate ata address
+    let ata_address = get_associated_token_address_with_program_id(owner, mint, token_program_id);
+    require!(ata_address.eq(token_account.key), PoolError::IncorrectATA);
+
+    // validate owner
+    let current_owner = accessor::authority(token_account)?;
+    require!(current_owner.eq(owner), PoolError::IncorrectATA);
     Ok(())
 }

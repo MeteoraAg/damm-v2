@@ -1,12 +1,11 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
+import { LiteSVM } from "litesvm";
 import {
   addLiquidity,
   AddLiquidityParams,
   claimPartnerFee,
   claimProtocolFee,
-  closeClaimFeeOperator,
-  createClaimFeeOperator,
   createConfigIx,
   CreateConfigParams,
   createOperator,
@@ -26,13 +25,12 @@ import {
   TREASURY,
 } from "./helpers";
 import { generateKpAndFund, randomID } from "./helpers/common";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./helpers/token2022";
-import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
 
 describe("Claim fee", () => {
   describe("SPL Token", () => {
@@ -47,7 +45,6 @@ describe("Claim fee", () => {
     let position: PublicKey;
     let inputTokenMint: PublicKey;
     let outputTokenMint: PublicKey;
-    let claimFeeOperator: Keypair;
     let partner: Keypair;
 
     beforeEach(async () => {
@@ -56,7 +53,6 @@ describe("Claim fee", () => {
       user = generateKpAndFund(svm);
       admin = generateKpAndFund(svm);
       partner = generateKpAndFund(svm);
-      claimFeeOperator = generateKpAndFund(svm);
       whitelistedAccount = generateKpAndFund(svm);
 
       inputTokenMint = createToken(svm, admin.publicKey, admin.publicKey);
@@ -104,6 +100,7 @@ describe("Claim fee", () => {
         OperatorPermission.CreateConfigKey,
         OperatorPermission.CreateClaimProtocolFeeOperator,
         OperatorPermission.CloseClaimProtocolFeeOperator,
+        OperatorPermission.ClaimProtocolFees,
       ]);
 
       await createOperator(svm, {
@@ -136,12 +133,6 @@ describe("Claim fee", () => {
       const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
       position = await createPosition(svm, user, user.publicKey, pool);
-
-      // create claim fee protocol operator
-      await createClaimFeeOperator(svm, {
-        whitelistedAddress: whitelistedAccount,
-        claimFeeOperatorAddress: claimFeeOperator.publicKey,
-      });
     });
 
     it("User swap A->B", async () => {
@@ -169,7 +160,7 @@ describe("Claim fee", () => {
 
       // claim protocol fee
       await claimProtocolFee(svm, {
-        claimFeeOperator,
+        whitelistedAccount,
         pool,
         treasury: TREASURY,
       });
@@ -181,14 +172,6 @@ describe("Claim fee", () => {
         pool,
         maxAmountA: new BN(100000000000000),
         maxAmountB: new BN(100000000000000),
-      });
-
-      // close claim fee operator
-
-      await closeClaimFeeOperator(svm, {
-        whitelistedAddress: whitelistedAccount,
-        operator: claimFeeOperator.publicKey,
-        rentReceiver: claimFeeOperator.publicKey,
       });
     });
   });
@@ -205,8 +188,6 @@ describe("Claim fee", () => {
     let position: PublicKey;
     let inputTokenMint: PublicKey;
     let outputTokenMint: PublicKey;
-
-    let operator: Keypair;
     let partner: Keypair;
 
     beforeEach(async () => {
@@ -227,16 +208,15 @@ describe("Claim fee", () => {
       user = generateKpAndFund(svm);
       admin = generateKpAndFund(svm);
       partner = generateKpAndFund(svm);
-      operator = generateKpAndFund(svm);
       whitelistedAccount = generateKpAndFund(svm);
 
-      await createToken2022(
+      createToken2022(
         svm,
         inputExtensions,
         inputTokenMintKeypair,
         admin.publicKey
       );
-      await createToken2022(
+      createToken2022(
         svm,
         outputExtensions,
         outputTokenMintKeypair,
@@ -285,6 +265,7 @@ describe("Claim fee", () => {
         OperatorPermission.CreateConfigKey,
         OperatorPermission.CreateClaimProtocolFeeOperator,
         OperatorPermission.CloseClaimProtocolFeeOperator,
+        OperatorPermission.ClaimProtocolFees,
       ]);
 
       await createOperator(svm, {
@@ -317,12 +298,6 @@ describe("Claim fee", () => {
       const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
       position = await createPosition(svm, user, user.publicKey, pool);
-
-      // create claim fee protocol operator
-      await createClaimFeeOperator(svm, {
-        whitelistedAddress: whitelistedAccount,
-        claimFeeOperatorAddress: operator.publicKey,
-      });
     });
 
     it("User swap A->B", async () => {
@@ -350,7 +325,7 @@ describe("Claim fee", () => {
 
       // claim protocol fee
       await claimProtocolFee(svm, {
-        claimFeeOperator: operator,
+        whitelistedAccount,
         pool,
         treasury: TREASURY,
       });
@@ -362,14 +337,6 @@ describe("Claim fee", () => {
         pool,
         maxAmountA: new BN(100000000000000),
         maxAmountB: new BN(100000000000000),
-      });
-
-      // close claim fee operator
-
-      await closeClaimFeeOperator(svm, {
-        whitelistedAddress: whitelistedAccount,
-        operator: operator.publicKey,
-        rentReceiver: operator.publicKey,
       });
     });
   });
