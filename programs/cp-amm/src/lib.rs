@@ -51,7 +51,7 @@ fn p_event_dispatch(
     let given_event_authority = &accounts[0];
     require!(
         given_event_authority.is_signer(),
-        ErrorCode::ConstraintSeeds
+        ErrorCode::ConstraintSigner
     );
     require!(
         given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
