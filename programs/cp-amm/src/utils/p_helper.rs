@@ -1,5 +1,3 @@
-use std::{cell::Ref, mem};
-
 use anchor_lang::{
     error::ErrorCode,
     prelude::{ProgramError, Pubkey},
@@ -146,23 +144,4 @@ pub fn validate_mut_token_account(token_account: &AccountInfo) -> Result<()> {
     );
     TokenAccount::check_owner(&Pubkey::new_from_array(*token_account.owner()))?;
     Ok(())
-}
-
-pub fn load_account_info<'info, T: bytemuck::Pod + Discriminator>(
-    account_info: &'info anchor_lang::prelude::AccountInfo,
-) -> Result<Ref<'info, T>> {
-    let data = account_info.try_borrow_data()?;
-    let disc = T::DISCRIMINATOR;
-    if data.len() < disc.len() {
-        return Err(ErrorCode::AccountDiscriminatorNotFound.into());
-    }
-
-    let given_disc = &data[..disc.len()];
-    if given_disc != disc {
-        return Err(ErrorCode::AccountDiscriminatorMismatch.into());
-    }
-
-    Ok(Ref::map(data, |data| {
-        bytemuck::from_bytes(&data[disc.len()..mem::size_of::<T>() + disc.len()])
-    }))
 }

@@ -12,7 +12,7 @@ use crate::constants::fee::{
     get_max_fee_numerator, CURRENT_POOL_VERSION, MAX_FEE_NUMERATOR_POST_UPDATE,
 };
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
-use crate::p_helper::load_account_info;
+use crate::helper::load_account_checked;
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::state::{Operator, OperatorPermission};
 use crate::{
@@ -1276,7 +1276,7 @@ impl Pool {
             require!(reward_index == 0, PoolError::InvalidRewardIndex)
         } else {
             if let Some(operator_account) = operator_account {
-                let operator: Ref<'_, Operator> = load_account_info(operator_account)?;
+                let operator: Ref<'_, Operator> = load_account_checked(operator_account)?;
                 require!(
                     operator.whitelisted_address.eq(&signer)
                         && operator.is_permission_allow(permission),

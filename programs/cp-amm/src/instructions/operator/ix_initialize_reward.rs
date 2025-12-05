@@ -74,7 +74,7 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
             is_token_badge_initialized(
                 ctx.accounts.reward_mint.key(),
                 ctx.remaining_accounts
-                    .get(1)
+                    .get(0)
                     .ok_or(PoolError::InvalidTokenBadge)?
             )?,
             PoolError::InvalidTokenBadge
@@ -88,7 +88,7 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
 
-    let operator_account = ctx.remaining_accounts.get(0);
+    let operator_account = ctx.remaining_accounts.get(1);
     pool.validate_authority_to_edit_reward(
         index,
         ctx.accounts.signer.key(),
