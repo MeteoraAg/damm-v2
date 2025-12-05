@@ -255,7 +255,7 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
         self.validate(collect_fee_mode, activation_type)?;
         let flat_fee_numerator = self.get_min_base_fee_numerator()?;
         require!(
-            flat_fee_numerator < MAX_FEE_NUMERATOR_POST_UPDATE,
+            flat_fee_numerator <= MAX_FEE_NUMERATOR_POST_UPDATE,
             PoolError::CannotUpdateBaseFee
         );
 
