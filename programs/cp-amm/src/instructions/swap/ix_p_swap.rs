@@ -13,9 +13,7 @@ use anchor_lang::solana_program::instruction::{
     get_processed_sibling_instruction, get_stack_height, Instruction,
 };
 use pinocchio::account_info::AccountInfo;
-use pinocchio::sysvars::instructions::{
-    Instructions, IntrospectedAccountMeta, IntrospectedInstruction, INSTRUCTIONS_ID,
-};
+use pinocchio::sysvars::instructions::{Instructions, IntrospectedInstruction, INSTRUCTIONS_ID};
 
 use crate::safe_math::SafeMath;
 use crate::{
@@ -324,7 +322,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
             let num_accounts = p_get_instruction_accounts(&instruction);
             // we treat any instruction including that pool address is other swap ix
             for j in 0..num_accounts {
-                let account_metadata: &IntrospectedAccountMeta = instruction
+                let account_metadata = instruction
                     .get_account_meta_at(j.into())
                     .map_err(|err| ProgramError::from(u64::from(err)))?;
 
