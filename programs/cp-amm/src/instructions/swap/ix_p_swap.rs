@@ -1,6 +1,6 @@
 use crate::p_helper::{
-    p_accessor_mint, p_get_instruction_accounts, p_load_mut_unchecked, p_transfer_from_pool,
-    p_transfer_from_user,
+    p_accessor_mint, p_get_number_of_accounts_in_instruction, p_load_mut_unchecked,
+    p_transfer_from_pool, p_transfer_from_user,
 };
 use crate::state::SwapResult2;
 use crate::{instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction};
@@ -319,7 +319,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
             .map_err(|err| ProgramError::from(u64::from(err)))?;
 
         if instruction.get_program_id() != crate::ID.as_array() {
-            let num_accounts = p_get_instruction_accounts(&instruction);
+            let num_accounts = p_get_number_of_accounts_in_instruction(&instruction);
             // we treat any instruction including that pool address is other swap ix
             for j in 0..num_accounts {
                 let account_metadata = instruction
