@@ -2,8 +2,9 @@ use std::{cell::Ref, mem};
 
 use anchor_lang::prelude::*;
 
+// Same as load() in AccountLoader but add owner check
 pub fn load_account_checked<'info, T: bytemuck::Pod + Discriminator + Owner>(
-    account_info: &'info anchor_lang::prelude::AccountInfo,
+    account_info: &'info AccountInfo,
 ) -> Result<Ref<'info, T>> {
     // validate owner
     require!(

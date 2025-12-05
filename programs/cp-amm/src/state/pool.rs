@@ -6,13 +6,13 @@ use std::cmp::min;
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use crate::account_loader_helper::load_account_checked;
 use crate::activation_handler::{ActivationHandler, ActivationType};
 use crate::base_fee::{BaseFeeHandlerBuilder, UpdateCliffFeeNumerator};
 use crate::constants::fee::{
     get_max_fee_numerator, CURRENT_POOL_VERSION, MAX_FEE_NUMERATOR_POST_UPDATE,
 };
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
-use crate::helper::load_account_checked;
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::state::{Operator, OperatorPermission};
 use crate::{

@@ -174,7 +174,8 @@ describe("Reward by admin", () => {
         funder: admin.publicKey,
         operator: deriveOperatorAddress(whitelistedAccount.publicKey),
       };
-      await initializeReward(svm, initRewardParams);
+      const res = await initializeReward(svm, initRewardParams);
+      expect(res).instanceOf(TransactionMetadata);
 
       warpToTimestamp(svm, new BN(1));
 
