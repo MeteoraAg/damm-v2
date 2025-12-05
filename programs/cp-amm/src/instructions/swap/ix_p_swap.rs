@@ -324,8 +324,9 @@ pub fn validate_single_swap_instruction<'c, 'info>(
             let num_accounts = p_get_instruction_accounts(&instruction);
             // we treat any instruction including that pool address is other swap ix
             for j in 0..num_accounts {
-                let account_metadata: &IntrospectedAccountMeta =
-                    unsafe { instruction.get_account_meta_at_unchecked(j.into()) };
+                let account_metadata: &IntrospectedAccountMeta = instruction
+                    .get_account_meta_at(j.into())
+                    .map_err(|err| ProgramError::from(u64::from(err)))?;
 
                 if &account_metadata.key == pool.as_array() {
                     msg!("Multiple swaps not allowed");
