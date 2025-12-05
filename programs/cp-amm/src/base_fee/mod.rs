@@ -40,4 +40,10 @@ pub trait BaseFeeHandler {
         current_point: u64,
         activation_point: u64,
     ) -> Result<bool>;
+
+    fn validate_post_update_pool_fees(
+        &self,
+        collect_fee_mode: CollectFeeMode,
+        activation_type: ActivationType,
+    ) -> Result<()>;
 }

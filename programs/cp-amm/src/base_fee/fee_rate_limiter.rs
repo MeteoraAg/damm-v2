@@ -5,7 +5,7 @@ use crate::{
     constants::{
         fee::{
             get_max_fee_bps, get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR,
-            MIN_FEE_NUMERATOR,
+            MAX_FEE_NUMERATOR_POST_UPDATE, MIN_FEE_NUMERATOR,
         },
         MAX_RATE_LIMITER_DURATION_IN_SECONDS, MAX_RATE_LIMITER_DURATION_IN_SLOTS,
     },
@@ -466,5 +466,18 @@ impl BaseFeeHandler for PodAlignedFeeRateLimiter {
         let last_effective_rate_limiter_point =
             u128::from(activation_point).safe_add(self.max_limiter_duration.into())?;
         Ok(u128::from(current_point) > last_effective_rate_limiter_point)
+    }
+    fn validate_post_update_pool_fees(
+        &self,
+        collect_fee_mode: CollectFeeMode,
+        activation_type: ActivationType,
+    ) -> Result<()> {
+        self.validate(collect_fee_mode, activation_type)?;
+
+        require!(
+            self.cliff_fee_numerator <= MAX_FEE_NUMERATOR_POST_UPDATE,
+            PoolError::CannotUpdateBaseFee
+        );
+        Ok(())
     }
 }

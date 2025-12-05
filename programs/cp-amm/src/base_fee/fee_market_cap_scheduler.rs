@@ -3,7 +3,7 @@ use crate::{
     base_fee::{BaseFeeEnumReader, BaseFeeHandler, BorshBaseFeeSerde, PodAlignedBaseFeeSerde},
     constants::fee::{
         get_max_fee_numerator, CURRENT_POOL_VERSION, FEE_DENOMINATOR, MAX_BASIS_POINT,
-        MIN_FEE_NUMERATOR,
+        MAX_FEE_NUMERATOR_POST_UPDATE, MIN_FEE_NUMERATOR,
     },
     fee_math::get_fee_in_period,
     params::{
@@ -245,5 +245,20 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
         let scheduler_expiration_point =
             u128::from(activation_point).safe_add(self.scheduler_expiration_duration.into())?;
         Ok(u128::from(current_point) > scheduler_expiration_point)
+    }
+
+    fn validate_post_update_pool_fees(
+        &self,
+        collect_fee_mode: CollectFeeMode,
+        activation_type: ActivationType,
+    ) -> Result<()> {
+        self.validate(collect_fee_mode, activation_type)?;
+        let flat_fee_numerator = self.get_min_base_fee_numerator()?;
+        require!(
+            flat_fee_numerator < MAX_FEE_NUMERATOR_POST_UPDATE,
+            PoolError::CannotUpdateBaseFee
+        );
+
+        Ok(())
     }
 }

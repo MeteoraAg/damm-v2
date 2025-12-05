@@ -118,7 +118,7 @@ pub mod fee {
     pub const MIN_FEE_BPS: u64 = 1; // 0.01%
     pub const MIN_FEE_NUMERATOR: u64 = 100_000;
 
-    pub const MAX_FEE_NUMERATOR_AFTER_UPDATE: u64 = 100_000_000; // 10%
+    pub const MAX_FEE_NUMERATOR_POST_UPDATE: u64 = 100_000_000; // 10%
 
     static_assertions::const_assert_eq!(
         MAX_FEE_BPS_V0 * FEE_DENOMINATOR / MAX_BASIS_POINT,
