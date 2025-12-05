@@ -2,8 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::{
     event,
-    state::{Config, Operator, OperatorPermission},
-    PoolError,
+    state::{Config, Operator},
 };
 
 #[event_cpi]
@@ -16,9 +15,6 @@ pub struct CloseConfigCtx<'info> {
     )]
     pub config: AccountLoader<'info, Config>,
 
-    #[account(
-        has_one = whitelisted_address
-    )]
     pub operator: AccountLoader<'info, Operator>,
 
     pub whitelisted_address: Signer<'info>,
@@ -29,11 +25,6 @@ pub struct CloseConfigCtx<'info> {
 }
 
 pub fn handle_close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {
-    let operator = ctx.accounts.operator.load()?;
-    require!(
-        operator.is_permission_allow(OperatorPermission::RemoveConfigKey),
-        PoolError::InvalidAuthority
-    );
     emit_cpi!(event::EvtCloseConfig {
         config: ctx.accounts.config.key(),
         admin: ctx.accounts.whitelisted_address.key(),

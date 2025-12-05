@@ -415,13 +415,11 @@ export enum OperatorPermission {
   CreateTokenBadge, // 2
   CloseTokenBadge, // 3
   SetPoolStatus, // 4
-  CreateClaimProtocolFeeOperator, // 5
-  CloseClaimProtocolFeeOperator, // 6
-  InitializeReward, // 7
-  UpdateRewardDuration, // 8
-  UpdateRewardFunder, // 9
-  UpdatePoolFees, // 10
-  ClaimProtocolFees, // 11
+  InitializeReward, // 5
+  UpdateRewardDuration, // 6
+  UpdateRewardFunder, // 7
+  UpdatePoolFees, // 8
+  ClaimProtocolFees, // 9
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -447,14 +445,13 @@ export async function createOperator(
     .accountsPartial({
       operator: deriveOperatorAddress(whitelistAddress),
       whitelistedAddress: whitelistAddress,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
       payer: admin.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
 
   const result = sendTransaction(svm, transaction, [admin]);
-
   expect(result).instanceOf(TransactionMetadata);
 }
 

@@ -98,8 +98,6 @@ describe("Claim fee", () => {
 
       let permission = encodePermissions([
         OperatorPermission.CreateConfigKey,
-        OperatorPermission.CreateClaimProtocolFeeOperator,
-        OperatorPermission.CloseClaimProtocolFeeOperator,
         OperatorPermission.ClaimProtocolFees,
       ]);
 
@@ -263,8 +261,6 @@ describe("Claim fee", () => {
 
       let permission = encodePermissions([
         OperatorPermission.CreateConfigKey,
-        OperatorPermission.CreateClaimProtocolFeeOperator,
-        OperatorPermission.CloseClaimProtocolFeeOperator,
         OperatorPermission.ClaimProtocolFees,
       ]);
 
