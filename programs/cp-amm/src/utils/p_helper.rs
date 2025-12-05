@@ -4,7 +4,10 @@ use anchor_lang::{
     require, system_program, CheckOwner, Discriminator, Owner, Result,
 };
 use anchor_spl::token_interface::TokenAccount;
-use pinocchio::{account_info::AccountInfo, entrypoint::ProgramResult};
+use pinocchio::{
+    account_info::AccountInfo, entrypoint::ProgramResult,
+    sysvars::instructions::IntrospectedInstruction,
+};
 pub fn p_transfer_from_user(
     authority: &AccountInfo,
     token_mint: &AccountInfo,
@@ -119,4 +122,12 @@ pub fn validate_mut_token_account(token_account: &AccountInfo) -> Result<()> {
     );
     TokenAccount::check_owner(&Pubkey::new_from_array(*token_account.owner()))?;
     Ok(())
+}
+
+// get number of accounts in instruction
+// refer: https://github.com/anza-xyz/pinocchio/blob/183a17634e1ad2a33921fd5b0de38c151fb2ec2f/sdk/src/sysvars/instructions.rs#L183
+pub fn p_get_instruction_accounts(instruction: &IntrospectedInstruction) -> u16 {
+    let num_accounts = u16::from_le_bytes(unsafe { *(instruction.raw as *const [u8; 2]) });
+
+    num_accounts
 }

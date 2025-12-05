@@ -1,5 +1,6 @@
 use crate::p_helper::{
-    p_accessor_mint, p_load_mut_unchecked, p_transfer_from_pool, p_transfer_from_user,
+    p_accessor_mint, p_get_instruction_accounts, p_load_mut_unchecked, p_transfer_from_pool,
+    p_transfer_from_user,
 };
 use crate::state::SwapResult2;
 use crate::{instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction};
@@ -12,7 +13,9 @@ use anchor_lang::solana_program::instruction::{
     get_processed_sibling_instruction, get_stack_height, Instruction,
 };
 use pinocchio::account_info::AccountInfo;
-use pinocchio::sysvars::instructions::{Instructions, IntrospectedInstruction, INSTRUCTIONS_ID};
+use pinocchio::sysvars::instructions::{
+    Instructions, IntrospectedAccountMeta, IntrospectedInstruction, INSTRUCTIONS_ID,
+};
 
 use crate::safe_math::SafeMath;
 use crate::{
@@ -318,25 +321,15 @@ pub fn validate_single_swap_instruction<'c, 'info>(
             .map_err(|err| ProgramError::from(u64::from(err)))?;
 
         if instruction.get_program_id() != crate::ID.as_array() {
-            // we refer how pinocchio get number of account in instruction
-            // https://github.com/anza-xyz/pinocchio/blob/183a17634e1ad2a33921fd5b0de38c151fb2ec2f/sdk/src/sysvars/instructions.rs#L183
-            let num_accounts = u16::from_le_bytes(unsafe { *(instruction.raw as *const [u8; 2]) });
+            let num_accounts = p_get_instruction_accounts(&instruction);
             // we treat any instruction including that pool address is other swap ix
             for j in 0..num_accounts {
-                match instruction.get_account_meta_at(j.into()) {
-                    Ok(account_metadata) => {
-                        if &account_metadata.key == pool.as_array() {
-                            msg!("Multiple swaps not allowed");
-                            return Err(PoolError::FailToValidateSingleSwapInstruction.into());
-                        }
-                    }
-                    Err(err) => {
-                        if err == pinocchio::program_error::ProgramError::InvalidArgument {
-                            break;
-                        } else {
-                            return Err(PoolError::UndeterminedError.into());
-                        }
-                    }
+                let account_metadata: &IntrospectedAccountMeta =
+                    unsafe { instruction.get_account_meta_at_unchecked(j.into()) };
+
+                if &account_metadata.key == pool.as_array() {
+                    msg!("Multiple swaps not allowed");
+                    return Err(PoolError::FailToValidateSingleSwapInstruction.into());
                 }
             }
         } else {
