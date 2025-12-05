@@ -53,7 +53,7 @@ pub const SPLIT_POSITION_DENOMINATOR: u32 = 1_000_000_000; // 1b
 pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
 pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
 
-pub const MAX_OPERATION: u8 = 12;
+pub const MAX_OPERATION: u8 = 10;
 
 static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,
