@@ -58,7 +58,7 @@ impl UpdatePoolFeesParameters {
         // Because after update pool fee we will validate pool fee with new updated parameters
         require!(
             self.cliff_fee_numerator.is_some() || self.dynamic_fee.is_some(),
-            PoolError::InvalidDynamicFeeParameters
+            PoolError::InvalidUpdatePoolFeesParameters
         );
 
         if let Some(dynamic_fee) = self.dynamic_fee {
