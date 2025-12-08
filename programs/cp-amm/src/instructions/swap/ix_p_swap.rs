@@ -73,7 +73,7 @@ pub fn p_handle_swap(
     };
 
     let pool_key = pool.key();
-    let pool: &mut Pool = p_load_mut_unchecked(pool)?;
+    let mut pool: pinocchio::account_info::RefMut<'_, Pool> = p_load_mut_unchecked(pool)?;
 
     {
         let access_validator = get_pool_access_validator(&pool)?;
