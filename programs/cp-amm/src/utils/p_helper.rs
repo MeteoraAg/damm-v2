@@ -1,3 +1,5 @@
+use std::mem;
+
 use anchor_lang::{
     error::ErrorCode,
     prelude::{ProgramError, Pubkey},

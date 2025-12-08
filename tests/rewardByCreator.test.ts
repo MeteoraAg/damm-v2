@@ -262,7 +262,7 @@ describe("Reward by creator", () => {
         funder: creator.publicKey,
       };
 
-      const errorCode = getCpAmmProgramErrorCode("InvalidRewardIndex");
+      const errorCode = getCpAmmProgramErrorCode("MissingOperatorAccount");
       const res = await initializeReward(svm, initRewardParams);
       expectThrowsErrorCode(res, errorCode);
     });
@@ -529,7 +529,7 @@ describe("Reward by creator", () => {
         rewardMint,
         funder: creator.publicKey,
       };
-      const errorCode = getCpAmmProgramErrorCode("InvalidRewardIndex");
+      const errorCode = getCpAmmProgramErrorCode("MissingOperatorAccount");
       const res = await initializeReward(svm, initRewardParams);
       expectThrowsErrorCode(res, errorCode);
     });

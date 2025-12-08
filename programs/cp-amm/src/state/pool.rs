@@ -1,12 +1,10 @@
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
-use std::cell::Ref;
 use std::cmp::min;
 
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::account_loader_helper::load_account_checked;
 use crate::activation_handler::{ActivationHandler, ActivationType};
 use crate::base_fee::{BaseFeeHandlerBuilder, UpdateCliffFeeNumerator};
 use crate::constants::fee::{
@@ -14,7 +12,6 @@ use crate::constants::fee::{
 };
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
-use crate::state::{Operator, OperatorPermission};
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
@@ -1264,29 +1261,8 @@ impl Pool {
         U256::from_le_bytes(self.fee_b_per_liquidity)
     }
 
-    pub fn validate_authority_to_edit_reward<'info>(
-        &self,
-        reward_index: usize,
-        signer: Pubkey,
-        operator_account: Option<&AccountInfo<'info>>,
-        permission: OperatorPermission,
-    ) -> Result<()> {
-        // pool creator is allowed to initialize reward with only index 0
-        if signer == self.creator {
-            require!(reward_index == 0, PoolError::InvalidRewardIndex)
-        } else {
-            if let Some(operator_account) = operator_account {
-                let operator: Ref<'_, Operator> = load_account_checked(operator_account)?;
-                require!(
-                    operator.whitelisted_address.eq(&signer)
-                        && operator.is_permission_allow(permission),
-                    PoolError::InvalidAuthority
-                )
-            } else {
-                return Err(PoolError::MissingOperatorAccount.into());
-            }
-        }
-        Ok(())
+    pub fn check_pool_creator_to_edit_reward(&self, reward_index: usize, signer: Pubkey) -> bool {
+        signer == self.creator && reward_index == 0
     }
 
     pub fn has_partner(&self) -> bool {
