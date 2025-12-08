@@ -97,10 +97,6 @@ impl PodAlignedBaseFeeSerde for PodAlignedFeeMarketCapScheduler {
 }
 
 impl PodAlignedFeeMarketCapScheduler {
-    pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
-        self.get_base_fee_numerator_by_period(self.number_of_period.into())
-    }
-
     fn get_base_fee_numerator_by_period(&self, period: u64) -> Result<u64> {
         let period = period.min(self.number_of_period.into());
 
@@ -250,5 +246,9 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
         let scheduler_expiration_point =
             u128::from(activation_point).safe_add(self.scheduler_expiration_duration.into())?;
         Ok(u128::from(current_point) > scheduler_expiration_point)
+    }
+
+    fn get_min_base_fee_numerator(&self) -> Result<u64> {
+        self.get_base_fee_numerator_by_period(self.number_of_period.into())
     }
 }
