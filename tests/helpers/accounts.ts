@@ -89,12 +89,6 @@ export function deriveTokenBadgeAddress(tokenMint: PublicKey): PublicKey {
   )[0];
 }
 
-export function deriveClaimFeeOperatorAddress(operator: PublicKey): PublicKey {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("cf_operator"), operator.toBuffer()],
-    CP_AMM_PROGRAM_ID
-  )[0];
-}
 
 export function deriveOperatorAddress(
   whitelistedAddress: PublicKey

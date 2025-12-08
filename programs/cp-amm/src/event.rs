@@ -44,19 +44,6 @@ pub struct EvtCreateTokenBadge {
     pub token_mint: Pubkey,
 }
 
-/// Create claim fee operator
-#[event]
-pub struct EvtCreateClaimFeeOperator {
-    pub operator: Pubkey,
-}
-
-/// Close claim fee operator
-#[event]
-pub struct EvtCloseClaimFeeOperator {
-    pub claim_fee_operator: Pubkey,
-    pub operator: Pubkey,
-}
-
 #[event]
 pub struct EvtInitializePool {
     pub pool: Pubkey,
