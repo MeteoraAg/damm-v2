@@ -182,7 +182,7 @@ pub fn transfer_from_pool<'c: 'info, 'info>(
     pool_authority: AccountInfo<'info>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
-    token_owner_account: &InterfaceAccount<'info, TokenAccount>,
+    token_owner_account: &AccountInfo<'info>,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
 ) -> Result<()> {

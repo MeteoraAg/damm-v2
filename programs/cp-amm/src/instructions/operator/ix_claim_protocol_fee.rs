@@ -34,13 +34,13 @@ pub struct ClaimProtocolFeesCtx<'info> {
     /// The mint of token b
     pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    /// The treasury token a account
+    /// CHECK: The treasury token a account
     #[account(mut)]
-    pub token_a_account: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub token_a_account: UncheckedAccount<'info>,
 
-    /// The treasury token b account
+    /// CHECK: The treasury token b account
     #[account(mut)]
-    pub token_b_account: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub token_b_account: UncheckedAccount<'info>,
 
     pub operator: AccountLoader<'info, Operator>,
 

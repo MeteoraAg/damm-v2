@@ -155,7 +155,7 @@ pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2)
         ctx.accounts.pool_authority.to_account_info(),
         token_out_mint,
         output_vault_account,
-        &ctx.accounts.output_token_account,
+        &ctx.accounts.output_token_account.to_account_info(),
         output_program,
         included_transfer_fee_amount_out,
     )?;
@@ -167,7 +167,11 @@ pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2)
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.token_a_mint,
                 &ctx.accounts.token_a_vault,
-                &ctx.accounts.referral_token_account.clone().unwrap(),
+                &ctx.accounts
+                    .referral_token_account
+                    .clone()
+                    .unwrap()
+                    .to_account_info(),
                 &ctx.accounts.token_a_program,
                 referral_fee,
             )?;
@@ -176,7 +180,11 @@ pub fn handle_test_swap_wrapper(ctx: &Context<SwapCtx>, params: SwapParameters2)
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.token_b_mint,
                 &ctx.accounts.token_b_vault,
-                &ctx.accounts.referral_token_account.clone().unwrap(),
+                &ctx.accounts
+                    .referral_token_account
+                    .clone()
+                    .unwrap()
+                    .to_account_info(),
                 &ctx.accounts.token_b_program,
                 referral_fee,
             )?;
