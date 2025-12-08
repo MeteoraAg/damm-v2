@@ -467,4 +467,8 @@ impl BaseFeeHandler for PodAlignedFeeRateLimiter {
             u128::from(activation_point).safe_add(self.max_limiter_duration.into())?;
         Ok(u128::from(current_point) > last_effective_rate_limiter_point)
     }
+
+    fn get_min_base_fee_numerator(&self) -> Result<u64> {
+        Ok(self.cliff_fee_numerator)
+    }
 }

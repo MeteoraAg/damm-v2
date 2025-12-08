@@ -7,7 +7,9 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::activation_handler::{ActivationHandler, ActivationType};
 use crate::base_fee::{BaseFeeHandlerBuilder, UpdateCliffFeeNumerator};
-use crate::constants::fee::{get_max_fee_numerator, CURRENT_POOL_VERSION};
+use crate::constants::fee::{
+    get_max_fee_numerator, CURRENT_POOL_VERSION, MAX_FEE_NUMERATOR_POST_UPDATE,
+};
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::state::{Operator, OperatorPermission};
@@ -1347,6 +1349,14 @@ impl Pool {
 
                 // validate base fee again after update new cliff fee numerator
                 base_fee_handler.validate(collect_fee_mode, activation_type)?;
+
+                // validate current base fee is smaller than our cap
+                // because base fee is static, so we just need to use min base fee numerator
+                let current_base_fee_numerator = base_fee_handler.get_min_base_fee_numerator()?;
+                require!(
+                    current_base_fee_numerator <= MAX_FEE_NUMERATOR_POST_UPDATE,
+                    PoolError::InvalidUpdatePoolFeesParameters
+                );
             }
             _ => {
                 // skip update, so we don't do anything
