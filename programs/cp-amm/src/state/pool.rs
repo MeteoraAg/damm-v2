@@ -1368,7 +1368,7 @@ impl Pool {
             DynamicFeeUpdateMode::Disable => {
                 require!(
                     self.pool_fees.dynamic_fee.is_dynamic_fee_enable(),
-                    PoolError::InvalidUpdatePoolFeesParameters
+                    PoolError::InvalidDynamicFeeParameters
                 );
                 self.pool_fees.dynamic_fee = DynamicFeeStruct::default();
             }
