@@ -8,7 +8,7 @@ use crate::{
     },
     error::PoolError,
     event::EvtInitializeReward,
-    state::{OperatorPermission, Pool},
+    state::{Operator, OperatorPermission, Pool},
     token::{get_token_program_flags, is_supported_mint, is_token_badge_initialized},
 };
 
@@ -80,7 +80,6 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
             PoolError::InvalidTokenBadge
         );
     }
-
     let index: usize = reward_index
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
@@ -88,12 +87,21 @@ pub fn handle_initialize_reward<'c: 'info, 'info>(
     ctx.accounts.validate(index, reward_duration)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
-    pool.validate_authority_to_edit_reward(
-        index,
-        ctx.accounts.signer.key(),
-        ctx.remaining_accounts,
-        OperatorPermission::InitializeReward,
-    )?;
+
+    if !pool.check_pool_creator_to_edit_reward(index, ctx.accounts.signer.key()) {
+        let operator_account = ctx
+            .remaining_accounts
+            .get(1)
+            .ok_or_else(|| PoolError::MissingOperatorAccount)?;
+        let operator_loader: AccountLoader<'info, Operator> =
+            AccountLoader::try_from(operator_account)?;
+        let operator = operator_loader.load()?;
+        require!(
+            operator.whitelisted_address.eq(&ctx.accounts.signer.key())
+                && operator.is_permission_allow(OperatorPermission::InitializeReward),
+            PoolError::InvalidAuthority
+        )
+    }
 
     let reward_info = &mut pool.reward_infos[index];
 

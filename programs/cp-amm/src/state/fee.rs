@@ -52,8 +52,8 @@ pub enum BaseFeeMode {
     // rate limiter
     RateLimiter,
     // fee = cliff_fee_numerator - passed_period * reduction_factor
-    // passed_period = changed_price / price_step_bps
-    // passed_period = (current_sqrt_price - init_sqrt_price) * 10_000 * init_sqrt_price / price_step_bps
+    // passed_period = changed_price / sqrt_price_step_bps
+    // passed_period = (current_sqrt_price - init_sqrt_price) * 10_000 / init_sqrt_price / sqrt_price_step_bps
     FeeMarketCapSchedulerLinear,
     // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
     FeeMarketCapSchedulerExponential,

@@ -31,6 +31,13 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
     ];
     let result = match instruction_bits {
         [true, false, false] | [false, true, false] => {
+            // https://doc.rust-lang.org/std/primitive.slice.html#method.split_at_unchecked
+            // Calling split_at_unchecked method with an out-of-bounds index is undefined behavior even if the resulting reference is not used.
+            // The caller has to ensure that 0 <= mid <= self.len().
+            if accounts.len() < SWAP_IX_ACCOUNTS {
+                return Some(ErrorCode::AccountNotEnoughKeys as u64);
+            }
+
             let (left, right) = accounts.split_at_unchecked(SWAP_IX_ACCOUNTS);
             let accounts = core::slice::from_raw_parts(left.as_ptr() as _, SWAP_IX_ACCOUNTS);
             let remaining_accounts = core::slice::from_raw_parts(

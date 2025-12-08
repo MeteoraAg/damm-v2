@@ -51,7 +51,7 @@ fn p_event_dispatch(
     let given_event_authority = &accounts[0];
     require!(
         given_event_authority.is_signer(),
-        ErrorCode::ConstraintSeeds
+        ErrorCode::ConstraintSigner
     );
     require!(
         given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
@@ -118,14 +118,6 @@ pub mod cp_amm {
 
     pub fn create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
         instructions::handle_create_token_badge(ctx)
-    }
-
-    pub fn create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>) -> Result<()> {
-        instructions::handle_create_claim_fee_operator(ctx)
-    }
-
-    pub fn close_claim_fee_operator(ctx: Context<CloseClaimFeeOperatorCtx>) -> Result<()> {
-        instructions::handle_close_claim_fee_operator(ctx)
     }
 
     pub fn close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {

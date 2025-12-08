@@ -1,13 +1,13 @@
-use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-
+use crate::PoolError;
 use crate::{
     const_pda,
     constants::treasury,
-    state::{ClaimFeeOperator, Pool},
+    state::{Operator, OperatorPermission, Pool},
     token::transfer_from_pool,
     EvtClaimProtocolFee,
 };
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 /// Accounts for withdraw protocol fees
 #[event_cpi]
@@ -53,11 +53,13 @@ pub struct ClaimProtocolFeesCtx<'info> {
     pub token_b_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// Claim fee operator
-    #[account(has_one = operator)]
-    pub claim_fee_operator: AccountLoader<'info, ClaimFeeOperator>,
+    #[account(
+        has_one = whitelisted_address
+    )]
+    pub operator: AccountLoader<'info, Operator>,
 
     /// Operator
-    pub operator: Signer<'info>,
+    pub whitelisted_address: Signer<'info>,
 
     /// Token a program
     pub token_a_program: Interface<'info, TokenInterface>,
@@ -72,6 +74,12 @@ pub fn handle_claim_protocol_fee(
     max_amount_a: u64,
     max_amount_b: u64,
 ) -> Result<()> {
+    let operator = ctx.accounts.operator.load()?;
+    require!(
+        operator.is_permission_allow(OperatorPermission::ClaimProtocolFee),
+        PoolError::InvalidAuthority
+    );
+
     let mut pool = ctx.accounts.pool.load_mut()?;
 
     let (token_a_amount, token_b_amount) = pool.claim_protocol_fee(max_amount_a, max_amount_b)?;

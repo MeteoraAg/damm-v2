@@ -7,10 +7,11 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::activation_handler::{ActivationHandler, ActivationType};
 use crate::base_fee::{BaseFeeHandlerBuilder, UpdateCliffFeeNumerator};
-use crate::constants::fee::{get_max_fee_numerator, CURRENT_POOL_VERSION};
+use crate::constants::fee::{
+    get_max_fee_numerator, CURRENT_POOL_VERSION, MAX_FEE_NUMERATOR_POST_UPDATE,
+};
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
-use crate::state::{Operator, OperatorPermission};
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
@@ -1260,30 +1261,8 @@ impl Pool {
         U256::from_le_bytes(self.fee_b_per_liquidity)
     }
 
-    pub fn validate_authority_to_edit_reward<'c: 'info, 'info>(
-        &self,
-        reward_index: usize,
-        signer: Pubkey,
-        remaining_accounts: &'c [AccountInfo<'info>],
-        permission: OperatorPermission,
-    ) -> Result<()> {
-        // pool creator is allowed to initialize reward with only index 0
-        if signer == self.creator {
-            require!(reward_index == 0, PoolError::InvalidRewardIndex)
-        } else {
-            let operator_account = remaining_accounts
-                .get(0)
-                .ok_or_else(|| PoolError::InvalidAuthority)?;
-            let operator_loader: AccountLoader<'_, Operator> =
-                AccountLoader::try_from(operator_account)?;
-            let operator = operator_loader.load()?;
-            require!(
-                operator.whitelisted_address.eq(&signer)
-                    && operator.is_permission_allow(permission),
-                PoolError::InvalidAuthority
-            );
-        }
-        Ok(())
+    pub fn check_pool_creator_to_edit_reward(&self, reward_index: usize, signer: Pubkey) -> bool {
+        signer == self.creator && reward_index == 0
     }
 
     pub fn has_partner(&self) -> bool {
@@ -1347,6 +1326,14 @@ impl Pool {
 
                 // validate base fee again after update new cliff fee numerator
                 base_fee_handler.validate(collect_fee_mode, activation_type)?;
+
+                // validate current base fee is smaller than our cap
+                // because base fee is static, so we just need to use min base fee numerator
+                let current_base_fee_numerator = base_fee_handler.get_min_base_fee_numerator()?;
+                require!(
+                    current_base_fee_numerator <= MAX_FEE_NUMERATOR_POST_UPDATE,
+                    PoolError::InvalidUpdatePoolFeesParameters
+                );
             }
             _ => {
                 // skip update, so we don't do anything
@@ -1358,7 +1345,7 @@ impl Pool {
             DynamicFeeUpdateMode::Disable => {
                 require!(
                     self.pool_fees.dynamic_fee.is_dynamic_fee_enable(),
-                    PoolError::InvalidUpdatePoolFeesParameters
+                    PoolError::InvalidDynamicFeeParameters
                 );
                 self.pool_fees.dynamic_fee = DynamicFeeStruct::default();
             }

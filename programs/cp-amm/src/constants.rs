@@ -53,7 +53,7 @@ pub const SPLIT_POSITION_DENOMINATOR: u32 = 1_000_000_000; // 1b
 pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
 pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
 
-pub const MAX_OPERATION: u8 = 11;
+pub const MAX_OPERATION: u8 = 10;
 
 static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,
@@ -110,6 +110,9 @@ pub mod fee {
 
     pub const MAX_FEE_BPS_V1: u64 = 9900; // 99%
     pub const MAX_FEE_NUMERATOR_V1: u64 = 990_000_000; // 99%
+
+    /// max fee numerator operator could update for a pool
+    pub const MAX_FEE_NUMERATOR_POST_UPDATE: u64 = 100_000_000; // 10%
 
     /// Max basis point. 100% in pct
     #[constant]

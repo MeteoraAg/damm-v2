@@ -129,7 +129,7 @@ impl<'info> SwapCtx<'info> {
             ErrorCode::ConstraintAddress
         );
 
-        let pool: &mut Pool = p_load_mut_checked(pool)?;
+        let pool: pinocchio::account_info::RefMut<'_, Pool> = p_load_mut_checked(pool)?;
 
         require!(
             pool.token_a_vault.as_array() == token_a_vault.key(),

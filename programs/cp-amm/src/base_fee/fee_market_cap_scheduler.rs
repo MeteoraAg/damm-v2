@@ -23,7 +23,7 @@ use ruint::aliases::U256;
 pub struct BorshFeeMarketCapScheduler {
     pub cliff_fee_numerator: u64,
     pub number_of_period: u16,
-    pub price_step_bps: u32, // similar to period_frequency in fee time scheduler
+    pub sqrt_price_step_bps: u32, // similar to period_frequency in fee time scheduler
     pub scheduler_expiration_duration: u32,
     pub reduction_factor: u64,
     // Must at offset 26 (without memory alignment padding)
@@ -42,7 +42,7 @@ impl BorshBaseFeeSerde for BorshFeeMarketCapScheduler {
             cliff_fee_numerator: self.cliff_fee_numerator,
             base_fee_mode: self.base_fee_mode,
             number_of_period: self.number_of_period,
-            price_step_bps: self.price_step_bps,
+            sqrt_price_step_bps: self.sqrt_price_step_bps,
             scheduler_expiration_duration: self.scheduler_expiration_duration,
             reduction_factor: self.reduction_factor,
             ..Default::default()
@@ -62,7 +62,7 @@ pub struct PodAlignedFeeMarketCapScheduler {
     pub base_fee_mode: u8,
     pub padding: [u8; 5],
     pub number_of_period: u16,
-    pub price_step_bps: u32,
+    pub sqrt_price_step_bps: u32,
     pub scheduler_expiration_duration: u32,
     pub reduction_factor: u64,
 }
@@ -82,7 +82,7 @@ impl PodAlignedBaseFeeSerde for PodAlignedFeeMarketCapScheduler {
         let borsh_struct = BorshFeeMarketCapScheduler {
             cliff_fee_numerator: self.cliff_fee_numerator,
             number_of_period: self.number_of_period,
-            price_step_bps: self.price_step_bps,
+            sqrt_price_step_bps: self.sqrt_price_step_bps,
             scheduler_expiration_duration: self.scheduler_expiration_duration,
             reduction_factor: self.reduction_factor,
             base_fee_mode: self.base_fee_mode,
@@ -97,10 +97,6 @@ impl PodAlignedBaseFeeSerde for PodAlignedFeeMarketCapScheduler {
 }
 
 impl PodAlignedFeeMarketCapScheduler {
-    pub fn get_min_base_fee_numerator(&self) -> Result<u64> {
-        self.get_base_fee_numerator_by_period(self.number_of_period.into())
-    }
-
     fn get_base_fee_numerator_by_period(&self, period: u64) -> Result<u64> {
         let period = period.min(self.number_of_period.into());
 
@@ -145,12 +141,12 @@ impl PodAlignedFeeMarketCapScheduler {
                     let current_sqrt_price = U256::from(current_sqrt_price);
                     let init_sqrt_price = U256::from(init_sqrt_price);
                     let max_bps = U256::from(MAX_BASIS_POINT);
-                    let price_step_bps = U256::from(self.price_step_bps);
+                    let sqrt_price_step_bps = U256::from(self.sqrt_price_step_bps);
                     let passed_period = current_sqrt_price
                         .safe_sub(init_sqrt_price)?
                         .safe_mul(max_bps)?
                         .safe_div(init_sqrt_price)?
-                        .safe_div(price_step_bps)?;
+                        .safe_div(sqrt_price_step_bps)?;
 
                     if passed_period > U256::from(self.number_of_period) {
                         self.number_of_period.into()
@@ -180,12 +176,17 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
         );
 
         require!(
-            self.price_step_bps > 0,
+            self.sqrt_price_step_bps > 0,
             PoolError::InvalidFeeMarketCapScheduler
         );
 
         require!(
             self.scheduler_expiration_duration > 0,
+            PoolError::InvalidFeeMarketCapScheduler
+        );
+
+        require!(
+            self.number_of_period > 0,
             PoolError::InvalidFeeMarketCapScheduler
         );
 
@@ -245,5 +246,9 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
         let scheduler_expiration_point =
             u128::from(activation_point).safe_add(self.scheduler_expiration_duration.into())?;
         Ok(u128::from(current_point) > scheduler_expiration_point)
+    }
+
+    fn get_min_base_fee_numerator(&self) -> Result<u64> {
+        self.get_base_fee_numerator_by_period(self.number_of_period.into())
     }
 }

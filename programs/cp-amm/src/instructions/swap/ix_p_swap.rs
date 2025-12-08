@@ -1,5 +1,6 @@
 use crate::p_helper::{
-    p_accessor_mint, p_load_mut_unchecked, p_transfer_from_pool, p_transfer_from_user,
+    p_accessor_mint, p_get_number_of_accounts_in_instruction, p_load_mut_unchecked,
+    p_transfer_from_pool, p_transfer_from_user,
 };
 use crate::state::SwapResult2;
 use crate::{instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction};
@@ -73,7 +74,7 @@ pub fn p_handle_swap(
     };
 
     let pool_key = pool.key();
-    let pool: &mut Pool = p_load_mut_unchecked(pool)?;
+    let mut pool: pinocchio::account_info::RefMut<'_, Pool> = p_load_mut_unchecked(pool)?;
 
     {
         let access_validator = get_pool_access_validator(&pool)?;
@@ -319,21 +320,15 @@ pub fn validate_single_swap_instruction<'c, 'info>(
 
         if instruction.get_program_id() != crate::ID.as_array() {
             // we treat any instruction including that pool address is other swap ix
-            loop {
-                match instruction.get_account_meta_at(i.into()) {
-                    Ok(account_metadata) => {
-                        if &account_metadata.key == pool.as_array() {
-                            msg!("Multiple swaps not allowed");
-                            return Err(PoolError::FailToValidateSingleSwapInstruction.into());
-                        }
-                    }
-                    Err(err) => {
-                        if err == pinocchio::program_error::ProgramError::InvalidArgument {
-                            break;
-                        } else {
-                            return Err(PoolError::UndeterminedError.into());
-                        }
-                    }
+            let num_accounts = p_get_number_of_accounts_in_instruction(&instruction);
+            for j in 0..num_accounts {
+                let account_metadata = instruction
+                    .get_account_meta_at(j.into())
+                    .map_err(|err| ProgramError::from(u64::from(err)))?;
+
+                if &account_metadata.key == pool.as_array() {
+                    msg!("Multiple swaps not allowed");
+                    return Err(PoolError::FailToValidateSingleSwapInstruction.into());
                 }
             }
         } else {

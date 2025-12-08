@@ -1,10 +1,18 @@
+use std::mem;
+
 use anchor_lang::{
     error::ErrorCode,
     prelude::{ProgramError, Pubkey},
     require, system_program, CheckOwner, Discriminator, Owner, Result,
 };
 use anchor_spl::token_interface::TokenAccount;
-use pinocchio::{account_info::AccountInfo, entrypoint::ProgramResult};
+use bytemuck::Pod;
+use pinocchio::{
+    account_info::{AccountInfo, RefMut},
+    entrypoint::ProgramResult,
+    sysvars::instructions::IntrospectedInstruction,
+};
+
 pub fn p_transfer_from_user(
     authority: &AccountInfo,
     token_mint: &AccountInfo,
@@ -58,7 +66,9 @@ pub fn p_transfer_from_pool(
 }
 
 // same as AccountLoader load_mut() but check for discriminator and owner
-pub fn p_load_mut_checked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> Result<&mut T> {
+pub fn p_load_mut_checked<T: Pod + Discriminator + Owner>(
+    acc_info: &AccountInfo,
+) -> Result<RefMut<T>> {
     // validate owner
     require!(
         acc_info.owner().eq(&T::owner().to_bytes()),
@@ -70,9 +80,9 @@ pub fn p_load_mut_checked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> R
     }
 
     let disc = T::DISCRIMINATOR;
-    let mut data = acc_info
+    let data = acc_info
         .try_borrow_mut_data()
-        .map_err(|_| ProgramError::AccountBorrowFailed)?;
+        .map_err(|err| ProgramError::from(u64::from(err)))?;
 
     if data.len() < disc.len() {
         return Err(ErrorCode::AccountDiscriminatorNotFound.into());
@@ -83,15 +93,32 @@ pub fn p_load_mut_checked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> R
         return Err(ErrorCode::AccountDiscriminatorMismatch.into());
     }
 
-    Ok(unsafe { &mut *(data[disc.len()..].as_mut_ptr() as *mut T) })
+    Ok(RefMut::map(data, |data| {
+        // just panic if it is wrong
+        bytemuck::from_bytes_mut(&mut data[disc.len()..mem::size_of::<T>() + disc.len()])
+    }))
 }
 
-pub fn p_load_mut_unchecked<T: Discriminator + Owner>(acc_info: &AccountInfo) -> Result<&mut T> {
-    let mut data = acc_info
+pub fn p_load_mut_unchecked<T: Pod + Discriminator + Owner>(
+    acc_info: &AccountInfo,
+) -> Result<RefMut<T>> {
+    let data = acc_info
         .try_borrow_mut_data()
         .map_err(|err| ProgramError::from(u64::from(err)))?;
 
-    Ok(unsafe { &mut *(data[T::DISCRIMINATOR.len()..].as_mut_ptr() as *mut T) })
+    Ok(RefMut::map(data, |data| {
+        // just panic if it is wrong
+        bytemuck::from_bytes_mut(
+            &mut data[T::DISCRIMINATOR.len()..mem::size_of::<T>() + T::DISCRIMINATOR.len()],
+        )
+    }))
+}
+
+// get number of accounts in instruction
+// refer: https://github.com/anza-xyz/pinocchio/blob/183a17634e1ad2a33921fd5b0de38c151fb2ec2f/sdk/src/sysvars/instructions.rs#L183
+pub fn p_get_number_of_accounts_in_instruction(instruction: &IntrospectedInstruction) -> u16 {
+    let num_accounts = u16::from_le_bytes(unsafe { *(instruction.raw as *const [u8; 2]) });
+    num_accounts
 }
 
 pub fn p_accessor_mint(token_account: &AccountInfo) -> Result<Pubkey> {
