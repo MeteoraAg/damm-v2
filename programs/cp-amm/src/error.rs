@@ -182,6 +182,6 @@ pub enum PoolError {
     #[msg("Invalid update pool fees parameters")]
     InvalidUpdatePoolFeesParameters,
 
-    #[msg("Invalid operator account")]
-    InvalidOperatorAccount,
+    #[msg("Missing operator account")]
+    MissingOperatorAccount,
 }

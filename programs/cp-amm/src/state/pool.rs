@@ -1283,7 +1283,7 @@ impl Pool {
                     PoolError::InvalidAuthority
                 )
             } else {
-                return Err(PoolError::InvalidOperatorAccount.into());
+                return Err(PoolError::MissingOperatorAccount.into());
             }
         }
         Ok(())
