@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::{
     constants::{MAX_REWARD_DURATION, MIN_REWARD_DURATION, NUM_REWARDS},
-    state::{OperatorPermission, Pool},
+    state::{Operator, OperatorPermission, Pool},
     EvtUpdateRewardDuration, PoolError,
 };
 
@@ -58,12 +58,20 @@ pub fn handle_update_reward_duration<'c: 'info, 'info>(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
 
-    pool.validate_authority_to_edit_reward(
-        index,
-        ctx.accounts.signer.key(),
-        ctx.remaining_accounts,
-        OperatorPermission::UpdateRewardDuration,
-    )?;
+    if !pool.check_pool_creator_to_edit_reward(index, ctx.accounts.signer.key()) {
+        let operator_account = ctx
+            .remaining_accounts
+            .get(0)
+            .ok_or_else(|| PoolError::MissingOperatorAccount)?;
+        let operator_loader: AccountLoader<'info, Operator> =
+            AccountLoader::try_from(operator_account)?;
+        let operator = operator_loader.load()?;
+        require!(
+            operator.whitelisted_address.eq(&ctx.accounts.signer.key())
+                && operator.is_permission_allow(OperatorPermission::UpdateRewardDuration),
+            PoolError::InvalidAuthority
+        )
+    }
 
     let reward_info = &mut pool.reward_infos[index];
 

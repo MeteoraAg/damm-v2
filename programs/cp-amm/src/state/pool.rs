@@ -12,7 +12,6 @@ use crate::constants::fee::{
 };
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
-use crate::state::{Operator, OperatorPermission};
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
@@ -1262,30 +1261,8 @@ impl Pool {
         U256::from_le_bytes(self.fee_b_per_liquidity)
     }
 
-    pub fn validate_authority_to_edit_reward<'c: 'info, 'info>(
-        &self,
-        reward_index: usize,
-        signer: Pubkey,
-        remaining_accounts: &'c [AccountInfo<'info>],
-        permission: OperatorPermission,
-    ) -> Result<()> {
-        // pool creator is allowed to initialize reward with only index 0
-        if signer == self.creator {
-            require!(reward_index == 0, PoolError::InvalidRewardIndex)
-        } else {
-            let operator_account = remaining_accounts
-                .get(0)
-                .ok_or_else(|| PoolError::InvalidAuthority)?;
-            let operator_loader: AccountLoader<'_, Operator> =
-                AccountLoader::try_from(operator_account)?;
-            let operator = operator_loader.load()?;
-            require!(
-                operator.whitelisted_address.eq(&signer)
-                    && operator.is_permission_allow(permission),
-                PoolError::InvalidAuthority
-            );
-        }
-        Ok(())
+    pub fn check_pool_creator_to_edit_reward(&self, reward_index: usize, signer: Pubkey) -> bool {
+        signer == self.creator && reward_index == 0
     }
 
     pub fn has_partner(&self) -> bool {
