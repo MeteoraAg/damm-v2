@@ -23,6 +23,11 @@ pub fn load_account_checked<'info, T: bytemuck::Pod + Discriminator + Owner>(
         return Err(ErrorCode::AccountDiscriminatorMismatch.into());
     }
 
+    let account_data = &data[disc.len()..];
+    if account_data.len() != mem::size_of::<T>() {
+        return Err(ErrorCode::AccountDidNotDeserialize.into());
+    }
+
     Ok(Ref::map(data, |data| {
         bytemuck::from_bytes(&data[disc.len()..mem::size_of::<T>() + disc.len()])
     }))
