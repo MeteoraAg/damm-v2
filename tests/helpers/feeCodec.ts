@@ -61,7 +61,7 @@ export function decodePodAlignedFeeTimeScheduler(
 export function encodeFeeMarketCapSchedulerParams(
   cliffFeeNumerator: bigint,
   numberOfPeriod: number,
-  priceStepBps: number,
+  sqrtPriceStepBps: number,
   schedulerExpirationDuration: number,
   reductionFactor: bigint,
   baseFeeMode:
@@ -71,7 +71,7 @@ export function encodeFeeMarketCapSchedulerParams(
   const feeMarketCapScheduler: BorshFeeMarketCapScheduler = {
     cliffFeeNumerator: new BN(cliffFeeNumerator.toString()),
     numberOfPeriod,
-    priceStepBps,
+    sqrtPriceStepBps,
     schedulerExpirationDuration,
     reductionFactor: new BN(reductionFactor.toString()),
     baseFeeMode,

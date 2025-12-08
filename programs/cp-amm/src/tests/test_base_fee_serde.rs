@@ -134,7 +134,7 @@ fn test_base_fee_serde_market_cap_scheduler() {
     let fee = BorshFeeMarketCapScheduler {
         cliff_fee_numerator: 1_000_000,
         number_of_period: 20,
-        price_step_bps: 300,
+        sqrt_price_step_bps: 300,
         reduction_factor: 271,
         scheduler_expiration_duration: 800,
         base_fee_mode: BaseFeeMode::FeeMarketCapSchedulerExponential.into(),
@@ -179,7 +179,7 @@ fn test_base_fee_serde_market_cap_scheduler() {
     assert_eq!(fee.cliff_fee_numerator, deserialized.cliff_fee_numerator);
     assert_eq!(fee.number_of_period, deserialized.number_of_period);
     assert_eq!(fee.reduction_factor, deserialized.reduction_factor);
-    assert_eq!(fee.price_step_bps, deserialized.price_step_bps);
+    assert_eq!(fee.sqrt_price_step_bps, deserialized.sqrt_price_step_bps);
 
     // convert back to base fee params
     let reverse_base_fee_params = base_fee_info_to_base_fee_parameters(&base_fee_info_struct);
