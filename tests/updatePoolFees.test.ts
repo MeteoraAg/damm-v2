@@ -1,32 +1,33 @@
-import { generateKpAndFund } from "./helpers/common";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
 import {
-  InitializeCustomizablePoolParams,
-  initializeCustomizablePool,
-  MIN_LP_AMOUNT,
-  MAX_SQRT_PRICE,
-  MIN_SQRT_PRICE,
-  mintSplTokenTo,
+  createCpAmmProgram,
+  createOperator,
   createToken,
-  updatePoolFeesParameters,
+  DynamicFee,
+  encodePermissions,
+  expectThrowsErrorMessage,
+  getDefaultDynamicFee,
   getDynamicFeeParams,
   getFeeShedulerParams,
-  encodePermissions,
-  createOperator,
-  OperatorPermission,
-  DynamicFee,
-  getDefaultDynamicFee,
   getPool,
-  createCpAmmProgram,
+  initializeCustomizablePool,
+  InitializeCustomizablePoolParams,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
+  MIN_SQRT_PRICE,
+  mintSplTokenTo,
+  OperatorPermission,
+  startSvm,
   swapExactIn,
   SwapParams,
-  startSvm,
-  getCpAmmProgramErrorCode,
-  expectThrowsErrorCode,
+  updatePoolFeesParameters,
   warpSlotBy,
   warpTimestampToPassfilterPeriod,
 } from "./helpers";
-import BN from "bn.js";
+import { generateKpAndFund } from "./helpers/common";
 import {
   BaseFeeMode,
   decodeFeeMarketCapSchedulerParams,
@@ -36,8 +37,6 @@ import {
   encodeFeeRateLimiterParams,
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
-import { expect } from "chai";
-import { LiteSVM } from "litesvm";
 
 describe("Admin update pool fees parameters", () => {
   let svm: LiteSVM;
@@ -304,14 +303,14 @@ describe("Admin update pool fees parameters", () => {
     };
     await swapExactIn(svm, swapParams);
 
-    const errorCode = getCpAmmProgramErrorCode("CannotUpdateBaseFee");
-    const res = await updatePoolFeesParameters(svm, {
-      whitelistedOperator,
-      pool: poolAddress,
-      cliffFeeNumerator,
-      dynamicFee: null,
-    });
-    expectThrowsErrorCode(res, errorCode);
+    await expectThrowsErrorMessage(async () => {
+      await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator,
+        dynamicFee: null,
+      });
+    }, "CannotUpdateBaseFee");
 
     warpSlotBy(svm, new BN(10000));
 
@@ -374,14 +373,14 @@ describe("Admin update pool fees parameters", () => {
 
     // update new cliff fee numerator
     const cliffFeeNumerator = new BN(5_000_000);
-    const errorCode = getCpAmmProgramErrorCode("CannotUpdateBaseFee");
-    const res = await updatePoolFeesParameters(svm, {
-      whitelistedOperator,
-      pool: poolAddress,
-      cliffFeeNumerator,
-      dynamicFee: null,
-    });
-    expectThrowsErrorCode(res, errorCode);
+    await expectThrowsErrorMessage(async () => {
+      await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator,
+        dynamicFee: null,
+      });
+    }, "CannotUpdateBaseFee");
 
     warpSlotBy(svm, new BN(10000));
 
@@ -454,14 +453,14 @@ describe("Admin update pool fees parameters", () => {
     // update new cliff fee numerator
     const cliffFeeNumerator = new BN(5_000_000);
 
-    const errorCode = getCpAmmProgramErrorCode("CannotUpdateBaseFee");
-    const res = await updatePoolFeesParameters(svm, {
-      whitelistedOperator,
-      pool: poolAddress,
-      cliffFeeNumerator,
-      dynamicFee: null,
-    });
-    expectThrowsErrorCode(res, errorCode);
+    await expectThrowsErrorMessage(async () => {
+      await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator,
+        dynamicFee: null,
+      });
+    }, "CannotUpdateBaseFee");
 
     warpSlotBy(svm, maxRateLimiterDuration.addn(1));
 
@@ -536,14 +535,14 @@ describe("Admin update pool fees parameters", () => {
     cliffFeeNumerator = new BN(5_000_000);
     const dynamicFeeParams = getDynamicFeeParams(cliffFeeNumerator);
 
-    const errorCode = getCpAmmProgramErrorCode("CannotUpdateBaseFee");
-    const res = await updatePoolFeesParameters(svm, {
-      whitelistedOperator,
-      pool: poolAddress,
-      cliffFeeNumerator,
-      dynamicFee: dynamicFeeParams,
-    });
-    expectThrowsErrorCode(res, errorCode);
+    await expectThrowsErrorMessage(async () => {
+      await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator,
+        dynamicFee: dynamicFeeParams,
+      });
+    }, "CannotUpdateBaseFee");
 
     warpSlotBy(svm, schedulerExpirationDuration.addn(1));
 

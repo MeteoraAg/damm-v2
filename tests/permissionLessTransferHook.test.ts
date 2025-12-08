@@ -1,26 +1,28 @@
-import { expect } from "chai";
-import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
 import {
   createConfigIx,
   CreateConfigParams,
+  createOperator,
+  createToken,
+  encodePermissions,
+  expectThrowsErrorMessage,
+  getCpAmmProgramErrorCode,
   getPool,
   initializePool,
   InitializePoolParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
-  setPoolStatus,
-  createToken,
   mintSplTokenTo,
-  getCpAmmProgramErrorCode,
   OperatorPermission,
-  createOperator,
-  encodePermissions,
+  setPoolStatus,
   startSvm,
-  expectThrowsErrorCode,
 } from "./helpers";
-import BN from "bn.js";
+import { generateKpAndFund } from "./helpers/common";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import {
   createToken2022,
   createTransferHookExtensionWithInstruction,
@@ -28,8 +30,6 @@ import {
   revokeAuthorityAndProgramIdTransferHook,
 } from "./helpers/token2022";
 import { createExtraAccountMetaListAndCounter } from "./helpers/transferHook";
-import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
 
 describe("Permissionless transfer hook", () => {
   let svm: LiteSVM;
@@ -142,8 +142,9 @@ describe("Permissionless transfer hook", () => {
     };
 
     const errorCode = getCpAmmProgramErrorCode("InvalidTokenBadge");
-    const { result } = await initializePool(svm, initPoolParams);
-    expectThrowsErrorCode(result, errorCode);
+    await expectThrowsErrorMessage(async () => {
+      await initializePool(svm, initPoolParams);
+    }, "InvalidTokenBadge");
 
     // revoke program id
 

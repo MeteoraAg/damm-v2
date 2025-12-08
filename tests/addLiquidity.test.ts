@@ -1,7 +1,7 @@
-import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
+import { LiteSVM } from "litesvm";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -24,13 +24,13 @@ import {
   startSvm,
   U64_MAX,
 } from "./helpers";
+import { generateKpAndFund } from "./helpers/common";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./helpers/token2022";
-import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
 
 describe("Add liquidity", () => {
   describe("SPL Token", () => {
@@ -217,7 +217,7 @@ describe("Add liquidity", () => {
       creator = generateKpAndFund(svm);
       whitelistedAccount = generateKpAndFund(svm);
 
-      await createToken2022(
+      createToken2022(
         svm,
         tokenAExtensions,
         tokenAMintKeypair,

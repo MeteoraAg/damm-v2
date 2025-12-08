@@ -86,7 +86,7 @@ pub mod cp_amm {
 
     use super::*;
 
-    /// ADMIN FUNCTIONS /////
+    /// ADMIN FUNCTIONS ////
     pub fn create_operator_account(
         ctx: Context<CreateOperatorAccountCtx>,
         permission: u128,

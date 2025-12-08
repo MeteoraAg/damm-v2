@@ -1,7 +1,6 @@
 import { base64 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { PublicKey, Signer, SystemProgram, Transaction } from "@solana/web3.js";
 import BN from "bn.js";
-import { expect } from "chai";
 import {
   AccountInfoBytes,
   FailedTransactionMetadata,
@@ -55,7 +54,7 @@ export function sendTransaction(
   svm: LiteSVM,
   transaction: Transaction,
   signers: Signer[]
-) {
+): TransactionMetadata | FailedTransactionMetadata {
   transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(...signers);
   const result = svm.sendTransaction(transaction);
@@ -64,27 +63,42 @@ export function sendTransaction(
   return result;
 }
 
-export function sendTransactionOrExpectThrowError(
+export function sendTransactionThrowError(
   svm: LiteSVM,
   transaction: Transaction,
-  logging = false,
-  errorCode?: number
-) {
+  signers: Signer[]
+): TransactionMetadata {
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.sign(...signers);
   const result = svm.sendTransaction(transaction);
-  if (logging) {
-    if (result instanceof TransactionMetadata) {
-      console.log(result.logs());
-    } else {
-      console.log(result.meta().logs());
-    }
-  }
-  if (errorCode) {
-    expectThrowsErrorCode(result, errorCode);
-  } else {
-    expect(result).instanceOf(TransactionMetadata);
+  svm.expireBlockhash();
+
+  if (result instanceof FailedTransactionMetadata) {
+    throw Error(result.meta().logs().toString());
   }
 
   return result;
+}
+
+export async function expectThrowsErrorMessage(
+  fn: () => Promise<void>,
+  errorMessage: String
+) {
+  try {
+    await fn();
+  } catch (err) {
+    if (!(err instanceof Error)) {
+      throw err;
+    } else {
+      if (!err.message.toLowerCase().includes(errorMessage.toLowerCase())) {
+        throw new Error(
+          `Unexpected error: ${err.message}. Expected error: ${errorMessage}`
+        );
+      }
+      return;
+    }
+  }
+  throw new Error("Expected an error but didn't get one");
 }
 
 export function expectThrowsErrorCode(
