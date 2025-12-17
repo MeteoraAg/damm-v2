@@ -3,7 +3,11 @@ use crate::{
     SWAP_IX_ACCOUNTS,
 };
 use anchor_lang::{
-    prelude::{event::EVENT_IX_TAG_LE, *},
+    prelude::{
+        entrypoint::{custom_heap_default, custom_panic_default},
+        event::EVENT_IX_TAG_LE,
+        *,
+    },
     solana_program,
 };
 
@@ -119,5 +123,5 @@ pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
         }
     }
 }
-solana_program::custom_heap_default!();
-solana_program::custom_panic_default!();
+custom_heap_default!();
+custom_panic_default!();
