@@ -14,10 +14,8 @@ use anchor_lang::{
     prelude::*,
     solana_program::instruction::{get_stack_height, Instruction},
 };
-use anchor_spl::{
-    associated_token::spl_associated_token_account::solana_program::instruction::get_processed_sibling_instruction,
-    token_interface::{Mint, TokenAccount},
-};
+use anchor_spl::token_interface::{Mint, TokenAccount};
+use solana_program::instruction::get_processed_sibling_instruction;
 
 pub struct ProcessSwapTestParams<'a, 'b, 'info> {
     pub pool: &'a Pool,

@@ -12,9 +12,9 @@ use crate::{
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
 
-use anchor_spl::associated_token::spl_associated_token_account::solana_program::instruction::get_processed_sibling_instruction;
 use pinocchio::account_info::AccountInfo;
 use pinocchio::sysvars::instructions::{Instructions, IntrospectedInstruction, INSTRUCTIONS_ID};
+use solana_program::instruction::get_processed_sibling_instruction;
 
 use crate::safe_math::SafeMath;
 use crate::{
