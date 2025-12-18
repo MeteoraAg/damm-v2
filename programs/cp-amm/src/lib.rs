@@ -334,10 +334,4 @@ pub mod cp_amm {
     ) -> Result<()> {
         Ok(())
     }
-
-    /// used to test with old endpoint
-    #[cfg(feature = "local")]
-    pub fn swap_test(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
-        test_swap::handle_test_swap_wrapper(&ctx, params)
-    }
 }
