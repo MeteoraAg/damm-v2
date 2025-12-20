@@ -85,6 +85,7 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
 }
 
 /// Hot path pinocchio entrypoint with anchor fallback otherwise
+
 #[no_mangle]
 pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
     match p_entrypoint(input) {

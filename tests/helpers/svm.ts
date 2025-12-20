@@ -17,25 +17,31 @@ import {
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 
 export function startSvm() {
+  console.log("1");
   const svm = new LiteSVM();
-
+  console.log("2");
   const sourceFileCpammPath = path.resolve("./target/deploy/cp_amm.so");
+  console.log("3");
   const sourceFileAlphaVaultPath = path.resolve(
     "./tests/fixtures/alpha_vault.so"
   );
+  console.log("4");
   const sourceFileTransferhookPath = path.resolve(
     "./tests/fixtures/transfer_hook_counter.so"
   );
+  console.log("5");
   svm.addProgramFromFile(new PublicKey(CP_AMM_PROGRAM_ID), sourceFileCpammPath);
+  console.log("6");
   svm.addProgramFromFile(
     new PublicKey(ALPHA_VAULT_PROGRAM_ID),
     sourceFileAlphaVaultPath
   );
+  console.log("7");
   svm.addProgramFromFile(
     new PublicKey(TRANSFER_HOOK_COUNTER_PROGRAM_ID),
     sourceFileTransferhookPath
   );
-
+  console.log("8");
   const accountInfo: AccountInfoBytes = {
     data: new Uint8Array(),
     executable: false,
