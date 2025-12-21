@@ -1,10 +1,28 @@
 use crate::{
-    entry, p_event_dispatch, p_handle_swap, SwapParameters, SwapParameters2, SWAP_IX_ACCOUNTS,
+    const_pda::EVENT_AUTHORITY_AND_BUMP, entry, p_handle_swap, SwapParameters, SwapParameters2,
+    SWAP_IX_ACCOUNTS,
 };
 use anchor_lang::{
     prelude::{event::EVENT_IX_TAG_LE, *},
     solana_program,
 };
+
+fn p_event_dispatch(
+    _program_id: &pinocchio::pubkey::Pubkey,
+    accounts: &[pinocchio::account_info::AccountInfo],
+    _data: &[u8],
+) -> Result<()> {
+    let given_event_authority = &accounts[0];
+    require!(
+        given_event_authority.is_signer(),
+        ErrorCode::ConstraintSigner
+    );
+    require!(
+        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
+        ErrorCode::ConstraintSeeds
+    );
+    Ok(())
+}
 
 #[inline(always)]
 unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {

@@ -46,9 +46,7 @@ describe("Add liquidity", () => {
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      console.log("hello");
       svm = startSvm();
-      console.log("pass");
 
       user = generateKpAndFund(svm);
       admin = generateKpAndFund(svm);

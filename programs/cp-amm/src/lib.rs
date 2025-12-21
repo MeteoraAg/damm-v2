@@ -26,41 +26,14 @@ pub mod tests;
 pub mod pool_action_access;
 pub use pool_action_access::*;
 
-#[cfg(not(feature = "no-entrypoint"))]
+#[cfg(not(feature = "no-custom-entrypoint"))]
 mod entrypoint;
-#[cfg(not(feature = "no-entrypoint"))]
+#[cfg(not(feature = "no-custom-entrypoint"))]
 pub use entrypoint::entrypoint;
 
 pub mod params;
 
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
-
-pub const EVENT_AUTHORITY_SEEDS: &[u8] = b"__event_authority";
-pub const EVENT_AUTHORITY_AND_BUMP: (pinocchio::pubkey::Pubkey, u8) = {
-    let (address, bump) = const_crypto::ed25519::derive_program_address(
-        &[EVENT_AUTHORITY_SEEDS],
-        &crate::ID_CONST.to_bytes(),
-    );
-    (address, bump)
-};
-
-#[cfg(not(feature = "no-entrypoint"))]
-fn p_event_dispatch(
-    _program_id: &pinocchio::pubkey::Pubkey,
-    accounts: &[pinocchio::account_info::AccountInfo],
-    _data: &[u8],
-) -> Result<()> {
-    let given_event_authority = &accounts[0];
-    require!(
-        given_event_authority.is_signer(),
-        ErrorCode::ConstraintSigner
-    );
-    require!(
-        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
-        ErrorCode::ConstraintSeeds
-    );
-    Ok(())
-}
 
 // Only for IDL generation
 #[cfg(feature = "idl-build")]

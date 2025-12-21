@@ -9,10 +9,11 @@ crate-type = ["cdylib", "lib"]
 name = "cp_amm"
 
 [features]
+no-custom-entrypoint = []
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
-cpi = ["no-entrypoint"]
+cpi = ["no-entrypoint", "no-custom-entrypoint"]
 default = ["no-entrypoint"]
 local = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]

@@ -1,8 +1,8 @@
 pub mod ix_swap;
 pub use ix_swap::*;
 
-// pub mod ix_p_swap;
-// pub use ix_p_swap::*;
+pub mod ix_p_swap;
+pub use ix_p_swap::*;
 
 pub mod swap_exact_in;
 pub use swap_exact_in::*;

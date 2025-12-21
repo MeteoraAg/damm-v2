@@ -1,3 +1,4 @@
+use crate::const_pda::{EVENT_AUTHORITY_AND_BUMP, EVENT_AUTHORITY_SEEDS};
 use crate::p_helper::{
     p_accessor_mint, p_get_number_of_accounts_in_instruction, p_load_mut_unchecked,
     p_transfer_from_pool, p_transfer_from_user,
@@ -263,8 +264,8 @@ fn p_emit_cpi(inner_data: Vec<u8>, authority_info: &AccountInfo) -> pinocchio::P
         &instruction,
         &[authority_info],
         &[pinocchio::instruction::Signer::from(&pinocchio::seeds!(
-            crate::EVENT_AUTHORITY_SEEDS,
-            &[crate::EVENT_AUTHORITY_AND_BUMP.1]
+            EVENT_AUTHORITY_SEEDS,
+            &[EVENT_AUTHORITY_AND_BUMP.1]
         ))],
     )
 }

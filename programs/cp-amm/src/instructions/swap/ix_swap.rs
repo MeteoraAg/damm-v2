@@ -1,3 +1,4 @@
+use crate::const_pda::EVENT_AUTHORITY_AND_BUMP;
 use crate::p_helper::{p_accessor_mint, p_load_mut_checked, validate_mut_token_account};
 use crate::{const_pda, state::Pool};
 use anchor_lang::{prelude::*, CheckId, CheckOwner};
@@ -186,7 +187,7 @@ impl<'info> SwapCtx<'info> {
 
         // validate event authority
         require!(
-            event_authority.key() == &crate::EVENT_AUTHORITY_AND_BUMP.0,
+            event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
             ErrorCode::ConstraintSeeds
         );
 
