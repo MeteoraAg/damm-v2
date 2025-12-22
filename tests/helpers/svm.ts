@@ -18,7 +18,6 @@ import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 
 export function startSvm() {
   const svm = new LiteSVM();
-
   const sourceFileCpammPath = path.resolve("./target/deploy/cp_amm.so");
   const sourceFileAlphaVaultPath = path.resolve(
     "./tests/fixtures/alpha_vault.so"
@@ -35,7 +34,6 @@ export function startSvm() {
     new PublicKey(TRANSFER_HOOK_COUNTER_PROGRAM_ID),
     sourceFileTransferhookPath
   );
-
   const accountInfo: AccountInfoBytes = {
     data: new Uint8Array(),
     executable: false,
