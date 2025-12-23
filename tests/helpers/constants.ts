@@ -17,6 +17,18 @@ export const NATIVE_MINT = new PublicKey(
   "So11111111111111111111111111111111111111112"
 );
 
+export const JUPITER_V6_PROGRAM_ID = new PublicKey(
+  "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+);
+
+export const ZAP_PROGRAM_ID = new PublicKey(
+  "zapvX9M3uf5pvy4wRPAbQgdQsM1xmuiFnkfHKPvwMiz"
+);
+
+export const JUP_V6_EVENT_AUTHORITY = new PublicKey(
+  "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf"
+);
+
 export const MIN_SQRT_PRICE = new BN("4295048016");
 export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 
