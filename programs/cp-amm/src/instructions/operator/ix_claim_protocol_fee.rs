@@ -89,7 +89,7 @@ pub fn handle_claim_protocol_fee(
             ctx.accounts.pool_authority.to_account_info(),
             &ctx.accounts.token_a_mint,
             &ctx.accounts.token_a_vault,
-            &ctx.accounts.token_a_account,
+            &ctx.accounts.token_a_account.to_account_info(),
             &ctx.accounts.token_a_program,
             token_a_amount,
         )?;
@@ -100,7 +100,7 @@ pub fn handle_claim_protocol_fee(
             ctx.accounts.pool_authority.to_account_info(),
             &ctx.accounts.token_b_mint,
             &ctx.accounts.token_b_vault,
-            &ctx.accounts.token_b_account,
+            &ctx.accounts.token_b_account.to_account_info(),
             &ctx.accounts.token_b_program,
             token_b_amount,
         )?;

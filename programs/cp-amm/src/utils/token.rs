@@ -1,4 +1,5 @@
 use crate::math::safe_math::SafeMath;
+use crate::safe_math::SafeCast;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_instruction::transfer;
 
@@ -6,6 +7,8 @@ use anchor_lang::{
     prelude::InterfaceAccount,
     solana_program::program::{invoke, invoke_signed},
 };
+use anchor_spl::associated_token::get_associated_token_address_with_program_id;
+use anchor_spl::token::accessor;
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -40,6 +43,14 @@ pub fn get_token_program_flags<'a, 'info>(
         TokenProgramFlags::TokenProgram
     } else {
         TokenProgramFlags::TokenProgram2022
+    }
+}
+
+pub fn get_token_program_from_flag(token_program_flag: u8) -> Result<Pubkey> {
+    let token_program_flag: TokenProgramFlags = token_program_flag.safe_cast()?;
+    match token_program_flag {
+        TokenProgramFlags::TokenProgram => Ok(anchor_spl::token::ID),
+        TokenProgramFlags::TokenProgram2022 => Ok(anchor_spl::token_2022::ID),
     }
 }
 
@@ -180,7 +191,7 @@ pub fn transfer_from_pool<'c: 'info, 'info>(
     pool_authority: AccountInfo<'info>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
-    token_owner_account: &InterfaceAccount<'info, TokenAccount>,
+    token_owner_account: &AccountInfo<'info>,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
 ) -> Result<()> {
@@ -274,5 +285,21 @@ pub fn update_account_lamports_to_minimum_balance<'info>(
         )?;
     }
 
+    Ok(())
+}
+
+pub fn validate_ata_token<'info>(
+    token_account: &AccountInfo<'info>,
+    owner: &Pubkey,
+    mint: &Pubkey,
+    token_program_id: &Pubkey,
+) -> Result<()> {
+    // validate ata address
+    let ata_address = get_associated_token_address_with_program_id(owner, mint, token_program_id);
+    require!(ata_address.eq(token_account.key), PoolError::IncorrectATA);
+
+    // validate owner
+    let current_owner = accessor::authority(token_account)?;
+    require!(current_owner.eq(owner), PoolError::IncorrectATA);
     Ok(())
 }
