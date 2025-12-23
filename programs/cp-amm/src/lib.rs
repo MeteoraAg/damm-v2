@@ -152,6 +152,10 @@ pub mod cp_amm {
         instructions::handle_claim_protocol_fee(ctx, max_amount_a, max_amount_b)
     }
 
+    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
+        instructions::handle_zap_protocol_fee(ctx, max_amount)
+    }
+
     #[deprecated = "We currently disable this, and could enable this in the future"]
     pub fn claim_partner_fee(
         ctx: Context<ClaimPartnerFeesCtx>,

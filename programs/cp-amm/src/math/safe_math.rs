@@ -2,7 +2,7 @@ use anchor_lang::solana_program::msg;
 use ruint::aliases::{U256, U512};
 use std::panic::Location;
 
-use crate::PoolError;
+use crate::{token::TokenProgramFlags, PoolError};
 
 pub trait SafeMath<T>: Sized {
     fn safe_add(self, rhs: Self) -> Result<Self, PoolError>;
@@ -114,6 +114,34 @@ checked_impl!(i128, u32);
 checked_impl!(usize, u32);
 checked_impl!(U256, usize);
 checked_impl!(U512, usize);
+
+pub trait SafeCast<T>: Sized {
+    fn safe_cast(self) -> Result<T, PoolError>;
+}
+
+macro_rules! try_into_impl {
+    ($t:ty, $v:ty) => {
+        impl SafeCast<$v> for $t {
+            #[track_caller]
+            fn safe_cast(self) -> Result<$v, PoolError> {
+                match self.try_into() {
+                    Ok(result) => Ok(result),
+                    Err(_) => {
+                        let caller = Location::caller();
+                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
+                        Err(PoolError::TypeCastFailed)
+                    }
+                }
+            }
+        }
+    };
+}
+
+try_into_impl!(u128, u64);
+try_into_impl!(i64, u64);
+try_into_impl!(usize, u16);
+try_into_impl!(U512, u64);
+try_into_impl!(u8, TokenProgramFlags);
 
 #[cfg(test)]
 mod tests {
