@@ -46,7 +46,7 @@ import {
   jupProgramAuthority,
 } from "./helpers/zapUtils";
 
-describe.only("Zap protocol fees", () => {
+describe("Zap protocol fees", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let user: Keypair;

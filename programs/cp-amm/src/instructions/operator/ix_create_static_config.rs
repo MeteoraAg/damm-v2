@@ -5,7 +5,7 @@ use crate::{
     constants::{seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     event,
     params::{activation::ActivationParams, fee_parameters::PoolFeeParameters},
-    state::{CollectFeeMode, Config, Operator, OperatorPermission},
+    state::{CollectFeeMode, Config, Operator},
     PoolError,
 };
 
@@ -33,9 +33,6 @@ pub struct CreateConfigCtx<'info> {
     )]
     pub config: AccountLoader<'info, Config>,
 
-    #[account(
-        has_one = whitelisted_address
-    )]
     pub operator: AccountLoader<'info, Operator>,
 
     pub whitelisted_address: Signer<'info>,
@@ -51,12 +48,6 @@ pub fn handle_create_static_config(
     index: u64,
     config_parameters: StaticConfigParameters,
 ) -> Result<()> {
-    let operator = ctx.accounts.operator.load()?;
-    require!(
-        operator.is_permission_allow(OperatorPermission::CreateConfigKey),
-        PoolError::InvalidAuthority
-    );
-
     let StaticConfigParameters {
         pool_fees,
         vault_config_key,

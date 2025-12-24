@@ -1,5 +1,4 @@
 use crate::{
-    assert_eq_admin,
     constants::{seeds::OPERATOR_PREFIX, MAX_OPERATION},
     state::Operator,
     PoolError,
@@ -24,10 +23,7 @@ pub struct CreateOperatorAccountCtx<'info> {
     /// CHECK: can be any address
     pub whitelisted_address: UncheckedAccount<'info>,
 
-    #[account(
-        constraint = assert_eq_admin(admin.key()) @ PoolError::InvalidAdmin,
-    )]
-    pub admin: Signer<'info>,
+    pub signer: Signer<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,

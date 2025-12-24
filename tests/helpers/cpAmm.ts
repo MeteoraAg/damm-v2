@@ -447,7 +447,7 @@ export async function createOperator(
     .accountsPartial({
       operator: deriveOperatorAddress(whitelistAddress),
       whitelistedAddress: whitelistAddress,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
       payer: admin.publicKey,
       systemProgram: SystemProgram.programId,
     })

@@ -2,7 +2,6 @@ use crate::constants::zap::{
     MINTS_DISALLOWED_TO_ZAP_OUT, TREASURY_SOL_ADDRESS, TREASURY_USDC_ADDRESS,
 };
 use crate::safe_math::SafeMath;
-use crate::state::OperatorPermission;
 use crate::token::{get_token_program_from_flag, validate_ata_token};
 use crate::{
     const_pda,
@@ -41,10 +40,7 @@ pub struct ZapProtocolFee<'info> {
     #[account(mut)]
     pub receiver_token: UncheckedAccount<'info>,
 
-    /// Claim fee operator
-    #[account(
-        has_one = whitelisted_address
-    )]
+    /// zap claim fee operator
     pub operator: AccountLoader<'info, Operator>,
 
     /// Operator
@@ -95,12 +91,6 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 }
 
 pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
-    let operator = ctx.accounts.operator.load()?;
-    require!(
-        operator.is_permission_allow(OperatorPermission::ZapProtocolFee),
-        PoolError::InvalidAuthority
-    );
-
     let mut pool = ctx.accounts.pool.load_mut()?;
     let is_withdrawing_a = validate_accounts_and_return_withdraw_direction(
         &pool,
