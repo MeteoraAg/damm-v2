@@ -97,7 +97,7 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
     let operator = ctx.accounts.operator.load()?;
     require!(
-        operator.is_permission_allow(OperatorPermission::ClaimProtocolFee),
+        operator.is_permission_allow(OperatorPermission::ZapProtocolFee),
         PoolError::InvalidAuthority
     );
 
@@ -115,22 +115,22 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
     );
 
     let (amount, treasury_paired_destination_token_address) = if is_withdrawing_a {
-        let (amount_x, _) = pool.claim_protocol_fee(max_amount, 0)?;
+        let (amount_a, _) = pool.claim_protocol_fee(max_amount, 0)?;
 
-        let treasury_token_y_address = get_associated_token_address_with_program_id(
+        let treasury_token_b_address = get_associated_token_address_with_program_id(
             &TREASURY::ID,
             &pool.token_b_mint,
             &get_token_program_from_flag(pool.token_b_flag)?,
         );
-        (amount_x, treasury_token_y_address)
+        (amount_a, treasury_token_b_address)
     } else {
-        let (_, amount_y) = pool.claim_protocol_fee(0, max_amount)?;
-        let treasury_token_x_address = get_associated_token_address_with_program_id(
+        let (_, amount_b) = pool.claim_protocol_fee(0, max_amount)?;
+        let treasury_token_a_address = get_associated_token_address_with_program_id(
             &TREASURY::ID,
             &pool.token_a_mint,
             &get_token_program_from_flag(pool.token_a_flag)?,
         );
-        (amount_y, treasury_token_x_address)
+        (amount_b, treasury_token_a_address)
     };
 
     require!(amount > 0, PoolError::AmountIsZero);

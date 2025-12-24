@@ -6,11 +6,11 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import BN from "bn.js";
-import CpAmmIDL from "../../target/idl/cp_amm.json";
-import { LiteSVM, TransactionMetadata } from "litesvm";
-import { sendTransaction, warpToTimestamp } from "./svm";
 import { expect } from "chai";
+import { LiteSVM, TransactionMetadata } from "litesvm";
+import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { getPool } from "./cpAmm";
+import { sendTransaction, warpToTimestamp } from "./svm";
 
 export async function transferSol(
   svm: LiteSVM,

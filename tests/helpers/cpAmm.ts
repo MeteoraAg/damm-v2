@@ -421,6 +421,7 @@ export enum OperatorPermission {
   UpdateRewardFunder, // 7
   UpdatePoolFees, // 8
   ClaimProtocolFee, // 9
+  ZapProtocolFee,
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {

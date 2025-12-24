@@ -1,18 +1,10 @@
 import { BN } from "@coral-xyz/anchor";
-import { program } from "@coral-xyz/anchor/dist/cjs/native/system";
-import * as borsh from "@coral-xyz/borsh";
 import {
   getAssociatedTokenAddressSync,
   NATIVE_MINT,
-  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
-import {
-  AccountMeta,
-  Keypair,
-  PublicKey,
-  TransactionInstruction,
-} from "@solana/web3.js";
+import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { expect } from "chai";
 import Decimal from "decimal.js";
 import { LiteSVM } from "litesvm";
@@ -21,7 +13,6 @@ import {
   AddLiquidityParams,
   createConfigIx,
   CreateConfigParams,
-  createCpAmmProgram,
   createOperator,
   createPosition,
   createToken,
@@ -29,35 +20,33 @@ import {
   deriveOperatorAddress,
   encodePermissions,
   generateKpAndFund,
+  getOrCreateAssociatedTokenAccount,
   getPool,
   getTokenAccount,
   initializePool,
   InitializePoolParams,
-  JUP_V6_EVENT_AUTHORITY,
-  JUPITER_V6_PROGRAM_ID,
   MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
   mintSplTokenTo,
   OperatorPermission,
-  Pool,
   randomID,
   startSvm,
   swapExactIn,
   SwapParams,
   TREASURY,
-  ZAP_PROGRAM_ID,
   zapProtocolFee,
 } from "./helpers";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import {
+  buildZapOutDammV2Instruction,
+  buildZapOutJupV6UsingDammV2RouteInstruction,
+  buildZapOutJupV6UsingDammV2SharedRouteInstruction,
+  createCustomizableDammV2Pool,
+  jupProgramAuthority,
+} from "./helpers/zapUtils";
 
-const authorityId = 0;
-const jupProgramAuthority = PublicKey.findProgramAddressSync(
-  [Buffer.from("authority"), new BN(authorityId).toBuffer("le", 1)],
-  JUPITER_V6_PROGRAM_ID
-);
-
-describe("Zap protocol fees", () => {
+describe.only("Zap protocol fees", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let user: Keypair;
@@ -120,7 +109,10 @@ describe("Zap protocol fees", () => {
       collectFeeMode: 0,
     };
 
-    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+    let permission = encodePermissions([
+      OperatorPermission.CreateConfigKey,
+      OperatorPermission.ZapProtocolFee,
+    ]);
 
     await createOperator(svm, {
       admin,
@@ -186,6 +178,51 @@ describe("Zap protocol fees", () => {
     };
 
     await swapExactIn(svm, swapParams2);
+    await swapExactIn(svm, swapParams);
+    await swapExactIn(svm, swapParams2);
+
+    getOrCreateAssociatedTokenAccount(svm, admin, tokenAMint, TREASURY);
+    getOrCreateAssociatedTokenAccount(svm, admin, tokenBMint, TREASURY);
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      admin,
+      tokenAMint,
+      whitelistedAccount.publicKey
+    );
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      admin,
+      tokenBMint,
+      whitelistedAccount.publicKey
+    );
+
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      admin,
+      tokenAMint,
+      jupProgramAuthority[0]
+    );
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      admin,
+      tokenBMint,
+      jupProgramAuthority[0]
+    );
+
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      admin,
+      NATIVE_MINT,
+      creator.publicKey
+    );
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      admin,
+      NATIVE_MINT,
+      jupProgramAuthority[0]
+    );
+
+    getOrCreateAssociatedTokenAccount(svm, admin, NATIVE_MINT, TREASURY);
   });
 
   describe("ZapOut protocol fees via DAMM V2)", () => {
@@ -195,29 +232,24 @@ describe("Zap protocol fees", () => {
     const sqrtPriceX64 = new BN(
       sqrtPrice.mul(new Decimal(2).pow(64)).floor().toString()
     );
-
     it("Zap protocol fee tokenA to token SOL", async () => {
-      const isClaimTokenX = true;
+      const isClaimTokenA = true;
       const zapOutputMint = NATIVE_MINT;
 
-      const initPoolParams: InitializePoolParams = {
-        payer: creator,
-        creator: creator.publicKey,
-        config,
+      const dammV2PoolAddress = await createCustomizableDammV2Pool({
+        svm,
+        sqrtPriceX64,
+        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
+        amountB: new BN(100).mul(new BN(10 ** 9)),
         tokenAMint,
-        tokenBMint,
-        liquidity,
-        sqrtPrice: MIN_SQRT_PRICE.muln(2),
-        activationPoint: null,
-      };
-
-      const result = await initializePool(svm, initPoolParams);
-      const dammV2PoolAddress = result.pool;
+        tokenBMint: NATIVE_MINT,
+        payer: creator,
+      });
 
       await zapOutAndAssert(
         svm,
         pool,
-        isClaimTokenX,
+        isClaimTokenA,
         whitelistedAccount,
         TREASURY,
         dammV2PoolAddress,
@@ -227,24 +259,23 @@ describe("Zap protocol fees", () => {
     });
 
     it("Zap protocol fee tokenB to token SOL", async () => {
-      const isClaimTokenX = false;
+      const isClaimTokenA = false;
       const zapOutputMint = NATIVE_MINT;
 
       const dammV2PoolAddress = await createCustomizableDammV2Pool({
         svm,
-        feeBps: new BN(100),
-        amountX: new BN(100).mul(new BN(10 ** DECIMALS)),
-        amountY: new BN(100).mul(new BN(10 ** DECIMALS)),
         sqrtPriceX64,
-        tokenXMint: tokenBMint,
-        payer: admin,
-        tokenYMint: NATIVE_MINT,
+        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
+        amountB: new BN(100).mul(new BN(10 ** 9)),
+        tokenAMint: tokenBMint,
+        tokenBMint: NATIVE_MINT,
+        payer: creator,
       });
 
       await zapOutAndAssert(
         svm,
         pool,
-        isClaimTokenX,
+        isClaimTokenA,
         whitelistedAccount,
         TREASURY,
         dammV2PoolAddress,
@@ -262,19 +293,18 @@ describe("Zap protocol fees", () => {
       sqrtPrice.mul(new Decimal(2).pow(64)).floor().toString()
     );
 
-    it("Zap protocol fee X to token SOL", async () => {
+    it("Zap protocol fee tokenA to token SOL", async () => {
       const isClaimTokenX = true;
       const zapOutputMint = NATIVE_MINT;
 
       const dammV2PoolAddress = await createCustomizableDammV2Pool({
         svm,
-        feeBps: new BN(100),
-        amountX: new BN(100).mul(new BN(10 ** btcDecimal)),
-        amountY: new BN(100).mul(new BN(10 ** 9)),
         sqrtPriceX64,
-        tokenXMint: BTC,
-        payer: keypair,
-        tokenYMint: NATIVE_MINT,
+        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
+        amountB: new BN(100).mul(new BN(10 ** 9)),
+        tokenAMint,
+        tokenBMint: NATIVE_MINT,
+        payer: creator,
       });
 
       await zapOutAndAssert(
@@ -289,19 +319,18 @@ describe("Zap protocol fees", () => {
       );
     });
 
-    it("Zap protocol fee Y to token SOL", async () => {
+    it("Zap protocol fee tokenB to token SOL", async () => {
       const isClaimTokenX = false;
       const zapOutputMint = NATIVE_MINT;
 
       const dammV2PoolAddress = await createCustomizableDammV2Pool({
         svm,
-        feeBps: new BN(100),
-        amountX: new BN(100).mul(new BN(10 ** usdcDecimal)),
-        amountY: new BN(100).mul(new BN(10 ** 9)),
         sqrtPriceX64,
-        tokenXMint: USDC,
-        payer: keypair,
-        tokenYMint: NATIVE_MINT,
+        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
+        amountB: new BN(100).mul(new BN(10 ** 9)),
+        tokenAMint: tokenBMint,
+        tokenBMint: NATIVE_MINT,
+        payer: creator,
       });
 
       await zapOutAndAssert(
@@ -331,22 +360,20 @@ describe("Zap protocol fees", () => {
 
       const dammV2PoolAddress = await createCustomizableDammV2Pool({
         svm,
-        feeBps: new BN(100),
-        amountX: new BN(100).mul(new BN(10 ** btcDecimal)),
-        amountY: new BN(100).mul(new BN(10 ** 9)),
         sqrtPriceX64,
-        tokenXMint: BTC,
-        payer: keypair,
-        tokenYMint: NATIVE_MINT,
+        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
+        amountB: new BN(100).mul(new BN(10 ** 9)),
+        tokenAMint,
+        tokenBMint: NATIVE_MINT,
+        payer: creator,
       });
 
       await zapOutAndAssert(
         svm,
-        program,
-        lbPair,
+        pool,
         isClaimTokenX,
-        whitelistedOperator,
-        ADMIN_PUBKEY,
+        whitelistedAccount,
+        TREASURY,
         dammV2PoolAddress,
         zapOutputMint,
         buildZapOutJupV6UsingDammV2SharedRouteInstruction
@@ -359,22 +386,20 @@ describe("Zap protocol fees", () => {
 
       const dammV2PoolAddress = await createCustomizableDammV2Pool({
         svm,
-        feeBps: new BN(100),
-        amountX: new BN(100).mul(new BN(10 ** usdcDecimal)),
-        amountY: new BN(100).mul(new BN(10 ** 9)),
         sqrtPriceX64,
-        tokenXMint: USDC,
-        payer: keypair,
-        tokenYMint: NATIVE_MINT,
+        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
+        amountB: new BN(100).mul(new BN(10 ** 9)),
+        tokenAMint: tokenBMint,
+        tokenBMint: NATIVE_MINT,
+        payer: creator,
       });
 
       await zapOutAndAssert(
         svm,
-        program,
-        lbPair,
+        pool,
         isClaimTokenX,
-        whitelistedOperator,
-        ADMIN_PUBKEY,
+        whitelistedAccount,
+        TREASURY,
         dammV2PoolAddress,
         zapOutputMint,
         buildZapOutJupV6UsingDammV2SharedRouteInstruction
@@ -405,15 +430,16 @@ async function zapOutAndAssert(
 
   const treasuryZapTokenAddress = getAssociatedTokenAddressSync(
     zapOutputMint,
-    treasuryAddress
+    treasuryAddress,
+    true
   );
 
-  const operatorTokenXAddress = getAssociatedTokenAddressSync(
+  const operatorTokenAAddress = getAssociatedTokenAddressSync(
     poolState.tokenAMint,
     operatorAddress
   );
 
-  const operatorTokenYAddress = getAssociatedTokenAddressSync(
+  const operatorTokenBAddress = getAssociatedTokenAddressSync(
     poolState.tokenBMint,
     operatorAddress
   );
@@ -424,8 +450,8 @@ async function zapOutAndAssert(
     : poolState.metrics.totalProtocolBFee;
 
   const receiverToken = isClaimTokenA
-    ? operatorTokenXAddress
-    : operatorTokenYAddress;
+    ? operatorTokenAAddress
+    : operatorTokenBAddress;
 
   const tokenVault = isClaimTokenA
     ? poolState.tokenAVault
@@ -478,545 +504,4 @@ async function zapOutAndAssert(
   );
 
   expect(afterAmount.gt(beforeAmount)).to.be.true;
-}
-
-async function getDammV2SwapIx(
-  svm: LiteSVM,
-  pool: PublicKey,
-  protocolFeeAmount: BN,
-  outputMint: PublicKey,
-  operatorAddress: PublicKey,
-  treasuryAddress: PublicKey
-) {
-  const program = createCpAmmProgram();
-  const poolAccount = svm.getAccount(pool);
-
-  const poolState: Pool = program.coder.accounts.decode(
-    "pool",
-    Buffer.from(poolAccount.data)
-  );
-
-  const [inputTokenAccount, outputTokenAccount] = outputMint.equals(
-    poolState.tokenAMint
-  )
-    ? [
-        getAssociatedTokenAddressSync(
-          poolState.tokenBMint,
-          operatorAddress,
-          true
-        ),
-        getAssociatedTokenAddressSync(
-          poolState.tokenAMint,
-          treasuryAddress,
-          true
-        ),
-      ]
-    : [
-        getAssociatedTokenAddressSync(
-          poolState.tokenAMint,
-          operatorAddress,
-          true
-        ),
-        getAssociatedTokenAddressSync(
-          poolState.tokenBMint,
-          treasuryAddress,
-          true
-        ),
-      ];
-
-  const swapIx = await program.methods
-    .swap({
-      amountIn: protocolFeeAmount,
-      minimumAmountOut: new BN(0),
-    })
-    .accountsPartial({
-      pool,
-      tokenAMint: poolState.tokenAMint,
-      tokenBMint: poolState.tokenBMint,
-      tokenAVault: poolState.tokenAVault,
-      tokenBVault: poolState.tokenBVault,
-      payer: operatorAddress,
-      inputTokenAccount,
-      outputTokenAccount,
-      tokenAProgram: TOKEN_PROGRAM_ID,
-      tokenBProgram: TOKEN_PROGRAM_ID,
-      referralTokenAccount: null,
-    })
-    .instruction();
-
-  return swapIx;
-}
-
-async function buildZapOutJupV6UsingDammV2SharedRouteInstruction(
-  svm: LiteSVM,
-  pool: PublicKey,
-  protocolFeeAmount: BN,
-  outputMint: PublicKey,
-  operatorAddress: PublicKey,
-  treasuryAddress: PublicKey
-) {
-  const poolAccount = svm.getAccount(pool);
-  const dammV2Program = createCpAmmProgram();
-
-  if (poolAccount.owner.toBase58() != dammV2Program.programId.toBase58()) {
-    throw new Error("Unsupported pool for JupV6 zap out");
-  }
-
-  const poolState: Pool = dammV2Program.coder.accounts.decode(
-    "pool",
-    Buffer.from(poolAccount.data)
-  );
-
-  const inputMint = outputMint.equals(poolState.tokenAMint)
-    ? poolState.tokenBMint
-    : poolState.tokenAMint;
-
-  const swapIx = await getDammV2SwapIx(
-    svm,
-    pool,
-    protocolFeeAmount,
-    outputMint,
-    jupProgramAuthority[0],
-    jupProgramAuthority[0]
-  );
-
-  // Because shared route pass in program authority as signer, therefore we need to override the signer
-  swapIx.keys.map((key) => {
-    if (key.isSigner) {
-      key.isSigner = false;
-    }
-  });
-
-  const userTokenInAddress = getAssociatedTokenAddressSync(
-    inputMint,
-    operatorAddress
-  );
-
-  const userTokenInAccount = getTokenAccount(svm, userTokenInAddress);
-
-  const preUserTokenBalance = userTokenInAccount
-    ? userTokenInAccount.amount
-    : BigInt(0);
-
-  const SHARED_ACCOUNT_ROUTE_DISC = [193, 32, 155, 51, 65, 214, 156, 129];
-  // The enum is too long, so we define only the parts we need
-  // TODO: Find a better way to encode this ...
-  const DAMM_V2_SWAP = 77;
-
-  const routePlanStepSchema = borsh.struct([
-    borsh.u8("enumValue"),
-    borsh.u8("percent"),
-    borsh.u8("inputIndex"),
-    borsh.u8("outputIndex"),
-  ]);
-
-  const routeIxSchema = borsh.struct([
-    borsh.u64("discriminator"),
-    borsh.u8("id"),
-    borsh.vec(routePlanStepSchema, "routePlan"),
-    borsh.u64("inAmount"),
-    borsh.u64("quotedOutAmount"),
-    borsh.u16("slippageBps"),
-    borsh.u8("platformFeeBps"),
-  ]);
-
-  const buffer = Buffer.alloc(1000);
-
-  routeIxSchema.encode(
-    {
-      discriminator: new BN(SHARED_ACCOUNT_ROUTE_DISC, "le"),
-      id: authorityId,
-      routePlan: [
-        {
-          enumValue: DAMM_V2_SWAP,
-          percent: 100,
-          inputIndex: 0,
-          outputIndex: 1,
-        },
-      ],
-      inAmount: protocolFeeAmount,
-      quotedOutAmount: new BN(0),
-      slippageBps: 0,
-      platformFeeBps: 0,
-    },
-    buffer
-  );
-
-  const routeIxData = buffer.subarray(0, routeIxSchema.getSpan(buffer));
-
-  const zapOutRawParameters = buildZapOutParameter({
-    preUserTokenBalance: new BN(preUserTokenBalance.toString()),
-    maxSwapAmount: protocolFeeAmount,
-    payloadData: routeIxData,
-    offsetAmountIn: routeIxData.length - 19,
-  });
-
-  const zapOutAccounts: AccountMeta[] = [
-    {
-      pubkey: userTokenInAddress,
-      isWritable: true,
-      isSigner: false,
-    },
-    {
-      pubkey: JUPITER_V6_PROGRAM_ID,
-      isSigner: false,
-      isWritable: false,
-    },
-  ];
-
-  const jupV6RouteAccounts: AccountMeta[] = [
-    {
-      pubkey: TOKEN_PROGRAM_ID,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: jupProgramAuthority[0],
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: operatorAddress,
-      isSigner: true,
-      isWritable: false,
-    },
-    {
-      pubkey: getAssociatedTokenAddressSync(inputMint, operatorAddress),
-      isSigner: false,
-      isWritable: true,
-    },
-    {
-      pubkey: getAssociatedTokenAddressSync(
-        inputMint,
-        jupProgramAuthority[0],
-        true
-      ),
-      isSigner: false,
-      isWritable: true,
-    },
-    {
-      pubkey: getAssociatedTokenAddressSync(
-        outputMint,
-        jupProgramAuthority[0],
-        true
-      ),
-      isSigner: false,
-      isWritable: true,
-    },
-    {
-      pubkey: getAssociatedTokenAddressSync(outputMint, treasuryAddress),
-      isSigner: false,
-      isWritable: true,
-    },
-    {
-      pubkey: inputMint,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: outputMint,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: JUPITER_V6_PROGRAM_ID,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: TOKEN_2022_PROGRAM_ID,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: JUP_V6_EVENT_AUTHORITY,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: JUPITER_V6_PROGRAM_ID,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: dammV2Program.programId,
-      isSigner: false,
-      isWritable: false,
-    },
-  ];
-
-  jupV6RouteAccounts.push(...swapIx.keys);
-  zapOutAccounts.push(...jupV6RouteAccounts);
-
-  const zapOutIx: TransactionInstruction = {
-    programId: ZAP_PROGRAM_ID,
-    keys: zapOutAccounts,
-    data: zapOutRawParameters,
-  };
-
-  return zapOutIx;
-}
-
-async function buildZapOutJupV6UsingDammV2RouteInstruction(
-  svm: LiteSVM,
-  pool: PublicKey,
-  protocolFeeAmount: BN,
-  outputMint: PublicKey,
-  operatorAddress: PublicKey,
-  treasuryAddress: PublicKey
-) {
-  const poolAccount = svm.getAccount(pool);
-  const dammV2Program = createCpAmmProgram();
-
-  if (poolAccount.owner.toBase58() != dammV2Program.programId.toBase58()) {
-    throw new Error("Unsupported pool for JupV6 zap out");
-  }
-
-  const poolState: Pool = dammV2Program.coder.accounts.decode(
-    "pool",
-    Buffer.from(poolAccount.data)
-  );
-
-  const inputMint = outputMint.equals(poolState.tokenAMint)
-    ? poolState.tokenBMint
-    : poolState.tokenAMint;
-
-  const swapIx = await getDammV2SwapIx(
-    svm,
-    pool,
-    protocolFeeAmount,
-    outputMint,
-    operatorAddress,
-    treasuryAddress
-  );
-  const inputTokenAccount = swapIx.keys[2].pubkey;
-
-  const userTokenInAccount = getTokenAccount(svm, inputTokenAccount);
-  const preUserTokenBalance = userTokenInAccount
-    ? userTokenInAccount.amount
-    : BigInt(0);
-
-  const ROUTE_DISC = [229, 23, 203, 151, 122, 227, 173, 42];
-  // The enum is too long, so we define only the parts we need
-  // TODO: Find a better way to encode this ...
-  const DAMM_V2_SWAP = 77;
-
-  const routePlanStepSchema = borsh.struct([
-    borsh.u8("enumValue"),
-    borsh.u8("percent"),
-    borsh.u8("inputIndex"),
-    borsh.u8("outputIndex"),
-  ]);
-
-  const routeIxSchema = borsh.struct([
-    borsh.u64("discriminator"),
-    borsh.vec(routePlanStepSchema, "routePlan"),
-    borsh.u64("inAmount"),
-    borsh.u64("quotedOutAmount"),
-    borsh.u16("slippageBps"),
-    borsh.u8("platformFeeBps"),
-  ]);
-
-  const buffer = Buffer.alloc(1000);
-
-  routeIxSchema.encode(
-    {
-      discriminator: new BN(ROUTE_DISC, "le"),
-      routePlan: [
-        {
-          enumValue: DAMM_V2_SWAP,
-          percent: 100,
-          inputIndex: 0,
-          outputIndex: 1,
-        },
-      ],
-      inAmount: protocolFeeAmount,
-      quotedOutAmount: new BN(0),
-      slippageBps: 0,
-      platformFeeBps: 0,
-    },
-    buffer
-  );
-
-  const routeIxData = buffer.subarray(0, routeIxSchema.getSpan(buffer));
-
-  const zapOutRawParameters = buildZapOutParameter({
-    preUserTokenBalance: new BN(preUserTokenBalance.toString()),
-    maxSwapAmount: protocolFeeAmount,
-    payloadData: routeIxData,
-    offsetAmountIn: routeIxData.length - 19,
-  });
-
-  const zapOutAccounts: AccountMeta[] = [
-    {
-      pubkey: inputTokenAccount,
-      isWritable: true,
-      isSigner: false,
-    },
-    {
-      pubkey: JUPITER_V6_PROGRAM_ID,
-      isSigner: false,
-      isWritable: false,
-    },
-  ];
-
-  const jupV6RouteAccounts: AccountMeta[] = [
-    {
-      pubkey: TOKEN_PROGRAM_ID,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: operatorAddress,
-      isSigner: true,
-      isWritable: false,
-    },
-    {
-      pubkey: getAssociatedTokenAddressSync(inputMint, operatorAddress),
-      isSigner: false,
-      isWritable: true,
-    },
-    {
-      pubkey: getAssociatedTokenAddressSync(outputMint, operatorAddress),
-      isSigner: false,
-      isWritable: true,
-    },
-    {
-      pubkey: getAssociatedTokenAddressSync(outputMint, treasuryAddress),
-      isSigner: false,
-      isWritable: true,
-    },
-    {
-      pubkey: outputMint,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: JUPITER_V6_PROGRAM_ID,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: JUP_V6_EVENT_AUTHORITY,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: JUPITER_V6_PROGRAM_ID,
-      isSigner: false,
-      isWritable: false,
-    },
-    {
-      pubkey: dammV2Program.programId,
-      isSigner: false,
-      isWritable: false,
-    },
-  ];
-
-  jupV6RouteAccounts.push(...swapIx.keys);
-  zapOutAccounts.push(...jupV6RouteAccounts);
-
-  const zapOutIx: TransactionInstruction = {
-    programId: ZAP_PROGRAM_ID,
-    keys: zapOutAccounts,
-    data: zapOutRawParameters,
-  };
-
-  return zapOutIx;
-}
-
-async function buildZapOutDammV2Instruction(
-  svm: LiteSVM,
-  pool: PublicKey,
-  protocolFeeAmount: BN,
-  outputMint: PublicKey,
-  operatorAddress: PublicKey,
-  treasuryAddress: PublicKey
-) {
-  const program = createCpAmmProgram();
-  const swapIx = await getDammV2SwapIx(
-    svm,
-    pool,
-    protocolFeeAmount,
-    outputMint,
-    operatorAddress,
-    treasuryAddress
-  );
-
-  const inputTokenAccount = swapIx.keys[2].pubkey;
-
-  const userTokenInAccount = getTokenAccount(svm, inputTokenAccount);
-  const preUserTokenBalance = userTokenInAccount
-    ? userTokenInAccount.amount
-    : BigInt(0);
-
-  const zapOutRawParameters = buildZapOutParameter({
-    preUserTokenBalance: new BN(preUserTokenBalance.toString()),
-    maxSwapAmount: protocolFeeAmount,
-    payloadData: swapIx.data,
-    offsetAmountIn: 8,
-  });
-
-  const zapOutAccounts: AccountMeta[] = [
-    {
-      pubkey: inputTokenAccount,
-      isWritable: true,
-      isSigner: false,
-    },
-    {
-      pubkey: program.programId,
-      isSigner: false,
-      isWritable: false,
-    },
-  ];
-
-  zapOutAccounts.push(...swapIx.keys);
-
-  const zapOutIx: TransactionInstruction = {
-    programId: ZAP_PROGRAM_ID,
-    keys: zapOutAccounts,
-    data: zapOutRawParameters,
-  };
-
-  return zapOutIx;
-}
-
-interface ZapOutParameter {
-  preUserTokenBalance: BN;
-  maxSwapAmount: BN;
-  offsetAmountIn: number;
-  payloadData: Buffer;
-}
-
-function buildZapOutParameter(params: ZapOutParameter) {
-  const { preUserTokenBalance, maxSwapAmount, offsetAmountIn, payloadData } =
-    params;
-
-  const zapOutDisc = [155, 108, 185, 112, 104, 210, 161, 64];
-  const zapOutDiscBN = new BN(zapOutDisc, "le");
-
-  const zapOutParameterSchema = borsh.struct([
-    borsh.u64("discriminator"),
-    borsh.u8("percentage"),
-    borsh.u16("offsetAmountIn"),
-    borsh.u64("preUserTokenBalance"),
-    borsh.u64("maxSwapAmount"),
-    borsh.vecU8("payloadData"),
-  ]);
-
-  const buffer = Buffer.alloc(1000);
-
-  zapOutParameterSchema.encode(
-    {
-      discriminator: zapOutDiscBN,
-      percentage: 100,
-      offsetAmountIn,
-      preUserTokenBalance,
-      maxSwapAmount,
-      payloadData,
-    },
-    buffer
-  );
-
-  return buffer.subarray(0, zapOutParameterSchema.getSpan(buffer));
 }
