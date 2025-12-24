@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{event, state::OperatorPermission, PoolError};
+use crate::{event, PoolError};
 
 use super::CreateConfigCtx;
 
@@ -14,12 +14,6 @@ pub fn handle_create_dynamic_config(
     index: u64,
     config_parameters: DynamicConfigParameters,
 ) -> Result<()> {
-    let operator = ctx.accounts.operator.load()?;
-    require!(
-        operator.is_permission_allow(OperatorPermission::CreateConfigKey),
-        PoolError::InvalidAuthority
-    );
-
     let DynamicConfigParameters {
         pool_creator_authority,
     } = config_parameters;

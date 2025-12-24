@@ -3,7 +3,7 @@ use anchor_spl::token_interface::Mint;
 
 use crate::{
     constants::seeds::TOKEN_BADGE_PREFIX,
-    state::{Operator, OperatorPermission, TokenBadge},
+    state::{Operator, TokenBadge},
     token::is_supported_mint,
     EvtCreateTokenBadge, PoolError,
 };
@@ -25,9 +25,6 @@ pub struct CreateTokenBadgeCtx<'info> {
 
     pub token_mint: InterfaceAccount<'info, Mint>,
 
-    #[account(
-        has_one = whitelisted_address
-    )]
     pub operator: AccountLoader<'info, Operator>,
 
     pub whitelisted_address: Signer<'info>,
@@ -39,12 +36,6 @@ pub struct CreateTokenBadgeCtx<'info> {
 }
 
 pub fn handle_create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
-    let operator = ctx.accounts.operator.load()?;
-    require!(
-        operator.is_permission_allow(OperatorPermission::CreateTokenBadge),
-        PoolError::InvalidAuthority
-    );
-
     require!(
         !is_supported_mint(&ctx.accounts.token_mint)?,
         PoolError::CannotCreateTokenBadgeOnSupportedMint
