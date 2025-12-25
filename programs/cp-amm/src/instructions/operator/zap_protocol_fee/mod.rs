@@ -3,7 +3,7 @@ use zap::types::ZapOutParameters;
 
 use crate::{
     constants::zap::{
-        DAMM_V2, DAMM_V2_SWAP_DISC_REF, DLMM_SWAP2_DISC_REF, JUP_V6, JUP_V6_ROUTE_DISC_REF,
+        DAMM_V2_SWAP_DISC_REF, DLMM, DLMM_SWAP2_DISC_REF, JUP_V6, JUP_V6_ROUTE_DISC_REF,
         JUP_V6_SHARED_ACCOUNT_ROUTE_DISC_REF,
     },
     zap_protocol_fee::{
@@ -44,8 +44,8 @@ pub fn get_zap_amm_processor(
     amm_program_address: Pubkey,
 ) -> Result<Box<dyn ZapInfoProcessor>> {
     match (amm_disc, amm_program_address) {
-        (DLMM_SWAP2_DISC_REF, crate::ID_CONST) => Ok(Box::new(ZapDlmmInfoProcessor)),
-        (DAMM_V2_SWAP_DISC_REF, DAMM_V2) => Ok(Box::new(ZapDammV2InfoProcessor)),
+        (DLMM_SWAP2_DISC_REF, DLMM) => Ok(Box::new(ZapDlmmInfoProcessor)),
+        (DAMM_V2_SWAP_DISC_REF, crate::ID_CONST) => Ok(Box::new(ZapDammV2InfoProcessor)),
         (JUP_V6_ROUTE_DISC_REF, JUP_V6) => Ok(Box::new(ZapJupV6RouteInfoProcessor)),
         (JUP_V6_SHARED_ACCOUNT_ROUTE_DISC_REF, JUP_V6) => {
             Ok(Box::new(ZapJupV6SharedRouteInfoProcessor))

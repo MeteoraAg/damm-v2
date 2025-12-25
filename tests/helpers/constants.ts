@@ -29,6 +29,10 @@ export const JUP_V6_EVENT_AUTHORITY = new PublicKey(
   "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf"
 );
 
+export const DLMM_PROGRAM_ID = new PublicKey(
+  "LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ"
+);
+
 export const MIN_SQRT_PRICE = new BN("4295048016");
 export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 
