@@ -7,7 +7,7 @@ import {
 import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { expect } from "chai";
 import Decimal from "decimal.js";
-import { LiteSVM } from "litesvm";
+import { FailedTransactionMetadata, LiteSVM } from "litesvm";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -37,9 +37,18 @@ import {
   TREASURY,
   zapProtocolFee,
 } from "./helpers";
+import {
+  addLiquidityRadius,
+  binIdToBinArrayIndex,
+  createBinArrays,
+  createDlmmPosition,
+  createLbPair,
+  DEFAULT_BIN_PER_POSITION,
+} from "./helpers/dlmm";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import {
   buildZapOutDammV2Instruction,
+  buildZapOutDlmmInstruction,
   buildZapOutJupV6UsingDammV2RouteInstruction,
   buildZapOutJupV6UsingDammV2SharedRouteInstruction,
   createCustomizableDammV2Pool,
@@ -406,6 +415,90 @@ describe("Zap protocol fees", () => {
       );
     });
   });
+
+  describe("Zapout protocol fees via Dlmm", () => {
+    let lbPair: PublicKey;
+    const activeId = new BN(0);
+    const balancedDelta = DEFAULT_BIN_PER_POSITION.div(new BN(2));
+    const lowerBinId = activeId.sub(balancedDelta);
+    const depositBinDelta = new BN(3);
+    const btcDepositAmount = new BN(1000).mul(new BN(10 ** DECIMALS));
+    const usdcDepositAmount = new BN(1000).mul(new BN(10 ** DECIMALS));
+    beforeEach(async () => {
+      const binArrayDelta = 5;
+      const binArrayIndex = binIdToBinArrayIndex(activeId);
+      const binArrayIndexes = [];
+      // Lower bin arrays
+      for (let i = binArrayDelta; i > 0; i--) {
+        const idx = binArrayIndex.sub(new BN(i));
+        binArrayIndexes.push(idx);
+      }
+
+      binArrayIndexes.push(binArrayIndex);
+
+      // Upper bin arrays
+      for (let i = 1; i <= binArrayDelta; i++) {
+        const idx = binArrayIndex.add(new BN(i));
+        binArrayIndexes.push(idx);
+      }
+
+      lbPair = await createLbPair({
+        svm,
+        keypair: creator,
+        tokenX: tokenAMint,
+        tokenY: tokenBMint,
+        activeId,
+      });
+
+      await createBinArrays(svm, lbPair, binArrayIndexes, admin);
+
+      const position = await createDlmmPosition(
+        svm,
+        lbPair,
+        lowerBinId.toNumber(),
+        creator
+      );
+
+      await addLiquidityRadius(
+        svm,
+        lbPair,
+        position,
+        btcDepositAmount,
+        usdcDepositAmount,
+        depositBinDelta.toNumber(),
+        creator
+      );
+    });
+    it("Zap protocol fee tokenA to tokenB", async () => {
+      const isClaimTokenA = true;
+      const zapOutputMint = tokenBMint;
+      await zapOutAndAssert(
+        svm,
+        pool,
+        isClaimTokenA,
+        whitelistedAccount,
+        TREASURY,
+        lbPair,
+        zapOutputMint,
+        buildZapOutDlmmInstruction
+      );
+    });
+
+    it("Zap protocol fee Y to token X", async () => {
+      const isClaimTokenA = false;
+      const zapOutputMint = tokenAMint;
+      await zapOutAndAssert(
+        svm,
+        pool,
+        isClaimTokenA,
+        whitelistedAccount,
+        TREASURY,
+        lbPair,
+        zapOutputMint,
+        buildZapOutDlmmInstruction
+      );
+    });
+  });
 });
 
 async function zapOutAndAssert(
@@ -473,7 +566,7 @@ async function zapOutAndAssert(
     treasuryZapTokenAddress
   );
 
-  await zapProtocolFee({
+  const res = await zapProtocolFee({
     svm,
     pool,
     tokenVault,
@@ -485,6 +578,10 @@ async function zapOutAndAssert(
     maxAmount: claimAmount,
     postInstruction: zapOutIx,
   });
+
+  if (res instanceof FailedTransactionMetadata) {
+    console.log(res.meta().logs());
+  }
 
   const afterTreasuryTokenAccount = getTokenAccount(
     svm,

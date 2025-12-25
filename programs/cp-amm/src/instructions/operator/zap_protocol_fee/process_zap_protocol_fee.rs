@@ -202,6 +202,7 @@ fn search_and_validate_zap_out_instruction<'info>(
         .data
         .get(..8)
         .ok_or_else(|| PoolError::InvalidZapOutParameters)?;
+
     require!(
         disc == zap::client::args::ZapOut::DISCRIMINATOR,
         PoolError::MissingZapOutInstruction
