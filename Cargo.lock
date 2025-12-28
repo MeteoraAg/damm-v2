@@ -763,7 +763,6 @@ dependencies = [
  "pinocchio-token-2022",
  "proptest",
  "ruint",
- "solana-program",
  "spl-token-metadata-interface 0.6.0",
  "static_assertions",
 ]

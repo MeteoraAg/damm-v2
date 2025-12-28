@@ -10,13 +10,11 @@ use crate::{
     ProcessSwapParams, ProcessSwapResult, SwapCtx,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
+use anchor_lang::solana_program::instruction::get_stack_height;
 
 use pinocchio::account_info::AccountInfo;
 use pinocchio::sysvars::instructions::{Instructions, IntrospectedInstruction, INSTRUCTIONS_ID};
-use solana_program::instruction::get_processed_sibling_instruction;
 
-use crate::safe_math::SafeMath;
 use crate::{
     activation_handler::ActivationHandler,
     get_pool_access_validator,
@@ -297,16 +295,32 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         if get_stack_height() > 2 {
             return Err(PoolError::FailToValidateSingleSwapInstruction.into());
         }
-        // check for any sibling instruction
-        let mut sibling_index = 0;
-        while let Some(sibling_instruction) = get_processed_sibling_instruction(sibling_index) {
-            if sibling_instruction.program_id == crate::ID {
-                require!(
-                    !is_instruction_include_pool_swap(&sibling_instruction, pool),
-                    PoolError::FailToValidateSingleSwapInstruction
-                );
+
+        // Iterate backwards through previous instructions.
+        // Start from the immediately preceding instruction.
+        let mut relative_index: i64 = -1;
+        loop {
+            match instruction_sysvar_instructions.get_instruction_relative(relative_index) {
+                Ok(prev_instruction) => {
+                    if prev_instruction.get_program_id() == crate::ID.as_array() {
+                        require!(
+                            !is_p_instruction_include_pool_swap(&prev_instruction, pool)?,
+                            PoolError::FailToValidateSingleSwapInstruction
+                        );
+                    }
+                    relative_index -= 1;
+                }
+                // TODO: check handle error case.
+                Err(err) => {
+                    if err == pinocchio::program_error::ProgramError::InvalidInstructionData {
+                        // Reached the beginning of the transaction.
+                        // No more instructions to check.
+                        break;
+                    } else {
+                        return Err(PoolError::UndeterminedError.into());
+                    }
+                }
             }
-            sibling_index = sibling_index.safe_add(1)?;
         }
     }
 
@@ -341,16 +355,6 @@ pub fn validate_single_swap_instruction<'c, 'info>(
     }
 
     Ok(())
-}
-
-fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) -> bool {
-    let instruction_discriminator = &instruction.data[..8];
-    if instruction_discriminator.eq(SwapInstruction::DISCRIMINATOR)
-        || instruction_discriminator.eq(Swap2Instruction::DISCRIMINATOR)
-    {
-        return instruction.accounts[1].pubkey.eq(pool);
-    }
-    false
 }
 
 fn is_p_instruction_include_pool_swap(
