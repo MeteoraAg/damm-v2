@@ -296,7 +296,7 @@ describe("Lock position", () => {
         }
 
         const vesting = svm.getAccount(vestings[0]);
-        expect(vesting.data.length).eq(0);
+        expect(vesting).eq(null);
 
         const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.isZero()).to.be.true;
@@ -600,7 +600,7 @@ describe("Lock position", () => {
         }
 
         const vesting = svm.getAccount(vestings[0]);
-        expect(vesting.data.length).eq(0);
+        expect(vesting).eq(null);
 
         const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.isZero()).to.be.true;

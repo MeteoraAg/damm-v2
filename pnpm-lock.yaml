@@ -21,8 +21,8 @@ importers:
         specifier: ^10.6.0
         version: 10.6.0
       litesvm:
-        specifier: ^0.1.0
-        version: 0.1.0(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)
+        specifier: ^0.4.0
+        version: 0.4.0(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)
     devDependencies:
       '@solana/spl-token-metadata':
         specifier: ^0.1.6
@@ -517,38 +517,45 @@ packages:
     resolution: {integrity: sha512-g1MWMLBiz8FKi1e4w0UyVL3w+iJceWAFBAaBnnGKOpNa5f8TLktkbre1+s6oICydWAm+HRUGTmI+//xv2hvXYA==}
     hasBin: true
 
-  litesvm-darwin-arm64@0.1.0:
-    resolution: {integrity: sha512-GwBph2fNaR9UP1nhFmQYk7UMcI9+ogrzpbDl2en70FUnPc+FDlchOts2X8IL5XFCU+m4ZGoQl/N9b+FywJN5lQ==}
-    engines: {node: '>= 10'}
+  litesvm-darwin-arm64@0.4.0:
+    resolution: {integrity: sha512-LN6iZcUQ6Xi5KO/7yJBYSALjjDCI/s/s2PgV3BqM4dpeBaLz+fXX/+qgMcBgpEVgEdEmhelux+WtAMkbEzJfrA==}
+    engines: {node: '>= 20'}
     cpu: [arm64]
     os: [darwin]
 
-  litesvm-darwin-universal@0.1.0:
-    resolution: {integrity: sha512-GjGpz77ei+RfWiMtHiES0X8GP+TafFHWu5fAQXgXEoGia7RG32Z12iJBhwfvk0T4EKbm8bqlyqhe5Me/nARm/w==}
-    engines: {node: '>= 10'}
-    os: [darwin]
-
-  litesvm-darwin-x64@0.1.0:
-    resolution: {integrity: sha512-1N/IPfoT+gcpkvG9Wm7+vcaxgl/LB8hbm85cHDQRq4O1wyiRRiR6ByeNRamj+OFEDSfI7a/1NshhMobnnr2MGQ==}
-    engines: {node: '>= 10'}
+  litesvm-darwin-x64@0.4.0:
+    resolution: {integrity: sha512-3ltogKQdle8LbakVqoB6plxaNwp6Vb3tnkqa3G5mAvvZNorB2iumThDaTZ381Knl69t566LZm+g/VDZwYfsfhA==}
+    engines: {node: '>= 20'}
     cpu: [x64]
     os: [darwin]
 
-  litesvm-linux-x64-gnu@0.1.0:
-    resolution: {integrity: sha512-S6krvRz6BXxVZIkap5XkWwulSG4KsbFrxjyqP1X0zANa8jWMHEd09Zy9pPgfOetni2exg67fBmSlWq4sRfzlCw==}
-    engines: {node: '>= 10'}
+  litesvm-linux-arm64-gnu@0.4.0:
+    resolution: {integrity: sha512-SWlcRUqkXCMgLoDX/Wqr/S1lff+ggVI9f0YrRJMraxtEyApxutAoW2AWw4tvo6DsEgNwjxgsZOAwnE6bQBv8CA==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [linux]
+
+  litesvm-linux-arm64-musl@0.4.0:
+    resolution: {integrity: sha512-YMMqwEWJUSWwL0Rwp8dFwl3jvgNU21eI7Qc+BpH9u2yeIRYQTn3rNGDnsK8v3QIZPHQdMo7NrPhzk4XoB1aKPg==}
+    engines: {node: '>= 20'}
+    cpu: [arm64]
+    os: [linux]
+
+  litesvm-linux-x64-gnu@0.4.0:
+    resolution: {integrity: sha512-brZ3tFABDVQEYCgci7AO8iVYLw10UXVo97/lpTy75bTzNoqkggg8wFQOrbgCdb9NRwt06Y4Zf8cpIZAoDQq2mw==}
+    engines: {node: '>= 20'}
     cpu: [x64]
     os: [linux]
 
-  litesvm-linux-x64-musl@0.1.0:
-    resolution: {integrity: sha512-3E9gC5HRCEHFsfUNDhAY9JKx6ou6JazlnYMhT89JgbAN/YsJmyEgkTfY6W7TVV90g4EAJ/K4smSmg+vV413mYQ==}
-    engines: {node: '>= 10'}
+  litesvm-linux-x64-musl@0.4.0:
+    resolution: {integrity: sha512-D98qdIOuWg4fOewIIiH1D23AtM4I7/3vLKXIL8uQz06D5ev5fsBzNp2gM7libAywTkCYy/u666xgD6PsWhrTaw==}
+    engines: {node: '>= 20'}
     cpu: [x64]
     os: [linux]
 
-  litesvm@0.1.0:
-    resolution: {integrity: sha512-XfpvWgYxFQUZxwFzWJTsuHRc1y34q8WtC60lhvH1xb6YX1/RBLqzIClp2JkxtlqGnDi/WPlThsXGmC3SinuPMQ==}
-    engines: {node: '>= 10'}
+  litesvm@0.4.0:
+    resolution: {integrity: sha512-ySr5mB2ap4SzJpmVR2I5+gjzTH8NJbkg7DYPormzA2U9F4LhfvTTrD17X/k5N3Bn4b5Db6/CwSyX2qc0HrJtNA==}
+    engines: {node: '>= 20'}
 
   locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
@@ -1336,31 +1343,35 @@ snapshots:
       minimist: 1.2.8
     optional: true
 
-  litesvm-darwin-arm64@0.1.0:
+  litesvm-darwin-arm64@0.4.0:
     optional: true
 
-  litesvm-darwin-universal@0.1.0:
+  litesvm-darwin-x64@0.4.0:
     optional: true
 
-  litesvm-darwin-x64@0.1.0:
+  litesvm-linux-arm64-gnu@0.4.0:
     optional: true
 
-  litesvm-linux-x64-gnu@0.1.0:
+  litesvm-linux-arm64-musl@0.4.0:
     optional: true
 
-  litesvm-linux-x64-musl@0.1.0:
+  litesvm-linux-x64-gnu@0.4.0:
     optional: true
 
-  litesvm@0.1.0(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10):
+  litesvm-linux-x64-musl@0.4.0:
+    optional: true
+
+  litesvm@0.4.0(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10):
     dependencies:
       '@solana/web3.js': 1.98.4(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)
-      bs58: 4.0.1
+      fastestsmallesttextencoderdecoder: 1.0.22
     optionalDependencies:
-      litesvm-darwin-arm64: 0.1.0
-      litesvm-darwin-universal: 0.1.0
-      litesvm-darwin-x64: 0.1.0
-      litesvm-linux-x64-gnu: 0.1.0
-      litesvm-linux-x64-musl: 0.1.0
+      litesvm-darwin-arm64: 0.4.0
+      litesvm-darwin-x64: 0.4.0
+      litesvm-linux-arm64-gnu: 0.4.0
+      litesvm-linux-arm64-musl: 0.4.0
+      litesvm-linux-x64-gnu: 0.4.0
+      litesvm-linux-x64-musl: 0.4.0
     transitivePeerDependencies:
       - bufferutil
       - encoding

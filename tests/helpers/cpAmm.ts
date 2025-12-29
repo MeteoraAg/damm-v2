@@ -347,7 +347,7 @@ export async function closeConfigIx(
   expect(result).instanceOf(TransactionMetadata);
 
   const configState = svm.getAccount(config);
-  expect(configState.data.length).eq(0);
+  expect(configState).eq(null);
 }
 
 export type CreateTokenBadgeParams = {
@@ -407,7 +407,7 @@ export async function closeTokenBadge(
   const result = sendTransaction(svm, transaction, [whitelistedAddress]);
   expect(result).instanceOf(TransactionMetadata);
   const tokenBadgeAccount = svm.getAccount(tokenBadge);
-  expect(tokenBadgeAccount.data.length).eq(0);
+  expect(tokenBadgeAccount).eq(null);
 }
 
 
@@ -1984,77 +1984,6 @@ export async function swap2Instruction(svm: LiteSVM, params: Swap2Params) {
   return transaction;
 }
 
-export async function swapTestInstruction(svm: LiteSVM, params: Swap2Params) {
-  const {
-    payer,
-    pool,
-    inputTokenMint,
-    outputTokenMint,
-    amount0,
-    amount1,
-    swapMode,
-    referralTokenAccount,
-  } = params;
-
-  const program = createCpAmmProgram();
-  const poolState = getPool(svm, pool);
-
-  const poolAuthority = derivePoolAuthority();
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
-
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
-  const inputTokenAccount = getAssociatedTokenAddressSync(
-    inputTokenMint,
-    payer.publicKey,
-    true,
-    tokenAProgram
-  );
-  const outputTokenAccount = getAssociatedTokenAddressSync(
-    outputTokenMint,
-    payer.publicKey,
-    true,
-    tokenBProgram
-  );
-  const tokenAVault = poolState.tokenAVault;
-  const tokenBVault = poolState.tokenBVault;
-  const tokenAMint = poolState.tokenAMint;
-  const tokenBMint = poolState.tokenBMint;
-
-  const transaction = await program.methods
-    .swapTest({
-      amount0,
-      amount1,
-      swapMode,
-    })
-    .accountsPartial({
-      poolAuthority,
-      pool,
-      payer: payer.publicKey,
-      inputTokenAccount,
-      outputTokenAccount,
-      tokenAVault,
-      tokenBVault,
-      tokenAProgram,
-      tokenBProgram,
-      tokenAMint,
-      tokenBMint,
-      referralTokenAccount,
-    })
-    .remainingAccounts(
-      // TODO should check condition to add this in remaining accounts
-      [
-        {
-          isSigner: false,
-          isWritable: false,
-          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-        },
-      ]
-    )
-    .transaction();
-
-  return transaction;
-}
-
 export async function swap2ExactIn(
   svm: LiteSVM,
   params: Omit<Swap2Params, "swapMode">
@@ -2402,35 +2331,6 @@ export function getFeeShedulerParams(
     reductionFactor,
     baseFeeMode,
   };
-}
-
-export async function buildSwapTestTxs(params: {
-  payer: PublicKey;
-  pool: PublicKey;
-  tokenAMint: PublicKey;
-  tokenBMint: PublicKey;
-  inputTokenAccount: PublicKey;
-  outputTokenAccount: PublicKey;
-  tokenAVault: PublicKey;
-  tokenBVault: PublicKey;
-  tokenAProgram: PublicKey;
-  tokenBProgram: PublicKey;
-  poolAuthority?: PublicKey;
-  eventAuthority?: PublicKey;
-  programPk?: PublicKey;
-  sysvarInstructionPubkey?: PublicKey;
-  referralAccount?: PublicKey;
-  amount0: BN;
-  amount1: BN;
-  swapMode: number;
-}): Promise<{ swapTestTx: Transaction; swapPinocchioTx: Transaction }> {
-  const program = createCpAmmProgram();
-  const swapTestTx = await getSwapTransaction(program.methods.swapTest, params);
-  const swapPinocchioTx = await getSwapTransaction(
-    program.methods.swap2,
-    params
-  );
-  return { swapTestTx, swapPinocchioTx };
 }
 
 async function getSwapTransaction(
