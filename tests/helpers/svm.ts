@@ -15,24 +15,29 @@ import {
   createCpAmmProgram,
 } from ".";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
+import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
 export function startSvm() {
   const svm = new LiteSVM();
-  const sourceFileCpammPath = path.resolve("./target/deploy/cp_amm.so");
-  const sourceFileAlphaVaultPath = path.resolve(
-    "./tests/fixtures/alpha_vault.so"
-  );
-  const sourceFileTransferhookPath = path.resolve(
-    "./tests/fixtures/transfer_hook_counter.so"
-  );
-  svm.addProgramFromFile(new PublicKey(CP_AMM_PROGRAM_ID), sourceFileCpammPath);
+  svm.addProgramFromFile(new PublicKey(CP_AMM_PROGRAM_ID), path.resolve("./target/deploy/cp_amm.so"));
   svm.addProgramFromFile(
     new PublicKey(ALPHA_VAULT_PROGRAM_ID),
-    sourceFileAlphaVaultPath
+    path.resolve(
+      "./tests/fixtures/alpha_vault.so"
+    )
   );
   svm.addProgramFromFile(
     new PublicKey(TRANSFER_HOOK_COUNTER_PROGRAM_ID),
-    sourceFileTransferhookPath
+    path.resolve(
+      "./tests/fixtures/transfer_hook_counter.so"
+    )
+  );
+
+  svm.addProgramFromFile(
+    new PublicKey(TOKEN_2022_PROGRAM_ID),
+    path.resolve(
+      "./tests/fixtures/spl_token_2022.so"
+    )
   );
   const accountInfo: AccountInfoBytes = {
     data: new Uint8Array(),
