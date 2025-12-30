@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## cp_amm [0.1.7] [PR #124](https://github.com/MeteoraAg/damm-v2/pull/167)
+### Added
+- New endpoint `zap_protocol_fee` that allow operator to claim protocol fees and zap out to SOL/USDC or other token in pool and send to treasury address
+
+
 ## cp_amm [0.1.6] [PR #124](https://github.com/MeteoraAg/damm-v2/pull/124)
 ### Added
 - Add 2 new modes for base fee: fee by marketcap linear and fee by marketcap exponential, fee will be reduced when current price increases from initial price
