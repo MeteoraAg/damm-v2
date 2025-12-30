@@ -19,6 +19,6 @@ pub fn is_valid_operator_role<'info>(
     if operator.whitelisted_address.eq(signer) && operator.is_permission_allow(permission) {
         Ok(())
     } else {
-        err!(PoolError::InvalidAuthority)
+        err!(PoolError::InvalidPermission)
     }
 }

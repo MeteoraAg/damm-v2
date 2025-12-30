@@ -24,7 +24,6 @@ import {
   InitializeCustomizablePoolParams,
   Pool,
 } from "./cpAmm";
-import { createLbClmmProgram, dlmmSwapIx, getLbPairState } from "./dlmm";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./feeCodec";
 import { getTokenAccount } from "./token";
 
@@ -655,68 +654,4 @@ export async function createCustomizableDammV2Pool(params: {
   const { pool } = await initializeCustomizablePool(svm, createPoolParams);
 
   return pool;
-}
-
-export async function buildZapOutDlmmInstruction(
-  svm: LiteSVM,
-  lbPair: PublicKey,
-  protocolFeeAmount: BN,
-  outputMint: PublicKey,
-  operatorAddress: PublicKey,
-  treasuryAddress: PublicKey
-) {
-  const program = createLbClmmProgram();
-  const lbPairState = getLbPairState(svm, lbPair);
-
-  const swapForY = outputMint.equals(lbPairState.tokenYMint);
-
-  const swapFn = await dlmmSwapIx({
-    svm,
-    lbPair,
-    swapForY,
-    userAddress: operatorAddress,
-    destinationAddress: treasuryAddress,
-    amount: protocolFeeAmount,
-  });
-
-  const swapIx = await swapFn.instruction();
-
-  const userTokenIn = swapForY
-    ? getAssociatedTokenAddressSync(lbPairState.tokenXMint, operatorAddress)
-    : getAssociatedTokenAddressSync(lbPairState.tokenYMint, operatorAddress);
-
-  const userTokenInAccount = getTokenAccount(svm, userTokenIn);
-  const preUserTokenBalance = userTokenInAccount
-    ? userTokenInAccount.amount
-    : BigInt(0);
-
-  const zapOutRawParameters = buildZapOutParameter({
-    preUserTokenBalance: new BN(preUserTokenBalance.toString()),
-    maxSwapAmount: protocolFeeAmount,
-    payloadData: swapIx.data,
-    offsetAmountIn: 8,
-  });
-
-  const zapOutAccounts: AccountMeta[] = [
-    {
-      pubkey: userTokenIn,
-      isWritable: true,
-      isSigner: false,
-    },
-    {
-      pubkey: program.programId,
-      isSigner: false,
-      isWritable: false,
-    },
-  ];
-
-  zapOutAccounts.push(...swapIx.keys);
-
-  const zapOutIx: TransactionInstruction = {
-    programId: ZAP_PROGRAM_ID,
-    keys: zapOutAccounts,
-    data: zapOutRawParameters,
-  };
-
-  return zapOutIx;
 }

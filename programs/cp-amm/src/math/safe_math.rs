@@ -128,7 +128,7 @@ macro_rules! try_into_impl {
                     Ok(result) => Ok(result),
                     Err(_) => {
                         let caller = Location::caller();
-                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
+                        msg!("TypeCast is failed at {}:{}", caller.file(), caller.line());
                         Err(PoolError::TypeCastFailed)
                     }
                 }

@@ -14,7 +14,6 @@ import {
   ALPHA_VAULT_PROGRAM_ID,
   CP_AMM_PROGRAM_ID,
   createCpAmmProgram,
-  DLMM_PROGRAM_ID,
   JUPITER_V6_PROGRAM_ID,
   NATIVE_MINT,
   ZAP_PROGRAM_ID,
@@ -32,7 +31,6 @@ export function startSvm() {
   );
   const sourceFileZapProgramPath = path.resolve("./tests/fixtures/zap.so");
   const sourceFileJupiterPath = path.resolve("./tests/fixtures/jupiter.so");
-  const sourceFileDlmmPath = path.resolve("./tests/fixtures/dlmm.so");
   svm.addProgramFromFile(new PublicKey(CP_AMM_PROGRAM_ID), sourceFileCpammPath);
   svm.addProgramFromFile(
     new PublicKey(ALPHA_VAULT_PROGRAM_ID),
@@ -44,7 +42,6 @@ export function startSvm() {
   );
   svm.addProgramFromFile(JUPITER_V6_PROGRAM_ID, sourceFileJupiterPath);
   svm.addProgramFromFile(ZAP_PROGRAM_ID, sourceFileZapProgramPath);
-  svm.addProgramFromFile(DLMM_PROGRAM_ID, sourceFileDlmmPath);
 
   const accountInfo: AccountInfoBytes = {
     data: new Uint8Array(),

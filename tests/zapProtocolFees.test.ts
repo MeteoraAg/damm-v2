@@ -37,18 +37,9 @@ import {
   TREASURY,
   zapProtocolFee,
 } from "./helpers";
-import {
-  addLiquidityRadius,
-  binIdToBinArrayIndex,
-  createBinArrays,
-  createDlmmPosition,
-  createLbPair,
-  DEFAULT_BIN_PER_POSITION,
-} from "./helpers/dlmm";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import {
   buildZapOutDammV2Instruction,
-  buildZapOutDlmmInstruction,
   buildZapOutJupV6UsingDammV2RouteInstruction,
   buildZapOutJupV6UsingDammV2SharedRouteInstruction,
   createCustomizableDammV2Pool,
@@ -234,7 +225,7 @@ describe("Zap protocol fees", () => {
     getOrCreateAssociatedTokenAccount(svm, admin, NATIVE_MINT, TREASURY);
   });
 
-  describe("ZapOut protocol fees via DAMM V2)", () => {
+  describe("ZapOut protocol fees via DAMM V2", () => {
     const price = new Decimal(1);
 
     const sqrtPrice = price.sqrt();
@@ -294,7 +285,68 @@ describe("Zap protocol fees", () => {
     });
   });
 
-  describe("Zapout protocol fees via JUP v6 route)", () => {
+  describe("Zapout protocol fees via JUP v6 route", () => {
+    const price = new Decimal(1);
+
+    const sqrtPrice = price.sqrt();
+    const sqrtPriceX64 = new BN(
+      sqrtPrice.mul(new Decimal(2).pow(64)).floor().toString()
+    );
+
+    it("Zap protocol fee tokenA to token SOL via DammV2 pool", async () => {
+      const isClaimTokenX = true;
+      const zapOutputMint = NATIVE_MINT;
+
+      const dammV2PoolAddress = await createCustomizableDammV2Pool({
+        svm,
+        sqrtPriceX64,
+        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
+        amountB: new BN(100).mul(new BN(10 ** 9)),
+        tokenAMint,
+        tokenBMint: NATIVE_MINT,
+        payer: creator,
+      });
+
+      await zapOutAndAssert(
+        svm,
+        pool,
+        isClaimTokenX,
+        whitelistedAccount,
+        TREASURY,
+        dammV2PoolAddress,
+        zapOutputMint,
+        buildZapOutJupV6UsingDammV2RouteInstruction
+      );
+    });
+
+    it("Zap protocol fee tokenB to token SOL via DammV2 pool", async () => {
+      const isClaimTokenX = false;
+      const zapOutputMint = NATIVE_MINT;
+
+      const dammV2PoolAddress = await createCustomizableDammV2Pool({
+        svm,
+        sqrtPriceX64,
+        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
+        amountB: new BN(100).mul(new BN(10 ** 9)),
+        tokenAMint: tokenBMint,
+        tokenBMint: NATIVE_MINT,
+        payer: creator,
+      });
+
+      await zapOutAndAssert(
+        svm,
+        pool,
+        isClaimTokenX,
+        whitelistedAccount,
+        TREASURY,
+        dammV2PoolAddress,
+        zapOutputMint,
+        buildZapOutJupV6UsingDammV2RouteInstruction
+      );
+    });
+  });
+
+  describe("ZapOut protocol fees via JUP v6 shared route via DammV2 pool", () => {
     const price = new Decimal(1);
 
     const sqrtPrice = price.sqrt();
@@ -324,7 +376,7 @@ describe("Zap protocol fees", () => {
         TREASURY,
         dammV2PoolAddress,
         zapOutputMint,
-        buildZapOutJupV6UsingDammV2RouteInstruction
+        buildZapOutJupV6UsingDammV2SharedRouteInstruction
       );
     });
 
@@ -350,152 +402,7 @@ describe("Zap protocol fees", () => {
         TREASURY,
         dammV2PoolAddress,
         zapOutputMint,
-        buildZapOutJupV6UsingDammV2RouteInstruction
-      );
-    });
-  });
-
-  describe("ZapOut protocol fees via JUP v6 shared route)", () => {
-    const price = new Decimal(1);
-
-    const sqrtPrice = price.sqrt();
-    const sqrtPriceX64 = new BN(
-      sqrtPrice.mul(new Decimal(2).pow(64)).floor().toString()
-    );
-
-    it("Zap protocol fee X to token SOL", async () => {
-      const isClaimTokenX = true;
-      const zapOutputMint = NATIVE_MINT;
-
-      const dammV2PoolAddress = await createCustomizableDammV2Pool({
-        svm,
-        sqrtPriceX64,
-        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
-        amountB: new BN(100).mul(new BN(10 ** 9)),
-        tokenAMint,
-        tokenBMint: NATIVE_MINT,
-        payer: creator,
-      });
-
-      await zapOutAndAssert(
-        svm,
-        pool,
-        isClaimTokenX,
-        whitelistedAccount,
-        TREASURY,
-        dammV2PoolAddress,
-        zapOutputMint,
         buildZapOutJupV6UsingDammV2SharedRouteInstruction
-      );
-    });
-
-    it("Zap protocol fee Y to token SOL", async () => {
-      const isClaimTokenX = false;
-      const zapOutputMint = NATIVE_MINT;
-
-      const dammV2PoolAddress = await createCustomizableDammV2Pool({
-        svm,
-        sqrtPriceX64,
-        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
-        amountB: new BN(100).mul(new BN(10 ** 9)),
-        tokenAMint: tokenBMint,
-        tokenBMint: NATIVE_MINT,
-        payer: creator,
-      });
-
-      await zapOutAndAssert(
-        svm,
-        pool,
-        isClaimTokenX,
-        whitelistedAccount,
-        TREASURY,
-        dammV2PoolAddress,
-        zapOutputMint,
-        buildZapOutJupV6UsingDammV2SharedRouteInstruction
-      );
-    });
-  });
-
-  describe("Zapout protocol fees via Dlmm", () => {
-    let lbPair: PublicKey;
-    const activeId = new BN(0);
-    const balancedDelta = DEFAULT_BIN_PER_POSITION.div(new BN(2));
-    const lowerBinId = activeId.sub(balancedDelta);
-    const depositBinDelta = new BN(3);
-    const btcDepositAmount = new BN(1000).mul(new BN(10 ** DECIMALS));
-    const usdcDepositAmount = new BN(1000).mul(new BN(10 ** DECIMALS));
-    beforeEach(async () => {
-      const binArrayDelta = 5;
-      const binArrayIndex = binIdToBinArrayIndex(activeId);
-      const binArrayIndexes = [];
-      // Lower bin arrays
-      for (let i = binArrayDelta; i > 0; i--) {
-        const idx = binArrayIndex.sub(new BN(i));
-        binArrayIndexes.push(idx);
-      }
-
-      binArrayIndexes.push(binArrayIndex);
-
-      // Upper bin arrays
-      for (let i = 1; i <= binArrayDelta; i++) {
-        const idx = binArrayIndex.add(new BN(i));
-        binArrayIndexes.push(idx);
-      }
-
-      lbPair = await createLbPair({
-        svm,
-        keypair: creator,
-        tokenX: tokenAMint,
-        tokenY: tokenBMint,
-        activeId,
-      });
-
-      await createBinArrays(svm, lbPair, binArrayIndexes, admin);
-
-      const position = await createDlmmPosition(
-        svm,
-        lbPair,
-        lowerBinId.toNumber(),
-        creator
-      );
-
-      await addLiquidityRadius(
-        svm,
-        lbPair,
-        position,
-        btcDepositAmount,
-        usdcDepositAmount,
-        depositBinDelta.toNumber(),
-        creator
-      );
-    });
-    it("Zap protocol fee tokenA to tokenB", async () => {
-      const isClaimTokenA = true;
-      const zapOutputMint = tokenBMint;
-      await zapOutAndAssert(
-        svm,
-        pool,
-        isClaimTokenA,
-        whitelistedAccount,
-        TREASURY,
-        lbPair,
-        zapOutputMint,
-        buildZapOutDlmmInstruction
-      );
-    });
-
-    it("Zap protocol fee Y to token X", async () => {
-      const isClaimTokenA = false;
-      const zapOutputMint = tokenAMint;
-      await zapOutAndAssert(
-        svm,
-        pool,
-        isClaimTokenA,
-        whitelistedAccount,
-        TREASURY,
-        lbPair,
-        zapOutputMint,
-        buildZapOutDlmmInstruction
       );
     });
   });

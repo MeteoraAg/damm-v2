@@ -68,11 +68,6 @@ pub mod zap {
     use ::zap::zap;
     use const_crypto::ed25519;
 
-    #[cfg(feature = "local")]
-    pub const DLMM: Pubkey = pubkey!("LbVRzDTvBDEcrthxfZ4RL6yiq3uZw8bS6MwtdY6UhFQ");
-
-    #[cfg(not(feature = "local"))]
-    pub const DLMM: Pubkey = pubkey!("LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo");
     pub const JUP_V6: Pubkey = pubkey!("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
 
     pub const JUP_V6_SHARED_ACCOUNT_ROUTE_AMOUNT_IN_REVERSE_OFFSET: usize = 1 + 2 + 8 + 8; // Due to jupiter parameters have dynamic length type (vec), we have to do parameters_data.length - JUP_V6_SHARED_ACCOUNT_ROUTE_AMOUNT_IN_REVERSE_OFFSET
@@ -82,10 +77,6 @@ pub mod zap {
     pub const JUP_V6_ROUTE_AMOUNT_IN_REVERSE_OFFSET: usize = 1 + 2 + 8 + 8;
     pub const JUP_V6_ROUTE_SOURCE_ACCOUNT_INDEX: usize = 2;
     pub const JUP_V6_ROUTE_DESTINATION_ACCOUNT_INDEX: usize = 4;
-
-    pub const DLMM_SWAP2_AMOUNT_IN_OFFSET: u16 = 8;
-    pub const DLMM_SWAP2_SOURCE_ACCOUNT_INDEX: usize = 4;
-    pub const DLMM_SWAP2_DESTINATION_ACCOUNT_INDEX: usize = 5;
 
     pub const DAMM_V2_SWAP_AMOUNT_IN_OFFSET: u16 = 8;
     pub const DAMM_V2_SWAP_SOURCE_ACCOUNT_INDEX: usize = 2;
@@ -124,7 +115,6 @@ pub mod zap {
     );
 
     pub const DAMM_V2_SWAP_DISC_REF: &[u8] = &zap::constants::DAMM_V2_SWAP_DISC;
-    pub const DLMM_SWAP2_DISC_REF: &[u8] = &zap::constants::DLMM_SWAP2_DISC;
     pub const JUP_V6_ROUTE_DISC_REF: &[u8] = &zap::constants::JUP_V6_ROUTE_DISC;
     pub const JUP_V6_SHARED_ACCOUNT_ROUTE_DISC_REF: &[u8] =
         &zap::constants::JUP_V6_SHARED_ACCOUNT_ROUTE_DISC;

@@ -19,5 +19,6 @@ pub struct CloseTokenBadgeCtx<'info> {
 }
 
 pub fn handle_close_token_badge(_ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
+    // Anchor do everything
     Ok(())
 }
