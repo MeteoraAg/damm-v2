@@ -165,7 +165,7 @@ export async function createDynamicConfigIx(
       config,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
       payer: whitelistedAddress.publicKey,
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
@@ -201,7 +201,7 @@ export async function createConfigIx(
       config,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
       payer: whitelistedAddress.publicKey,
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
@@ -339,7 +339,7 @@ export async function closeConfigIx(
     .accountsPartial({
       config,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       rentReceiver: whitelistedAddress.publicKey,
     })
     .transaction();
@@ -368,7 +368,7 @@ export async function createTokenBadge(
       tokenBadge,
       tokenMint,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       payer: whitelistedAddress.publicKey,
       systemProgram: SystemProgram.programId,
     })
@@ -399,7 +399,7 @@ export async function closeTokenBadge(
     .accountsPartial({
       tokenBadge,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       rentReceiver: whitelistedAddress.publicKey,
     })
     .transaction();
@@ -479,7 +479,7 @@ export async function updatePoolFeesParameters(
     .accountsPartial({
       pool,
       operator: deriveOperatorAddress(whitelistedOperator.publicKey),
-      whitelistedAddress: whitelistedOperator.publicKey,
+      signer: whitelistedOperator.publicKey,
     })
     .transaction();
 
@@ -561,7 +561,7 @@ export async function claimProtocolFee(
       tokenAAccount,
       tokenBAccount,
       operator,
-      whitelistedAddress: whitelistedKP.publicKey,
+      signer: whitelistedKP.publicKey,
       tokenAProgram,
       tokenBProgram,
     })
@@ -886,8 +886,7 @@ export async function setPoolStatus(svm: LiteSVM, params: SetPoolStatusParams) {
     .accountsPartial({
       pool,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
     })
     .transaction();
 
@@ -1217,12 +1216,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1259,12 +1258,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -2235,7 +2234,7 @@ export async function zapProtocolFee(params: {
       tokenMint,
       operator,
       receiverToken,
-      whitelistedAddress: signer.publicKey,
+      signer: signer.publicKey,
       tokenProgram,
       sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
     })

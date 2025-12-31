@@ -15,7 +15,7 @@ pub struct SetPoolStatusCtx<'info> {
 
     pub operator: AccountLoader<'info, Operator>,
 
-    pub whitelisted_address: Signer<'info>,
+    pub signer: Signer<'info>,
 }
 
 pub fn handle_set_pool_status(ctx: Context<SetPoolStatusCtx>, status: u8) -> Result<()> {

@@ -14,12 +14,6 @@ use crate::{
 mod damm_v2_zap;
 mod process_zap_protocol_fee;
 pub use process_zap_protocol_fee::*;
-
-// for testing purpose
-#[cfg(feature = "local")]
-pub mod jup_v6_zap;
-
-#[cfg(not(feature = "local"))]
 mod jup_v6_zap;
 
 pub struct RawZapOutAmmInfo {

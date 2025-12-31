@@ -17,7 +17,7 @@ pub struct CloseConfigCtx<'info> {
 
     pub operator: AccountLoader<'info, Operator>,
 
-    pub whitelisted_address: Signer<'info>,
+    pub signer: Signer<'info>,
 
     /// CHECK: Account to receive closed account rental SOL
     #[account(mut)]
@@ -27,7 +27,7 @@ pub struct CloseConfigCtx<'info> {
 pub fn handle_close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {
     emit_cpi!(event::EvtCloseConfig {
         config: ctx.accounts.config.key(),
-        admin: ctx.accounts.whitelisted_address.key(),
+        admin: ctx.accounts.signer.key(),
     });
 
     Ok(())

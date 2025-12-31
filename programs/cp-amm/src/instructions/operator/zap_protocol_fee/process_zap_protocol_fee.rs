@@ -21,7 +21,6 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use zap::types::ZapOutParameters;
 
 /// Accounts for zap protocol fees
-#[event_cpi]
 #[derive(Accounts)]
 pub struct ZapProtocolFee<'info> {
     /// CHECK: pool authority
@@ -44,7 +43,7 @@ pub struct ZapProtocolFee<'info> {
     pub operator: AccountLoader<'info, Operator>,
 
     /// Operator
-    pub whitelisted_address: Signer<'info>,
+    pub signer: Signer<'info>,
 
     /// Token program
     pub token_program: Interface<'info, TokenInterface>,
@@ -90,6 +89,9 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
     Ok(is_withdrawing_token_a)
 }
 
+// Rules:
+// 1. If the token mint is SOL or USDC, then must withdraw to treasury using `claim_protocol_fee` endpoint. No zap out allowed.
+// 2. If the token mint is not SOL or USDC, operator require to zap out to SOL or USDC or either one of the token of the pool
 pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
     let is_withdrawing_a = validate_accounts_and_return_withdraw_direction(
@@ -131,7 +133,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
 
     validate_ata_token(
         &receiver_token_ai,
-        &ctx.accounts.whitelisted_address.key(),
+        &ctx.accounts.signer.key(),
         &ctx.accounts.token_mint.key(),
         &ctx.accounts.token_program.key(),
     )?;

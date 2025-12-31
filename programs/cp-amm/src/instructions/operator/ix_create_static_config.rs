@@ -35,7 +35,7 @@ pub struct CreateConfigCtx<'info> {
 
     pub operator: AccountLoader<'info, Operator>,
 
-    pub whitelisted_address: Signer<'info>,
+    pub signer: Signer<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,

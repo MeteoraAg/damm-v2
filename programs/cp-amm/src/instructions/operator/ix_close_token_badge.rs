@@ -9,9 +9,10 @@ pub struct CloseTokenBadgeCtx<'info> {
         close = rent_receiver
     )]
     pub token_badge: AccountLoader<'info, TokenBadge>,
+
     pub operator: AccountLoader<'info, Operator>,
 
-    pub whitelisted_address: Signer<'info>,
+    pub signer: Signer<'info>,
 
     /// CHECK: Account to receive closed account rental SOL
     #[account(mut)]

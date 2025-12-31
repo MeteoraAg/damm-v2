@@ -79,7 +79,7 @@ pub struct UpdatePoolFeesCtx<'info> {
 
     pub operator: AccountLoader<'info, Operator>,
 
-    pub whitelisted_address: Signer<'info>,
+    pub signer: Signer<'info>,
 }
 
 pub fn handle_update_pool_fees(
@@ -94,7 +94,7 @@ pub fn handle_update_pool_fees(
 
     emit_cpi!(EvtUpdatePoolFees {
         pool: ctx.accounts.pool.key(),
-        operator: ctx.accounts.whitelisted_address.key(),
+        operator: ctx.accounts.signer.key(),
         params,
     });
 

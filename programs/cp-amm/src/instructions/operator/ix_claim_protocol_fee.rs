@@ -45,7 +45,7 @@ pub struct ClaimProtocolFeesCtx<'info> {
     pub operator: AccountLoader<'info, Operator>,
 
     /// Operator
-    pub whitelisted_address: Signer<'info>,
+    pub signer: Signer<'info>,
 
     /// Token a program
     pub token_a_program: Interface<'info, TokenInterface>,

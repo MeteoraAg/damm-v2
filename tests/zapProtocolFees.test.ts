@@ -503,9 +503,6 @@ async function zapOutAndAssert(
     ? new BN(afterTreasuryTokenAccount.amount.toString())
     : new BN(0);
 
-  console.log(
-    `Treasury token account before: ${beforeAmount.toString()}, after: ${afterAmount.toString()}`
-  );
 
   expect(afterAmount.gt(beforeAmount)).to.be.true;
 }
