@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::{
     params::fee_parameters::DynamicFeeParameters,
-    state::{Operator, OperatorPermission, Pool},
+    state::{Operator, Pool},
     EvtUpdatePoolFees, PoolError,
 };
 
@@ -77,12 +77,9 @@ pub struct UpdatePoolFeesCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
-    #[account(
-        has_one = whitelisted_address
-    )]
     pub operator: AccountLoader<'info, Operator>,
 
-    pub whitelisted_address: Signer<'info>,
+    pub signer: Signer<'info>,
 }
 
 pub fn handle_update_pool_fees(
@@ -90,11 +87,6 @@ pub fn handle_update_pool_fees(
     params: UpdatePoolFeesParameters,
 ) -> Result<()> {
     params.validate()?;
-    let operator = ctx.accounts.operator.load()?;
-    require!(
-        operator.is_permission_allow(OperatorPermission::UpdatePoolFees),
-        PoolError::InvalidAuthority
-    );
 
     let mut pool = ctx.accounts.pool.load_mut()?;
 
@@ -102,7 +94,7 @@ pub fn handle_update_pool_fees(
 
     emit_cpi!(EvtUpdatePoolFees {
         pool: ctx.accounts.pool.key(),
-        operator: ctx.accounts.whitelisted_address.key(),
+        operator: ctx.accounts.signer.key(),
         params,
     });
 

@@ -172,6 +172,7 @@ export function getMint(svm: LiteSVM, mint: PublicKey): RawMint {
 
 export function getTokenAccount(svm: LiteSVM, key: PublicKey) {
   const account = svm.getAccount(key);
+  if (!account) return null;
   const tokenAccountState = AccountLayout.decode(account.data);
   return tokenAccountState;
 }

@@ -184,4 +184,25 @@ pub enum PoolError {
 
     #[msg("Missing operator account")]
     MissingOperatorAccount,
+
+    #[msg("Incorrect ATA")]
+    IncorrectATA,
+
+    #[msg("Invalid zap out parameters")]
+    InvalidZapOutParameters,
+
+    #[msg("Invalid withdraw protocol fee zap accounts")]
+    InvalidWithdrawProtocolFeeZapAccounts,
+
+    #[msg("SOL,USDC protocol fee cannot be withdrawn via zap")]
+    MintRestrictedFromZap,
+
+    #[msg("CPI disabled")]
+    CpiDisabled,
+
+    #[msg("Missing zap out instruction")]
+    MissingZapOutInstruction,
+
+    #[msg("Invalid zap accounts")]
+    InvalidZapAccounts,
 }

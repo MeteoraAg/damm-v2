@@ -32,6 +32,8 @@ const-crypto = "0.3.0"
 pinocchio = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
 pinocchio-token = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
 pinocchio-token-2022 = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
+zap = { path = "../../libs/zap" }
+jupiter = { path = "../../libs/jupiter" }
 
 [dev-dependencies]
 proptest = "1.2.0"
