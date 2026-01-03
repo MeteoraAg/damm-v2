@@ -156,11 +156,32 @@ pub enum PoolError {
     FailToValidateSingleSwapInstruction,
 
     #[msg("Invalid fee scheduler")]
-    InvalidFeeScheduler,
+    InvalidFeeTimeScheduler,
 
     #[msg("Undetermined error")]
     UndeterminedError,
 
     #[msg("Invalid pool version")]
     InvalidPoolVersion,
+
+    #[msg("Invalid authority to do that action")]
+    InvalidAuthority,
+
+    #[msg("Invalid permission")]
+    InvalidPermission,
+
+    #[msg("Invalid fee market cap scheduler")]
+    InvalidFeeMarketCapScheduler,
+
+    #[msg("Cannot update base fee")]
+    CannotUpdateBaseFee,
+
+    #[msg("Invalid dynamic fee parameters")]
+    InvalidDynamicFeeParameters,
+
+    #[msg("Invalid update pool fees parameters")]
+    InvalidUpdatePoolFeesParameters,
+
+    #[msg("Missing operator account")]
+    MissingOperatorAccount,
 }

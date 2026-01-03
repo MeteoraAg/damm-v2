@@ -18,10 +18,10 @@ use crate::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
-    validate_quote_token, EvtCreatePosition, EvtInitializePool, PoolError,
+    EvtCreatePosition, EvtInitializePool, InitializeCustomizablePoolParameters, PoolError,
 };
 
-use super::{max_key, min_key, InitializeCustomizablePoolParameters};
+use super::{max_key, min_key};
 
 #[event_cpi]
 #[derive(Accounts)]
@@ -203,6 +203,7 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         activation_type,
         collect_fee_mode,
         has_alpha_vault,
+        ..
     } = params;
 
     // init pool
@@ -212,14 +213,6 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         config.get_config_type()? == ConfigType::Dynamic,
         PoolError::InvalidConfigType
     );
-
-    // validate quote token
-    #[cfg(not(feature = "devnet"))]
-    validate_quote_token(
-        &ctx.accounts.token_a_mint.key(),
-        &ctx.accounts.token_b_mint.key(),
-        has_alpha_vault,
-    )?;
 
     let (token_a_amount, token_b_amount) =
         get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity)?;
@@ -240,9 +233,10 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         has_alpha_vault,
     );
     let pool_type: u8 = PoolType::Customizable.into();
+
     pool.initialize(
         ctx.accounts.creator.key(),
-        pool_fees.to_pool_fees_struct(),
+        pool_fees.to_pool_fees_struct(sqrt_price)?,
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),
@@ -288,10 +282,23 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
     });
 
     // transfer token
-    let total_amount_a =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
-    let total_amount_b =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
+    let total_amount_a = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_a_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_a_amount,
+    )?
+    .amount;
+
+    let total_amount_b = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_b_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_b_amount,
+    )?
+    .amount;
 
     transfer_from_user(
         &ctx.accounts.payer,

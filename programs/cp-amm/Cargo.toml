@@ -1,6 +1,6 @@
 [package]
 name = "cp-amm"
-version = "0.1.5"
+version = "0.1.6"
 description = "Created with Anchor"
 edition = "2021"
 
@@ -13,10 +13,9 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
-default = []
+default = ["no-entrypoint"]
 local = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
-devnet = []
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["event-cpi"] }
@@ -29,6 +28,9 @@ num_enum = "0.7.0"
 num = "0.4.3"
 spl-token-metadata-interface = { version = "=0.6.0" }
 const-crypto = "0.3.0"
+pinocchio = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
+pinocchio-token = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
+pinocchio-token-2022 = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
 
 [dev-dependencies]
 proptest = "1.2.0"

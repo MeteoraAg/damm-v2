@@ -1,10 +1,4 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  randomID,
-  startTest,
-} from "./bankrun-utils/common";
+import { generateKpAndFund, randomID } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
@@ -26,10 +20,13 @@ import {
   swap2PartialFillIn,
   swap2ExactOut,
   OFFSET,
-} from "./bankrun-utils";
+  encodePermissions,
+  OperatorPermission,
+  createOperator,
+  startSvm,
+} from "./helpers";
 import BN from "bn.js";
 import {
-  ExtensionType,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
   unpackAccount,
@@ -38,16 +35,18 @@ import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
-} from "./bankrun-utils/token2022";
+} from "./helpers/token2022";
 import { expect } from "chai";
-import { on } from "events";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Swap token", () => {
   describe("SPL Token", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -57,65 +56,42 @@ describe("Swap token", () => {
     let outputTokenMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
-      inputTokenMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
-      outputTokenMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      inputTokenMint = createToken(svm, admin.publicKey);
+      outputTokenMint = createToken(svm, admin.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, inputTokenMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, outputTokenMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, inputTokenMint, admin, creator.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        creator.publicKey
+      mintSplTokenTo(svm, outputTokenMint, admin, creator.publicKey);
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -128,9 +104,17 @@ describe("Swap token", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -149,14 +133,9 @@ describe("Swap token", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      position = await createPosition(svm, user, user.publicKey, pool);
     });
 
     it("User swap A->B", async () => {
@@ -168,7 +147,7 @@ describe("Swap token", () => {
         tokenAAmountThreshold: new BN(200),
         tokenBAmountThreshold: new BN(200),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
       const swapParams: SwapParams = {
         payer: user,
@@ -180,15 +159,16 @@ describe("Swap token", () => {
         referralTokenAccount: null,
       };
 
-      await swapExactIn(context.banksClient, swapParams);
+      await swapExactIn(svm, swapParams);
     });
   });
 
   describe("Token 2022", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -199,8 +179,7 @@ describe("Swap token", () => {
     let outputTokenMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
       const inputTokenMintKeypair = Keypair.generate();
       const outputTokenMintKeypair = Keypair.generate();
@@ -214,64 +193,50 @@ describe("Swap token", () => {
         createTransferFeeExtensionWithInstruction(outputTokenMint),
       ];
       const extensions = [...inputMintExtension, ...outputMintExtension];
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         inputMintExtension,
-        inputTokenMintKeypair
+        inputTokenMintKeypair,
+        admin.publicKey
       );
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         outputMintExtension,
-        outputTokenMintKeypair
+        outputTokenMintKeypair,
+        admin.publicKey
       );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+      await mintToToken2022(svm, inputTokenMint, admin, user.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+      await mintToToken2022(svm, outputTokenMint, admin, user.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        creator.publicKey
-      );
+      await mintToToken2022(svm, inputTokenMint, admin, creator.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        creator.publicKey
+      await mintToToken2022(svm, outputTokenMint, admin, creator.publicKey);
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -284,9 +249,17 @@ describe("Swap token", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -305,14 +278,9 @@ describe("Swap token", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      position = await createPosition(svm, user, user.publicKey, pool);
     });
 
     it("User swap A->B", async () => {
@@ -324,7 +292,7 @@ describe("Swap token", () => {
         tokenAAmountThreshold: new BN(200),
         tokenBAmountThreshold: new BN(200),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
       const swapParams: SwapParams = {
         payer: user,
@@ -336,7 +304,7 @@ describe("Swap token", () => {
         referralTokenAccount: null,
       };
 
-      await swapExactIn(context.banksClient, swapParams);
+      await swapExactIn(svm, swapParams);
     });
 
     describe("Swap2", () => {
@@ -356,7 +324,7 @@ describe("Swap token", () => {
               tokenAAmountThreshold: new BN(200),
               tokenBAmountThreshold: new BN(200),
             };
-            await addLiquidity(context.banksClient, addLiquidityParams);
+            await addLiquidity(svm, addLiquidityParams);
 
             const amountIn = new BN(10);
 
@@ -367,8 +335,9 @@ describe("Swap token", () => {
               TOKEN_2022_PROGRAM_ID
             );
 
-            const beforeUserInputRawAccount =
-              await context.banksClient.getAccount(userInputAta);
+            const beforeUserInputRawAccount = await svm.getAccount(
+              userInputAta
+            );
 
             const beforeBalance = unpackAccount(
               userInputAta,
@@ -377,7 +346,7 @@ describe("Swap token", () => {
               TOKEN_2022_PROGRAM_ID
             ).amount;
 
-            await swap2ExactIn(context.banksClient, {
+            await swap2ExactIn(svm, {
               payer: user,
               pool,
               inputTokenMint,
@@ -387,8 +356,7 @@ describe("Swap token", () => {
               referralTokenAccount: null,
             });
 
-            const afterUserInputRawAccount =
-              await context.banksClient.getAccount(userInputAta);
+            const afterUserInputRawAccount = await svm.getAccount(userInputAta);
 
             const afterUserInputTokenAccount = unpackAccount(
               userInputAta,
@@ -420,7 +388,7 @@ describe("Swap token", () => {
               tokenAAmountThreshold: new BN(200),
               tokenBAmountThreshold: new BN(200),
             };
-            await addLiquidity(context.banksClient, addLiquidityParams);
+            await addLiquidity(svm, addLiquidityParams);
 
             const amountIn = new BN("10000000000000");
 
@@ -431,8 +399,9 @@ describe("Swap token", () => {
               TOKEN_2022_PROGRAM_ID
             );
 
-            const beforeUserInputRawAccount =
-              await context.banksClient.getAccount(userInputAta);
+            const beforeUserInputRawAccount = await svm.getAccount(
+              userInputAta
+            );
 
             const beforeBalance = unpackAccount(
               userInputAta,
@@ -441,7 +410,7 @@ describe("Swap token", () => {
               TOKEN_2022_PROGRAM_ID
             ).amount;
 
-            await swap2PartialFillIn(context.banksClient, {
+            await swap2PartialFillIn(svm, {
               payer: user,
               pool,
               inputTokenMint,
@@ -451,8 +420,7 @@ describe("Swap token", () => {
               referralTokenAccount: null,
             });
 
-            const afterUserInputRawAccount =
-              await context.banksClient.getAccount(userInputAta);
+            const afterUserInputRawAccount = await svm.getAccount(userInputAta);
 
             const afterUserInputTokenAccount = unpackAccount(
               userInputAta,
@@ -484,7 +452,7 @@ describe("Swap token", () => {
               tokenAAmountThreshold: U64_MAX,
               tokenBAmountThreshold: U64_MAX,
             };
-            await addLiquidity(context.banksClient, addLiquidityParams);
+            await addLiquidity(svm, addLiquidityParams);
 
             const amountOut = new BN(1000);
 
@@ -495,8 +463,9 @@ describe("Swap token", () => {
               TOKEN_2022_PROGRAM_ID
             );
 
-            const beforeUserOutputRawAccount =
-              await context.banksClient.getAccount(userOutputAta);
+            const beforeUserOutputRawAccount = await svm.getAccount(
+              userOutputAta
+            );
 
             const beforeBalance = unpackAccount(
               userOutputAta,
@@ -505,7 +474,7 @@ describe("Swap token", () => {
               TOKEN_2022_PROGRAM_ID
             ).amount;
 
-            await swap2ExactOut(context.banksClient, {
+            await swap2ExactOut(svm, {
               payer: user,
               pool,
               inputTokenMint,
@@ -515,8 +484,9 @@ describe("Swap token", () => {
               referralTokenAccount: null,
             });
 
-            const afterUserOutputRawAccount =
-              await context.banksClient.getAccount(userOutputAta);
+            const afterUserOutputRawAccount = await svm.getAccount(
+              userOutputAta
+            );
 
             const afterUserInputTokenAccount = unpackAccount(
               userOutputAta,

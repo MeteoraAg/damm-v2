@@ -8,7 +8,7 @@ use crate::{
     state::{ModifyLiquidityResult, Pool, Position},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
-    EvtLiquidityChange, EvtRemoveLiquidity, PoolError,
+    EvtLiquidityChange, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone)]
@@ -115,10 +115,23 @@ pub fn handle_remove_liquidity(
         PoolError::AmountIsZero
     );
 
-    let transfer_fee_excluded_amount_a =
-        calculate_transfer_fee_excluded_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
-    let transfer_fee_excluded_amount_b =
-        calculate_transfer_fee_excluded_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
+    let transfer_fee_excluded_amount_a = calculate_transfer_fee_excluded_amount(
+        &ctx.accounts
+            .token_a_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_a_amount,
+    )?
+    .amount;
+
+    let transfer_fee_excluded_amount_b = calculate_transfer_fee_excluded_amount(
+        &ctx.accounts
+            .token_b_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_b_amount,
+    )?
+    .amount;
     // Slippage check
     require!(
         transfer_fee_excluded_amount_a >= token_a_amount_threshold,
@@ -148,19 +161,6 @@ pub fn handle_remove_liquidity(
         &ctx.accounts.token_b_program,
         token_b_amount,
     )?;
-
-    emit_cpi!(EvtRemoveLiquidity {
-        pool: ctx.accounts.pool.key(),
-        owner: ctx.accounts.owner.key(),
-        position: ctx.accounts.position.key(),
-        params: RemoveLiquidityParameters {
-            liquidity_delta,
-            token_a_amount_threshold,
-            token_b_amount_threshold
-        },
-        token_a_amount,
-        token_b_amount,
-    });
 
     let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
 

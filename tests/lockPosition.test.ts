@@ -1,15 +1,16 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import { ProgramTestContext } from "solana-bankrun";
 import {
   addLiquidity,
   AddLiquidityParams,
   claimPositionFee,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
   createPosition,
   createToken,
+  encodePermissions,
   getPool,
   getPosition,
   getVesting,
@@ -21,28 +22,30 @@ import {
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
   mintSplTokenTo,
+  OperatorPermission,
   permanentLockPosition,
   refreshVestings,
+  startSvm,
   swapExactIn,
   SwapParams,
-} from "./bankrun-utils";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  startTest,
   warpSlotBy,
-} from "./bankrun-utils/common";
+  warpToTimestamp,
+} from "./helpers";
+import { generateKpAndFund } from "./helpers/common";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
-} from "./bankrun-utils/token2022";
+} from "./helpers/token2022";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Lock position", () => {
   describe("SPL Token", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
+    let whitelistedAccount: Keypair;
     let creator: Keypair;
     let config: PublicKey;
     let liquidity: BN;
@@ -57,64 +60,41 @@ describe("Lock position", () => {
     const vestings: PublicKey[] = [];
 
     before(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
-      tokenAMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
-      tokenBMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
+      tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
+      mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, tokenBMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        user.publicKey
+      mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
+
+      mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
-
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(10_000_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -127,9 +107,17 @@ describe("Lock position", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(configId),
         createConfigParams
       );
@@ -149,14 +137,9 @@ describe("Lock position", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      position = await createPosition(svm, user, user.publicKey, pool);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -166,7 +149,7 @@ describe("Lock position", () => {
         tokenAAmountThreshold: new BN(2_000_000_000),
         tokenBAmountThreshold: new BN(2_000_000_000),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
     });
 
     describe("Lock position", () => {
@@ -177,10 +160,7 @@ describe("Lock position", () => {
       let liquidityPerPeriod: BN;
 
       it("Partial lock position", async () => {
-        const beforePositionState = await getPosition(
-          context.banksClient,
-          position
-        );
+        const beforePositionState = getPosition(svm, position);
 
         liquidityToLock = beforePositionState.unlockedLiquidity.div(new BN(2));
 
@@ -195,6 +175,7 @@ describe("Lock position", () => {
           )
         );
         cliffUnlockLiquidity = cliffUnlockLiquidity.add(loss);
+        warpSlotBy(svm, new BN(1));
 
         const lockPositionParams: LockPositionParams = {
           cliffPoint: null,
@@ -205,7 +186,7 @@ describe("Lock position", () => {
         };
 
         const vesting = await lockPosition(
-          context.banksClient,
+          svm,
           position,
           user,
           user,
@@ -214,10 +195,11 @@ describe("Lock position", () => {
 
         vestings.push(vesting);
 
-        const positionState = await getPosition(context.banksClient, position);
+        const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.eq(liquidityToLock)).to.be.true;
 
-        const vestingState = await getVesting(context.banksClient, vesting);
+        const vestingState = getVesting(svm, vesting);
+        console.log("cliffPoint: ", vestingState.cliffPoint.toString());
         expect(!vestingState.cliffPoint.isZero()).to.be.true;
         expect(vestingState.cliffUnlockLiquidity.eq(cliffUnlockLiquidity)).to.be
           .true;
@@ -240,29 +222,23 @@ describe("Lock position", () => {
           referralTokenAccount: null,
         };
 
-        await swapExactIn(context.banksClient, swapParams);
+        await swapExactIn(svm, swapParams);
 
         const claimParams = {
           owner: user,
           pool,
           position,
         };
-        await claimPositionFee(context.banksClient, claimParams);
+        await claimPositionFee(svm, claimParams);
       });
 
       it("Cliff point", async () => {
-        const beforePositionState = await getPosition(
-          context.banksClient,
-          position
-        );
+        const beforePositionState = getPosition(svm, position);
 
-        const beforeVestingState = await getVesting(
-          context.banksClient,
-          vestings[0]
-        );
+        const beforeVestingState = getVesting(svm, vestings[0]);
 
         await refreshVestings(
-          context.banksClient,
+          svm,
           position,
           pool,
           user.publicKey,
@@ -270,15 +246,9 @@ describe("Lock position", () => {
           vestings
         );
 
-        const afterPositionState = await getPosition(
-          context.banksClient,
-          position
-        );
+        const afterPositionState = getPosition(svm, position);
 
-        const afterVestingState = await getVesting(
-          context.banksClient,
-          vestings[0]
-        );
+        const afterVestingState = getVesting(svm, vestings[0]);
 
         let vestedLiquidityDelta = beforePositionState.vestedLiquidity.sub(
           afterPositionState.vestedLiquidity
@@ -303,15 +273,12 @@ describe("Lock position", () => {
 
       it("Withdraw period", async () => {
         for (let i = 0; i < numberOfPeriod; i++) {
-          await warpSlotBy(context, periodFrequency);
+          warpSlotBy(svm, periodFrequency);
 
-          const beforePositionState = await getPosition(
-            context.banksClient,
-            position
-          );
+          const beforePositionState = getPosition(svm, position);
 
           await refreshVestings(
-            context.banksClient,
+            svm,
             position,
             pool,
             user.publicKey,
@@ -319,10 +286,7 @@ describe("Lock position", () => {
             vestings
           );
 
-          const afterPositionState = await getPosition(
-            context.banksClient,
-            position
-          );
+          const afterPositionState = getPosition(svm, position);
 
           expect(
             afterPositionState.unlockedLiquidity.gt(
@@ -331,21 +295,21 @@ describe("Lock position", () => {
           ).to.be.true;
         }
 
-        const vesting = await context.banksClient.getAccount(vestings[0]);
-        expect(vesting).is.null;
+        const vesting = svm.getAccount(vestings[0]);
+        expect(vesting.data.length).eq(0);
 
-        const positionState = await getPosition(context.banksClient, position);
+        const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.isZero()).to.be.true;
         expect(positionState.unlockedLiquidity.eq(liquidityDelta)).to.be.true;
       });
 
       it("Permanent lock position", async () => {
-        await permanentLockPosition(context.banksClient, position, user, user);
+        await permanentLockPosition(svm, position, user, user);
 
-        const poolState = await getPool(context.banksClient, pool);
+        const poolState = getPool(svm, pool);
         expect(!poolState.permanentLockLiquidity.isZero()).to.be.true;
 
-        const positionState = await getPosition(context.banksClient, position);
+        const positionState = getPosition(svm, position);
         expect(positionState.unlockedLiquidity.isZero()).to.be.true;
         expect(!positionState.permanentLockedLiquidity.isZero()).to.be.true;
       });
@@ -353,9 +317,10 @@ describe("Lock position", () => {
   });
 
   describe("Token 2022", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
+    let whitelistedAccount: Keypair;
     let creator: Keypair;
     let config: PublicKey;
     let liquidity: BN;
@@ -370,8 +335,7 @@ describe("Lock position", () => {
     const vestings: PublicKey[] = [];
 
     before(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
       const tokenAMintKeypair = Keypair.generate();
       const tokenBMintKeypair = Keypair.generate();
@@ -385,64 +349,56 @@ describe("Lock position", () => {
       const tokenBExtensions = [
         createTransferFeeExtensionWithInstruction(tokenBMint),
       ];
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      creator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenAExtensions,
-        tokenAMintKeypair
+        tokenAMintKeypair,
+        admin.publicKey
       );
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenBExtensions,
-        tokenBMintKeypair
+        tokenBMintKeypair,
+        admin.publicKey
       );
 
+      await mintToToken2022(svm, tokenAMint, admin, user.publicKey);
+
+      await mintToToken2022(svm, tokenBMint, admin, user.publicKey);
+
       await mintToToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
+
         tokenAMint,
-        context.payer,
-        user.publicKey
-      );
-
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        user.publicKey
-      );
-
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
+        admin,
         creator.publicKey
       );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
+      await mintToToken2022(svm, tokenBMint, admin, creator.publicKey);
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(10_000_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -455,9 +411,17 @@ describe("Lock position", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(configId),
         createConfigParams
       );
@@ -477,14 +441,9 @@ describe("Lock position", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
+      position = await createPosition(svm, user, user.publicKey, pool);
 
       const addLiquidityParams: AddLiquidityParams = {
         owner: user,
@@ -494,7 +453,7 @@ describe("Lock position", () => {
         tokenAAmountThreshold: new BN(2_000_000_000),
         tokenBAmountThreshold: new BN(2_000_000_000),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
     });
 
     describe("Lock position", () => {
@@ -505,10 +464,7 @@ describe("Lock position", () => {
       let liquidityPerPeriod: BN;
 
       it("Partial lock position", async () => {
-        const beforePositionState = await getPosition(
-          context.banksClient,
-          position
-        );
+        const beforePositionState = getPosition(svm, position);
 
         liquidityToLock = beforePositionState.unlockedLiquidity.div(new BN(2));
 
@@ -532,8 +488,10 @@ describe("Lock position", () => {
           numberOfPeriod,
         };
 
+        warpSlotBy(svm, new BN(1));
+
         const vesting = await lockPosition(
-          context.banksClient,
+          svm,
           position,
           user,
           user,
@@ -542,10 +500,10 @@ describe("Lock position", () => {
 
         vestings.push(vesting);
 
-        const positionState = await getPosition(context.banksClient, position);
+        const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.eq(liquidityToLock)).to.be.true;
 
-        const vestingState = await getVesting(context.banksClient, vesting);
+        const vestingState = getVesting(svm, vesting);
         expect(!vestingState.cliffPoint.isZero()).to.be.true;
         expect(vestingState.cliffUnlockLiquidity.eq(cliffUnlockLiquidity)).to.be
           .true;
@@ -568,29 +526,23 @@ describe("Lock position", () => {
           referralTokenAccount: null,
         };
 
-        await swapExactIn(context.banksClient, swapParams);
+        await swapExactIn(svm, swapParams);
 
         const claimParams = {
           owner: user,
           pool,
           position,
         };
-        await claimPositionFee(context.banksClient, claimParams);
+        await claimPositionFee(svm, claimParams);
       });
 
       it("Cliff point", async () => {
-        const beforePositionState = await getPosition(
-          context.banksClient,
-          position
-        );
+        const beforePositionState = getPosition(svm, position);
 
-        const beforeVestingState = await getVesting(
-          context.banksClient,
-          vestings[0]
-        );
+        const beforeVestingState = getVesting(svm, vestings[0]);
 
         await refreshVestings(
-          context.banksClient,
+          svm,
           position,
           pool,
           user.publicKey,
@@ -598,15 +550,9 @@ describe("Lock position", () => {
           vestings
         );
 
-        const afterPositionState = await getPosition(
-          context.banksClient,
-          position
-        );
+        const afterPositionState = getPosition(svm, position);
 
-        const afterVestingState = await getVesting(
-          context.banksClient,
-          vestings[0]
-        );
+        const afterVestingState = getVesting(svm, vestings[0]);
 
         let vestedLiquidityDelta = beforePositionState.vestedLiquidity.sub(
           afterPositionState.vestedLiquidity
@@ -631,15 +577,12 @@ describe("Lock position", () => {
 
       it("Withdraw period", async () => {
         for (let i = 0; i < numberOfPeriod; i++) {
-          await warpSlotBy(context, periodFrequency);
+          warpSlotBy(svm, periodFrequency);
 
-          const beforePositionState = await getPosition(
-            context.banksClient,
-            position
-          );
+          const beforePositionState = getPosition(svm, position);
 
           await refreshVestings(
-            context.banksClient,
+            svm,
             position,
             pool,
             user.publicKey,
@@ -647,10 +590,7 @@ describe("Lock position", () => {
             vestings
           );
 
-          const afterPositionState = await getPosition(
-            context.banksClient,
-            position
-          );
+          const afterPositionState = getPosition(svm, position);
 
           expect(
             afterPositionState.unlockedLiquidity.gt(
@@ -659,21 +599,21 @@ describe("Lock position", () => {
           ).to.be.true;
         }
 
-        const vesting = await context.banksClient.getAccount(vestings[0]);
-        expect(vesting).is.null;
+        const vesting = svm.getAccount(vestings[0]);
+        expect(vesting.data.length).eq(0);
 
-        const positionState = await getPosition(context.banksClient, position);
+        const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.isZero()).to.be.true;
         expect(positionState.unlockedLiquidity.eq(liquidityDelta)).to.be.true;
       });
 
       it("Permanent lock position", async () => {
-        await permanentLockPosition(context.banksClient, position, user, user);
+        await permanentLockPosition(svm, position, user, user);
 
-        const poolState = await getPool(context.banksClient, pool);
+        const poolState = getPool(svm, pool);
         expect(!poolState.permanentLockLiquidity.isZero()).to.be.true;
 
-        const positionState = await getPosition(context.banksClient, position);
+        const positionState = getPosition(svm, position);
         expect(positionState.unlockedLiquidity.isZero()).to.be.true;
         expect(!positionState.permanentLockedLiquidity.isZero()).to.be.true;
       });

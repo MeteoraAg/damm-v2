@@ -21,6 +21,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## cp_amm [0.1.6] [PR #124](https://github.com/MeteoraAg/damm-v2/pull/124)
+### Added
+- Add 2 new modes for base fee: fee by marketcap linear and fee by marketcap exponential, fee will be reduced when current price increases from initial price
+- Add new endpoint `create_operator_account` and `close_operator_account`that allows admin to manage different operator accounts
+- Add new account `Operator`, that would stores `whitelisted_address` as well as their operational permissions
+- Add new endpoint `update_pool_fees` that allows operators to update pool fees (both base fee and dynamic fee) for specific pools.
+
+### Changed
+- Remove constraints for quote tokens (SOL/USDC), affected endpoints: `initialize_pool_with_dynamic_config` and `initialize_customizable_pool`
+- Update current pool version to 1, that changes max fee of new created pools to 99%
+- Implement no-sdt (pinocchio) for swap and swap2 endpoint, that reduces CU for those functions. Before optimization: 47k, after optimization: 30k
+
+### Removed
+- Remove feature `devnet` when building program
+
+### Breaking Changes
+- Quote function will be changed by 2 new fee modes.
+- All admin endpoints now will requires `whitelisted_address` and `operator` instead of raw admin account. Those affected endpoints: `close_claim_fee_operator`, `close_config`, `create_claim_fee_operator`, `close_token_badge`, `create_dynamic_config`, `create_static_config`, `create_token_badge`, `initialize_reward`, `set_pool_status`, `update_reward_duration`, `update_reward_funder`
+- Event `EvtSwap`, `EvtRemoveLiquidity` and `EvtAddLiquidity` are removed.
 
 ## cp_amm [0.1.5] [PR #122](https://github.com/MeteoraAg/damm-v2/pull/122)
 ### Added

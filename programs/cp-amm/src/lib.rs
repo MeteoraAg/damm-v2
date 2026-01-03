@@ -20,21 +20,84 @@ pub mod base_fee;
 pub mod math;
 pub use math::*;
 pub mod curve;
+#[cfg(feature = "local")]
+pub mod test_swap;
 pub mod tests;
 
 pub mod pool_action_access;
 pub use pool_action_access::*;
 
+mod entrypoint;
+pub use entrypoint::entrypoint;
+
 pub mod params;
 
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
 
+pub const EVENT_AUTHORITY_SEEDS: &[u8] = b"__event_authority";
+pub const EVENT_AUTHORITY_AND_BUMP: (pinocchio::pubkey::Pubkey, u8) = {
+    let (address, bump) = const_crypto::ed25519::derive_program_address(
+        &[EVENT_AUTHORITY_SEEDS],
+        &crate::ID_CONST.to_bytes(),
+    );
+    (address, bump)
+};
+
+fn p_event_dispatch(
+    _program_id: &pinocchio::pubkey::Pubkey,
+    accounts: &[pinocchio::account_info::AccountInfo],
+    _data: &[u8],
+) -> Result<()> {
+    let given_event_authority = &accounts[0];
+    require!(
+        given_event_authority.is_signer(),
+        ErrorCode::ConstraintSigner
+    );
+    require!(
+        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
+        ErrorCode::ConstraintSeeds
+    );
+    Ok(())
+}
+
+// Only for IDL generation
+#[cfg(feature = "idl-build")]
+#[derive(Accounts)]
+pub struct ForIdlTypeGenerationDoNotCallThis<'info> {
+    pod_aligned_fee_time_scheduler:
+        AccountLoader<'info, base_fee::fee_time_scheduler::PodAlignedFeeTimeScheduler>,
+    pod_aligned_fee_rate_limiter:
+        AccountLoader<'info, base_fee::fee_rate_limiter::PodAlignedFeeRateLimiter>,
+    pod_aligned_fee_market_cap_scheduler:
+        AccountLoader<'info, base_fee::fee_market_cap_scheduler::PodAlignedFeeMarketCapScheduler>,
+}
+
+#[cfg(feature = "idl-build")]
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct DummyParams {
+    borsh_fee_time_scheduler_params: base_fee::fee_time_scheduler::BorshFeeTimeScheduler,
+    borsh_fee_rate_limiter_params: base_fee::fee_rate_limiter::BorshFeeRateLimiter,
+    borsh_fee_market_cap_scheduler_params:
+        base_fee::fee_market_cap_scheduler::BorshFeeMarketCapScheduler,
+}
+
 #[program]
 pub mod cp_amm {
+
     use super::*;
 
     /// ADMIN FUNCTIONS /////
+    pub fn create_operator_account(
+        ctx: Context<CreateOperatorAccountCtx>,
+        permission: u128,
+    ) -> Result<()> {
+        instructions::handle_create_operator(ctx, permission)
+    }
+    pub fn close_operator_account(_ctx: Context<CloseOperatorAccountCtx>) -> Result<()> {
+        Ok(())
+    }
 
+    /// OPERATOR FUNCTIONS /////
     // create static config
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,
@@ -55,14 +118,6 @@ pub mod cp_amm {
 
     pub fn create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
         instructions::handle_create_token_badge(ctx)
-    }
-
-    pub fn create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>) -> Result<()> {
-        instructions::handle_create_claim_fee_operator(ctx)
-    }
-
-    pub fn close_claim_fee_operator(ctx: Context<CloseClaimFeeOperatorCtx>) -> Result<()> {
-        instructions::handle_close_claim_fee_operator(ctx)
     }
 
     pub fn close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {
@@ -94,16 +149,16 @@ pub mod cp_amm {
         instructions::handle_withdraw_ineligible_reward(ctx, reward_index)
     }
 
-    pub fn update_reward_funder(
-        ctx: Context<UpdateRewardFunderCtx>,
+    pub fn update_reward_funder<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, UpdateRewardFunderCtx<'info>>,
         reward_index: u8,
         new_funder: Pubkey,
     ) -> Result<()> {
         instructions::handle_update_reward_funder(ctx, reward_index, new_funder)
     }
 
-    pub fn update_reward_duration(
-        ctx: Context<UpdateRewardDurationCtx>,
+    pub fn update_reward_duration<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, UpdateRewardDurationCtx<'info>>,
         reward_index: u8,
         new_duration: u64,
     ) -> Result<()> {
@@ -122,6 +177,7 @@ pub mod cp_amm {
         instructions::handle_claim_protocol_fee(ctx, max_amount_a, max_amount_b)
     }
 
+    #[deprecated = "We currently disable this, and could enable this in the future"]
     pub fn claim_partner_fee(
         ctx: Context<ClaimPartnerFeesCtx>,
         max_amount_a: u64,
@@ -130,8 +186,15 @@ pub mod cp_amm {
         instructions::handle_claim_partner_fee(ctx, max_amount_a, max_amount_b)
     }
 
-    pub fn close_token_badge(_ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
-        Ok(())
+    pub fn close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
+        instructions::handle_close_token_badge(ctx)
+    }
+
+    pub fn update_pool_fees(
+        ctx: Context<UpdatePoolFeesCtx>,
+        params: UpdatePoolFeesParameters,
+    ) -> Result<()> {
+        instructions::handle_update_pool_fees(ctx, params)
     }
 
     /// USER FUNCTIONS ////
@@ -197,19 +260,21 @@ pub mod cp_amm {
         instructions::handle_close_position(ctx)
     }
 
-    pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
-        instructions::swap::handle_swap_wrapper(
-            &ctx,
-            SwapParameters2 {
-                amount_0: params.amount_in,
-                amount_1: params.minimum_amount_out,
-                swap_mode: SwapMode::ExactIn.into(),
-            },
-        )
+    pub fn swap(_ctx: Context<SwapCtx>, _params: SwapParameters) -> Result<()> {
+        Ok(())
+        // instructions::swap::handle_swap_wrapper(
+        //     &ctx,
+        //     SwapParameters2 {
+        //         amount_0: params.amount_in,
+        //         amount_1: params.minimum_amount_out,
+        //         swap_mode: SwapMode::ExactIn.into(),
+        //     },
+        // )
     }
 
-    pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
-        instructions::swap::handle_swap_wrapper(&ctx, params)
+    pub fn swap2(_ctx: Context<SwapCtx>, _params: SwapParameters2) -> Result<()> {
+        Ok(())
+        // instructions::swap::handle_swap_wrapper(&ctx, params)
     }
 
     pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
@@ -260,5 +325,19 @@ pub mod cp_amm {
                 reward_1_numerator: numerator,
             },
         )
+    }
+
+    #[cfg(feature = "idl-build")]
+    pub fn dummy_ix(
+        _ctx: Context<ForIdlTypeGenerationDoNotCallThis>,
+        _ixs: DummyParams,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    /// used to test with old endpoint
+    #[cfg(feature = "local")]
+    pub fn swap_test(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+        test_swap::handle_test_swap_wrapper(&ctx, params)
     }
 }

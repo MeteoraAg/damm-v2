@@ -1,5 +1,4 @@
-import { ProgramTestContext } from "solana-bankrun";
-import { convertToByteArray, generateKpAndFund, randomID, startTest } from "./bankrun-utils/common";
+import { generateKpAndFund, randomID } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
   createConfigIx,
@@ -12,72 +11,74 @@ import {
   MIN_SQRT_PRICE,
   createToken,
   mintSplTokenTo,
-} from "./bankrun-utils";
+  encodePermissions,
+  OperatorPermission,
+  createOperator,
+  startSvm,
+} from "./helpers";
 import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
-} from "./bankrun-utils/token2022";
+} from "./helpers/token2022";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Create position", () => {
   describe("SPL token", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let liquidity: BN;
     let sqrtPrice: BN;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      creator = await generateKpAndFund(context.banksClient, context.payer);
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
+      creator = generateKpAndFund(svm);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
+      tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
+      tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-      tokenAMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
-      tokenBMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
     });
 
     it("User create a position", async () => {
       // create config
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -91,8 +92,8 @@ describe("Create position", () => {
       };
 
       const config = await createConfigIx(
-        context.banksClient,
-        admin,
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -111,27 +112,24 @@ describe("Create position", () => {
         activationPoint: null,
       };
 
-      const { pool } = await initializePool(
-        context.banksClient,
-        initPoolParams
-      );
-      await createPosition(context.banksClient, user, user.publicKey, pool);
+      const { pool } = await initializePool(svm, initPoolParams);
+      await createPosition(svm, user, user.publicKey, pool);
     });
   });
 
   describe("Token 2022", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
     let creator: Keypair;
+    let whitelistedAccount: Keypair;
     let liquidity: BN;
     let sqrtPrice: BN;
     let tokenAMint: PublicKey;
     let tokenBMint: PublicKey;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
       const tokenAMintKeypair = Keypair.generate();
       const tokenBMintKeypair = Keypair.generate();
@@ -145,50 +143,55 @@ describe("Create position", () => {
       const tokenBExtensions = [
         createTransferFeeExtensionWithInstruction(tokenBMint),
       ];
-      creator = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      user = await generateKpAndFund(context.banksClient, context.payer);
+      creator = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      user = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenAExtensions,
-        tokenAMintKeypair
+        tokenAMintKeypair,
+        admin.publicKey
       );
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         tokenBExtensions,
-        tokenBMintKeypair
+        tokenBMintKeypair,
+        admin.publicKey
       );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenAMint,
-        context.payer,
-        creator.publicKey
-      );
+      await mintToToken2022(svm, tokenAMint, admin, creator.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        tokenBMint,
-        context.payer,
-        creator.publicKey
-      );
+      await mintToToken2022(svm, tokenBMint, admin, creator.publicKey);
+      let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+      await createOperator(svm, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
     });
 
     it("User create a position", async () => {
       // create config
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -202,13 +205,11 @@ describe("Create position", () => {
       };
 
       const config = await createConfigIx(
-        context.banksClient,
-        admin,
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
-
-      console.log("config config: ", config);
 
       liquidity = new BN(MIN_LP_AMOUNT);
       sqrtPrice = new BN(MIN_SQRT_PRICE);
@@ -224,11 +225,8 @@ describe("Create position", () => {
         activationPoint: null,
       };
 
-      const { pool } = await initializePool(
-        context.banksClient,
-        initPoolParams
-      );
-      await createPosition(context.banksClient, user, user.publicKey, pool);
+      const { pool } = await initializePool(svm, initPoolParams);
+      await createPosition(svm, user, user.publicKey, pool);
     });
   });
 });

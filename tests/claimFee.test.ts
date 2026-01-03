@@ -1,45 +1,43 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  randomID,
-  startTest,
-} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import {
   addLiquidity,
   AddLiquidityParams,
+  claimPartnerFee,
+  claimProtocolFee,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
   createPosition,
+  createToken,
+  encodePermissions,
   initializePool,
   InitializePoolParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
+  mintSplTokenTo,
+  OperatorPermission,
+  startSvm,
   swapExactIn,
   SwapParams,
-  createClaimFeeOperator,
-  claimProtocolFee,
   TREASURY,
-  claimPartnerFee,
-  closeClaimFeeOperator,
-  mintSplTokenTo,
-  createToken,
-} from "./bankrun-utils";
-import BN from "bn.js";
-import { ExtensionType } from "@solana/spl-token";
+} from "./helpers";
+import { generateKpAndFund, randomID } from "./helpers/common";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
-} from "./bankrun-utils/token2022";
+} from "./helpers/token2022";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Claim fee", () => {
   describe("SPL Token", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
+    let whitelistedAccount: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -47,70 +45,47 @@ describe("Claim fee", () => {
     let position: PublicKey;
     let inputTokenMint: PublicKey;
     let outputTokenMint: PublicKey;
-    let operator: Keypair;
+    let claimFeeOperator: Keypair;
     let partner: Keypair;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      partner = await generateKpAndFund(context.banksClient, context.payer);
-      operator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      partner = generateKpAndFund(svm);
+      claimFeeOperator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
-      inputTokenMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
-      outputTokenMint = await createToken(
-        context.banksClient,
-        context.payer,
-        context.payer.publicKey
-      );
+      inputTokenMint = createToken(svm, admin.publicKey, admin.publicKey);
+      outputTokenMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, inputTokenMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+      mintSplTokenTo(svm, outputTokenMint, admin, user.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        partner.publicKey
-      );
+      mintSplTokenTo(svm, inputTokenMint, admin, partner.publicKey);
 
-      await mintSplTokenTo(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        partner.publicKey
+      mintSplTokenTo(svm, outputTokenMint, admin, partner.publicKey);
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -123,9 +98,20 @@ describe("Claim fee", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.ClaimProtocolFee,
+      ]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -144,20 +130,9 @@ describe("Claim fee", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
-
-      // create claim fee protocol operator
-      await createClaimFeeOperator(context.banksClient, {
-        admin,
-        operator: operator.publicKey,
-      });
+      position = await createPosition(svm, user, user.publicKey, pool);
     });
 
     it("User swap A->B", async () => {
@@ -169,7 +144,7 @@ describe("Claim fee", () => {
         tokenAAmountThreshold: new BN(2_000_000_000),
         tokenBAmountThreshold: new BN(2_000_000_000),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
       const swapParams: SwapParams = {
         payer: user,
@@ -181,38 +156,32 @@ describe("Claim fee", () => {
         referralTokenAccount: null,
       };
 
-      await swapExactIn(context.banksClient, swapParams);
+      await swapExactIn(svm, swapParams);
 
       // claim protocol fee
-      await claimProtocolFee(context.banksClient, {
-        operator,
+      await claimProtocolFee(svm, {
+        whitelistedKP: whitelistedAccount,
         pool,
         treasury: TREASURY,
       });
 
       // claim partner fee
 
-      await claimPartnerFee(context.banksClient, {
+      await claimPartnerFee(svm, {
         partner,
         pool,
         maxAmountA: new BN(100000000000000),
         maxAmountB: new BN(100000000000000),
       });
 
-      // close claim fee operator
-
-      await closeClaimFeeOperator(context.banksClient, {
-        admin,
-        operator: operator.publicKey,
-        rentReceiver: operator.publicKey,
-      });
     });
   });
 
   describe("Token 2022", () => {
-    let context: ProgramTestContext;
+    let svm: LiteSVM;
     let admin: Keypair;
     let user: Keypair;
+    let whitelistedAccount: Keypair;
     let config: PublicKey;
     let liquidity: BN;
     let sqrtPrice: BN;
@@ -225,8 +194,7 @@ describe("Claim fee", () => {
     let partner: Keypair;
 
     beforeEach(async () => {
-      const root = Keypair.generate();
-      context = await startTest(root);
+      svm = startSvm();
 
       const inputTokenMintKeypair = Keypair.generate();
       const outputTokenMintKeypair = Keypair.generate();
@@ -240,65 +208,51 @@ describe("Claim fee", () => {
       const outputExtensions = [
         createTransferFeeExtensionWithInstruction(outputTokenMint),
       ];
-      user = await generateKpAndFund(context.banksClient, context.payer);
-      admin = await generateKpAndFund(context.banksClient, context.payer);
-      partner = await generateKpAndFund(context.banksClient, context.payer);
-      operator = await generateKpAndFund(context.banksClient, context.payer);
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      partner = generateKpAndFund(svm);
+      operator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
 
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         inputExtensions,
-        inputTokenMintKeypair
+        inputTokenMintKeypair,
+        admin.publicKey
       );
       await createToken2022(
-        context.banksClient,
-        context.payer,
+        svm,
         outputExtensions,
-        outputTokenMintKeypair
+        outputTokenMintKeypair,
+        admin.publicKey
       );
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+      await mintToToken2022(svm, inputTokenMint, admin, user.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        user.publicKey
-      );
+      await mintToToken2022(svm, outputTokenMint, admin, user.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        inputTokenMint,
-        context.payer,
-        partner.publicKey
-      );
+      await mintToToken2022(svm, inputTokenMint, admin, partner.publicKey);
 
-      await mintToToken2022(
-        context.banksClient,
-        context.payer,
-        outputTokenMint,
-        context.payer,
-        partner.publicKey
+      await mintToToken2022(svm, outputTokenMint, admin, partner.publicKey);
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
       // create config
       const createConfigParams: CreateConfigParams = {
         poolFees: {
           baseFee: {
-            cliffFeeNumerator: new BN(2_500_000),
-            firstFactor: 0,
-            secondFactor: convertToByteArray(new BN(0)),
-            thirdFactor: new BN(0),
-            baseFeeMode: 0,
+            data: Array.from(data),
           },
           padding: [],
           dynamicFee: null,
@@ -311,9 +265,20 @@ describe("Claim fee", () => {
         collectFeeMode: 0,
       };
 
-      config = await createConfigIx(
-        context.banksClient,
+      let permission = encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.ClaimProtocolFee,
+      ]);
+
+      await createOperator(svm, {
         admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
         new BN(randomID()),
         createConfigParams
       );
@@ -332,20 +297,9 @@ describe("Claim fee", () => {
         activationPoint: null,
       };
 
-      const result = await initializePool(context.banksClient, initPoolParams);
+      const result = await initializePool(svm, initPoolParams);
       pool = result.pool;
-      position = await createPosition(
-        context.banksClient,
-        user,
-        user.publicKey,
-        pool
-      );
-
-      // create claim fee protocol operator
-      await createClaimFeeOperator(context.banksClient, {
-        admin,
-        operator: operator.publicKey,
-      });
+      position = await createPosition(svm, user, user.publicKey, pool);
     });
 
     it("User swap A->B", async () => {
@@ -357,7 +311,7 @@ describe("Claim fee", () => {
         tokenAAmountThreshold: new BN(2_000_000_000),
         tokenBAmountThreshold: new BN(2_000_000_000),
       };
-      await addLiquidity(context.banksClient, addLiquidityParams);
+      await addLiquidity(svm, addLiquidityParams);
 
       const swapParams: SwapParams = {
         payer: user,
@@ -369,30 +323,22 @@ describe("Claim fee", () => {
         referralTokenAccount: null,
       };
 
-      await swapExactIn(context.banksClient, swapParams);
+      await swapExactIn(svm, swapParams);
 
       // claim protocol fee
-      await claimProtocolFee(context.banksClient, {
-        operator,
+      await claimProtocolFee(svm, {
+        whitelistedKP: whitelistedAccount,
         pool,
         treasury: TREASURY,
       });
 
       // claim partner fee
 
-      await claimPartnerFee(context.banksClient, {
+      await claimPartnerFee(svm, {
         partner,
         pool,
         maxAmountA: new BN(100000000000000),
         maxAmountB: new BN(100000000000000),
-      });
-
-      // close claim fee operator
-
-      await closeClaimFeeOperator(context.banksClient, {
-        admin,
-        operator: operator.publicKey,
-        rentReceiver: operator.publicKey,
       });
     });
   });

@@ -268,7 +268,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     let alpha_vault = config.get_whitelisted_alpha_vault(ctx.accounts.pool.key());
     pool.initialize(
         ctx.accounts.creator.key(),
-        config.pool_fees.to_pool_fees_struct(),
+        config.pool_fees.to_pool_fees_struct(sqrt_price),
         ctx.accounts.token_a_mint.key(),
         ctx.accounts.token_b_mint.key(),
         ctx.accounts.token_a_vault.key(),
@@ -316,10 +316,23 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
     });
 
     // transfer token
-    let total_amount_a =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
-    let total_amount_b =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
+    let total_amount_a = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_a_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_a_amount,
+    )?
+    .amount;
+
+    let total_amount_b = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_b_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_b_amount,
+    )?
+    .amount;
 
     transfer_from_user(
         &ctx.accounts.payer,
@@ -342,7 +355,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         pool: ctx.accounts.pool.key(),
         token_a_mint: ctx.accounts.token_a_mint.key(),
         token_b_mint: ctx.accounts.token_b_mint.key(),
-        pool_fees: config.pool_fees.to_pool_fee_parameters(),
+        pool_fees: config.pool_fees.to_pool_fee_parameters()?,
         creator: ctx.accounts.creator.key(),
         payer: ctx.accounts.payer.key(),
         activation_point,

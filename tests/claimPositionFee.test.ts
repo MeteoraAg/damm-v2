@@ -1,10 +1,5 @@
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToByteArray,
-  generateKpAndFund,
-  startTest,
-} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import {
   addLiquidity,
   AddLiquidityParams,
@@ -12,23 +7,30 @@ import {
   createConfigIx,
   CreateConfigParams,
   createPosition,
+  createToken,
   initializePool,
   InitializePoolParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
+  mintSplTokenTo,
   swapExactIn,
   SwapParams,
-  createToken,
-  mintSplTokenTo,
-} from "./bankrun-utils";
-import BN from "bn.js";
+  encodePermissions,
+  OperatorPermission,
+  createOperator,
+  startSvm,
+} from "./helpers";
+import { generateKpAndFund } from "./helpers/common";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { LiteSVM } from "litesvm";
 
 describe("Claim position fee", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
   let user: Keypair;
   let creator: Keypair;
+  let whitelistedAccount: Keypair;
   let config: PublicKey;
   let pool: PublicKey;
   let position: PublicKey;
@@ -37,65 +39,42 @@ describe("Claim position fee", () => {
   const configId = Math.floor(Math.random() * 1000);
 
   beforeEach(async () => {
-    const root = Keypair.generate();
-    context = await startTest(root);
+    svm = startSvm();
 
-    user = await generateKpAndFund(context.banksClient, context.payer);
-    admin = await generateKpAndFund(context.banksClient, context.payer);
-    creator = await generateKpAndFund(context.banksClient, context.payer);
+    user = generateKpAndFund(svm);
+    admin = generateKpAndFund(svm);
+    creator = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
 
-    tokenAMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
-    tokenBMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
+    tokenAMint = createToken(svm, admin.publicKey, admin.publicKey);
+    tokenBMint = createToken(svm, admin.publicKey, admin.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenAMint,
-      context.payer,
-      user.publicKey
-    );
+    mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenBMint,
-      context.payer,
-      user.publicKey
-    );
+    mintSplTokenTo(svm, tokenBMint, admin, user.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenAMint,
-      context.payer,
-      creator.publicKey
-    );
+    mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenBMint,
-      context.payer,
-      creator.publicKey
+    mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
+
+    const cliffFeeNumerator = new BN(2_500_000);
+    const numberOfPeriod = new BN(0);
+    const periodFrequency = new BN(0);
+    const reductionFactor = new BN(0);
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(cliffFeeNumerator.toString()),
+      numberOfPeriod.toNumber(),
+      BigInt(periodFrequency.toString()),
+      BigInt(reductionFactor.toString()),
+      BaseFeeMode.FeeTimeSchedulerLinear
     );
 
     // create config
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
         padding: [],
         dynamicFee: null,
@@ -108,9 +87,17 @@ describe("Claim position fee", () => {
       collectFeeMode: 0,
     };
 
-    config = await createConfigIx(
-      context.banksClient,
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+
+    await createOperator(svm, {
       admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission,
+    });
+
+    config = await createConfigIx(
+      svm,
+      whitelistedAccount,
       new BN(configId),
       createConfigParams
     );
@@ -126,14 +113,9 @@ describe("Claim position fee", () => {
       activationPoint: null,
     };
 
-    const result = await initializePool(context.banksClient, initPoolParams);
+    const result = await initializePool(svm, initPoolParams);
     pool = result.pool;
-    position = await createPosition(
-      context.banksClient,
-      user,
-      user.publicKey,
-      pool
-    );
+    position = await createPosition(svm, user, user.publicKey, pool);
   });
 
   it("User claim position fee", async () => {
@@ -145,7 +127,7 @@ describe("Claim position fee", () => {
       tokenAAmountThreshold: new BN(200),
       tokenBAmountThreshold: new BN(200),
     };
-    await addLiquidity(context.banksClient, addLiquidityParams);
+    await addLiquidity(svm, addLiquidityParams);
 
     const swapParams: SwapParams = {
       payer: user,
@@ -157,7 +139,7 @@ describe("Claim position fee", () => {
       referralTokenAccount: null,
     };
 
-    await swapExactIn(context.banksClient, swapParams);
+    await swapExactIn(svm, swapParams);
 
     // claim position fee
     const claimParams = {
@@ -165,6 +147,6 @@ describe("Claim position fee", () => {
       pool,
       position,
     };
-    await claimPositionFee(context.banksClient, claimParams);
+    await claimPositionFee(svm, claimParams);
   });
 });
