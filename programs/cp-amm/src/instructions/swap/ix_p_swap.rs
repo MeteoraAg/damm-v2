@@ -294,11 +294,11 @@ pub fn validate_single_swap_instruction<'c, 'info>(
     .to_bytes();
 
     require!(
-        pool.prev_digest != transaction_digest,
+        pool.prev_rate_limiter_swap_digest != transaction_digest,
         PoolError::FailToValidateSingleSwapInstruction
     );
 
-    pool.prev_digest = transaction_digest;
+    pool.prev_rate_limiter_swap_digest = transaction_digest;
 
     Ok(())
 }
