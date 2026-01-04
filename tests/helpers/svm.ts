@@ -20,8 +20,14 @@ import {
 } from ".";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 
+export const RATE_LIMITER_BYPASS_PROGRAM_ID = new PublicKey(
+  "5C61rHvq6uvAUs5Sw68SHNueFZknUiAUGyRkkqmU6DBC"
+);
+
 export function startSvm() {
   const svm = new LiteSVM();
+  svm.withLogBytesLimit(null);
+
   const sourceFileCpammPath = path.resolve("./target/deploy/cp_amm.so");
   const sourceFileAlphaVaultPath = path.resolve(
     "./tests/fixtures/alpha_vault.so"
@@ -42,6 +48,10 @@ export function startSvm() {
   );
   svm.addProgramFromFile(JUPITER_V6_PROGRAM_ID, sourceFileJupiterPath);
   svm.addProgramFromFile(ZAP_PROGRAM_ID, sourceFileZapProgramPath);
+  svm.addProgramFromFile(
+    RATE_LIMITER_BYPASS_PROGRAM_ID,
+    path.resolve("./tests/fixtures/rate_limiter_bypass.so")
+  );
 
   const accountInfo: AccountInfoBytes = {
     data: new Uint8Array(),

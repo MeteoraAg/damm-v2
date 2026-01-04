@@ -1,22 +1,18 @@
 use crate::const_pda::{EVENT_AUTHORITY_AND_BUMP, EVENT_AUTHORITY_SEEDS};
 use crate::p_helper::{
-    p_accessor_mint, p_get_number_of_accounts_in_instruction, p_load_mut_unchecked,
-    p_transfer_from_pool, p_transfer_from_user,
+    p_accessor_mint, p_load_mut_unchecked, p_transfer_from_pool, p_transfer_from_user,
 };
+use crate::safe_math::SafeMath;
 use crate::state::SwapResult2;
-use crate::{instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction};
 use crate::{
     process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill, EvtSwap2,
     ProcessSwapParams, ProcessSwapResult, SwapCtx,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::instruction::{
-    get_processed_sibling_instruction, get_stack_height, Instruction,
-};
+use anchor_lang::solana_program::hash::hashv;
 use pinocchio::account_info::AccountInfo;
-use pinocchio::sysvars::instructions::{Instructions, IntrospectedInstruction, INSTRUCTIONS_ID};
+use pinocchio::sysvars::instructions::INSTRUCTIONS_ID;
 
-use crate::safe_math::SafeMath;
 use crate::{
     activation_handler::ActivationHandler,
     get_pool_access_validator,
@@ -135,10 +131,7 @@ pub fn p_handle_swap(
             pool.activation_point,
             trade_direction,
         )? {
-            validate_single_swap_instruction(
-                &Pubkey::new_from_array(*pool_key),
-                remaining_accounts,
-            )?;
+            validate_single_swap_instruction(&mut pool, remaining_accounts)?;
         }
     }
 
@@ -271,12 +264,13 @@ fn p_emit_cpi(inner_data: Vec<u8>, authority_info: &AccountInfo) -> pinocchio::P
 }
 
 pub fn validate_single_swap_instruction<'c, 'info>(
-    pool: &Pubkey,
+    pool: &mut Pool,
     remaining_accounts: &'c [AccountInfo],
 ) -> Result<()> {
     let instruction_sysvar_account_info = remaining_accounts
         .get(0)
         .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
+
     if &INSTRUCTIONS_ID != instruction_sysvar_account_info.key() {
         return Err(ProgramError::UnsupportedSysvar.into());
     }
@@ -284,88 +278,27 @@ pub fn validate_single_swap_instruction<'c, 'info>(
     let instruction_sysvar = instruction_sysvar_account_info
         .try_borrow_data()
         .map_err(|err| ProgramError::from(u64::from(err)))?;
-    let instruction_sysvar_instructions =
-        unsafe { Instructions::new_unchecked(instruction_sysvar) };
-    let current_index = instruction_sysvar_instructions.load_current_index();
-    let current_instruction = instruction_sysvar_instructions
-        .load_instruction_at(current_index.into())
-        .map_err(|err| ProgramError::from(u64::from(err)))?;
 
-    if current_instruction.get_program_id() != crate::ID.as_array() {
-        // check if current instruction is CPI
-        // disable any stack height greater than 2
-        if get_stack_height() > 2 {
-            return Err(PoolError::FailToValidateSingleSwapInstruction.into());
-        }
-        // check for any sibling instruction
-        let mut sibling_index = 0;
-        while let Some(sibling_instruction) = get_processed_sibling_instruction(sibling_index) {
-            if sibling_instruction.program_id == crate::ID {
-                require!(
-                    !is_instruction_include_pool_swap(&sibling_instruction, pool),
-                    PoolError::FailToValidateSingleSwapInstruction
-                );
-            }
-            sibling_index = sibling_index.safe_add(1)?;
-        }
-    }
+    let raw_data = std::ops::Deref::deref(&instruction_sysvar);
+    let len = raw_data.len();
+    // https://github.com/anza-xyz/pinocchio/blob/289a5e95b57ff909ff1b8fa964f3b99c4efe1f29/sdk/src/sysvars/instructions.rs#L56
+    // Last 2 bytes are the current instruction index in u16 little endian
+    let end_index = len.safe_sub(2)?;
+    let raw_data_without_current_ix_index = &raw_data[..end_index];
 
-    if current_index == 0 {
-        // skip for first instruction
-        return Ok(());
-    }
-    for i in 0..current_index {
-        let instruction = instruction_sysvar_instructions
-            .load_instruction_at(i.into())
-            .map_err(|err| ProgramError::from(u64::from(err)))?;
+    let clock = Clock::get()?;
+    let transaction_digest = hashv(&[
+        raw_data_without_current_ix_index,
+        clock.slot.to_le_bytes().as_ref(),
+    ])
+    .to_bytes();
 
-        if instruction.get_program_id() != crate::ID.as_array() {
-            // we treat any instruction including that pool address is other swap ix
-            let num_accounts = p_get_number_of_accounts_in_instruction(&instruction);
-            for j in 0..num_accounts {
-                let account_metadata = instruction
-                    .get_account_meta_at(j.into())
-                    .map_err(|err| ProgramError::from(u64::from(err)))?;
+    require!(
+        pool.prev_digest != transaction_digest,
+        PoolError::FailToValidateSingleSwapInstruction
+    );
 
-                if &account_metadata.key == pool.as_array() {
-                    msg!("Multiple swaps not allowed");
-                    return Err(PoolError::FailToValidateSingleSwapInstruction.into());
-                }
-            }
-        } else {
-            require!(
-                !is_p_instruction_include_pool_swap(&instruction, pool)?,
-                PoolError::FailToValidateSingleSwapInstruction
-            );
-        }
-    }
+    pool.prev_digest = transaction_digest;
 
     Ok(())
-}
-
-fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) -> bool {
-    let instruction_discriminator = &instruction.data[..8];
-    if instruction_discriminator.eq(SwapInstruction::DISCRIMINATOR)
-        || instruction_discriminator.eq(Swap2Instruction::DISCRIMINATOR)
-    {
-        return instruction.accounts[1].pubkey.eq(pool);
-    }
-    false
-}
-
-fn is_p_instruction_include_pool_swap(
-    instruction: &IntrospectedInstruction,
-    pool: &Pubkey,
-) -> Result<bool> {
-    let instruction_data = instruction.get_instruction_data();
-    let instruction_discriminator = &instruction_data[..8];
-    if instruction_discriminator.eq(SwapInstruction::DISCRIMINATOR)
-        || instruction_discriminator.eq(Swap2Instruction::DISCRIMINATOR)
-    {
-        let account_metadata = instruction
-            .get_account_meta_at(1)
-            .map_err(|err| ProgramError::from(u64::from(err)))?;
-        return Ok(&account_metadata.key == pool.as_array());
-    }
-    Ok(false)
 }

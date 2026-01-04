@@ -1,11 +1,14 @@
 import {
+  ComputeBudgetProgram,
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
   Transaction,
+  TransactionInstruction,
 } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
+import { LiteSVM } from "litesvm";
 import {
   CreateConfigParams,
   InitializeCustomizablePoolParams,
@@ -13,27 +16,27 @@ import {
   MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
+  OperatorPermission,
+  RATE_LIMITER_BYPASS_PROGRAM_ID,
   createConfigIx,
+  createOperator,
   createToken,
+  encodePermissions,
+  expectThrowsErrorCode,
+  generateKpAndFund,
+  getCpAmmProgramErrorCode,
   getPool,
   initializeCustomizablePool,
   initializePool,
   mintSplTokenTo,
+  randomID,
+  sendTransaction,
+  startSvm,
   swapExactIn,
   swapInstruction,
-  OperatorPermission,
-  encodePermissions,
-  createOperator,
-  generateKpAndFund,
-  randomID,
   warpSlotBy,
-  startSvm,
-  getCpAmmProgramErrorCode,
-  sendTransaction,
-  expectThrowsErrorCode,
 } from "./helpers";
 import { encodeFeeRateLimiterParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
 
 describe("Rate limiter", () => {
   let svm: LiteSVM;
@@ -199,6 +202,7 @@ describe("Rate limiter", () => {
       referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()
     );
   });
+
   it("Try to send multiple instructions", async () => {
     const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
     const maxRateLimiterDuration = new BN(10);
@@ -242,7 +246,7 @@ describe("Rate limiter", () => {
     const { pool } = await initializeCustomizablePool(svm, initPoolParams);
 
     // swap with 1 SOL
-    const swapIx = await swapInstruction(svm, {
+    const swapTx = await swapInstruction(svm, {
       payer: poolCreator,
       pool,
       inputTokenMint: tokenB,
@@ -252,15 +256,133 @@ describe("Rate limiter", () => {
       referralTokenAccount: null,
     });
 
-    let transaction = new Transaction();
-    for (let i = 0; i < 2; i++) {
-      transaction.add(swapIx);
-    }
+    const swapIx = swapTx.instructions[0];
 
     const errorCode = getCpAmmProgramErrorCode(
       "FailToValidateSingleSwapInstruction"
     );
-    const result = sendTransaction(svm, transaction, [poolCreator]);
-    expectThrowsErrorCode(result, errorCode);
+
+    assertDirectMultipleSwapIx(swapIx, errorCode, svm, poolCreator);
+    assertSingleDirectAndSingleCpiSwapIx(swapIx, errorCode, svm, poolCreator);
+    assertMultipleCpiSwapIx(swapIx, errorCode, svm, poolCreator);
+    assertNestedCpiSwapIx(swapIx, errorCode, svm, poolCreator);
   });
 });
+
+// A -> DAMM_v2
+// A -> B -> DAMM_v2
+function assertNestedCpiSwapIx(
+  swapIx: TransactionInstruction,
+  errorCode: number,
+  svm: LiteSVM,
+  poolCreator: Keypair
+) {
+  console.log("Nested CPI swap instruction in one tx");
+  const tx = new Transaction();
+  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }));
+
+  const cpiSwapIxData = Buffer.concat([
+    Buffer.from([2]), // CPI swap identifier
+    swapIx.data,
+  ]);
+
+  const rateLimiterBypassAuthority = PublicKey.findProgramAddressSync(
+    [Buffer.from("authority")],
+    RATE_LIMITER_BYPASS_PROGRAM_ID
+  )[0];
+
+  const accounts = swapIx.keys;
+  accounts.unshift({
+    pubkey: rateLimiterBypassAuthority,
+    isSigner: false,
+    isWritable: false,
+  });
+  accounts.push({
+    pubkey: RATE_LIMITER_BYPASS_PROGRAM_ID,
+    isSigner: false,
+    isWritable: false,
+  });
+
+  const cpiSwapIx = new TransactionInstruction({
+    keys: accounts,
+    programId: RATE_LIMITER_BYPASS_PROGRAM_ID,
+    data: cpiSwapIxData,
+  });
+
+  tx.add(cpiSwapIx);
+  const result = sendTransaction(svm, tx, [poolCreator]);
+  console.log(result.toString());
+  expectThrowsErrorCode(result, errorCode);
+}
+
+function assertMultipleCpiSwapIx(
+  swapIx: TransactionInstruction,
+  errorCode: number,
+  svm: LiteSVM,
+  poolCreator: Keypair
+) {
+  console.log("Multiple CPI swap instruction in one tx");
+  const tx = new Transaction();
+  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }));
+
+  const cpiSwapIxData = Buffer.concat([
+    Buffer.from([1]), // CPI swap identifier
+    swapIx.data,
+  ]);
+
+  const cpiSwapIx = new TransactionInstruction({
+    keys: swapIx.keys,
+    programId: RATE_LIMITER_BYPASS_PROGRAM_ID,
+    data: cpiSwapIxData,
+  });
+
+  tx.add(cpiSwapIx);
+  const result = sendTransaction(svm, tx, [poolCreator]);
+  expectThrowsErrorCode(result, errorCode);
+}
+
+function assertSingleDirectAndSingleCpiSwapIx(
+  swapIx: TransactionInstruction,
+  errorCode: number,
+  svm: LiteSVM,
+  poolCreator: Keypair
+) {
+  console.log("Single direct and single CPI swap instruction in one tx");
+  const tx = new Transaction();
+  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }));
+  // Direct swap
+  tx.add(swapIx);
+
+  const cpiSwapIxData = Buffer.concat([
+    Buffer.from([0]), // CPI swap identifier
+    swapIx.data,
+  ]);
+
+  const cpiSwapIx = new TransactionInstruction({
+    keys: swapIx.keys,
+    programId: RATE_LIMITER_BYPASS_PROGRAM_ID,
+    data: cpiSwapIxData,
+  });
+
+  tx.add(cpiSwapIx);
+  const result = sendTransaction(svm, tx, [poolCreator]);
+  expectThrowsErrorCode(result, errorCode);
+}
+
+function assertDirectMultipleSwapIx(
+  swapIx: TransactionInstruction,
+  errorCode: number,
+  svm: LiteSVM,
+  poolCreator: Keypair
+) {
+  console.log("Direct multiple swap instruction in one tx");
+  const tx = new Transaction();
+  tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 }));
+
+  for (let i = 0; i < 2; i++) {
+    tx.add(swapIx);
+  }
+
+  const result = sendTransaction(svm, tx, [poolCreator]);
+  expectThrowsErrorCode(result, errorCode);
+}

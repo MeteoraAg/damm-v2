@@ -163,8 +163,9 @@ pub struct Pool {
     pub metrics: PoolMetrics,
     /// pool creator
     pub creator: Pubkey,
+    pub prev_digest: [u8; 32],
     /// Padding for further use
-    pub _padding_1: [u64; 6],
+    pub _padding_1: [u64; 2],
     /// Farming reward information
     pub reward_infos: [RewardInfo; NUM_REWARDS],
 }
