@@ -262,15 +262,21 @@ describe("Rate limiter", () => {
       "FailToValidateSingleSwapInstruction"
     );
 
+    // DAMM_v2
+    // DAMM_v2
     assertDirectMultipleSwapIx(swapIx, errorCode, svm, poolCreator);
+    // DAMM_v2
+    // A -> DAMM_v2
     assertSingleDirectAndSingleCpiSwapIx(swapIx, errorCode, svm, poolCreator);
+    // A -> DAMM_v2
+    //   -> DAMM_V2
     assertMultipleCpiSwapIx(swapIx, errorCode, svm, poolCreator);
+    // A -> DAMM_v2
+    //   -> A -> DAMM_v2
     assertNestedCpiSwapIx(swapIx, errorCode, svm, poolCreator);
   });
 });
 
-// A -> DAMM_v2
-// A -> B -> DAMM_v2
 function assertNestedCpiSwapIx(
   swapIx: TransactionInstruction,
   errorCode: number,
