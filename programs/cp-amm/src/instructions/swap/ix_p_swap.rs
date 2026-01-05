@@ -4,6 +4,7 @@ use crate::p_helper::{
     p_accessor_mint, p_get_number_of_accounts_in_instruction, p_load_mut_unchecked,
     p_transfer_from_pool, p_transfer_from_user,
 };
+use crate::safe_math::SafeMath;
 use crate::state::SwapResult2;
 use crate::{instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction};
 use crate::{
@@ -11,13 +12,12 @@ use crate::{
     ProcessSwapParams, ProcessSwapResult, SwapCtx,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::instruction::{
-    get_processed_sibling_instruction, get_stack_height, Instruction,
-};
+use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
+
+use anchor_spl::associated_token::spl_associated_token_account::solana_program::instruction::get_processed_sibling_instruction;
 use pinocchio::account_info::AccountInfo;
 use pinocchio::sysvars::instructions::{Instructions, IntrospectedInstruction, INSTRUCTIONS_ID};
 
-use crate::safe_math::SafeMath;
 use crate::{
     activation_handler::ActivationHandler,
     get_pool_access_validator,
@@ -301,6 +301,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         {
             return Err(PoolError::FailToValidateSingleSwapInstruction.into());
         }
+
         // check for any sibling instruction
         let mut sibling_index = 0;
         while let Some(sibling_instruction) = get_processed_sibling_instruction(sibling_index) {
