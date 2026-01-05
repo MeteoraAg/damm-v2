@@ -70,6 +70,7 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
                     Some(ErrorCode::InstructionDidNotDeserialize as u64)
                 );
 
+                msg!("Instruction: Swap");
                 swap_parameters.to_swap_parameters2()
             } else {
                 let swap_parameters = unwrap_or_return!(
@@ -79,6 +80,7 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
                     Some(ErrorCode::InstructionDidNotDeserialize as u64)
                 );
 
+                msg!("Instruction: Swap2");
                 swap_parameters
             };
 
