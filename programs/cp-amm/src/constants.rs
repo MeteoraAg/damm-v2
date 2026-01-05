@@ -63,6 +63,11 @@ static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SLOTS
 );
 
+const OKX_SMART_WALLET: Pubkey =
+    Pubkey::from_str_const("va1t8sdGkReA6XFgAeZGXmdQoiEtMirwy4ifLv7yGdH");
+
+pub const RATE_LIMITER_STACK_WHITELIST_PROGRAMS: [[u8; 32]; 1] = [OKX_SMART_WALLET.to_bytes()];
+
 pub mod zap {
     use super::*;
     use ::zap::zap;
