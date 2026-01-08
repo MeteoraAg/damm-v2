@@ -6,7 +6,7 @@ use std::{cell::RefMut, u64};
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, SPLIT_POSITION_DENOMINATOR, TOTAL_REWARD_SCALE},
     safe_math::SafeMath,
-    state::Pool,
+    state::{Pool, Vesting},
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
     PoolError,
@@ -73,8 +73,10 @@ pub struct Position {
     pub metrics: PositionMetrics,
     /// Farming reward information
     pub reward_infos: [UserRewardInfo; NUM_REWARDS],
+    /// inner vesting info
+    pub inner_vesting: InnerVesting,
     /// padding for future usage
-    pub padding: [u128; 6],
+    pub padding: [u128; 1],
 }
 
 const_assert_eq!(Position::INIT_SPACE, 400);
@@ -87,6 +89,82 @@ pub struct PositionMetrics {
 }
 
 const_assert_eq!(PositionMetrics::INIT_SPACE, 16);
+
+#[zero_copy]
+#[derive(Debug, InitSpace, Default)]
+// Same as Vesting account but store in Position account to reduce number of accounts needed for integrator especially launches since they they won't do multiple vesting per account.
+pub struct InnerVesting {
+    pub cliff_point: u64,
+    pub period_frequency: u64,
+    pub number_of_period: u16,
+    pub padding: [u8; 14],
+    pub cliff_unlock_liquidity: u128,
+    pub liquidity_per_period: u128,
+    pub total_released_liquidity: u128,
+}
+
+impl InnerVesting {
+    pub fn initialize(
+        &mut self,
+        cliff_point: u64,
+        period_frequency: u64,
+        cliff_unlock_liquidity: u128,
+        liquidity_per_period: u128,
+        number_of_period: u16,
+    ) {
+        self.cliff_point = cliff_point;
+        self.period_frequency = period_frequency;
+        self.cliff_unlock_liquidity = cliff_unlock_liquidity;
+        self.liquidity_per_period = liquidity_per_period;
+        self.number_of_period = number_of_period;
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.cliff_point == 0
+            && self.number_of_period == 0
+            && self.cliff_unlock_liquidity == 0
+            && self.liquidity_per_period == 0
+            && self.total_released_liquidity == 0
+    }
+
+    pub fn reset(&mut self) {
+        self.cliff_point = 0;
+        self.period_frequency = 0;
+        self.number_of_period = 0;
+        self.cliff_unlock_liquidity = 0;
+        self.liquidity_per_period = 0;
+        self.total_released_liquidity = 0;
+    }
+
+    pub fn get_new_release_liquidity(&self, current_point: u64) -> Result<u128> {
+        Vesting::calculate_new_release_liquidity(
+            current_point,
+            self.cliff_point,
+            self.period_frequency,
+            self.number_of_period,
+            self.cliff_unlock_liquidity,
+            self.liquidity_per_period,
+            self.total_released_liquidity,
+        )
+    }
+
+    pub fn accumulate_released_liquidity(&mut self, released_liquidity: u128) -> Result<()> {
+        self.total_released_liquidity =
+            self.total_released_liquidity.safe_add(released_liquidity)?;
+        Ok(())
+    }
+
+    pub fn done(&self) -> Result<bool> {
+        Ok(self.total_released_liquidity
+            == Vesting::calculate_total_lock_amount(
+                self.cliff_unlock_liquidity,
+                self.liquidity_per_period,
+                self.number_of_period,
+            )?)
+    }
+}
+
+const_assert_eq!(InnerVesting::INIT_SPACE, 80);
 
 impl PositionMetrics {
     pub fn accumulate_claimed_fee(
@@ -386,6 +464,28 @@ impl Position {
         )?;
 
         Ok(reward_split)
+    }
+
+    pub fn refresh_inner_vesting(&mut self, current_point: u64) -> Result<()> {
+        if self.inner_vesting.is_empty() {
+            return Ok(());
+        }
+
+        let new_releasing_liquidity = self
+            .inner_vesting
+            .get_new_release_liquidity(current_point)?;
+
+        if new_releasing_liquidity > 0 {
+            self.inner_vesting
+                .accumulate_released_liquidity(new_releasing_liquidity)?;
+            self.release_vested_liquidity(new_releasing_liquidity)?;
+        }
+
+        if self.inner_vesting.done()? {
+            self.inner_vesting.reset();
+        }
+
+        Ok(())
     }
 }
 

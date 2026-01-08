@@ -4,9 +4,10 @@ use anchor_spl::token_interface::TokenAccount;
 use crate::{
     activation_handler::ActivationHandler,
     error::PoolError,
+    get_pool_access_validator,
     safe_math::SafeMath,
     state::{Pool, Position, Vesting},
-    {get_pool_access_validator, EvtLockPosition},
+    EvtLockPosition,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
@@ -82,13 +83,13 @@ pub struct LockPositionCtx<'info> {
         payer = payer,
         space = 8 + Vesting::INIT_SPACE
     )]
-    pub vesting: AccountLoader<'info, Vesting>,
+    pub vesting: Option<AccountLoader<'info, Vesting>>,
 
     /// The token account for nft
     #[account(
-            constraint = position_nft_account.mint == position.load()?.nft_mint,
-            constraint = position_nft_account.amount == 1,
-            token::authority = owner
+        constraint = position_nft_account.mint == position.load()?.nft_mint,
+        constraint = position_nft_account.amount == 1,
+        token::authority = owner
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -128,24 +129,46 @@ pub fn handle_lock_position(
         ..
     } = params;
 
-    let mut vesting = ctx.accounts.vesting.load_init()?;
-    vesting.initialize(
-        ctx.accounts.position.key(),
-        cliff_point,
-        period_frequency,
-        cliff_unlock_liquidity,
-        liquidity_per_period,
-        number_of_period,
-    );
-
     let mut position = ctx.accounts.position.load_mut()?;
+
+    // User wish to vest using external vesting account
+    if let Some(vesting_account) = &ctx.accounts.vesting {
+        let mut vesting = vesting_account.load_init()?;
+        vesting.initialize(
+            ctx.accounts.position.key(),
+            cliff_point,
+            period_frequency,
+            cliff_unlock_liquidity,
+            liquidity_per_period,
+            number_of_period,
+        );
+    } else {
+        require!(
+            position.inner_vesting.is_empty(),
+            PoolError::InvalidVestingAccount
+        );
+
+        position.inner_vesting.initialize(
+            cliff_point,
+            period_frequency,
+            cliff_unlock_liquidity,
+            liquidity_per_period,
+            number_of_period,
+        );
+    }
+
     position.lock(total_lock_liquidity)?;
 
     emit_cpi!(EvtLockPosition {
         position: ctx.accounts.position.key(),
         pool: ctx.accounts.pool.key(),
         owner: ctx.accounts.owner.key(),
-        vesting: ctx.accounts.vesting.key(),
+        vesting: ctx
+            .accounts
+            .vesting
+            .as_ref()
+            .map(|v| v.key())
+            .unwrap_or(crate::ID),
         cliff_point,
         period_frequency,
         cliff_unlock_liquidity,
