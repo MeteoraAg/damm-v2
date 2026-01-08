@@ -1216,12 +1216,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1258,12 +1258,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -1477,20 +1477,24 @@ export async function lockPosition(
   position: PublicKey,
   owner: Keypair,
   payer: Keypair,
-  params: LockPositionParams
+  params: LockPositionParams,
+  innerPosition?: boolean
 ) {
   const program = createCpAmmProgram();
   const positionState = getPosition(svm, position);
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
   const vestingKP = Keypair.generate();
+  const vestingAddress = innerPosition
+    ? program.programId
+    : vestingKP.publicKey;
 
   const transaction = await program.methods
     .lockPosition(params)
     .accountsPartial({
       position,
       positionNftAccount,
-      vesting: vestingKP.publicKey,
+      vesting: vestingAddress,
       owner: owner.publicKey,
       pool: positionState.pool,
       program: CP_AMM_PROGRAM_ID,
@@ -1499,7 +1503,13 @@ export async function lockPosition(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [payer, owner, vestingKP]);
+  const signers = [payer, owner];
+
+  if (!innerPosition) {
+    signers.push(vestingKP);
+  }
+
+  const result = sendTransaction(svm, transaction, signers);
   expect(result).instanceOf(TransactionMetadata);
 
   return vestingKP.publicKey;
