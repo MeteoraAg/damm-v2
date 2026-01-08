@@ -171,9 +171,11 @@ pub mod fee {
 
     /// Max fee BPS
     pub const MAX_FEE_BPS_V0: u64 = 5000; // 50%
+    #[constant]
     pub const MAX_FEE_NUMERATOR_V0: u64 = 500_000_000; // 50%
 
     pub const MAX_FEE_BPS_V1: u64 = 9900; // 99%
+    #[constant]
     pub const MAX_FEE_NUMERATOR_V1: u64 = 990_000_000; // 99%
 
     /// max fee numerator operator could update for a pool
@@ -184,6 +186,7 @@ pub mod fee {
     pub const MAX_BASIS_POINT: u64 = 10_000;
 
     pub const MIN_FEE_BPS: u64 = 1; // 0.01%
+    #[constant]
     pub const MIN_FEE_NUMERATOR: u64 = 100_000;
 
     static_assertions::const_assert_eq!(
@@ -211,6 +214,7 @@ pub mod fee {
     static_assertions::const_assert!(HOST_FEE_PERCENT <= 50);
     static_assertions::const_assert!(PARTNER_FEE_PERCENT <= 50);
 
+    #[constant]
     pub const CURRENT_POOL_VERSION: u8 = 1;
 
     pub fn get_max_fee_numerator(pool_version: u8) -> Result<u64> {
