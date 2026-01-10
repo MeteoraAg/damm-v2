@@ -471,4 +471,8 @@ impl BaseFeeHandler for PodAlignedFeeRateLimiter {
     fn get_min_base_fee_numerator(&self) -> Result<u64> {
         Ok(self.cliff_fee_numerator)
     }
+
+    fn get_cliff_fee_numerator(&self) -> Result<u64> {
+        Ok(self.cliff_fee_numerator)
+    }
 }
