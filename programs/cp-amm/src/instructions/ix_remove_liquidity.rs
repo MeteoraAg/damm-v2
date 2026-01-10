@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
+    activation_handler::ActivationHandler,
     const_pda, get_pool_access_validator,
     state::{ModifyLiquidityResult, Pool, Position},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
@@ -93,7 +94,10 @@ pub fn handle_remove_liquidity(
     }
 
     let mut pool = ctx.accounts.pool.load_mut()?;
+    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
+
     let mut position = ctx.accounts.position.load_mut()?;
+    position.refresh_inner_vesting(ctx.accounts.position.key(), current_point)?;
 
     let liquidity_delta = liquidity_delta.unwrap_or(position.unlocked_liquidity);
     require!(
@@ -101,7 +105,7 @@ pub fn handle_remove_liquidity(
         PoolError::InsufficientLiquidity
     );
 
-    // update current pool reward & postion reward before any logic
+    // update current pool reward & position reward before any logic
     let current_time = Clock::get()?.unix_timestamp as u64;
     position.update_rewards(&mut pool, current_time)?;
 

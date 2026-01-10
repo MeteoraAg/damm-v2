@@ -6,7 +6,7 @@ use crate::{
     error::PoolError,
     get_pool_access_validator,
     safe_math::SafeMath,
-    state::{Pool, Position, Vesting},
+    state::{InnerVesting, Pool, Position, Vesting},
     EvtLockPosition,
 };
 
@@ -130,6 +130,7 @@ pub fn handle_lock_position(
     } = params;
 
     let mut position = ctx.accounts.position.load_mut()?;
+    let position_key = ctx.accounts.position.key();
 
     // User wish to vest using external vesting account
     if let Some(vesting_account) = &ctx.accounts.vesting {
@@ -148,13 +149,18 @@ pub fn handle_lock_position(
             PoolError::InvalidVestingAccount
         );
 
-        position.inner_vesting.initialize(
+        let mut vesting = Vesting::from_inner_vesting(position_key, &position.inner_vesting);
+
+        vesting.initialize(
+            position_key,
             cliff_point,
             period_frequency,
             cliff_unlock_liquidity,
             liquidity_per_period,
             number_of_period,
         );
+
+        position.inner_vesting = InnerVesting::from_vesting(&vesting);
     }
 
     position.lock(total_lock_liquidity)?;

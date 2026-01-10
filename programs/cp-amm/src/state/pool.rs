@@ -1088,7 +1088,7 @@ impl Pool {
             permanent_locked_liquidity_split = permanent_locked_liquidity_delta;
         }
 
-        // split pending lp fee  by percentage
+        // split pending lp fee by percentage
         if fee_a_numerator > 0 || fee_b_numerator > 0 {
             let SplitFeeAmount {
                 fee_a_amount,

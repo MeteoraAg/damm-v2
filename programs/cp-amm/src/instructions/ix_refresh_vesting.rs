@@ -57,7 +57,7 @@ pub fn handle_refresh_vesting<'a, 'b, 'c: 'info, 'info>(
         ActivationHandler::get_current_point_and_buffer_duration(pool.activation_type)?;
 
     let mut position: RefMut<'_, Position> = ctx.accounts.position.load_mut()?;
-    position.refresh_inner_vesting(current_point)?;
+    position.refresh_inner_vesting(ctx.accounts.position.key(), current_point)?;
 
     let mut remaining_accounts = &ctx.remaining_accounts[..];
 
@@ -88,9 +88,9 @@ pub fn handle_refresh_vesting<'a, 'b, 'c: 'info, 'info>(
     Ok(())
 }
 
-fn release_vesting_liquidity_to_position(
-    vesting: &mut RefMut<'_, Vesting>,
-    position: &mut RefMut<'_, Position>,
+pub(crate) fn release_vesting_liquidity_to_position(
+    vesting: &mut Vesting,
+    position: &mut Position,
     current_point: u64,
 ) -> Result<()> {
     let released_liquidity = vesting.get_new_release_liquidity(current_point)?;

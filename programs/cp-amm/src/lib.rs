@@ -321,11 +321,11 @@ pub mod cp_amm {
         ctx: Context<SplitPositionCtx>,
         params: SplitPositionParameters,
     ) -> Result<()> {
-        instructions::handle_split_position2(ctx, params.get_split_position_parameters2()?)
+        instructions::handle_split_position3(ctx, params.get_split_position_parameters2()?)
     }
 
     pub fn split_position2(ctx: Context<SplitPositionCtx>, numerator: u32) -> Result<()> {
-        instructions::handle_split_position2(
+        instructions::handle_split_position3(
             ctx,
             SplitPositionParameters2 {
                 unlocked_liquidity_numerator: numerator,
