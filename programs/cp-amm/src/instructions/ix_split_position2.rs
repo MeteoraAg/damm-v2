@@ -174,7 +174,7 @@ pub fn handle_split_position2(
     first_position.refresh_inner_vesting(current_point)?;
     second_position.refresh_inner_vesting(current_point)?;
 
-    if inner_vesting_liquidity_numerator > 0 {
+    if inner_vesting_liquidity_numerator > 0 && !first_position.inner_vesting.is_empty() {
         check_position_split_validity(&first_position, &second_position)?;
     }
 

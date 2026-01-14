@@ -208,4 +208,7 @@ pub enum PoolError {
 
     #[msg("Zero vested liquidity was splitted")]
     ZeroVestedLiquiditySplitted,
+
+    #[msg("No inner vesting to split")]
+    NoInnerVestingToSplit,
 }
