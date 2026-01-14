@@ -23,7 +23,7 @@ pub struct InnerVesting {
 
 impl InnerVesting {
     pub fn initialize(
-        mut self,
+        &mut self,
         cliff_point: u64,
         period_frequency: u64,
         cliff_unlock_liquidity: u128,
