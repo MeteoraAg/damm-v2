@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Allow user to use liquidity without `Vesting` account by using `InnerVesting` field in `Position` account. This only applicable if the position have only single vesting.
-- Endpoint `split_position2` will split `InnerVesting` of the `Position` account
+- Endpoint `split_position` and `split_position2` will split `InnerVesting` of the `Position` account
 
 ## cp_amm [0.1.7] [PR #124](https://github.com/MeteoraAg/damm-v2/pull/167)
 

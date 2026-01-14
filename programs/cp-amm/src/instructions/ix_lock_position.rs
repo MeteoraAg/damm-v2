@@ -168,7 +168,7 @@ pub fn handle_lock_position(
             .vesting
             .as_ref()
             .map(|v| v.key())
-            .unwrap_or(crate::ID),
+            .unwrap_or(ctx.accounts.position.key()),
         cliff_point,
         period_frequency,
         cliff_unlock_liquidity,

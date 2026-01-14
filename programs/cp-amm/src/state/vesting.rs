@@ -89,10 +89,8 @@ impl InnerVesting {
     }
 
     pub fn calculate_remaining_vested_liquidity(&self) -> Result<u128> {
-        let remaining_vested_liquidity = self
-            .get_max_unlocked_liquidity(u64::MAX)?
-            .safe_sub(self.total_released_liquidity)?;
-
+        // same as get new release liquidity in very far future
+        let remaining_vested_liquidity = self.get_new_release_liquidity(u64::MAX)?;
         Ok(remaining_vested_liquidity)
     }
 
