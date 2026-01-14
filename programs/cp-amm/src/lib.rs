@@ -321,19 +321,21 @@ pub mod cp_amm {
         ctx: Context<SplitPositionCtx>,
         params: SplitPositionParameters,
     ) -> Result<()> {
-        instructions::handle_split_position3(ctx, params.get_split_position_parameters2()?)
+        instructions::handle_split_position2(ctx, params.get_split_position_parameters2()?)
     }
 
     pub fn split_position2(ctx: Context<SplitPositionCtx>, numerator: u32) -> Result<()> {
-        instructions::handle_split_position3(
+        instructions::handle_split_position2(
             ctx,
-            SplitPositionParameters2 {
+            SplitPositionParameters3 {
                 unlocked_liquidity_numerator: numerator,
                 permanent_locked_liquidity_numerator: numerator,
                 fee_a_numerator: numerator,
                 fee_b_numerator: numerator,
                 reward_0_numerator: numerator,
                 reward_1_numerator: numerator,
+                inner_vesting_liquidity_numerator: numerator,
+                ..Default::default()
             },
         )
     }

@@ -12,6 +12,7 @@ use crate::constants::fee::{
 };
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
+use crate::state::InnerVestingSplitResult;
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
@@ -1051,7 +1052,9 @@ impl Pool {
         fee_b_numerator: u32,
         reward_0_numerator: u32,
         reward_1_numerator: u32,
-    ) -> Result<SplitAmountInfo> {
+        inner_vesting_liquidity_numerator: u32,
+        current_point: u64,
+    ) -> Result<SplitAmountInfo2> {
         // update current fee for first position
         first_position.update_fee(self.fee_a_per_liquidity(), self.fee_b_per_liquidity())?;
         // update current fee for second position
@@ -1063,6 +1066,15 @@ impl Pool {
         let mut fee_b_split = 0;
         let mut reward_0_split = 0;
         let mut reward_1_split = 0;
+        let mut split_result = InnerVestingSplitResult::default();
+
+        if inner_vesting_liquidity_numerator > 0 && !first_position.inner_vesting.is_empty() {
+            split_result = first_position.split_inner_vesting(
+                second_position,
+                inner_vesting_liquidity_numerator,
+                current_point,
+            )?;
+        }
 
         // split unlocked liquidity by percentage
         if unlocked_liquidity_numerator > 0 {
@@ -1131,13 +1143,14 @@ impl Pool {
             }
         }
 
-        Ok(SplitAmountInfo {
+        Ok(SplitAmountInfo2 {
             unlocked_liquidity: unlocked_liquidity_split,
             permanent_locked_liquidity: permanent_locked_liquidity_split,
             fee_a: fee_a_split,
             fee_b: fee_b_split,
             reward_0: reward_0_split,
             reward_1: reward_1_split,
+            inner_vesting_split_result: split_result,
         })
     }
 
@@ -1425,4 +1438,28 @@ pub struct SplitAmountInfo {
     pub fee_b: u64,
     pub reward_0: u64,
     pub reward_1: u64,
+}
+
+impl From<SplitAmountInfo2> for SplitAmountInfo {
+    fn from(value: SplitAmountInfo2) -> Self {
+        Self {
+            permanent_locked_liquidity: value.permanent_locked_liquidity,
+            unlocked_liquidity: value.unlocked_liquidity,
+            fee_a: value.fee_a,
+            fee_b: value.fee_b,
+            reward_0: value.reward_0,
+            reward_1: value.reward_1,
+        }
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, PartialEq, Clone, Copy)]
+pub struct SplitAmountInfo2 {
+    pub permanent_locked_liquidity: u128,
+    pub unlocked_liquidity: u128,
+    pub fee_a: u64,
+    pub fee_b: u64,
+    pub reward_0: u64,
+    pub reward_1: u64,
+    pub inner_vesting_split_result: InnerVestingSplitResult,
 }

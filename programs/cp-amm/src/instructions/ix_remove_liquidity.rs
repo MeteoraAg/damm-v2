@@ -97,7 +97,7 @@ pub fn handle_remove_liquidity(
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
     let mut position = ctx.accounts.position.load_mut()?;
-    position.refresh_inner_vesting(ctx.accounts.position.key(), current_point)?;
+    position.refresh_inner_vesting(current_point)?;
 
     let liquidity_delta = liquidity_delta.unwrap_or(position.unlocked_liquidity);
     require!(

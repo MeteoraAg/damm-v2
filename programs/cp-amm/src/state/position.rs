@@ -5,9 +5,8 @@ use std::{cell::RefMut, u64};
 
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, SPLIT_POSITION_DENOMINATOR, TOTAL_REWARD_SCALE},
-    release_vesting_liquidity_to_position,
     safe_math::SafeMath,
-    state::{Pool, Vesting},
+    state::{InnerVesting, InnerVestingSplitResult, Pool},
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
     PoolError,
@@ -90,39 +89,6 @@ pub struct PositionMetrics {
 }
 
 const_assert_eq!(PositionMetrics::INIT_SPACE, 16);
-
-#[zero_copy]
-#[derive(Debug, InitSpace, Default, PartialEq, Eq)]
-// Same as Vesting account but store in Position account to reduce number of accounts needed for integrator especially launches since they they won't do multiple vesting per account.
-pub struct InnerVesting {
-    pub cliff_point: u64,
-    pub period_frequency: u64,
-    pub number_of_period: u16,
-    pub padding: [u8; 14],
-    pub cliff_unlock_liquidity: u128,
-    pub liquidity_per_period: u128,
-    pub total_released_liquidity: u128,
-}
-
-impl InnerVesting {
-    pub fn is_empty(&self) -> bool {
-        self == &InnerVesting::default()
-    }
-
-    pub fn from_vesting(vesting: &Vesting) -> InnerVesting {
-        InnerVesting {
-            cliff_point: vesting.cliff_point,
-            period_frequency: vesting.period_frequency,
-            number_of_period: vesting.number_of_period,
-            padding: [0u8; 14],
-            cliff_unlock_liquidity: vesting.cliff_unlock_liquidity,
-            liquidity_per_period: vesting.liquidity_per_period,
-            total_released_liquidity: vesting.total_released_liquidity,
-        }
-    }
-}
-
-const_assert_eq!(InnerVesting::INIT_SPACE, 80);
 
 impl PositionMetrics {
     pub fn accumulate_claimed_fee(
@@ -424,25 +390,57 @@ impl Position {
         Ok(reward_split)
     }
 
-    pub fn refresh_inner_vesting(
-        &mut self,
-        position_key: Pubkey,
-        current_point: u64,
-    ) -> Result<()> {
+    pub fn refresh_inner_vesting(&mut self, current_point: u64) -> Result<()> {
         if self.inner_vesting.is_empty() {
             return Ok(());
         }
 
-        let mut vesting = Vesting::from_inner_vesting(position_key, &self.inner_vesting);
-        release_vesting_liquidity_to_position(&mut vesting, self, current_point)?;
+        let released_liquidity = self
+            .inner_vesting
+            .get_new_release_liquidity(current_point)?;
 
-        if vesting.done()? {
+        if released_liquidity > 0 {
+            self.release_vested_liquidity(released_liquidity)?;
+            self.inner_vesting
+                .accumulate_released_liquidity(released_liquidity)?;
+        }
+
+        if self.inner_vesting.done()? {
             self.inner_vesting = InnerVesting::default();
-        } else {
-            self.inner_vesting = InnerVesting::from_vesting(&vesting);
         }
 
         Ok(())
+    }
+
+    pub fn split_inner_vesting(
+        &mut self,
+        destination_position: &mut Position,
+        split_numerator: u32,
+        current_point: u64,
+    ) -> Result<InnerVestingSplitResult> {
+        let InnerVestingSplitResult {
+            inner_vesting,
+            removed_vested_liquidity,
+        } = self.inner_vesting.split(split_numerator, current_point)?;
+
+        // User need to increase split_numerator
+        require!(
+            removed_vested_liquidity > 0,
+            PoolError::ZeroVestedLiquiditySplitted
+        );
+
+        self.vested_liquidity = self.vested_liquidity.safe_sub(removed_vested_liquidity)?;
+
+        destination_position.vested_liquidity = destination_position
+            .vested_liquidity
+            .safe_add(removed_vested_liquidity)?;
+
+        destination_position.inner_vesting = inner_vesting;
+
+        Ok(InnerVestingSplitResult {
+            inner_vesting,
+            removed_vested_liquidity,
+        })
     }
 }
 

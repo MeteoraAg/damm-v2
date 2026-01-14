@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 
 use crate::{
     activation_handler::ActivationHandler,
-    state::{Pool, Position, Vesting},
+    state::{InnerVesting, Pool, Position, Vesting},
     PoolError,
 };
 
@@ -57,7 +57,7 @@ pub fn handle_refresh_vesting<'a, 'b, 'c: 'info, 'info>(
         ActivationHandler::get_current_point_and_buffer_duration(pool.activation_type)?;
 
     let mut position: RefMut<'_, Position> = ctx.accounts.position.load_mut()?;
-    position.refresh_inner_vesting(ctx.accounts.position.key(), current_point)?;
+    position.refresh_inner_vesting(current_point)?;
 
     let mut remaining_accounts = &ctx.remaining_accounts[..];
 
@@ -75,9 +75,10 @@ pub fn handle_refresh_vesting<'a, 'b, 'c: 'info, 'info>(
         )?;
 
         let mut vesting = vesting_account.load_and_validate(ctx.accounts.position.key())?;
-        release_vesting_liquidity_to_position(&mut vesting, &mut position, current_point)?;
+        let inner_vesting = &mut vesting.inner_vesting;
+        release_vesting_liquidity_to_position(inner_vesting, &mut position, current_point)?;
 
-        if vesting.done()? {
+        if inner_vesting.done()? {
             drop(vesting);
             vesting_account
                 .vesting
@@ -88,15 +89,15 @@ pub fn handle_refresh_vesting<'a, 'b, 'c: 'info, 'info>(
     Ok(())
 }
 
-pub(crate) fn release_vesting_liquidity_to_position(
-    vesting: &mut Vesting,
+pub fn release_vesting_liquidity_to_position(
+    inner_vesting: &mut InnerVesting,
     position: &mut Position,
     current_point: u64,
 ) -> Result<()> {
-    let released_liquidity = vesting.get_new_release_liquidity(current_point)?;
+    let released_liquidity = inner_vesting.get_new_release_liquidity(current_point)?;
     if released_liquidity > 0 {
         position.release_vested_liquidity(released_liquidity)?;
-        vesting.accumulate_released_liquidity(released_liquidity)?;
+        inner_vesting.accumulate_released_liquidity(released_liquidity)?;
     }
 
     Ok(())
