@@ -1216,12 +1216,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1258,12 +1258,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -2115,6 +2115,7 @@ export type SplitPositionParams = {
   feeBPercentage: number;
   reward0Percentage: number;
   reward1Percentage: number;
+  innerVestingLiquidityPercentage: number;
 };
 export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
   const {
@@ -2131,6 +2132,7 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
     feeBPercentage,
     reward0Percentage,
     reward1Percentage,
+    innerVestingLiquidityPercentage,
   } = params;
   const program = createCpAmmProgram();
   const transaction = await program.methods
@@ -2141,6 +2143,7 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
       feeBPercentage,
       reward0Percentage,
       reward1Percentage,
+      innerVestingLiquidityPercentage,
       padding: new Array(16).fill(0),
     })
     .accountsPartial({

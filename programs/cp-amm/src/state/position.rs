@@ -6,7 +6,7 @@ use std::{cell::RefMut, u64};
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, SPLIT_POSITION_DENOMINATOR, TOTAL_REWARD_SCALE},
     safe_math::SafeMath,
-    state::{InnerVesting, InnerVestingSplitResult, Pool},
+    state::{InnerVesting, Pool},
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
     PoolError,
@@ -412,36 +412,68 @@ impl Position {
         Ok(())
     }
 
+    fn apply_split_inner_vesting(
+        &mut self,
+        cliff_unlock_liquidity: u128,
+        liquidity_per_period: u128,
+        current_point: u64,
+    ) -> Result<()> {
+        self.inner_vesting.cliff_unlock_liquidity = cliff_unlock_liquidity;
+        self.inner_vesting.liquidity_per_period = liquidity_per_period;
+        self.inner_vesting.total_released_liquidity = self
+            .inner_vesting
+            .get_max_unlocked_liquidity(current_point)?;
+        self.vested_liquidity = self.inner_vesting.calculate_remaining_vested_liquidity()?;
+
+        if self.inner_vesting.done()? {
+            self.inner_vesting = InnerVesting::default();
+        }
+        Ok(())
+    }
+
     pub fn split_inner_vesting(
         &mut self,
         destination_position: &mut Position,
         split_numerator: u32,
         current_point: u64,
     ) -> Result<InnerVestingSplitResult> {
-        let InnerVestingSplitResult {
-            inner_vesting,
-            removed_vested_liquidity,
-        } = self.inner_vesting.split(split_numerator, current_point)?;
+        // apply static variables
+        destination_position.inner_vesting.cliff_point = self.inner_vesting.cliff_point;
+        destination_position.inner_vesting.period_frequency = self.inner_vesting.period_frequency;
+        destination_position.inner_vesting.number_of_period = self.inner_vesting.number_of_period;
 
-        // User need to increase split_numerator
-        require!(
-            removed_vested_liquidity > 0,
-            PoolError::ZeroVestedLiquiditySplitted
-        );
+        let (cliff_unlock_liquidity_0, cliff_unlock_liquidity_1) =
+            calculate_shared_amounts(self.inner_vesting.cliff_unlock_liquidity, split_numerator)?;
+        let (liquidity_per_period_0, liquidity_per_period_1) =
+            calculate_shared_amounts(self.inner_vesting.liquidity_per_period, split_numerator)?;
 
-        self.vested_liquidity = self.vested_liquidity.safe_sub(removed_vested_liquidity)?;
+        self.apply_split_inner_vesting(
+            cliff_unlock_liquidity_0,
+            liquidity_per_period_0,
+            current_point,
+        )?;
 
-        destination_position.vested_liquidity = destination_position
-            .vested_liquidity
-            .safe_add(removed_vested_liquidity)?;
-
-        destination_position.inner_vesting = inner_vesting;
+        destination_position.apply_split_inner_vesting(
+            cliff_unlock_liquidity_1,
+            liquidity_per_period_1,
+            current_point,
+        )?;
 
         Ok(InnerVestingSplitResult {
-            inner_vesting,
-            removed_vested_liquidity,
+            cliff_unlock_liquidity_0,
+            cliff_unlock_liquidity_1,
+            liquidity_per_period_0,
+            liquidity_per_period_1,
         })
     }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Default, Clone, Copy, Debug, PartialEq)]
+pub struct InnerVestingSplitResult {
+    pub cliff_unlock_liquidity_0: u128,
+    pub cliff_unlock_liquidity_1: u128,
+    pub liquidity_per_period_0: u128,
+    pub liquidity_per_period_1: u128,
 }
 
 pub struct SplitFeeAmount {
@@ -456,4 +488,15 @@ pub struct SplitPositionInfo {
     pub fee_b: u64,
     pub reward_0: u64,
     pub reward_1: u64,
+}
+
+fn calculate_shared_amounts(amount: u128, split_numerator: u32) -> Result<(u128, u128)> {
+    let dest_amount = safe_mul_div_cast_u128(
+        amount,
+        split_numerator.into(),
+        SPLIT_POSITION_DENOMINATOR.into(),
+        Rounding::Down,
+    )?;
+    let source_amount = amount.safe_sub(dest_amount)?;
+    Ok((source_amount, dest_amount))
 }
