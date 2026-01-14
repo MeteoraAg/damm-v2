@@ -41,7 +41,7 @@ pub trait BaseFeeHandler {
         activation_point: u64,
     ) -> Result<bool>;
 
-    fn get_min_base_fee_numerator(&self) -> Result<u64>;
+    fn get_min_fee_numerator(&self) -> Result<u64>;
 
-    fn get_cliff_fee_numerator(&self) -> Result<u64>;
+    fn get_max_fee_numerator(&self) -> Result<u64>;
 }
