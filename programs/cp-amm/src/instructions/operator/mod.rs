@@ -22,3 +22,7 @@ pub mod ix_update_pool_fees;
 pub use ix_update_pool_fees::*;
 pub mod zap_protocol_fee;
 pub use zap_protocol_fee::*;
+pub mod ix_fix_pool_fee_params;
+pub use ix_fix_pool_fee_params::*;
+pub mod ix_fix_config_fee_params;
+pub use ix_fix_config_fee_params::*;

@@ -1329,7 +1329,7 @@ impl Pool {
 
                 // validate current base fee is smaller than our cap
                 // because base fee is static, so we just need to use min base fee numerator
-                let current_base_fee_numerator = base_fee_handler.get_min_base_fee_numerator()?;
+                let current_base_fee_numerator = base_fee_handler.get_min_fee_numerator()?;
                 require!(
                     current_base_fee_numerator <= MAX_FEE_NUMERATOR_POST_UPDATE,
                     PoolError::InvalidUpdatePoolFeesParameters

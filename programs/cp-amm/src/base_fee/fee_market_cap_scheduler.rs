@@ -190,8 +190,8 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
             PoolError::InvalidFeeMarketCapScheduler
         );
 
-        let min_fee_numerator = self.get_min_base_fee_numerator()?;
-        let max_fee_numerator = self.cliff_fee_numerator;
+        let min_fee_numerator = self.get_min_fee_numerator()?;
+        let max_fee_numerator = self.get_max_fee_numerator()?;
         validate_fee_fraction(min_fee_numerator, FEE_DENOMINATOR)?;
         validate_fee_fraction(max_fee_numerator, FEE_DENOMINATOR)?;
 
@@ -248,7 +248,11 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
         Ok(u128::from(current_point) > scheduler_expiration_point)
     }
 
-    fn get_min_base_fee_numerator(&self) -> Result<u64> {
+    fn get_min_fee_numerator(&self) -> Result<u64> {
         self.get_base_fee_numerator_by_period(self.number_of_period.into())
+    }
+
+    fn get_max_fee_numerator(&self) -> Result<u64> {
+        Ok(self.cliff_fee_numerator)
     }
 }
