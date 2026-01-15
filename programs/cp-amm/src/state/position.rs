@@ -455,7 +455,7 @@ impl Position {
         destination_position: &mut Position,
         split_numerator: u32,
         current_point: u64,
-    ) -> Result<InnerVestingSplitResult> {
+    ) -> Result<u128> {
         // copy static variables
         destination_position.inner_vesting.cliff_point = self.inner_vesting.cliff_point;
         destination_position.inner_vesting.period_frequency = self.inner_vesting.period_frequency;
@@ -478,12 +478,7 @@ impl Position {
             current_point,
         )?;
 
-        Ok(InnerVestingSplitResult {
-            cliff_unlock_liquidity_source,
-            liquidity_per_period_source,
-            cliff_unlock_liquidity_destination,
-            liquidity_per_period_destination,
-        })
+        Ok(destination_position.vested_liquidity)
     }
 
     pub fn to_split_info(&self) -> SplitPositionInfo2 {
@@ -505,14 +500,6 @@ impl Position {
                 .unwrap_or(0),
         }
     }
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Default, Clone, Copy, Debug, PartialEq)]
-pub struct InnerVestingSplitResult {
-    pub cliff_unlock_liquidity_source: u128,
-    pub liquidity_per_period_source: u128,
-    pub cliff_unlock_liquidity_destination: u128,
-    pub liquidity_per_period_destination: u128,
 }
 
 pub struct SplitFeeAmount {

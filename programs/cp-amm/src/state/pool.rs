@@ -12,7 +12,6 @@ use crate::constants::fee::{
 };
 use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
-use crate::state::InnerVestingSplitResult;
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
     curve::{
@@ -1062,14 +1061,14 @@ impl Pool {
 
         let mut unlocked_liquidity_split = 0;
         let mut permanent_locked_liquidity_split = 0;
+        let mut vested_liquidity_split = 0;
         let mut fee_a_split = 0;
         let mut fee_b_split = 0;
         let mut reward_0_split = 0;
         let mut reward_1_split = 0;
-        let mut split_result = InnerVestingSplitResult::default();
 
         if inner_vesting_liquidity_numerator > 0 && !first_position.inner_vesting.is_empty() {
-            split_result = first_position.split_inner_vesting(
+            vested_liquidity_split = first_position.split_inner_vesting(
                 second_position,
                 inner_vesting_liquidity_numerator,
                 current_point,
@@ -1146,11 +1145,11 @@ impl Pool {
         Ok(SplitAmountInfo2 {
             unlocked_liquidity: unlocked_liquidity_split,
             permanent_locked_liquidity: permanent_locked_liquidity_split,
+            vested_liquidity: vested_liquidity_split,
             fee_a: fee_a_split,
             fee_b: fee_b_split,
             reward_0: reward_0_split,
             reward_1: reward_1_split,
-            inner_vesting_split_result: split_result,
         })
     }
 
@@ -1457,9 +1456,9 @@ impl From<SplitAmountInfo2> for SplitAmountInfo {
 pub struct SplitAmountInfo2 {
     pub permanent_locked_liquidity: u128,
     pub unlocked_liquidity: u128,
+    pub vested_liquidity: u128,
     pub fee_a: u64,
     pub fee_b: u64,
     pub reward_0: u64,
     pub reward_1: u64,
-    pub inner_vesting_split_result: InnerVestingSplitResult,
 }
