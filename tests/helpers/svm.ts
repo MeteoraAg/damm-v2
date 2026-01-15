@@ -51,7 +51,7 @@ export function startSvm() {
   };
 
   svm.setAccount(
-    new PublicKey("4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"),
+    new PublicKey("6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm"),
     accountInfo
   );
 
