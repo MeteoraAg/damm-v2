@@ -35,3 +35,6 @@ pub use ix_split_position::*;
 
 pub mod ix_split_position2;
 pub use ix_split_position2::*;
+
+pub mod ix_lock_inner_position;
+pub use ix_lock_inner_position::*;

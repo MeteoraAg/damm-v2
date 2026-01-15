@@ -1,36 +1,36 @@
-import { expect } from "chai";
-import { generateKpAndFund } from "./helpers/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
 import {
+  addLiquidity,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
+  createPosition,
+  createToken,
+  derivePositionNftAccount,
+  encodePermissions,
+  expectThrowsErrorCode,
+  getCpAmmProgramErrorCode,
   getPool,
+  getPosition,
   initializePool,
   InitializePoolParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
-  createToken,
   mintSplTokenTo,
-  createPosition,
-  getPosition,
-  splitPosition2,
-  derivePositionNftAccount,
-  permanentLockPosition,
-  U64_MAX,
-  addLiquidity,
-  SPLIT_POSITION_DENOMINATOR,
-  swapExactIn,
-  createOperator,
   OperatorPermission,
-  encodePermissions,
+  permanentLockPosition,
+  SPLIT_POSITION_DENOMINATOR,
+  splitPosition2,
   startSvm,
-  getCpAmmProgramErrorCode,
-  expectThrowsErrorCode,
+  swapExactIn,
+  U64_MAX,
 } from "./helpers";
-import BN from "bn.js";
+import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
 
 describe("Split position 2", () => {
   let svm: LiteSVM;
@@ -319,7 +319,7 @@ describe("Split position 2", () => {
       pool
     );
     const beforeFirstPositionState = getPosition(svm, firstPosition);
-    const beforeSeconPositionState = getPosition(svm, secondPosition);
+    const beforeSecondPositionState = getPosition(svm, secondPosition);
 
     await splitPosition2(svm, {
       firstPositionOwner: creator,
@@ -331,13 +331,13 @@ describe("Split position 2", () => {
         beforeFirstPositionState.nftMint
       ),
       secondPositionNftAccount: derivePositionNftAccount(
-        beforeSeconPositionState.nftMint
+        beforeSecondPositionState.nftMint
       ),
       numerator: SPLIT_POSITION_DENOMINATOR,
     });
 
     const afterFirstPositionState = getPosition(svm, firstPosition);
-    const afterSeconPositionState = getPosition(svm, secondPosition);
+    const afterSecondPositionState = getPosition(svm, secondPosition);
 
     expect(afterFirstPositionState.unlockedLiquidity.toNumber()).eq(0);
     expect(afterFirstPositionState.permanentLockedLiquidity.toNumber()).eq(0);
@@ -345,23 +345,23 @@ describe("Split position 2", () => {
     expect(afterFirstPositionState.feeBPending.toNumber()).eq(0);
 
     expect(
-      afterSeconPositionState.unlockedLiquidity
-        .sub(beforeSeconPositionState.unlockedLiquidity)
+      afterSecondPositionState.unlockedLiquidity
+        .sub(beforeSecondPositionState.unlockedLiquidity)
         .toString()
     ).eq(beforeFirstPositionState.unlockedLiquidity.toString());
     expect(
-      afterSeconPositionState.permanentLockedLiquidity
-        .sub(beforeSeconPositionState.permanentLockedLiquidity)
+      afterSecondPositionState.permanentLockedLiquidity
+        .sub(beforeSecondPositionState.permanentLockedLiquidity)
         .toString()
     ).eq(beforeFirstPositionState.permanentLockedLiquidity.toString());
     expect(
-      afterSeconPositionState.feeAPending
-        .sub(beforeSeconPositionState.feeAPending)
+      afterSecondPositionState.feeAPending
+        .sub(beforeSecondPositionState.feeAPending)
         .toString()
     ).eq(beforeFirstPositionState.feeAPending.toString());
     expect(
-      afterSeconPositionState.feeBPending
-        .sub(beforeSeconPositionState.feeBPending)
+      afterSecondPositionState.feeBPending
+        .sub(beforeSecondPositionState.feeBPending)
         .toString()
     ).eq(beforeFirstPositionState.feeBPending.toString());
   });

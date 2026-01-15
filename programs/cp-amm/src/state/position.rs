@@ -4,9 +4,12 @@ use static_assertions::const_assert_eq;
 use std::{cell::RefMut, u64};
 
 use crate::{
-    constants::{LIQUIDITY_SCALE, NUM_REWARDS, SPLIT_POSITION_DENOMINATOR, TOTAL_REWARD_SCALE},
+    constants::{
+        LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, SPLIT_POSITION_DENOMINATOR,
+        TOTAL_REWARD_SCALE,
+    },
     safe_math::SafeMath,
-    state::Pool,
+    state::{InnerVesting, Pool},
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
     PoolError,
@@ -73,8 +76,10 @@ pub struct Position {
     pub metrics: PositionMetrics,
     /// Farming reward information
     pub reward_infos: [UserRewardInfo; NUM_REWARDS],
+    /// inner vesting info
+    pub inner_vesting: InnerVesting,
     /// padding for future usage
-    pub padding: [u128; 6],
+    pub padding: u128,
 }
 
 const_assert_eq!(Position::INIT_SPACE, 400);
@@ -387,6 +392,116 @@ impl Position {
 
         Ok(reward_split)
     }
+
+    pub fn refresh_inner_vesting(&mut self, current_point: u64) -> Result<()> {
+        if self.inner_vesting.is_empty() {
+            return Ok(());
+        }
+
+        let released_liquidity = self
+            .inner_vesting
+            .get_new_release_liquidity(current_point)?;
+
+        if released_liquidity > 0 {
+            self.release_vested_liquidity(released_liquidity)?;
+            self.inner_vesting
+                .accumulate_released_liquidity(released_liquidity)?;
+        }
+
+        // redundant check self.vested_liquidity == 0 for safety
+        if self.inner_vesting.done()? && self.vested_liquidity == 0 {
+            self.inner_vesting = InnerVesting::default();
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_no_external_vesting(&self) -> Result<()> {
+        let remaining_inner_vested_liquidity =
+            self.inner_vesting.calculate_remaining_vested_liquidity()?;
+
+        require!(
+            remaining_inner_vested_liquidity == self.vested_liquidity,
+            PoolError::UnsupportPositionHasVestingLock
+        );
+        Ok(())
+    }
+
+    fn apply_split_inner_vesting(
+        &mut self,
+        cliff_unlock_liquidity: u128,
+        liquidity_per_period: u128,
+        current_point: u64,
+    ) -> Result<()> {
+        self.inner_vesting.cliff_unlock_liquidity = cliff_unlock_liquidity;
+        self.inner_vesting.liquidity_per_period = liquidity_per_period;
+
+        // recalculate total_released_liquidity
+        self.inner_vesting.total_released_liquidity = self
+            .inner_vesting
+            .get_max_unlocked_liquidity(current_point)?;
+
+        // recalculate vested liquidity
+        self.vested_liquidity = self.inner_vesting.calculate_remaining_vested_liquidity()?;
+
+        // reset inner vesting if it is needed
+        // redundant check self.vested_liquidity == 0 for safety
+        if self.inner_vesting.done()? && self.vested_liquidity == 0 {
+            self.inner_vesting = InnerVesting::default();
+        }
+        Ok(())
+    }
+
+    pub fn split_inner_vesting(
+        &mut self,
+        destination_position: &mut Position,
+        split_numerator: u32,
+        current_point: u64,
+    ) -> Result<u128> {
+        // copy static variables
+        destination_position.inner_vesting.cliff_point = self.inner_vesting.cliff_point;
+        destination_position.inner_vesting.period_frequency = self.inner_vesting.period_frequency;
+        destination_position.inner_vesting.number_of_period = self.inner_vesting.number_of_period;
+
+        let (cliff_unlock_liquidity_source, cliff_unlock_liquidity_destination) =
+            calculate_shared_amounts(self.inner_vesting.cliff_unlock_liquidity, split_numerator)?;
+        let (liquidity_per_period_source, liquidity_per_period_destination) =
+            calculate_shared_amounts(self.inner_vesting.liquidity_per_period, split_numerator)?;
+
+        self.apply_split_inner_vesting(
+            cliff_unlock_liquidity_source,
+            liquidity_per_period_source,
+            current_point,
+        )?;
+
+        destination_position.apply_split_inner_vesting(
+            cliff_unlock_liquidity_destination,
+            liquidity_per_period_destination,
+            current_point,
+        )?;
+
+        Ok(destination_position.vested_liquidity)
+    }
+
+    pub fn to_split_info(&self) -> SplitPositionInfo2 {
+        SplitPositionInfo2 {
+            unlocked_liquidity: self.unlocked_liquidity,
+            permanent_locked_liquidity: self.permanent_locked_liquidity,
+            vested_liquidity: self.vested_liquidity,
+            fee_a: self.fee_a_pending,
+            fee_b: self.fee_b_pending,
+            reward_0: self
+                .reward_infos
+                .get(REWARD_INDEX_0)
+                .map(|r| r.reward_pendings)
+                .unwrap_or(0),
+            reward_1: self
+                .reward_infos
+                .get(REWARD_INDEX_1)
+                .map(|r| r.reward_pendings)
+                .unwrap_or(0),
+        }
+    }
 }
 
 pub struct SplitFeeAmount {
@@ -397,6 +512,28 @@ pub struct SplitFeeAmount {
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SplitPositionInfo {
     pub liquidity: u128,
+    pub fee_a: u64,
+    pub fee_b: u64,
+    pub reward_0: u64,
+    pub reward_1: u64,
+}
+
+fn calculate_shared_amounts(amount: u128, split_numerator: u32) -> Result<(u128, u128)> {
+    let shared_amount = safe_mul_div_cast_u128(
+        amount,
+        split_numerator.into(),
+        SPLIT_POSITION_DENOMINATOR.into(),
+        Rounding::Down,
+    )?;
+    let remaining_amount = amount.safe_sub(shared_amount)?;
+    Ok((remaining_amount, shared_amount))
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct SplitPositionInfo2 {
+    pub unlocked_liquidity: u128,
+    pub permanent_locked_liquidity: u128,
+    pub vested_liquidity: u128,
     pub fee_a: u64,
     pub fee_b: u64,
     pub reward_0: u64,

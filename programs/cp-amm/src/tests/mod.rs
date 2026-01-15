@@ -39,3 +39,6 @@ mod test_operator_permission;
 
 #[cfg(test)]
 mod test_base_fee_serde;
+
+#[cfg(test)]
+mod test_split_inner_vesting;
