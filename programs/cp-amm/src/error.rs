@@ -205,7 +205,4 @@ pub enum PoolError {
 
     #[msg("Invalid zap accounts")]
     InvalidZapAccounts,
-
-    #[msg("Zero vested liquidity was splitted")]
-    ZeroVestedLiquiditySplitted,
 }

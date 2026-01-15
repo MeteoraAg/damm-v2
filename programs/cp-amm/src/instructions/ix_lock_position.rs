@@ -175,6 +175,6 @@ pub fn process_initialize_inner_vesting<'info>(
 
     Ok(LockPositionInfo {
         total_lock_liquidity,
-        cliff_point: params.get_cliff_point(current_point)?,
+        cliff_point,
     })
 }

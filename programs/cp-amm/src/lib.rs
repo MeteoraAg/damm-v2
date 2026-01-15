@@ -342,7 +342,6 @@ pub mod cp_amm {
                 reward_0_numerator: numerator,
                 reward_1_numerator: numerator,
                 inner_vesting_liquidity_numerator: numerator,
-                ..Default::default()
             },
         )
     }

@@ -28,7 +28,6 @@ impl From<SplitPositionParameters2> for SplitPositionParameters3 {
             reward_0_numerator: params.reward_0_numerator,
             reward_1_numerator: params.reward_1_numerator,
             inner_vesting_liquidity_numerator: 0,
-            padding: [0u128; 4],
         }
     }
 }
@@ -55,7 +54,6 @@ pub struct SplitPositionParameters3 {
     pub reward_0_numerator: u32,
     pub reward_1_numerator: u32,
     pub inner_vesting_liquidity_numerator: u32,
-    pub padding: [u128; 4],
 }
 
 impl SplitPositionParameters3 {

@@ -408,7 +408,8 @@ impl Position {
                 .accumulate_released_liquidity(released_liquidity)?;
         }
 
-        if self.inner_vesting.done()? {
+        // redundant check self.vested_liquidity == 0 for safety
+        if self.inner_vesting.done()? && self.vested_liquidity == 0 {
             self.inner_vesting = InnerVesting::default();
         }
 
@@ -444,7 +445,8 @@ impl Position {
         self.vested_liquidity = self.inner_vesting.calculate_remaining_vested_liquidity()?;
 
         // reset inner vesting if it is needed
-        if self.inner_vesting.done()? {
+        // redundant check self.vested_liquidity == 0 for safety
+        if self.inner_vesting.done()? && self.vested_liquidity == 0 {
             self.inner_vesting = InnerVesting::default();
         }
         Ok(())
