@@ -322,6 +322,7 @@ describe("Split vesting", () => {
     expect(afterSecondPositionState.feeBPending.toString()).eq(
       beforeFirstPositionState.feeBPending.toString()
     );
+
     expect(afterSecondPositionState.vestedLiquidity.toString()).eq(
       beforeFirstPositionState.vestedLiquidity.toString()
     );

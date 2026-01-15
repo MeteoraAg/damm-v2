@@ -56,7 +56,7 @@ pub fn handle_refresh_vesting<'a, 'b, 'c: 'info, 'info>(
     let (current_point, _) =
         ActivationHandler::get_current_point_and_buffer_duration(pool.activation_type)?;
 
-    let mut position: RefMut<'_, Position> = ctx.accounts.position.load_mut()?;
+    let mut position = ctx.accounts.position.load_mut()?;
     position.refresh_inner_vesting(current_point)?;
 
     let mut remaining_accounts = &ctx.remaining_accounts[..];

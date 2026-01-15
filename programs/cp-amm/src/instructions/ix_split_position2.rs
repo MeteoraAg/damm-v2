@@ -115,26 +115,9 @@ fn check_position_split_validity(
     );
 
     // Source account cannot have external vesting lock. This is to prevent user refreshed vesting and accidentally splitted vested liquidity portion to destination account.
-    let remaining_inner_vested_liquidity = first_position
-        .inner_vesting
-        .calculate_remaining_vested_liquidity()?;
-
-    require!(
-        remaining_inner_vested_liquidity == first_position.vested_liquidity,
-        PoolError::UnsupportPositionHasVestingLock
-    );
+    first_position.validate_no_external_vesting()?;
 
     Ok(())
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct SplitPositionInfo2 {
-    pub liquidity: u128,
-    pub fee_a: u64,
-    pub fee_b: u64,
-    pub reward_0: u64,
-    pub reward_1: u64,
-    pub vesting_liquidity: u128,
 }
 
 pub fn handle_split_position2(
@@ -174,6 +157,9 @@ pub fn handle_split_position2(
     first_position.refresh_inner_vesting(current_point)?;
     second_position.refresh_inner_vesting(current_point)?;
 
+    // if we are sharing vesting liquidity, then must ensure both conditions:
+    // - second_position.inner_vesting.is_empty()
+    // - first_position.inner_vesting doesnt have external vesting
     if inner_vesting_liquidity_numerator > 0 && !first_position.inner_vesting.is_empty() {
         check_position_split_validity(&first_position, &second_position)?;
     }
@@ -247,38 +233,8 @@ pub fn handle_split_position2(
         second_position: ctx.accounts.second_position.key(),
         amount_splits: split_amount_info,
         current_sqrt_price: pool.sqrt_price,
-        first_position_info: SplitPositionInfo2 {
-            liquidity: first_position.get_total_liquidity()?,
-            fee_a: first_position.fee_a_pending,
-            fee_b: first_position.fee_b_pending,
-            reward_0: first_position
-                .reward_infos
-                .get(REWARD_INDEX_0)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-            reward_1: first_position
-                .reward_infos
-                .get(REWARD_INDEX_1)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-            vesting_liquidity: first_position.vested_liquidity,
-        },
-        second_position_info: SplitPositionInfo2 {
-            liquidity: second_position.get_total_liquidity()?,
-            fee_a: second_position.fee_a_pending,
-            fee_b: second_position.fee_b_pending,
-            reward_0: second_position
-                .reward_infos
-                .get(REWARD_INDEX_0)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-            reward_1: second_position
-                .reward_infos
-                .get(REWARD_INDEX_1)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-            vesting_liquidity: second_position.vested_liquidity,
-        },
+        first_position_info: first_position.to_split_info(),
+        second_position_info: second_position.to_split_info(),
         split_position_parameters: params,
     });
 

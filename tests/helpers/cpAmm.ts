@@ -1216,12 +1216,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1258,12 +1258,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-          {
-            pubkey: operator,
-            isSigner: false,
-            isWritable: false,
-          },
-        ];
+        {
+          pubkey: operator,
+          isSigner: false,
+          isWritable: false,
+        },
+      ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -1484,36 +1484,50 @@ export async function lockPosition(
   const positionState = getPosition(svm, position);
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
-  const vestingKP = Keypair.generate();
-  const vestingAddress = innerPosition
-    ? program.programId
-    : vestingKP.publicKey;
+  let transaction;
+  let signers;
+  let vestingAddress;
+  if (innerPosition) {
+    vestingAddress = position;
+    transaction = await program.methods
+      .lockInnerPosition(params)
+      .accountsPartial({
+        position,
+        positionNftAccount,
+        owner: owner.publicKey,
+        pool: positionState.pool,
+        program: CP_AMM_PROGRAM_ID,
+      })
+      .transaction();
 
-  const transaction = await program.methods
-    .lockPosition(params)
-    .accountsPartial({
-      position,
-      positionNftAccount,
-      vesting: vestingAddress,
-      owner: owner.publicKey,
-      pool: positionState.pool,
-      program: CP_AMM_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-      payer: payer.publicKey,
-    })
-    .transaction();
+    signers = [owner];
+  } else {
+    const vestingKP = Keypair.generate();
+    vestingAddress = vestingKP.publicKey;
+    transaction = await program.methods
+      .lockPosition(params)
+      .accountsPartial({
+        position,
+        positionNftAccount,
+        vesting: vestingAddress,
+        owner: owner.publicKey,
+        pool: positionState.pool,
+        program: CP_AMM_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        payer: payer.publicKey,
+      })
+      .transaction();
 
-  const signers = [payer, owner];
-
-  if (!innerPosition) {
-    signers.push(vestingKP);
+    signers = [payer, owner, vestingKP];
   }
 
   const result = sendTransaction(svm, transaction, signers);
   expect(result).instanceOf(TransactionMetadata);
 
-  return vestingKP.publicKey;
+  return vestingAddress;
 }
+
+
 
 export async function createPosition(
   svm: LiteSVM,
@@ -2115,6 +2129,7 @@ export type SplitPositionParams = {
   feeBPercentage: number;
   reward0Percentage: number;
   reward1Percentage: number;
+  innerVestingLiquidityPercentage: number;
 };
 export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
   const {
@@ -2131,6 +2146,7 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
     feeBPercentage,
     reward0Percentage,
     reward1Percentage,
+    innerVestingLiquidityPercentage,
   } = params;
   const program = createCpAmmProgram();
   const transaction = await program.methods
@@ -2141,6 +2157,7 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
       feeBPercentage,
       reward0Percentage,
       reward1Percentage,
+      innerVestingLiquidityPercentage,
       padding: new Array(16).fill(0),
     })
     .accountsPartial({

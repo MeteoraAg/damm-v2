@@ -296,6 +296,13 @@ pub mod cp_amm {
         instructions::handle_lock_position(ctx, params)
     }
 
+    pub fn lock_inner_position(
+        ctx: Context<LockInnerPositionCtx>,
+        params: VestingParameters,
+    ) -> Result<()> {
+        instructions::handle_lock_inner_position(ctx, params)
+    }
+
     pub fn refresh_vesting<'a, 'b, 'c: 'info, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, RefreshVesting<'info>>,
     ) -> Result<()> {
@@ -321,7 +328,7 @@ pub mod cp_amm {
         ctx: Context<SplitPositionCtx>,
         params: SplitPositionParameters,
     ) -> Result<()> {
-        instructions::handle_split_position2(ctx, params.get_split_position_parameters2()?)
+        instructions::handle_split_position2(ctx, params.get_split_position_parameters()?)
     }
 
     pub fn split_position2(ctx: Context<SplitPositionCtx>, numerator: u32) -> Result<()> {
