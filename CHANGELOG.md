@@ -26,11 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New endpoint `fix_pool_params` and `fix_config_fee_params` to allow `operator` to fix invalid scheduler params that causes blocking operation on `update_pool_fees` endpoint.
-- Added `InnerVesting` field in `Position` account. It allow user to vest liquidity without `Vesting` account to allow better composability.
+- New endpoint `lock_inner_position`, that allow to vest liquidity without external `Vesting` account for better composability. 
 
 ### Changed
 
-- Allow user to use liquidity without `Vesting` account by using `InnerVesting` field in `Position` account. This only applicable if the position have only single vesting.
 - Endpoint `split_position` and `split_position2` will split `InnerVesting` of the `Position` account
 
 ## cp_amm [0.1.7] [PR #124](https://github.com/MeteoraAg/damm-v2/pull/167)

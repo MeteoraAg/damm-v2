@@ -1484,36 +1484,50 @@ export async function lockPosition(
   const positionState = getPosition(svm, position);
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
-  const vestingKP = Keypair.generate();
-  const vestingAddress = innerPosition
-    ? program.programId
-    : vestingKP.publicKey;
+  let transaction;
+  let signers;
+  let vestingAddress;
+  if (innerPosition) {
+    vestingAddress = position;
+    transaction = await program.methods
+      .lockInnerPosition(params)
+      .accountsPartial({
+        position,
+        positionNftAccount,
+        owner: owner.publicKey,
+        pool: positionState.pool,
+        program: CP_AMM_PROGRAM_ID,
+      })
+      .transaction();
 
-  const transaction = await program.methods
-    .lockPosition(params)
-    .accountsPartial({
-      position,
-      positionNftAccount,
-      vesting: vestingAddress,
-      owner: owner.publicKey,
-      pool: positionState.pool,
-      program: CP_AMM_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-      payer: payer.publicKey,
-    })
-    .transaction();
+    signers = [owner];
+  } else {
+    const vestingKP = Keypair.generate();
+    vestingAddress = vestingKP.publicKey;
+    transaction = await program.methods
+      .lockPosition(params)
+      .accountsPartial({
+        position,
+        positionNftAccount,
+        vesting: vestingAddress,
+        owner: owner.publicKey,
+        pool: positionState.pool,
+        program: CP_AMM_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        payer: payer.publicKey,
+      })
+      .transaction();
 
-  const signers = [payer, owner];
-
-  if (!innerPosition) {
-    signers.push(vestingKP);
+    signers = [payer, owner, vestingKP];
   }
 
   const result = sendTransaction(svm, transaction, signers);
   expect(result).instanceOf(TransactionMetadata);
 
-  return vestingKP.publicKey;
+  return vestingAddress;
 }
+
+
 
 export async function createPosition(
   svm: LiteSVM,

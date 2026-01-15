@@ -296,6 +296,13 @@ pub mod cp_amm {
         instructions::handle_lock_position(ctx, params)
     }
 
+    pub fn lock_inner_position(
+        ctx: Context<LockInnerPositionCtx>,
+        params: VestingParameters,
+    ) -> Result<()> {
+        instructions::handle_lock_inner_position(ctx, params)
+    }
+
     pub fn refresh_vesting<'a, 'b, 'c: 'info, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, RefreshVesting<'info>>,
     ) -> Result<()> {

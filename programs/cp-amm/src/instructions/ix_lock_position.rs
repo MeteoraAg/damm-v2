@@ -6,7 +6,7 @@ use crate::{
     error::PoolError,
     get_pool_access_validator,
     safe_math::SafeMath,
-    state::{Pool, Position, Vesting},
+    state::{InnerVesting, Pool, Position, Vesting},
     EvtLockPosition,
 };
 
@@ -83,7 +83,7 @@ pub struct LockPositionCtx<'info> {
         payer = payer,
         space = 8 + Vesting::INIT_SPACE
     )]
-    pub vesting: Option<AccountLoader<'info, Vesting>>,
+    pub vesting: AccountLoader<'info, Vesting>,
 
     /// The token account for nft
     #[account(
@@ -106,7 +106,43 @@ pub fn handle_lock_position(
     ctx: Context<LockPositionCtx>,
     params: VestingParameters,
 ) -> Result<()> {
-    let pool = ctx.accounts.pool.load()?;
+    let mut vesting = ctx.accounts.vesting.load_init()?;
+    vesting.initialize(ctx.accounts.position.key());
+
+    let LockPositionInfo {
+        total_lock_liquidity,
+        cliff_point,
+    } = process_initialize_inner_vesting(&params, &ctx.accounts.pool, &mut vesting.inner_vesting)?;
+
+    let mut position = ctx.accounts.position.load_mut()?;
+    position.lock(total_lock_liquidity)?;
+
+    emit_cpi!(EvtLockPosition {
+        position: ctx.accounts.position.key(),
+        pool: ctx.accounts.pool.key(),
+        owner: ctx.accounts.owner.key(),
+        vesting: ctx.accounts.vesting.key(),
+        cliff_point,
+        period_frequency: params.period_frequency,
+        cliff_unlock_liquidity: params.cliff_unlock_liquidity,
+        liquidity_per_period: params.liquidity_per_period,
+        number_of_period: params.number_of_period,
+    });
+
+    Ok(())
+}
+
+pub struct LockPositionInfo {
+    pub total_lock_liquidity: u128,
+    pub cliff_point: u64,
+}
+
+pub fn process_initialize_inner_vesting<'info>(
+    params: &VestingParameters,
+    pool_account: &AccountLoader<'info, Pool>,
+    inner_vesting: &mut InnerVesting,
+) -> Result<LockPositionInfo> {
+    let pool = pool_account.load()?;
     let access_validator = get_pool_access_validator(&pool)?;
     require!(
         access_validator.can_lock_position(),
@@ -121,7 +157,7 @@ pub fn handle_lock_position(
     let total_lock_liquidity = params.get_total_lock_amount()?;
     let cliff_point = params.get_cliff_point(current_point)?;
 
-    let VestingParameters {
+    let &VestingParameters {
         period_frequency,
         cliff_unlock_liquidity,
         liquidity_per_period,
@@ -129,52 +165,16 @@ pub fn handle_lock_position(
         ..
     } = params;
 
-    let mut position = ctx.accounts.position.load_mut()?;
-
-    // User wish to vest using external vesting account
-    if let Some(vesting_account) = &ctx.accounts.vesting {
-        let mut vesting = vesting_account.load_init()?;
-        vesting.initialize(
-            ctx.accounts.position.key(),
-            cliff_point,
-            period_frequency,
-            cliff_unlock_liquidity,
-            liquidity_per_period,
-            number_of_period,
-        );
-    } else {
-        require!(
-            position.inner_vesting.is_empty(),
-            PoolError::InvalidVestingAccount
-        );
-
-        position.inner_vesting.initialize(
-            cliff_point,
-            period_frequency,
-            cliff_unlock_liquidity,
-            liquidity_per_period,
-            number_of_period,
-        );
-    }
-
-    position.lock(total_lock_liquidity)?;
-
-    emit_cpi!(EvtLockPosition {
-        position: ctx.accounts.position.key(),
-        pool: ctx.accounts.pool.key(),
-        owner: ctx.accounts.owner.key(),
-        vesting: ctx
-            .accounts
-            .vesting
-            .as_ref()
-            .map(|v| v.key())
-            .unwrap_or(ctx.accounts.position.key()),
+    inner_vesting.initialize(
         cliff_point,
         period_frequency,
         cliff_unlock_liquidity,
         liquidity_per_period,
         number_of_period,
-    });
+    );
 
-    Ok(())
+    Ok(LockPositionInfo {
+        total_lock_liquidity,
+        cliff_point: params.get_cliff_point(current_point)?,
+    })
 }

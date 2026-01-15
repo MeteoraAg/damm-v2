@@ -3,9 +3,10 @@ use anchor_lang::prelude::*;
 
 use crate::{
     params::fee_parameters::PoolFeeParameters,
-    state::{SplitAmountInfo, SplitAmountInfo2, SplitPositionInfo, SwapResult2},
-    SplitPositionInfo2, SplitPositionParameters2, SplitPositionParameters3, SwapParameters2,
-    UpdatePoolFeesParameters,
+    state::{
+        SplitAmountInfo, SplitAmountInfo2, SplitPositionInfo, SplitPositionInfo2, SwapResult2,
+    },
+    SplitPositionParameters2, SplitPositionParameters3, SwapParameters2, UpdatePoolFeesParameters,
 };
 
 /// Close config

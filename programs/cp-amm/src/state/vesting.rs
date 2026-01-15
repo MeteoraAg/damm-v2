@@ -48,7 +48,7 @@ impl InnerVesting {
             return Ok(0);
         }
 
-        if self.period_frequency == 0 {
+        if self.period_frequency == 0 || self.liquidity_per_period == 0 {
             return Ok(self.cliff_unlock_liquidity);
         }
 
@@ -105,22 +105,7 @@ pub struct Vesting {
 const_assert_eq!(Vesting::INIT_SPACE, 176);
 
 impl Vesting {
-    pub fn initialize(
-        &mut self,
-        position: Pubkey,
-        cliff_point: u64,
-        period_frequency: u64,
-        cliff_unlock_liquidity: u128,
-        liquidity_per_period: u128,
-        number_of_period: u16,
-    ) {
+    pub fn initialize(&mut self, position: Pubkey) {
         self.position = position;
-        self.inner_vesting.initialize(
-            cliff_point,
-            period_frequency,
-            cliff_unlock_liquidity,
-            liquidity_per_period,
-            number_of_period,
-        );
     }
 }
