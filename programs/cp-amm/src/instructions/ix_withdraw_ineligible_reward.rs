@@ -82,7 +82,7 @@ pub fn handle_withdraw_ineligible_reward(
             ctx.accounts.pool_authority.to_account_info(),
             &ctx.accounts.reward_mint,
             &ctx.accounts.reward_vault,
-            &ctx.accounts.funder_token_account,
+            &ctx.accounts.funder_token_account.to_account_info(),
             &ctx.accounts.token_program,
             ineligible_reward,
         )?;

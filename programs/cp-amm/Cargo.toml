@@ -1,6 +1,6 @@
 [package]
 name = "cp-amm"
-version = "0.1.6"
+version = "0.1.7"
 description = "Created with Anchor"
 edition = "2021"
 
@@ -9,10 +9,11 @@ crate-type = ["cdylib", "lib"]
 name = "cp_amm"
 
 [features]
+no-custom-entrypoint = []
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
-cpi = ["no-entrypoint"]
+cpi = ["no-entrypoint", "no-custom-entrypoint"]
 default = ["no-entrypoint"]
 local = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
@@ -31,6 +32,8 @@ const-crypto = "0.3.0"
 pinocchio = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
 pinocchio-token = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
 pinocchio-token-2022 = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
+zap = { path = "../../libs/zap" }
+jupiter = { path = "../../libs/jupiter" }
 
 [dev-dependencies]
 proptest = "1.2.0"

@@ -30,6 +30,7 @@ import {
   SystemProgram,
   SYSVAR_INSTRUCTIONS_PUBKEY,
   Transaction,
+  TransactionInstruction,
 } from "@solana/web3.js";
 import { expect } from "chai";
 import Decimal from "decimal.js";
@@ -43,7 +44,6 @@ import { CpAmm } from "../../target/types/cp_amm";
 import {
   deriveConfigAddress,
   deriveCustomizablePoolAddress,
-  deriveEventAuthority,
   deriveOperatorAddress,
   derivePoolAddress,
   derivePoolAuthority,
@@ -165,7 +165,7 @@ export async function createDynamicConfigIx(
       config,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
       payer: whitelistedAddress.publicKey,
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
@@ -201,7 +201,7 @@ export async function createConfigIx(
       config,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
       payer: whitelistedAddress.publicKey,
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       systemProgram: SystemProgram.programId,
     })
     .transaction();
@@ -339,7 +339,7 @@ export async function closeConfigIx(
     .accountsPartial({
       config,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       rentReceiver: whitelistedAddress.publicKey,
     })
     .transaction();
@@ -368,7 +368,7 @@ export async function createTokenBadge(
       tokenBadge,
       tokenMint,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       payer: whitelistedAddress.publicKey,
       systemProgram: SystemProgram.programId,
     })
@@ -399,7 +399,7 @@ export async function closeTokenBadge(
     .accountsPartial({
       tokenBadge,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
       rentReceiver: whitelistedAddress.publicKey,
     })
     .transaction();
@@ -409,7 +409,6 @@ export async function closeTokenBadge(
   const tokenBadgeAccount = svm.getAccount(tokenBadge);
   expect(tokenBadgeAccount.data.length).eq(0);
 }
-
 
 export enum OperatorPermission {
   CreateConfigKey, // 0
@@ -422,6 +421,7 @@ export enum OperatorPermission {
   UpdateRewardFunder, // 7
   UpdatePoolFees, // 8
   ClaimProtocolFee, // 9
+  ZapProtocolFee,
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -447,7 +447,7 @@ export async function createOperator(
     .accountsPartial({
       operator: deriveOperatorAddress(whitelistAddress),
       whitelistedAddress: whitelistAddress,
-      admin: admin.publicKey,
+      signer: admin.publicKey,
       payer: admin.publicKey,
       systemProgram: SystemProgram.programId,
     })
@@ -479,7 +479,7 @@ export async function updatePoolFeesParameters(
     .accountsPartial({
       pool,
       operator: deriveOperatorAddress(whitelistedOperator.publicKey),
-      whitelistedAddress: whitelistedOperator.publicKey,
+      signer: whitelistedOperator.publicKey,
     })
     .transaction();
 
@@ -499,9 +499,7 @@ export async function claimProtocolFee(
   const program = createCpAmmProgram();
   const { whitelistedKP, pool, treasury } = params;
   const poolAuthority = derivePoolAuthority();
-  const operator = deriveOperatorAddress(
-    whitelistedKP.publicKey
-  );
+  const operator = deriveOperatorAddress(whitelistedKP.publicKey);
   const poolState = getPool(svm, pool);
 
   const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
@@ -563,7 +561,7 @@ export async function claimProtocolFee(
       tokenAAccount,
       tokenBAccount,
       operator,
-      whitelistedAddress: whitelistedKP.publicKey,
+      signer: whitelistedKP.publicKey,
       tokenAProgram,
       tokenBProgram,
     })
@@ -888,8 +886,7 @@ export async function setPoolStatus(svm: LiteSVM, params: SetPoolStatusParams) {
     .accountsPartial({
       pool,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-
-      whitelistedAddress: whitelistedAddress.publicKey,
+      signer: whitelistedAddress.publicKey,
     })
     .transaction();
 
@@ -1984,77 +1981,6 @@ export async function swap2Instruction(svm: LiteSVM, params: Swap2Params) {
   return transaction;
 }
 
-export async function swapTestInstruction(svm: LiteSVM, params: Swap2Params) {
-  const {
-    payer,
-    pool,
-    inputTokenMint,
-    outputTokenMint,
-    amount0,
-    amount1,
-    swapMode,
-    referralTokenAccount,
-  } = params;
-
-  const program = createCpAmmProgram();
-  const poolState = getPool(svm, pool);
-
-  const poolAuthority = derivePoolAuthority();
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
-
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
-  const inputTokenAccount = getAssociatedTokenAddressSync(
-    inputTokenMint,
-    payer.publicKey,
-    true,
-    tokenAProgram
-  );
-  const outputTokenAccount = getAssociatedTokenAddressSync(
-    outputTokenMint,
-    payer.publicKey,
-    true,
-    tokenBProgram
-  );
-  const tokenAVault = poolState.tokenAVault;
-  const tokenBVault = poolState.tokenBVault;
-  const tokenAMint = poolState.tokenAMint;
-  const tokenBMint = poolState.tokenBMint;
-
-  const transaction = await program.methods
-    .swapTest({
-      amount0,
-      amount1,
-      swapMode,
-    })
-    .accountsPartial({
-      poolAuthority,
-      pool,
-      payer: payer.publicKey,
-      inputTokenAccount,
-      outputTokenAccount,
-      tokenAVault,
-      tokenBVault,
-      tokenAProgram,
-      tokenBProgram,
-      tokenAMint,
-      tokenBMint,
-      referralTokenAccount,
-    })
-    .remainingAccounts(
-      // TODO should check condition to add this in remaining accounts
-      [
-        {
-          isSigner: false,
-          isWritable: false,
-          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-        },
-      ]
-    )
-    .transaction();
-
-  return transaction;
-}
-
 export async function swap2ExactIn(
   svm: LiteSVM,
   params: Omit<Swap2Params, "swapMode">
@@ -2272,6 +2198,52 @@ export async function splitPosition2(
   return result;
 }
 
+export async function zapProtocolFee(params: {
+  svm: LiteSVM;
+  pool: PublicKey;
+  tokenVault: PublicKey;
+  tokenMint: PublicKey;
+  receiverToken: PublicKey;
+  operator: PublicKey;
+  signer: Keypair;
+  tokenProgram: PublicKey;
+  maxAmount: BN;
+  postInstruction?: TransactionInstruction;
+}) {
+  const {
+    svm,
+    pool,
+    tokenVault,
+    tokenMint,
+    receiverToken,
+    operator,
+    signer,
+    tokenProgram,
+    maxAmount,
+    postInstruction,
+  } = params;
+
+  const program = createCpAmmProgram();
+
+  const tx = await program.methods
+    .zapProtocolFee(maxAmount)
+    .accountsPartial({
+      poolAuthority: derivePoolAuthority(),
+      pool,
+      tokenVault,
+      tokenMint,
+      operator,
+      receiverToken,
+      signer: signer.publicKey,
+      tokenProgram,
+      sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+    })
+    .postInstructions(postInstruction ? [postInstruction] : [])
+    .transaction();
+
+  return sendTransaction(svm, tx, [signer]);
+}
+
 export function getPool(svm: LiteSVM, pool: PublicKey): Pool {
   const program = createCpAmmProgram();
   const account = svm.getAccount(pool);
@@ -2402,108 +2374,4 @@ export function getFeeShedulerParams(
     reductionFactor,
     baseFeeMode,
   };
-}
-
-export async function buildSwapTestTxs(params: {
-  payer: PublicKey;
-  pool: PublicKey;
-  tokenAMint: PublicKey;
-  tokenBMint: PublicKey;
-  inputTokenAccount: PublicKey;
-  outputTokenAccount: PublicKey;
-  tokenAVault: PublicKey;
-  tokenBVault: PublicKey;
-  tokenAProgram: PublicKey;
-  tokenBProgram: PublicKey;
-  poolAuthority?: PublicKey;
-  eventAuthority?: PublicKey;
-  programPk?: PublicKey;
-  sysvarInstructionPubkey?: PublicKey;
-  referralAccount?: PublicKey;
-  amount0: BN;
-  amount1: BN;
-  swapMode: number;
-}): Promise<{ swapTestTx: Transaction; swapPinocchioTx: Transaction }> {
-  const program = createCpAmmProgram();
-  const swapTestTx = await getSwapTransaction(program.methods.swapTest, params);
-  const swapPinocchioTx = await getSwapTransaction(
-    program.methods.swap2,
-    params
-  );
-  return { swapTestTx, swapPinocchioTx };
-}
-
-async function getSwapTransaction(
-  swapMethod,
-  params: {
-    payer: PublicKey;
-    pool: PublicKey;
-    tokenAMint: PublicKey;
-    tokenBMint: PublicKey;
-    inputTokenAccount: PublicKey;
-    outputTokenAccount: PublicKey;
-    tokenAVault: PublicKey;
-    tokenBVault: PublicKey;
-    tokenAProgram: PublicKey;
-    tokenBProgram: PublicKey;
-    poolAuthority?: PublicKey;
-    eventAuthority?: PublicKey;
-    programPk?: PublicKey;
-    sysvarInstructionPubkey?: PublicKey;
-    referralAccount?: PublicKey;
-    amount0: BN;
-    amount1: BN;
-    swapMode: number;
-  }
-): Promise<Transaction> {
-  const {
-    payer,
-    pool,
-    amount0,
-    amount1,
-    swapMode,
-    tokenAMint,
-    tokenBMint,
-    inputTokenAccount,
-    outputTokenAccount,
-    tokenAProgram,
-    tokenBProgram,
-    tokenAVault,
-    tokenBVault,
-    eventAuthority,
-    programPk,
-    poolAuthority,
-    sysvarInstructionPubkey,
-    referralAccount,
-  } = params;
-  const tx = await swapMethod({
-    amount0,
-    amount1,
-    swapMode,
-  })
-    .accountsStrict({
-      poolAuthority: poolAuthority ?? derivePoolAuthority(),
-      pool,
-      payer,
-      inputTokenAccount,
-      outputTokenAccount,
-      tokenAVault,
-      tokenBVault,
-      tokenAProgram,
-      tokenBProgram,
-      tokenAMint,
-      tokenBMint,
-      referralTokenAccount: referralAccount ?? null,
-      eventAuthority: eventAuthority ?? deriveEventAuthority(),
-      program: programPk ?? CP_AMM_PROGRAM_ID,
-    })
-    .remainingAccounts([
-      {
-        isSigner: false,
-        isWritable: false,
-        pubkey: sysvarInstructionPubkey ?? SYSVAR_INSTRUCTIONS_PUBKEY,
-      },
-    ])
-    .transaction();
-  return tx;
 }

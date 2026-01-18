@@ -1,4 +1,5 @@
 import { base64 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, Signer, SystemProgram, Transaction } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
@@ -13,12 +14,14 @@ import {
   ALPHA_VAULT_PROGRAM_ID,
   CP_AMM_PROGRAM_ID,
   createCpAmmProgram,
+  JUPITER_V6_PROGRAM_ID,
+  NATIVE_MINT,
+  ZAP_PROGRAM_ID,
 } from ".";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 
 export function startSvm() {
   const svm = new LiteSVM();
-
   const sourceFileCpammPath = path.resolve("./target/deploy/cp_amm.so");
   const sourceFileAlphaVaultPath = path.resolve(
     "./tests/fixtures/alpha_vault.so"
@@ -26,6 +29,8 @@ export function startSvm() {
   const sourceFileTransferhookPath = path.resolve(
     "./tests/fixtures/transfer_hook_counter.so"
   );
+  const sourceFileZapProgramPath = path.resolve("./tests/fixtures/zap.so");
+  const sourceFileJupiterPath = path.resolve("./tests/fixtures/jupiter.so");
   svm.addProgramFromFile(new PublicKey(CP_AMM_PROGRAM_ID), sourceFileCpammPath);
   svm.addProgramFromFile(
     new PublicKey(ALPHA_VAULT_PROGRAM_ID),
@@ -35,6 +40,8 @@ export function startSvm() {
     new PublicKey(TRANSFER_HOOK_COUNTER_PROGRAM_ID),
     sourceFileTransferhookPath
   );
+  svm.addProgramFromFile(JUPITER_V6_PROGRAM_ID, sourceFileJupiterPath);
+  svm.addProgramFromFile(ZAP_PROGRAM_ID, sourceFileZapProgramPath);
 
   const accountInfo: AccountInfoBytes = {
     data: new Uint8Array(),
@@ -47,6 +54,18 @@ export function startSvm() {
     new PublicKey("4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"),
     accountInfo
   );
+
+  svm.setAccount(NATIVE_MINT, {
+    owner: TOKEN_PROGRAM_ID,
+    lamports: 1461600,
+    data: Buffer.from([
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 1, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0,
+    ]),
+    executable: false,
+  });
 
   return svm;
 }

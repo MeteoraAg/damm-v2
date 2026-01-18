@@ -20,45 +20,23 @@ pub mod base_fee;
 pub mod math;
 pub use math::*;
 pub mod curve;
-#[cfg(feature = "local")]
-pub mod test_swap;
+
 pub mod tests;
 
 pub mod pool_action_access;
 pub use pool_action_access::*;
+pub mod access_control;
+pub use access_control::*;
+use state::OperatorPermission;
 
+#[cfg(not(feature = "no-custom-entrypoint"))]
 mod entrypoint;
+#[cfg(not(feature = "no-custom-entrypoint"))]
 pub use entrypoint::entrypoint;
 
 pub mod params;
 
 declare_id!("cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG");
-
-pub const EVENT_AUTHORITY_SEEDS: &[u8] = b"__event_authority";
-pub const EVENT_AUTHORITY_AND_BUMP: (pinocchio::pubkey::Pubkey, u8) = {
-    let (address, bump) = const_crypto::ed25519::derive_program_address(
-        &[EVENT_AUTHORITY_SEEDS],
-        &crate::ID_CONST.to_bytes(),
-    );
-    (address, bump)
-};
-
-fn p_event_dispatch(
-    _program_id: &pinocchio::pubkey::Pubkey,
-    accounts: &[pinocchio::account_info::AccountInfo],
-    _data: &[u8],
-) -> Result<()> {
-    let given_event_authority = &accounts[0];
-    require!(
-        given_event_authority.is_signer(),
-        ErrorCode::ConstraintSigner
-    );
-    require!(
-        given_event_authority.key() == &EVENT_AUTHORITY_AND_BUMP.0,
-        ErrorCode::ConstraintSeeds
-    );
-    Ok(())
-}
 
 // Only for IDL generation
 #[cfg(feature = "idl-build")]
@@ -87,18 +65,22 @@ pub mod cp_amm {
     use super::*;
 
     /// ADMIN FUNCTIONS /////
+    #[access_control(is_admin(ctx.accounts.signer.key))]
     pub fn create_operator_account(
         ctx: Context<CreateOperatorAccountCtx>,
         permission: u128,
     ) -> Result<()> {
         instructions::handle_create_operator(ctx, permission)
     }
-    pub fn close_operator_account(_ctx: Context<CloseOperatorAccountCtx>) -> Result<()> {
+
+    #[access_control(is_admin(ctx.accounts.signer.key))]
+    pub fn close_operator_account(ctx: Context<CloseOperatorAccountCtx>) -> Result<()> {
         Ok(())
     }
 
     /// OPERATOR FUNCTIONS /////
     // create static config
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CreateConfigKey))]
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,
         index: u64,
@@ -108,6 +90,7 @@ pub mod cp_amm {
     }
 
     // create static config
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CreateConfigKey))]
     pub fn create_dynamic_config(
         ctx: Context<CreateConfigCtx>,
         index: u64,
@@ -116,10 +99,12 @@ pub mod cp_amm {
         instructions::handle_create_dynamic_config(ctx, index, config_parameters)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CreateTokenBadge))]
     pub fn create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
         instructions::handle_create_token_badge(ctx)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::RemoveConfigKey))]
     pub fn close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {
         instructions::handle_close_config(ctx)
     }
@@ -165,16 +150,23 @@ pub mod cp_amm {
         instructions::handle_update_reward_duration(ctx, reward_index, new_duration)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::SetPoolStatus))]
     pub fn set_pool_status(ctx: Context<SetPoolStatusCtx>, status: u8) -> Result<()> {
         instructions::handle_set_pool_status(ctx, status)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_fee(
         ctx: Context<ClaimProtocolFeesCtx>,
         max_amount_a: u64,
         max_amount_b: u64,
     ) -> Result<()> {
         instructions::handle_claim_protocol_fee(ctx, max_amount_a, max_amount_b)
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
+    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
+        instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
     #[deprecated = "We currently disable this, and could enable this in the future"]
@@ -186,10 +178,12 @@ pub mod cp_amm {
         instructions::handle_claim_partner_fee(ctx, max_amount_a, max_amount_b)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]
     pub fn close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
         instructions::handle_close_token_badge(ctx)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
     pub fn update_pool_fees(
         ctx: Context<UpdatePoolFeesCtx>,
         params: UpdatePoolFeesParameters,
@@ -333,11 +327,5 @@ pub mod cp_amm {
         _ixs: DummyParams,
     ) -> Result<()> {
         Ok(())
-    }
-
-    /// used to test with old endpoint
-    #[cfg(feature = "local")]
-    pub fn swap_test(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
-        test_swap::handle_test_swap_wrapper(&ctx, params)
     }
 }

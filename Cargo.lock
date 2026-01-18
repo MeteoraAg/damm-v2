@@ -730,12 +730,13 @@ checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
 name = "cp-amm"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bytemuck",
  "const-crypto",
+ "jupiter",
  "num",
  "num-traits",
  "num_enum",
@@ -746,6 +747,7 @@ dependencies = [
  "ruint",
  "spl-token-metadata-interface",
  "static_assertions",
+ "zap",
 ]
 
 [[package]]
@@ -1106,6 +1108,14 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "jupiter"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "bytemuck",
 ]
 
 [[package]]
@@ -3673,6 +3683,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
 dependencies = [
  "tap",
+]
+
+[[package]]
+name = "zap"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "bytemuck",
 ]
 
 [[package]]
