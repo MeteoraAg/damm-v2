@@ -115,6 +115,11 @@ pub fn handle_lock_position(
     } = process_initialize_inner_vesting(&params, &ctx.accounts.pool, &mut vesting.inner_vesting)?;
 
     let mut position = ctx.accounts.position.load_mut()?;
+    let pool = ctx.accounts.pool.load()?;
+    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
+    // refresh inner vesting firstly to retrieve the latest state of unlocked liquidity
+    position.refresh_inner_vesting(current_point)?;
+    // lock position
     position.lock(total_lock_liquidity)?;
 
     emit_cpi!(EvtLockPosition {
