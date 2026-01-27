@@ -1,4 +1,5 @@
 use crate::{
+    activation_handler::ActivationHandler,
     error::PoolError,
     state::{Pool, Position},
     EvtLockPosition, LockPositionInfo,
@@ -33,6 +34,11 @@ pub fn handle_lock_inner_position(
     params: VestingParameters,
 ) -> Result<()> {
     let mut position = ctx.accounts.position.load_mut()?;
+    let pool = ctx.accounts.pool.load()?;
+    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
+    // refresh inner vesting firstly to retrieve the latest state of unlocked liquidity
+    position.refresh_inner_vesting(current_point)?;
+
     require!(
         position.inner_vesting.is_empty(),
         PoolError::InvalidVestingAccount
