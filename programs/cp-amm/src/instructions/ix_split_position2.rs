@@ -106,9 +106,9 @@ fn check_position_split_validity(
     first_position: &Position,
     second_position: &Position,
 ) -> Result<()> {
-    // Destination account cannot have inner vesting lock
+    // Destination account cannot have vesting lock
     require!(
-        second_position.inner_vesting.is_empty(),
+        second_position.vested_liquidity == 0,
         PoolError::UnsupportPositionHasVestingLock
     );
 
@@ -156,7 +156,7 @@ pub fn handle_split_position2(
     second_position.refresh_inner_vesting(current_point)?;
 
     // if we are sharing vesting liquidity, then must ensure both conditions:
-    // - second_position.inner_vesting.is_empty()
+    // - second_position.vested_liquidity == 0 (no vested liquidity in second position)
     // - first_position.inner_vesting doesnt have external vesting
     if inner_vesting_liquidity_numerator > 0 && !first_position.inner_vesting.is_empty() {
         check_position_split_validity(&first_position, &second_position)?;
