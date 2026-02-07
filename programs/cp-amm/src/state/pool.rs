@@ -125,10 +125,8 @@ pub struct Pool {
     pub protocol_a_fee: u64,
     /// protocol b fee
     pub protocol_b_fee: u64,
-    /// partner a fee
-    pub partner_a_fee: u64,
-    /// partner b fee
-    pub partner_b_fee: u64,
+    // padding for future use
+    pub _padding_2: u128,
     /// min price
     pub sqrt_min_price: u128,
     /// max price
@@ -178,8 +176,7 @@ pub struct PoolMetrics {
     pub total_lp_b_fee: u128,
     pub total_protocol_a_fee: u64,
     pub total_protocol_b_fee: u64,
-    pub total_partner_a_fee: u64,
-    pub total_partner_b_fee: u64,
+    pub padding_0: [u64; 2],
     pub total_position: u64,
     pub padding: u64,
 }
@@ -198,17 +195,14 @@ impl PoolMetrics {
         &mut self,
         lp_fee: u64,
         protocol_fee: u64,
-        partner_fee: u64,
         is_token_a: bool,
     ) -> Result<()> {
         if is_token_a {
             self.total_lp_a_fee = self.total_lp_a_fee.safe_add(lp_fee.into())?;
             self.total_protocol_a_fee = self.total_protocol_a_fee.safe_add(protocol_fee)?;
-            self.total_partner_a_fee = self.total_partner_a_fee.safe_add(partner_fee)?;
         } else {
             self.total_lp_b_fee = self.total_lp_b_fee.safe_add(lp_fee.into())?;
             self.total_protocol_b_fee = self.total_protocol_b_fee.safe_add(protocol_fee)?;
-            self.total_partner_b_fee = self.total_partner_b_fee.safe_add(partner_fee)?;
         }
 
         Ok(())
@@ -434,7 +428,6 @@ impl Pool {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
-        let mut actual_partner_fee = 0;
 
         let max_fee_numerator = get_max_fee_numerator(self.version)?;
 
@@ -459,15 +452,13 @@ impl Pool {
                 trading_fee,
                 protocol_fee,
                 referral_fee,
-                partner_fee,
             } = self
                 .pool_fees
-                .split_fees(fee_amount, fee_mode.has_referral, self.has_partner())?;
+                .split_fees(fee_amount, fee_mode.has_referral)?;
 
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
-            actual_partner_fee = partner_fee;
 
             included_fee_amount_out
         };
@@ -499,15 +490,13 @@ impl Pool {
                 trading_fee,
                 protocol_fee,
                 referral_fee,
-                partner_fee,
             } = self
                 .pool_fees
-                .split_fees(fee_amount, fee_mode.has_referral, self.has_partner())?;
+                .split_fees(fee_amount, fee_mode.has_referral)?;
 
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
-            actual_partner_fee = partner_fee;
 
             included_fee_input_amount
         } else {
@@ -522,7 +511,6 @@ impl Pool {
             next_sqrt_price,
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
-            partner_fee: actual_partner_fee,
             referral_fee: actual_referral_fee,
         })
     }
@@ -537,7 +525,6 @@ impl Pool {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
-        let mut actual_partner_fee = 0;
 
         let max_fee_numerator = get_max_fee_numerator(self.version)?;
 
@@ -557,19 +544,16 @@ impl Pool {
                 amount,
                 trading_fee,
                 protocol_fee,
-                partner_fee,
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
                 amount_in,
                 trade_fee_numerator,
                 fee_mode.has_referral,
-                self.has_partner(),
             )?;
 
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
-            actual_partner_fee = partner_fee;
 
             amount
         } else {
@@ -607,17 +591,13 @@ impl Pool {
                     trading_fee,
                     protocol_fee,
                     referral_fee,
-                    partner_fee,
-                } = self.pool_fees.split_fees(
-                    fee_amount,
-                    fee_mode.has_referral,
-                    self.has_partner(),
-                )?;
+                } = self
+                    .pool_fees
+                    .split_fees(fee_amount, fee_mode.has_referral)?;
 
                 actual_protocol_fee = protocol_fee;
                 actual_trading_fee = trading_fee;
                 actual_referral_fee = referral_fee;
-                actual_partner_fee = partner_fee;
 
                 included_fee_amount_in
             } else {
@@ -634,19 +614,16 @@ impl Pool {
                 amount,
                 trading_fee,
                 protocol_fee,
-                partner_fee,
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
                 output_amount,
                 trade_fee_numerator,
                 fee_mode.has_referral,
-                self.has_partner(),
             )?;
 
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
-            actual_partner_fee = partner_fee;
 
             amount
         };
@@ -659,7 +636,6 @@ impl Pool {
             next_sqrt_price,
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
-            partner_fee: actual_partner_fee,
             referral_fee: actual_referral_fee,
         })
     }
@@ -674,7 +650,6 @@ impl Pool {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
-        let mut actual_partner_fee = 0;
 
         let max_fee_numerator = get_max_fee_numerator(self.version)?;
 
@@ -698,19 +673,16 @@ impl Pool {
                 amount,
                 trading_fee,
                 protocol_fee,
-                partner_fee,
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
                 amount_in,
                 trade_fee_numerator,
                 fee_mode.has_referral,
-                self.has_partner(),
             )?;
 
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
-            actual_partner_fee = partner_fee;
 
             amount
         } else {
@@ -733,19 +705,16 @@ impl Pool {
                 amount,
                 trading_fee,
                 protocol_fee,
-                partner_fee,
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
                 output_amount,
                 trade_fee_numerator,
                 fee_mode.has_referral,
-                self.has_partner(),
             )?;
 
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
-            actual_partner_fee = partner_fee;
 
             amount
         };
@@ -758,7 +727,6 @@ impl Pool {
             next_sqrt_price,
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
-            partner_fee: actual_partner_fee,
             referral_fee: actual_referral_fee,
         })
     }
@@ -948,7 +916,6 @@ impl Pool {
             trading_fee: lp_fee,
             next_sqrt_price,
             protocol_fee,
-            partner_fee,
             ..
         } = swap_result;
 
@@ -959,23 +926,19 @@ impl Pool {
             .ok_or_else(|| PoolError::MathOverflow)?;
 
         if fee_mode.fees_on_token_a {
-            self.partner_a_fee = self.partner_a_fee.safe_add(partner_fee)?;
             self.protocol_a_fee = self.protocol_a_fee.safe_add(protocol_fee)?;
             self.fee_a_per_liquidity = self
                 .fee_a_per_liquidity()
                 .safe_add(fee_per_token_stored)?
                 .to_le_bytes();
-            self.metrics
-                .accumulate_fee(lp_fee, protocol_fee, partner_fee, true)?;
+            self.metrics.accumulate_fee(lp_fee, protocol_fee, true)?;
         } else {
-            self.partner_b_fee = self.partner_b_fee.safe_add(partner_fee)?;
             self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
             self.fee_b_per_liquidity = self
                 .fee_b_per_liquidity()
                 .safe_add(fee_per_token_stored)?
                 .to_le_bytes();
-            self.metrics
-                .accumulate_fee(lp_fee, protocol_fee, partner_fee, false)?;
+            self.metrics.accumulate_fee(lp_fee, protocol_fee, false)?;
         }
 
         self.update_post_swap(old_sqrt_price, current_timestamp)?;
@@ -1227,18 +1190,6 @@ impl Pool {
         Ok((token_a_amount, token_b_amount))
     }
 
-    pub fn claim_partner_fee(
-        &mut self,
-        max_amount_a: u64,
-        max_amount_b: u64,
-    ) -> Result<(u64, u64)> {
-        let token_a_amount = self.partner_a_fee.min(max_amount_a);
-        let token_b_amount = self.partner_b_fee.min(max_amount_b);
-        self.partner_a_fee = self.partner_a_fee.safe_sub(token_a_amount)?;
-        self.partner_b_fee = self.partner_b_fee.safe_sub(token_b_amount)?;
-        Ok((token_a_amount, token_b_amount))
-    }
-
     /// Update the rewards per token stored.
     pub fn update_rewards(&mut self, current_time: u64) -> Result<()> {
         for reward_idx in 0..NUM_REWARDS {
@@ -1275,10 +1226,6 @@ impl Pool {
 
     pub fn check_pool_creator_to_edit_reward(&self, reward_index: usize, signer: Pubkey) -> bool {
         signer == self.creator && reward_index == 0
-    }
-
-    pub fn has_partner(&self) -> bool {
-        self.partner != Pubkey::default()
     }
 
     pub fn get_reserves_amount(&self) -> Result<(u64, u64)> {
@@ -1381,7 +1328,6 @@ pub struct SwapResult {
     pub next_sqrt_price: u128,
     pub lp_fee: u64,
     pub protocol_fee: u64,
-    pub partner_fee: u64,
     pub referral_fee: u64,
 }
 
@@ -1392,7 +1338,6 @@ impl From<SwapResult2> for SwapResult {
             next_sqrt_price: value.next_sqrt_price,
             lp_fee: value.trading_fee,
             protocol_fee: value.protocol_fee,
-            partner_fee: value.partner_fee,
             referral_fee: value.referral_fee,
         }
     }
@@ -1408,7 +1353,6 @@ pub struct SwapResult2 {
     pub next_sqrt_price: u128,
     pub trading_fee: u64,
     pub protocol_fee: u64,
-    pub partner_fee: u64,
     pub referral_fee: u64,
 }
 

@@ -159,7 +159,6 @@ fn test_swap_basic() {
     // let pool_fees = PoolFeesStruct {
     //     trade_fee_numerator: 1_000_000, //1%
     //     protocol_fee_percent: 20,
-    //     partner_fee_percent: 50,
     //     referral_fee_percent: 20,
     //     ..Default::default()
     // };
@@ -205,7 +204,12 @@ fn test_swap_basic() {
     pool.apply_swap_result(&swap_result, fee_mode, 0).unwrap();
 
     let swap_result_referse = pool
-        .get_swap_result_from_exact_input(swap_result.output_amount, fee_mode, TradeDirection::BtoA, 0)
+        .get_swap_result_from_exact_input(
+            swap_result.output_amount,
+            fee_mode,
+            TradeDirection::BtoA,
+            0,
+        )
         .unwrap();
 
     println!("reverse {:?}", swap_result_referse);

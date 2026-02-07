@@ -1,9 +1,7 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
 use crate::base_fee::{base_fee_parameters_to_base_fee_info, BaseFeeHandlerBuilder};
-use crate::constants::fee::{
-    HOST_FEE_PERCENT, MAX_BASIS_POINT, PARTNER_FEE_PERCENT, PROTOCOL_FEE_PERCENT,
-};
+use crate::constants::fee::{HOST_FEE_PERCENT, MAX_BASIS_POINT, PROTOCOL_FEE_PERCENT};
 use crate::constants::{BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
@@ -58,7 +56,6 @@ impl PoolFeeParameters {
             Ok(PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
                 ..Default::default()
@@ -67,7 +64,6 @@ impl PoolFeeParameters {
             Ok(PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 ..Default::default()
             })
@@ -82,7 +78,6 @@ impl PoolFeeParameters {
             Ok(PoolFeesStruct {
                 base_fee: base_fee.to_base_fee_struct()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
                 init_sqrt_price,
@@ -92,7 +87,6 @@ impl PoolFeeParameters {
             Ok(PoolFeesStruct {
                 base_fee: base_fee.to_base_fee_struct()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
                 init_sqrt_price,
                 ..Default::default()

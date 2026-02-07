@@ -28,9 +28,6 @@ MCPA is a brand new AMM program of Meteora that includes almost all features fro
 - fund_reward: fund reward for on-chain liquidity mining
 - withdraw_ineligible_reward: withdraw ineligible reward 
 
-### Partner (aka Launchpad)
-- claim_partner_fee: claim partner fee
-
 ### Token deployer 
 - initialize_pool: create a new pool from a static config key 
 - initialize_pool_with_dynamic_config: create a new pool from a dynamic config key 
@@ -54,7 +51,7 @@ MCPA is a brand new AMM program of Meteora that includes almost all features fro
 ## Config key state
 - vault_config_key: alpha-vault address that is able to buy pool before activation_point
 - pool_creator_authority: if this address is non-default, then only this address can create pool with that config key (for launchpad)
-- pool_fees: includes base fee scheduler, dynamic-fee, protocol fee percent, partner fee percent, and referral fee percent configuration
+- pool_fees: includes base fee scheduler, dynamic-fee, protocol fee percent, and referral fee percent configuration
 - activation_type: determines whether pools are run in slot or timestamp 
 - collect_fee_mode: determines whether pool should collect fees in both tokens or only one token
 - sqrt_min_price: square root of min price for pools

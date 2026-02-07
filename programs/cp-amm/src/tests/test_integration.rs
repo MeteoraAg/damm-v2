@@ -35,7 +35,6 @@ proptest! {
         let pool_fees = PoolFeesStruct {
             base_fee, //1%
             protocol_fee_percent: 20,
-            partner_fee_percent: 50,
             referral_fee_percent: 20,
             ..Default::default()
         };
@@ -104,7 +103,6 @@ fn test_reserve_wont_lost_single() {
     let pool_fees = PoolFeesStruct {
         base_fee, //1%
         protocol_fee_percent: 20,
-        partner_fee_percent: 50,
         referral_fee_percent: 20,
         ..Default::default()
     };
