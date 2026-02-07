@@ -230,22 +230,11 @@ impl PoolFeeParameters {
 
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
 pub struct PartnerInfo {
-    pub fee_percent: u8,
     pub partner_authority: Pubkey,
-    pub pending_fee_a: u64,
-    pub pending_fee_b: u64,
 }
 
 impl PartnerInfo {
     pub fn have_partner(&self) -> bool {
         self.partner_authority != Pubkey::default()
-    }
-
-    pub fn validate(&self) -> Result<()> {
-        if !self.have_partner() {
-            require!(self.fee_percent == 0, PoolError::InvalidFee);
-        }
-
-        Ok(())
     }
 }
