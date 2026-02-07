@@ -2104,7 +2104,7 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
       reward0Percentage,
       reward1Percentage,
       innerVestingLiquidityPercentage,
-      padding: new Array(16).fill(0),
+      padding: new Array(15).fill(0),
     })
     .accountsPartial({
       pool,
