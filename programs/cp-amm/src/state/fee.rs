@@ -25,6 +25,7 @@ pub struct FeeOnAmountResult {
     pub amount: u64,
     pub trading_fee: u64,
     pub protocol_fee: u64,
+    pub creator_fee: u64,
     pub referral_fee: u64,
 }
 
@@ -75,8 +76,8 @@ pub struct PoolFeesStruct {
     /// the protocol of the program.
     /// Protocol trade fee numerator
     pub protocol_fee_percent: u8,
-    /// padding for future use
-    pub padding_0: u8,
+    /// creator fee percent
+    pub creator_fee_percent: u8,
     /// referral fee
     pub referral_fee_percent: u8,
     /// padding
@@ -186,6 +187,7 @@ impl PoolFeesStruct {
         amount: u64,
         trade_fee_numerator: u64,
         has_referral: bool,
+        has_creator: bool,
     ) -> Result<FeeOnAmountResult> {
         let (amount, trading_fee) =
             PoolFeesStruct::get_excluded_fee_amount(trade_fee_numerator, amount)?;
@@ -193,13 +195,15 @@ impl PoolFeesStruct {
         let SplitFees {
             trading_fee,
             protocol_fee,
+            creator_fee,
             referral_fee,
-        } = self.split_fees(trading_fee, has_referral)?;
+        } = self.split_fees(trading_fee, has_referral, has_creator)?;
 
         Ok(FeeOnAmountResult {
             amount,
             trading_fee,
             protocol_fee,
+            creator_fee,
             referral_fee,
         })
     }
@@ -232,7 +236,12 @@ impl PoolFeesStruct {
         Ok((included_fee_amount, fee_amount))
     }
 
-    pub fn split_fees(&self, fee_amount: u64, has_referral: bool) -> Result<SplitFees> {
+    pub fn split_fees(
+        &self,
+        fee_amount: u64,
+        has_referral: bool,
+        has_creator: bool,
+    ) -> Result<SplitFees> {
         let protocol_fee = safe_mul_div_cast_u64(
             fee_amount,
             self.protocol_fee_percent.into(),
@@ -254,11 +263,25 @@ impl PoolFeesStruct {
             0
         };
 
-        let protocol_fee = protocol_fee.safe_sub(referral_fee)?;
+        let protocol_fee_after_referral = protocol_fee.safe_sub(referral_fee)?;
+
+        let creator_fee = if has_creator && self.creator_fee_percent > 0 {
+            safe_mul_div_cast_u64(
+                protocol_fee_after_referral,
+                self.creator_fee_percent.into(),
+                100,
+                Rounding::Down,
+            )?
+        } else {
+            0
+        };
+
+        let protocol_fee = protocol_fee_after_referral.safe_sub(creator_fee)?;
 
         Ok(SplitFees {
             trading_fee,
             protocol_fee,
+            creator_fee,
             referral_fee,
         })
     }
@@ -411,6 +434,7 @@ impl FeeMode {
 pub struct SplitFees {
     pub trading_fee: u64,
     pub protocol_fee: u64,
+    pub creator_fee: u64,
     pub referral_fee: u64,
 }
 

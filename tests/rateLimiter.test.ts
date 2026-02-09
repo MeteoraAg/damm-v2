@@ -141,7 +141,7 @@ describe("Rate limiter", () => {
 
     let totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
-    );
+    ).add(poolState.metrics.totalCreatorBFee);
 
     expect(totalTradingFee.toNumber()).eq(
       referenceAmount.div(new BN(100)).toNumber()
@@ -163,7 +163,7 @@ describe("Rate limiter", () => {
 
     let totalTradingFee1 = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
-    );
+    ).add(poolState.metrics.totalCreatorBFee);
     let deltaTradingFee = totalTradingFee1.sub(totalTradingFee);
 
     expect(deltaTradingFee.toNumber()).gt(
@@ -189,7 +189,7 @@ describe("Rate limiter", () => {
 
     let totalTradingFee2 = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
-    );
+    ).add(poolState.metrics.totalCreatorBFee);
     let deltaTradingFee1 = totalTradingFee2.sub(totalTradingFee1);
     expect(deltaTradingFee1.toNumber()).eq(
       referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()

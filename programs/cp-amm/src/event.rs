@@ -142,6 +142,14 @@ pub struct EvtClaimProtocolFee {
 }
 
 #[event]
+pub struct EvtClaimCreatorFee {
+    pub pool: Pubkey,
+    pub creator: Pubkey,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
+}
+
+#[event]
 pub struct EvtSetPoolStatus {
     pub pool: Pubkey,
     pub status: u8,

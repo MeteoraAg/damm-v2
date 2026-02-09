@@ -3,6 +3,7 @@ import BN from "bn.js";
 import {
   addLiquidity,
   AddLiquidityParams,
+  claimCreatorFee,
   claimProtocolFee,
   createConfigIx,
   CreateConfigParams,
@@ -161,6 +162,13 @@ describe("Claim fee", () => {
         pool,
         treasury: TREASURY,
       });
+
+      await claimCreatorFee(svm, {
+        creator,
+        pool,
+        maxAmountA: new BN(100000000000000),
+        maxAmountB: new BN(100000000000000),
+      });
     });
   });
 
@@ -315,6 +323,13 @@ describe("Claim fee", () => {
         whitelistedKP: whitelistedAccount,
         pool,
         treasury: TREASURY,
+      });
+
+      await claimCreatorFee(svm, {
+        creator,
+        pool,
+        maxAmountA: new BN(100000000000000),
+        maxAmountB: new BN(100000000000000),
       });
     });
   });

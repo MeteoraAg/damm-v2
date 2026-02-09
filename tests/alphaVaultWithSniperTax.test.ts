@@ -87,7 +87,7 @@ describe("Alpha vault with sniper tax", () => {
       const poolState = getPool(svm, pool);
       let totalTradingFee = poolState.metrics.totalLpBFee.add(
         poolState.metrics.totalProtocolBFee
-      );
+      ).add(poolState.metrics.totalCreatorBFee);
       const totalDeposit = new BN(alphaVaultState.totalDeposit);
 
       // flat base fee
@@ -169,7 +169,7 @@ describe("Alpha vault with sniper tax", () => {
       const poolState = getPool(svm, pool);
       let totalTradingFee = poolState.metrics.totalLpBFee.add(
         poolState.metrics.totalProtocolBFee
-      );
+      ).add(poolState.metrics.totalCreatorBFee);
       const totalDeposit = new BN(alphaVaultState.totalDeposit);
 
       const rateLimiterScheduler = decodePodAlignedFeeRateLimiter(

@@ -159,6 +159,7 @@ fn test_swap_basic() {
     // let pool_fees = PoolFeesStruct {
     //     trade_fee_numerator: 1_000_000, //1%
     //     protocol_fee_percent: 20,
+    //     creator_fee_percent: 50,
     //     referral_fee_percent: 20,
     //     ..Default::default()
     // };

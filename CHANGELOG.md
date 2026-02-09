@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.0]
 
+### Added
+
+- Added `creator_fee` feature and the `claim_creator_fee` endpoint which can be executed by the pool creator
+
 ### Removed
 
 - Removed `partner` field from Pool struct
