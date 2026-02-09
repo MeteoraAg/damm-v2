@@ -208,11 +208,8 @@ pub mod fee {
 
     pub const HOST_FEE_PERCENT: u8 = 20; // 20% of protocol fee
 
-    pub const PARTNER_FEE_PERCENT: u8 = 0; // percentage of partner fee
-
     static_assertions::const_assert!(PROTOCOL_FEE_PERCENT <= 50);
     static_assertions::const_assert!(HOST_FEE_PERCENT <= 50);
-    static_assertions::const_assert!(PARTNER_FEE_PERCENT <= 50);
 
     #[constant]
     pub const CURRENT_POOL_VERSION: u8 = 1;

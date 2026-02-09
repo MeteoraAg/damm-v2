@@ -321,7 +321,6 @@ export async function createConfigIx(
       throw new Error("Unreachable");
   }
   expect(configState.poolFees.protocolFeePercent).eq(20);
-  expect(configState.poolFees.partnerFeePercent).eq(0);
   expect(configState.poolFees.referralFeePercent).eq(20);
   expect(configState.configType).eq(0); // ConfigType: Static
 
@@ -568,59 +567,6 @@ export async function claimProtocolFee(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [whitelistedKP]);
-  expect(result).instanceOf(TransactionMetadata);
-}
-
-export type ClaimPartnerFeeParams = {
-  partner: Keypair;
-  pool: PublicKey;
-  maxAmountA: BN;
-  maxAmountB: BN;
-};
-export async function claimPartnerFee(
-  svm: LiteSVM,
-  params: ClaimPartnerFeeParams
-) {
-  const program = createCpAmmProgram();
-  const { partner, pool, maxAmountA, maxAmountB } = params;
-  const poolAuthority = derivePoolAuthority();
-  const poolState = getPool(svm, pool);
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
-  const tokenAAccount = getOrCreateAssociatedTokenAccount(
-    svm,
-    partner,
-    poolState.tokenAMint,
-    partner.publicKey,
-    tokenAProgram
-  );
-
-  const tokenBAccount = getOrCreateAssociatedTokenAccount(
-    svm,
-    partner,
-    poolState.tokenBMint,
-    partner.publicKey,
-    tokenBProgram
-  );
-  const transaction = await program.methods
-    .claimPartnerFee(maxAmountA, maxAmountB)
-    .accountsPartial({
-      poolAuthority,
-      pool,
-      tokenAVault: poolState.tokenAVault,
-      tokenBVault: poolState.tokenBVault,
-      tokenAMint: poolState.tokenAMint,
-      tokenBMint: poolState.tokenBMint,
-      tokenAAccount,
-      tokenBAccount,
-      partner: partner.publicKey,
-      tokenAProgram,
-      tokenBProgram,
-    })
-    .transaction();
-
-  const result = sendTransaction(svm, transaction, [partner]);
-
   expect(result).instanceOf(TransactionMetadata);
 }
 
@@ -2158,7 +2104,7 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
       reward0Percentage,
       reward1Percentage,
       innerVestingLiquidityPercentage,
-      padding: new Array(16).fill(0),
+      padding: new Array(15).fill(0),
     })
     .accountsPartial({
       pool,

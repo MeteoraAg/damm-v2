@@ -4,9 +4,7 @@ use crate::{
     base_fee::base_fee_info_to_base_fee_parameters,
     constants::activation::*,
     error::PoolError,
-    params::fee_parameters::{
-        BaseFeeParameters, DynamicFeeParameters, PartnerInfo, PoolFeeParameters,
-    },
+    params::fee_parameters::{BaseFeeParameters, DynamicFeeParameters, PoolFeeParameters},
     safe_math::SafeMath,
     state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
 };
@@ -41,10 +39,10 @@ pub struct PoolFeesConfig {
     pub base_fee: BaseFeeInfo,
     pub dynamic_fee: DynamicFeeConfig,
     pub protocol_fee_percent: u8,
-    pub partner_fee_percent: u8,
+    pub padding_0: u8,
     pub referral_fee_percent: u8,
-    pub padding_0: [u8; 5],
-    pub padding_1: [u64; 5],
+    pub padding_1: [u8; 5],
+    pub padding_2: [u64; 5],
 }
 
 const_assert_eq!(PoolFeesConfig::INIT_SPACE, 128);
@@ -114,7 +112,6 @@ impl PoolFeesConfig {
         let &PoolFeesConfig {
             base_fee,
             protocol_fee_percent,
-            partner_fee_percent,
             referral_fee_percent,
             dynamic_fee,
             ..
@@ -123,7 +120,6 @@ impl PoolFeesConfig {
         PoolFeesStruct {
             base_fee: base_fee.to_base_fee_struct(),
             protocol_fee_percent,
-            partner_fee_percent,
             referral_fee_percent,
             dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
             init_sqrt_price,
@@ -280,14 +276,6 @@ impl Config {
         self.index = index;
         self.pool_creator_authority = pool_creator_authority;
         self.config_type = ConfigType::Dynamic.into();
-    }
-
-    pub fn get_partner_info(&self) -> PartnerInfo {
-        PartnerInfo {
-            partner_authority: self.pool_creator_authority,
-            fee_percent: self.pool_fees.partner_fee_percent,
-            ..Default::default()
-        }
     }
 
     pub fn has_alpha_vault(&self) -> bool {

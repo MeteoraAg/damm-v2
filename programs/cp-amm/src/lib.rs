@@ -186,15 +186,6 @@ pub mod cp_amm {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
-    #[deprecated = "We currently disable this, and could enable this in the future"]
-    pub fn claim_partner_fee(
-        ctx: Context<ClaimPartnerFeesCtx>,
-        max_amount_a: u64,
-        max_amount_b: u64,
-    ) -> Result<()> {
-        instructions::handle_claim_partner_fee(ctx, max_amount_a, max_amount_b)
-    }
-
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]
     pub fn close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
         instructions::handle_close_token_badge(ctx)
