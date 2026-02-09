@@ -2,7 +2,6 @@ use crate::{const_pda, state::Pool, token::transfer_from_pool, EvtClaimCreatorFe
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
-/// Accounts for claiming creator fees
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimCreatorFeeCtx<'info> {
