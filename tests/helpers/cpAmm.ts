@@ -1477,33 +1477,57 @@ export async function lockPosition(
   position: PublicKey,
   owner: Keypair,
   payer: Keypair,
-  params: LockPositionParams
+  params: LockPositionParams,
+  innerPosition?: boolean
 ) {
   const program = createCpAmmProgram();
   const positionState = getPosition(svm, position);
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
-  const vestingKP = Keypair.generate();
+  let transaction;
+  let signers;
+  let vestingAddress;
+  if (innerPosition) {
+    vestingAddress = position;
+    transaction = await program.methods
+      .lockInnerPosition(params)
+      .accountsPartial({
+        position,
+        positionNftAccount,
+        owner: owner.publicKey,
+        pool: positionState.pool,
+        program: CP_AMM_PROGRAM_ID,
+      })
+      .transaction();
 
-  const transaction = await program.methods
-    .lockPosition(params)
-    .accountsPartial({
-      position,
-      positionNftAccount,
-      vesting: vestingKP.publicKey,
-      owner: owner.publicKey,
-      pool: positionState.pool,
-      program: CP_AMM_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-      payer: payer.publicKey,
-    })
-    .transaction();
+    signers = [owner];
+  } else {
+    const vestingKP = Keypair.generate();
+    vestingAddress = vestingKP.publicKey;
+    transaction = await program.methods
+      .lockPosition(params)
+      .accountsPartial({
+        position,
+        positionNftAccount,
+        vesting: vestingAddress,
+        owner: owner.publicKey,
+        pool: positionState.pool,
+        program: CP_AMM_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+        payer: payer.publicKey,
+      })
+      .transaction();
 
-  const result = sendTransaction(svm, transaction, [payer, owner, vestingKP]);
+    signers = [payer, owner, vestingKP];
+  }
+
+  const result = sendTransaction(svm, transaction, signers);
   expect(result).instanceOf(TransactionMetadata);
 
-  return vestingKP.publicKey;
+  return vestingAddress;
 }
+
+
 
 export async function createPosition(
   svm: LiteSVM,
@@ -2105,6 +2129,7 @@ export type SplitPositionParams = {
   feeBPercentage: number;
   reward0Percentage: number;
   reward1Percentage: number;
+  innerVestingLiquidityPercentage: number;
 };
 export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
   const {
@@ -2121,6 +2146,7 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
     feeBPercentage,
     reward0Percentage,
     reward1Percentage,
+    innerVestingLiquidityPercentage,
   } = params;
   const program = createCpAmmProgram();
   const transaction = await program.methods
@@ -2131,6 +2157,7 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
       feeBPercentage,
       reward0Percentage,
       reward1Percentage,
+      innerVestingLiquidityPercentage,
       padding: new Array(16).fill(0),
     })
     .accountsPartial({

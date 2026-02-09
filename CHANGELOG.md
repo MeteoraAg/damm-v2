@@ -21,6 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## cp_amm [0.1.8][PR #177](https://github.com/MeteoraAg/damm-v2/pull/177)
+
+### Added
+
+- New endpoint `fix_pool_params` and `fix_config_fee_params` to allow `operator` to fix invalid scheduler params that causes blocking operation on `update_pool_fees` endpoint.
+- New endpoint `lock_inner_position`, that allow to vest liquidity without external `Vesting` account for better composability. 
+
+### Changed
+
+- Endpoint `split_position` and `split_position2` will split `InnerVesting` of the `Position` account
+
 ## cp_amm [0.1.7] [PR #124](https://github.com/MeteoraAg/damm-v2/pull/167)
 
 ### Added

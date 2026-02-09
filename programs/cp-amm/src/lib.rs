@@ -27,6 +27,7 @@ pub mod pool_action_access;
 pub use pool_action_access::*;
 pub mod access_control;
 pub use access_control::*;
+use params::fee_parameters::BaseFeeParameters;
 use state::OperatorPermission;
 
 #[cfg(not(feature = "no-custom-entrypoint"))]
@@ -107,6 +108,22 @@ pub mod cp_amm {
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::RemoveConfigKey))]
     pub fn close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {
         instructions::handle_close_config(ctx)
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
+    pub fn fix_pool_fee_params(
+        ctx: Context<FixPoolFeeParams>,
+        params: BaseFeeParameters,
+    ) -> Result<()> {
+        instructions::handle_fix_pool_fee_params(ctx, params)
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
+    pub fn fix_config_fee_params(
+        ctx: Context<FixConfigFeeParams>,
+        params: BaseFeeParameters,
+    ) -> Result<()> {
+        instructions::handle_fix_config_fee_params(ctx, params)
     }
 
     pub fn initialize_reward<'c: 'info, 'info>(
@@ -279,6 +296,13 @@ pub mod cp_amm {
         instructions::handle_lock_position(ctx, params)
     }
 
+    pub fn lock_inner_position(
+        ctx: Context<LockInnerPositionCtx>,
+        params: VestingParameters,
+    ) -> Result<()> {
+        instructions::handle_lock_inner_position(ctx, params)
+    }
+
     pub fn refresh_vesting<'a, 'b, 'c: 'info, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, RefreshVesting<'info>>,
     ) -> Result<()> {
@@ -304,19 +328,20 @@ pub mod cp_amm {
         ctx: Context<SplitPositionCtx>,
         params: SplitPositionParameters,
     ) -> Result<()> {
-        instructions::handle_split_position2(ctx, params.get_split_position_parameters2()?)
+        instructions::handle_split_position2(ctx, params.get_split_position_parameters()?)
     }
 
     pub fn split_position2(ctx: Context<SplitPositionCtx>, numerator: u32) -> Result<()> {
         instructions::handle_split_position2(
             ctx,
-            SplitPositionParameters2 {
+            SplitPositionParameters3 {
                 unlocked_liquidity_numerator: numerator,
                 permanent_locked_liquidity_numerator: numerator,
                 fee_a_numerator: numerator,
                 fee_b_numerator: numerator,
                 reward_0_numerator: numerator,
                 reward_1_numerator: numerator,
+                inner_vesting_liquidity_numerator: numerator,
             },
         )
     }

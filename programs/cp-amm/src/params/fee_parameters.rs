@@ -36,7 +36,7 @@ impl BaseFeeParameters {
         Ok(())
     }
 
-    fn to_base_fee_struct(&self) -> Result<BaseFeeStruct> {
+    pub fn to_base_fee_struct(&self) -> Result<BaseFeeStruct> {
         Ok(BaseFeeStruct {
             base_fee_info: self.to_base_fee_config()?,
             ..Default::default()
