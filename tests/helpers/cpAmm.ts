@@ -76,7 +76,7 @@ import {
   decodePodAlignedFeeTimeScheduler,
 } from "./feeCodec";
 import { sendTransaction } from "./svm";
-import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
+import { getOrCreateAssociatedTokenAccount, getTokenBalance, wrapSOL } from "./token";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
 export type Position = IdlAccounts<CpAmm>["position"];
@@ -568,6 +568,103 @@ export async function claimProtocolFee(
 
   const result = sendTransaction(svm, transaction, [whitelistedKP]);
   expect(result).instanceOf(TransactionMetadata);
+}
+
+export type ClaimCreatorFeeParams = {
+  creator: Keypair;
+  pool: PublicKey;
+  maxAmountA: BN;
+  maxAmountB: BN;
+};
+export async function claimCreatorFee(
+  svm: LiteSVM,
+  params: ClaimCreatorFeeParams,
+) {
+  const program = createCpAmmProgram();
+  const { creator, pool, maxAmountA, maxAmountB } = params;
+  const poolAuthority = derivePoolAuthority();
+  const poolState = getPool(svm, pool);
+
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
+
+  const tokenAVaultAccount = svm.getAccount(
+    poolState.tokenAVault,
+  ) as AccountInfo<Buffer>;
+
+  const tokenBVaultAccount = svm.getAccount(
+    poolState.tokenBVault,
+  ) as AccountInfo<Buffer>;
+
+  const tokenAVaultState = unpackAccount(
+    poolState.tokenAVault,
+    tokenAVaultAccount,
+    tokenAProgram,
+  );
+
+  const tokenBVaultState = unpackAccount(
+    poolState.tokenBVault,
+    tokenBVaultAccount,
+    tokenBProgram,
+  );
+
+  const creatorFeeA = tokenAVaultState.isFrozen
+    ? new BN(0)
+    : poolState.creatorAFee;
+
+  const creatorFeeB = tokenBVaultState.isFrozen
+    ? new BN(0)
+    : poolState.creatorBFee;
+
+  const tokenAAccount = getOrCreateAssociatedTokenAccount(
+    svm,
+    creator,
+    poolState.tokenAMint,
+    creator.publicKey,
+    tokenAProgram,
+  );
+
+  const tokenBAccount = getOrCreateAssociatedTokenAccount(
+    svm,
+    creator,
+    poolState.tokenBMint,
+    creator.publicKey,
+    tokenBProgram,
+  );
+
+  const beforeTokenABalance = new BN(getTokenBalance(svm, tokenAAccount));
+  const beforeTokenBBalance = new BN(getTokenBalance(svm, tokenBAccount));
+
+  const transaction = await program.methods
+    .claimCreatorFee(maxAmountA, maxAmountB)
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+      tokenAAccount,
+      tokenBAccount,
+      creator: creator.publicKey,
+      tokenAProgram,
+      tokenBProgram,
+    })
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [creator]);
+  expect(result).instanceOf(TransactionMetadata);
+
+  const afterTokenABalance = new BN(getTokenBalance(svm, tokenAAccount));
+  const afterTokenBBalance = new BN(getTokenBalance(svm, tokenBAccount));
+
+  if (creatorFeeA.gtn(0)) {
+    expect(afterTokenABalance.gt(beforeTokenABalance)).eq(true);
+  }
+
+  if (creatorFeeB.gtn(0)) {
+    expect(afterTokenBBalance.gt(beforeTokenBBalance)).eq(true);
+  }
 }
 
 export type InitializePoolParams = {

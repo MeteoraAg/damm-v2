@@ -33,6 +33,9 @@ MCPA is a brand new AMM program of Meteora that includes almost all features fro
 - initialize_pool_with_dynamic_config: create a new pool from a dynamic config key 
 - initialize_customizable_pool: create a new pool with customizable parameters, should be only used by token deployer, that token can't be leaked.
 
+### Pool Creator
+- claim_creator_fee: claim creator fee
+
 ### Liquidity provider
 - create_position: create a new position nft, that holds liquidity that owner will deposit later
 - add_liquidity: add liquidity to a pool 

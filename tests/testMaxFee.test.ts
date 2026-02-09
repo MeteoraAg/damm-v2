@@ -144,7 +144,7 @@ describe("Test max fee 99%", () => {
 
     let totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
-    );
+    ).add(poolState.metrics.totalCreatorBFee);
 
     const actualFee = amountIn.muln(99).divn(100);
 
@@ -205,7 +205,7 @@ describe("Test max fee 99%", () => {
 
     let totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
-    );
+    ).add(poolState.metrics.totalCreatorBFee);
 
     const actualFee = amountIn.muln(99).divn(100);
 
@@ -269,7 +269,7 @@ describe("Test max fee 99%", () => {
 
     let totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
-    );
+    ).add(poolState.metrics.totalCreatorBFee);
 
     const actualFee = amountIn.muln(99).divn(100);
 
@@ -329,7 +329,7 @@ describe("Test max fee 99%", () => {
 
     let totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
-    );
+    ).add(poolState.metrics.totalCreatorBFee);
 
     const actualFee = amountIn.muln(99).divn(100);
 
@@ -387,7 +387,7 @@ describe("Test max fee 99%", () => {
 
     let totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
-    );
+    ).add(poolState.metrics.totalCreatorBFee);
 
     const actualFee = amountIn.muln(99).divn(100);
 
@@ -450,7 +450,7 @@ describe("Test max fee 99%", () => {
 
     let totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
-    );
+    ).add(poolState.metrics.totalCreatorBFee);
     // first 1 SOL: 10%
     // next amount: 60%
     // next amount: 99%

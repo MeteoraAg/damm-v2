@@ -283,6 +283,14 @@ pub mod cp_amm {
         instructions::handle_claim_position_fee(ctx)
     }
 
+    pub fn claim_creator_fee(
+        ctx: Context<ClaimCreatorFeeCtx>,
+        max_amount_a: u64,
+        max_amount_b: u64,
+    ) -> Result<()> {
+        instructions::handle_claim_creator_fee(ctx, max_amount_a, max_amount_b)
+    }
+
     pub fn lock_position(ctx: Context<LockPositionCtx>, params: VestingParameters) -> Result<()> {
         instructions::handle_lock_position(ctx, params)
     }

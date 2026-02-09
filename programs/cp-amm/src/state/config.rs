@@ -39,7 +39,7 @@ pub struct PoolFeesConfig {
     pub base_fee: BaseFeeInfo,
     pub dynamic_fee: DynamicFeeConfig,
     pub protocol_fee_percent: u8,
-    pub padding_0: u8,
+    pub creator_fee_percent: u8,
     pub referral_fee_percent: u8,
     pub padding_1: [u8; 5],
     pub padding_2: [u64; 5],
@@ -112,6 +112,7 @@ impl PoolFeesConfig {
         let &PoolFeesConfig {
             base_fee,
             protocol_fee_percent,
+            creator_fee_percent,
             referral_fee_percent,
             dynamic_fee,
             ..
@@ -120,6 +121,7 @@ impl PoolFeesConfig {
         PoolFeesStruct {
             base_fee: base_fee.to_base_fee_struct(),
             protocol_fee_percent,
+            creator_fee_percent,
             referral_fee_percent,
             dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
             init_sqrt_price,
