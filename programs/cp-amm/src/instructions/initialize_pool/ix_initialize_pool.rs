@@ -274,7 +274,6 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         ctx.accounts.token_a_vault.key(),
         ctx.accounts.token_b_vault.key(),
         alpha_vault,
-        config.pool_creator_authority,
         config.sqrt_min_price,
         config.sqrt_max_price,
         sqrt_price,

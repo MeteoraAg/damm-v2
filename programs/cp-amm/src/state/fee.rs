@@ -76,11 +76,11 @@ pub struct PoolFeesStruct {
     /// Protocol trade fee numerator
     pub protocol_fee_percent: u8,
     /// padding for future use
-    pub padding_1: u8,
+    pub padding_0: u8,
     /// referral fee
     pub referral_fee_percent: u8,
     /// padding
-    pub padding_0: [u8; 5],
+    pub padding_1: [u8; 5],
 
     /// dynamic fee
     pub dynamic_fee: DynamicFeeStruct,

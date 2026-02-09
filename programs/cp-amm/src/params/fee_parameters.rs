@@ -227,14 +227,3 @@ impl PoolFeeParameters {
         Ok(())
     }
 }
-
-#[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
-pub struct PartnerInfo {
-    pub partner_authority: Pubkey,
-}
-
-impl PartnerInfo {
-    pub fn have_partner(&self) -> bool {
-        self.partner_authority != Pubkey::default()
-    }
-}

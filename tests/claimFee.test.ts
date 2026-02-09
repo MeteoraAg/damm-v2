@@ -44,16 +44,14 @@ describe("Claim fee", () => {
     let position: PublicKey;
     let inputTokenMint: PublicKey;
     let outputTokenMint: PublicKey;
-    let claimFeeOperator: Keypair;
-    let partner: Keypair;
+    let creator: Keypair;
 
     beforeEach(async () => {
       svm = startSvm();
 
       user = generateKpAndFund(svm);
       admin = generateKpAndFund(svm);
-      partner = generateKpAndFund(svm);
-      claimFeeOperator = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
       whitelistedAccount = generateKpAndFund(svm);
 
       inputTokenMint = createToken(svm, admin.publicKey, admin.publicKey);
@@ -63,9 +61,9 @@ describe("Claim fee", () => {
 
       mintSplTokenTo(svm, outputTokenMint, admin, user.publicKey);
 
-      mintSplTokenTo(svm, inputTokenMint, admin, partner.publicKey);
+      mintSplTokenTo(svm, inputTokenMint, admin, creator.publicKey);
 
-      mintSplTokenTo(svm, outputTokenMint, admin, partner.publicKey);
+      mintSplTokenTo(svm, outputTokenMint, admin, creator.publicKey);
 
       const cliffFeeNumerator = new BN(2_500_000);
       const numberOfPeriod = new BN(0);
@@ -92,7 +90,7 @@ describe("Claim fee", () => {
         sqrtMinPrice: new BN(MIN_SQRT_PRICE),
         sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
         vaultConfigKey: PublicKey.default,
-        poolCreatorAuthority: partner.publicKey,
+        poolCreatorAuthority: creator.publicKey,
         activationType: 0,
         collectFeeMode: 0,
       };
@@ -119,8 +117,8 @@ describe("Claim fee", () => {
       sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
       const initPoolParams: InitializePoolParams = {
-        payer: partner,
-        creator: partner.publicKey,
+        payer: creator,
+        creator: creator.publicKey,
         config,
         tokenAMint: inputTokenMint,
         tokenBMint: outputTokenMint,
@@ -179,8 +177,7 @@ describe("Claim fee", () => {
     let inputTokenMint: PublicKey;
     let outputTokenMint: PublicKey;
 
-    let operator: Keypair;
-    let partner: Keypair;
+    let creator: Keypair;
 
     beforeEach(async () => {
       svm = startSvm();
@@ -199,8 +196,7 @@ describe("Claim fee", () => {
       ];
       user = generateKpAndFund(svm);
       admin = generateKpAndFund(svm);
-      partner = generateKpAndFund(svm);
-      operator = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
       whitelistedAccount = generateKpAndFund(svm);
 
       await createToken2022(
@@ -220,9 +216,9 @@ describe("Claim fee", () => {
 
       await mintToToken2022(svm, outputTokenMint, admin, user.publicKey);
 
-      await mintToToken2022(svm, inputTokenMint, admin, partner.publicKey);
+      await mintToToken2022(svm, inputTokenMint, admin, creator.publicKey);
 
-      await mintToToken2022(svm, outputTokenMint, admin, partner.publicKey);
+      await mintToToken2022(svm, outputTokenMint, admin, creator.publicKey);
 
       const cliffFeeNumerator = new BN(2_500_000);
       const numberOfPeriod = new BN(0);
@@ -249,7 +245,7 @@ describe("Claim fee", () => {
         sqrtMinPrice: new BN(MIN_SQRT_PRICE),
         sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
         vaultConfigKey: PublicKey.default,
-        poolCreatorAuthority: partner.publicKey,
+        poolCreatorAuthority: creator.publicKey,
         activationType: 0,
         collectFeeMode: 0,
       };
@@ -276,8 +272,8 @@ describe("Claim fee", () => {
       sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
       const initPoolParams: InitializePoolParams = {
-        payer: partner,
-        creator: partner.publicKey,
+        payer: creator,
+        creator: creator.publicKey,
         config,
         tokenAMint: inputTokenMint,
         tokenBMint: outputTokenMint,

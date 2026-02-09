@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed `partner` field from Pool struct
 - Removed unused `partner_fee` feature and the `claim_partner_fee` endpoint
 
 ## cp_amm [0.1.8][PR #177](https://github.com/MeteoraAg/damm-v2/pull/177)

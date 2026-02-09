@@ -115,18 +115,18 @@ pub struct Pool {
     pub token_b_vault: Pubkey,
     /// Whitelisted vault to be able to buy pool before activation_point
     pub whitelisted_vault: Pubkey,
-    /// partner
-    pub partner: Pubkey,
+    /// padding, previously partner pubkey, be careful when using this field
+    pub padding_0: [u8; 32],
     /// liquidity share
     pub liquidity: u128,
     /// padding, previous reserve amount, be careful to use that field
-    pub _padding: u128,
+    pub padding_1: u128,
     /// protocol a fee
     pub protocol_a_fee: u64,
     /// protocol b fee
     pub protocol_b_fee: u64,
     // padding for future use
-    pub _padding_2: u128,
+    pub padding_2: u128,
     /// min price
     pub sqrt_min_price: u128,
     /// max price
@@ -150,7 +150,7 @@ pub struct Pool {
     /// pool version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%
     pub version: u8,
     /// padding
-    pub _padding_0: u8,
+    pub padding_3: u8,
     /// cumulative
     pub fee_a_per_liquidity: [u8; 32], // U256
     /// cumulative
@@ -162,7 +162,7 @@ pub struct Pool {
     /// pool creator
     pub creator: Pubkey,
     /// Padding for further use
-    pub _padding_1: [u64; 6],
+    pub padding_4: [u64; 6],
     /// Farming reward information
     pub reward_infos: [RewardInfo; NUM_REWARDS],
 }
@@ -381,7 +381,6 @@ impl Pool {
         token_a_vault: Pubkey,
         token_b_vault: Pubkey,
         whitelisted_vault: Pubkey,
-        partner: Pubkey,
         sqrt_min_price: u128,
         sqrt_max_price: u128,
         sqrt_price: u128,
@@ -400,7 +399,6 @@ impl Pool {
         self.token_a_vault = token_a_vault;
         self.token_b_vault = token_b_vault;
         self.whitelisted_vault = whitelisted_vault;
-        self.partner = partner;
         self.sqrt_min_price = sqrt_min_price;
         self.sqrt_max_price = sqrt_max_price;
         self.activation_point = activation_point;
@@ -1328,6 +1326,8 @@ pub struct SwapResult {
     pub next_sqrt_price: u128,
     pub lp_fee: u64,
     pub protocol_fee: u64,
+    // for future use
+    pub padding: u64,
     pub referral_fee: u64,
 }
 
@@ -1338,6 +1338,7 @@ impl From<SwapResult2> for SwapResult {
             next_sqrt_price: value.next_sqrt_price,
             lp_fee: value.trading_fee,
             protocol_fee: value.protocol_fee,
+            padding: 0,
             referral_fee: value.referral_fee,
         }
     }
