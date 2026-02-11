@@ -3,7 +3,8 @@ use std::u64;
 use cp_amm::{
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     math::safe_math::SafeMath,
-    state::{ModifyLiquidityResult, Pool},
+    state::Pool,
+    u128x128_math::Rounding,
 };
 use ruint::aliases::{U256, U512};
 
@@ -94,11 +95,9 @@ fn test_b_div_a_larger_than_pa_mul_pb() {
     )
     .unwrap();
 
-    let ModifyLiquidityResult {
-        token_a_amount,
-        token_b_amount,
-    } = pool
-        .get_amounts_for_modify_liquidity(liquidity_delta, cp_amm::u128x128_math::Rounding::Up)
+    let liquidity_handler = pool.get_liquidity_handler().unwrap();
+    let (token_a_amount, token_b_amount) = liquidity_handler
+        .get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)
         .unwrap();
 
     // The small difference in token_a is expected due to rounding in liquidity calculations
@@ -156,11 +155,9 @@ fn test_b_div_a_less_than_pa_mul_pb() {
     )
     .unwrap();
 
-    let ModifyLiquidityResult {
-        token_a_amount,
-        token_b_amount,
-    } = pool
-        .get_amounts_for_modify_liquidity(liquidity_delta, cp_amm::u128x128_math::Rounding::Up)
+    let liquidity_handler = pool.get_liquidity_handler().unwrap();
+    let (token_a_amount, token_b_amount) = liquidity_handler
+        .get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)
         .unwrap();
 
     // The small difference in token_a is expected due to rounding in liquidity calculations
@@ -213,13 +210,10 @@ fn test_b_div_a_equal_pa_mul_pb() {
     )
     .unwrap();
 
-    let ModifyLiquidityResult {
-        token_a_amount,
-        token_b_amount,
-    } = pool
-        .get_amounts_for_modify_liquidity(liquidity_delta, cp_amm::u128x128_math::Rounding::Up)
+    let liquidity_handler = pool.get_liquidity_handler().unwrap();
+    let (token_a_amount, token_b_amount) = liquidity_handler
+        .get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)
         .unwrap();
-
     // The small difference in token_a is expected due to rounding in liquidity calculations
     let token_a_diff = (token_a_amount as i128 - a as i128).abs();
     assert!(

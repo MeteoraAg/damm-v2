@@ -79,7 +79,8 @@ describe("Test max fee 99%", () => {
         baseFee: {
           data: Array.from([]),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -126,7 +127,7 @@ describe("Test max fee 99%", () => {
     };
     const { pool } = await initializePool(svm, initPoolParams);
     let poolState = getPool(svm, pool);
-    expect(poolState.version.toString()).eq("1");
+    expect(poolState.feeVersion.toString()).eq("1");
 
     // Market cap increase
     const amountIn = new BN(LAMPORTS_PER_SOL);
@@ -187,7 +188,7 @@ describe("Test max fee 99%", () => {
     };
     const { pool } = await initializePool(svm, initPoolParams);
     let poolState = getPool(svm, pool);
-    expect(poolState.version.toString()).eq("1");
+    expect(poolState.feeVersion.toString()).eq("1");
 
     // Market cap increase
     const amountIn = new BN(LAMPORTS_PER_SOL);
@@ -251,7 +252,7 @@ describe("Test max fee 99%", () => {
     };
     const { pool } = await initializePool(svm, initPoolParams);
     let poolState = getPool(svm, pool);
-    expect(poolState.version.toString()).eq("1");
+    expect(poolState.feeVersion.toString()).eq("1");
 
     // Market cap increase
     const amountIn = new BN(LAMPORTS_PER_SOL);
@@ -311,7 +312,7 @@ describe("Test max fee 99%", () => {
     const { pool } = await initializePool(svm, initPoolParams);
     let poolState = getPool(svm, pool);
 
-    expect(poolState.version.toString()).eq("1");
+    expect(poolState.feeVersion.toString()).eq("1");
 
     // Market cap increase
     const amountIn = new BN(LAMPORTS_PER_SOL);

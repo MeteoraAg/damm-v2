@@ -52,7 +52,8 @@ describe("Admin function: Create config", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -118,7 +119,8 @@ describe("Admin function: Create config", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: {
           binStep: binStep.toNumber(),
           binStepU128,
@@ -169,7 +171,8 @@ describe("Admin function: Create config", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),

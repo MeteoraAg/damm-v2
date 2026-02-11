@@ -2,11 +2,14 @@ use crate::{
     activation_handler::ActivationType,
     alpha_vault::alpha_vault,
     base_fee::base_fee_info_to_base_fee_parameters,
-    constants::activation::*,
+    constants::{activation::*, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     error::PoolError,
     params::fee_parameters::{BaseFeeParameters, DynamicFeeParameters, PoolFeeParameters},
-    safe_math::SafeMath,
-    state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
+    safe_math::{SafeCast, SafeMath},
+    state::{
+        fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
+        CollectFeeMode,
+    },
 };
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -41,7 +44,9 @@ pub struct PoolFeesConfig {
     pub protocol_fee_percent: u8,
     pub padding_0: u8,
     pub referral_fee_percent: u8,
-    pub padding_1: [u8; 5],
+    pub padding_1: [u8; 3],
+    /// Compounding fee bps, only non-zero if collect_fee_mode is compounding
+    pub compounding_fee_bps: u16,
     pub padding_2: [u64; 5],
 }
 
@@ -73,6 +78,7 @@ impl PoolFeesConfig {
     pub fn to_pool_fee_parameters(&self) -> Result<PoolFeeParameters> {
         let &PoolFeesConfig {
             base_fee,
+            compounding_fee_bps,
             dynamic_fee:
                 DynamicFeeConfig {
                     initialized,
@@ -90,6 +96,7 @@ impl PoolFeesConfig {
         if initialized == 1 {
             Ok(PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters()?,
+                compounding_fee_bps,
                 dynamic_fee: Some(DynamicFeeParameters {
                     bin_step,
                     bin_step_u128,
@@ -99,10 +106,12 @@ impl PoolFeesConfig {
                     max_volatility_accumulator,
                     variable_fee_control,
                 }),
+                ..Default::default()
             })
         } else {
             Ok(PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters()?,
+                compounding_fee_bps,
                 ..Default::default()
             })
         }
@@ -113,6 +122,7 @@ impl PoolFeesConfig {
             base_fee,
             protocol_fee_percent,
             referral_fee_percent,
+            compounding_fee_bps,
             dynamic_fee,
             ..
         } = self;
@@ -121,6 +131,7 @@ impl PoolFeesConfig {
             base_fee: base_fee.to_base_fee_struct(),
             protocol_fee_percent,
             referral_fee_percent,
+            compounding_fee_bps,
             dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
             init_sqrt_price,
             ..Default::default()
@@ -298,5 +309,22 @@ impl Config {
             clock,
         );
         timing_contraints.get_max_activation_point_from_current_time()
+    }
+
+    pub fn validate_initial_sqrt_price(&self, sqrt_price: u128) -> Result<()> {
+        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
+        if collect_fee_mode == CollectFeeMode::Compounding {
+            // we still have a boudary for initial sqrt price
+            require!(
+                sqrt_price >= MIN_SQRT_PRICE && sqrt_price <= MAX_SQRT_PRICE,
+                PoolError::InvalidPriceRange
+            );
+        } else {
+            require!(
+                sqrt_price >= self.sqrt_min_price && sqrt_price <= self.sqrt_max_price,
+                PoolError::InvalidPriceRange
+            );
+        }
+        Ok(())
     }
 }

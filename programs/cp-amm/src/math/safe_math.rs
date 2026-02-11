@@ -2,7 +2,11 @@ use anchor_lang::solana_program::msg;
 use ruint::aliases::{U256, U512};
 use std::panic::Location;
 
-use crate::{token::TokenProgramFlags, PoolError};
+use crate::{
+    state::{CollectFeeMode, LayoutVersion},
+    token::TokenProgramFlags,
+    PoolError,
+};
 
 pub trait SafeMath<T>: Sized {
     fn safe_add(self, rhs: Self) -> Result<Self, PoolError>;
@@ -142,6 +146,8 @@ try_into_impl!(i64, u64);
 try_into_impl!(usize, u16);
 try_into_impl!(U512, u64);
 try_into_impl!(u8, TokenProgramFlags);
+try_into_impl!(u8, CollectFeeMode);
+try_into_impl!(u8, LayoutVersion);
 
 #[cfg(test)]
 mod tests {

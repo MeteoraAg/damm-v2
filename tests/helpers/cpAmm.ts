@@ -133,7 +133,8 @@ export type BaseFee = {
 
 export type PoolFees = {
   baseFee: BaseFee;
-  padding: number[];
+  compoundingFeeBps: number,
+  padding: number;
   dynamicFee: DynamicFee | null;
 };
 
@@ -420,7 +421,8 @@ export enum OperatorPermission {
   UpdateRewardFunder, // 7
   UpdatePoolFees, // 8
   ClaimProtocolFee, // 9
-  ZapProtocolFee,
+  ZapProtocolFee, // 10
+  FixPool, // 11
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -843,7 +845,8 @@ export async function setPoolStatus(svm: LiteSVM, params: SetPoolStatusParams) {
 
 export type PoolFeesParams = {
   baseFee: BaseFee;
-  padding: number[];
+  compoundingFeeBps: number,
+  padding: number;
   dynamicFee: DynamicFee | null;
 };
 

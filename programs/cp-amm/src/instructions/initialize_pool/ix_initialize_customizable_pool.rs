@@ -15,15 +15,15 @@ use crate::{
         },
         MAX_SQRT_PRICE, MIN_SQRT_PRICE,
     },
-    create_position_nft,
-    curve::get_initialize_amounts,
+    create_position_nft, get_initial_pool_information,
     params::{activation::ActivationParams, fee_parameters::PoolFeeParameters},
+    safe_math::SafeCast,
     state::{CollectFeeMode, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
-    EvtCreatePosition, EvtInitializePool, PoolError,
+    EvtCreatePosition, EvtInitializePool, InitialPoolInformation, PoolError,
 };
 
 use super::{max_key, min_key};
@@ -52,27 +52,30 @@ pub struct InitializeCustomizablePoolParameters {
 
 impl InitializeCustomizablePoolParameters {
     pub fn validate(&self) -> Result<()> {
-        require!(
-            self.sqrt_min_price >= MIN_SQRT_PRICE && self.sqrt_max_price <= MAX_SQRT_PRICE,
-            PoolError::InvalidPriceRange
-        );
-        require!(
-            self.sqrt_price >= self.sqrt_min_price && self.sqrt_price <= self.sqrt_max_price,
-            PoolError::InvalidPriceRange
-        );
-
-        require!(
-            self.sqrt_min_price < self.sqrt_max_price,
-            PoolError::InvalidPriceRange
-        );
-
-        require!(self.liquidity > 0, PoolError::InvalidMinimumLiquidity);
-
         let activation_type = ActivationType::try_from(self.activation_type)
             .map_err(|_| PoolError::InvalidActivationType)?;
         // validate fee
         let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
             .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
+        if collect_fee_mode != CollectFeeMode::Compounding {
+            // we only care for price range if collect fee mode is not Compounding
+            require!(
+                self.sqrt_min_price >= MIN_SQRT_PRICE && self.sqrt_max_price <= MAX_SQRT_PRICE,
+                PoolError::InvalidPriceRange
+            );
+            require!(
+                self.sqrt_price >= self.sqrt_min_price && self.sqrt_price <= self.sqrt_max_price,
+                PoolError::InvalidPriceRange
+            );
+
+            require!(
+                self.sqrt_min_price < self.sqrt_max_price,
+                PoolError::InvalidPriceRange
+            );
+        }
+
+        require!(self.liquidity > 0, PoolError::InvalidMinimumLiquidity);
 
         self.pool_fees.validate(collect_fee_mode, activation_type)?;
 
@@ -263,8 +266,20 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         ..
     } = params;
 
-    let (token_a_amount, token_b_amount) =
-        get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity)?;
+    let InitialPoolInformation {
+        token_a_amount,
+        token_b_amount,
+        initial_liquidity,
+        sqrt_min_price,
+        sqrt_max_price,
+    } = get_initial_pool_information(
+        collect_fee_mode.safe_cast()?,
+        sqrt_min_price,
+        sqrt_max_price,
+        sqrt_price,
+        liquidity,
+    )?;
+
     require!(
         token_a_amount > 0 || token_b_amount > 0,
         PoolError::AmountIsZero
@@ -301,6 +316,8 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         liquidity,
         collect_fee_mode,
         pool_type,
+        token_a_amount,
+        token_b_amount,
     );
 
     let mut position = ctx.accounts.position.load_init()?;
@@ -308,7 +325,7 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
         &mut pool,
         ctx.accounts.pool.key(),
         ctx.accounts.position_nft_mint.key(),
-        liquidity,
+        initial_liquidity,
     );
 
     // create position nft

@@ -10,14 +10,10 @@ use crate::base_fee::{BaseFeeHandlerBuilder, UpdateCliffFeeNumerator};
 use crate::constants::fee::{
     get_max_fee_numerator, CURRENT_POOL_VERSION, MAX_FEE_NUMERATOR_POST_UPDATE,
 };
-use crate::curve::{get_delta_amount_b_unsigned_unchecked, get_next_sqrt_price_from_output};
+use crate::safe_math::SafeCast;
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::{
     constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
-    curve::{
-        get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
-        get_delta_amount_b_unsigned, get_next_sqrt_price_from_input,
-    },
     params::swap::TradeDirection,
     safe_math::SafeMath,
     state::{
@@ -28,7 +24,10 @@ use crate::{
     utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
     PoolError,
 };
-use crate::{BaseFeeUpdateMode, DynamicFeeUpdateMode, UpdatePoolFeesParameters};
+use crate::{
+    BaseFeeUpdateMode, CompoundingLiquidity, ConcenstratedLiquidity, DynamicFeeUpdateMode,
+    LiquidityHandler, UpdatePoolFeesParameters,
+};
 
 use super::fee::FeeMode;
 
@@ -49,6 +48,9 @@ pub enum CollectFeeMode {
     BothToken,
     /// Only token B, we just need token B, because if user want to collect fee in token A, they just need to flip order of tokens
     OnlyB,
+    /// In the compounding, a percentage fees will be accumulated in liquidity, while remainings are used for clamining, fees are always be in token B
+    /// Pool with compounding won't have price range, instead of using constant-product formula: x * y = constant
+    Compounding,
 }
 
 /// pool status
@@ -95,7 +97,7 @@ pub enum PoolType {
     AnchorDeserialize,
     AnchorSerialize,
 )]
-pub enum PoolVersion {
+pub enum LayoutVersion {
     V0, // 0
     V1, // 1
 }
@@ -147,8 +149,8 @@ pub struct Pool {
     pub collect_fee_mode: u8,
     /// pool type
     pub pool_type: u8,
-    /// pool version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%
-    pub version: u8,
+    /// pool fee version, 0: max_fee is still capped at 50%, 1: max_fee is capped at 99%
+    pub fee_version: u8,
     /// padding
     pub padding_3: u8,
     /// cumulative
@@ -161,8 +163,16 @@ pub struct Pool {
     pub metrics: PoolMetrics,
     /// pool creator
     pub creator: Pubkey,
+    /// token a amount
+    pub token_a_amount: u64,
+    /// token b amount
+    pub token_b_amount: u64,
+    /// layout version: version 0: haven't track token_a_amount and token_b_amount, version 1: track token_a_amount and token_b_amount
+    pub layout_version: u8,
     /// Padding for further use
-    pub padding_4: [u64; 6],
+    pub padding_4: [u8; 7],
+    /// Padding for further use
+    pub padding_5: [u64; 3],
     /// Farming reward information
     pub reward_infos: [RewardInfo; NUM_REWARDS],
 }
@@ -391,6 +401,8 @@ impl Pool {
         liquidity: u128,
         collect_fee_mode: u8,
         pool_type: u8,
+        token_a_amount: u64,
+        token_b_amount: u64,
     ) {
         self.creator = creator;
         self.pool_fees = pool_fees;
@@ -409,7 +421,10 @@ impl Pool {
         self.sqrt_price = sqrt_price;
         self.collect_fee_mode = collect_fee_mode;
         self.pool_type = pool_type;
-        self.version = CURRENT_POOL_VERSION; // still use v0 now, after notify integrators will pump to v1 to allow higher fee numerator constraint
+        self.fee_version = CURRENT_POOL_VERSION; // still use v0 now, after notify integrators will pump to v1 to allow higher fee numerator constraint
+        self.token_a_amount = token_a_amount;
+        self.token_b_amount = token_b_amount;
+        self.layout_version = LayoutVersion::V1.into();
     }
 
     pub fn pool_reward_initialized(&self) -> bool {
@@ -424,10 +439,13 @@ impl Pool {
         current_point: u64,
     ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
-        let mut actual_trading_fee = 0;
+        let mut actual_compounding_fee = 0;
+        let mut actual_claiming_fee = 0;
         let mut actual_referral_fee = 0;
 
-        let max_fee_numerator = get_max_fee_numerator(self.version)?;
+        let liquidity_handler = self.get_liquidity_handler()?;
+
+        let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
         let included_fee_amount_out = if fee_mode.fees_on_input {
             amount_out
@@ -447,7 +465,8 @@ impl Pool {
                 PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, amount_out)?;
 
             let SplitFees {
-                trading_fee,
+                compounding_fee,
+                claiming_fee,
                 protocol_fee,
                 referral_fee,
             } = self
@@ -455,7 +474,8 @@ impl Pool {
                 .split_fees(fee_amount, fee_mode.has_referral)?;
 
             actual_protocol_fee = protocol_fee;
-            actual_trading_fee = trading_fee;
+            actual_claiming_fee = claiming_fee;
+            actual_compounding_fee = compounding_fee;
             actual_referral_fee = referral_fee;
 
             included_fee_amount_out
@@ -465,8 +485,12 @@ impl Pool {
             input_amount,
             next_sqrt_price,
         } = match trade_direction {
-            TradeDirection::AtoB => self.calculate_a_to_b_from_amount_out(included_fee_amount_out),
-            TradeDirection::BtoA => self.calculate_b_to_a_from_amount_out(included_fee_amount_out),
+            TradeDirection::AtoB => {
+                liquidity_handler.calculate_a_to_b_from_amount_out(included_fee_amount_out)
+            }
+            TradeDirection::BtoA => {
+                liquidity_handler.calculate_b_to_a_from_amount_out(included_fee_amount_out)
+            }
         }?;
 
         let included_fee_input_amount = if fee_mode.fees_on_input {
@@ -485,7 +509,8 @@ impl Pool {
                 PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, input_amount)?;
 
             let SplitFees {
-                trading_fee,
+                claiming_fee,
+                compounding_fee,
                 protocol_fee,
                 referral_fee,
             } = self
@@ -493,7 +518,8 @@ impl Pool {
                 .split_fees(fee_amount, fee_mode.has_referral)?;
 
             actual_protocol_fee = protocol_fee;
-            actual_trading_fee = trading_fee;
+            actual_claiming_fee = claiming_fee;
+            actual_compounding_fee = compounding_fee;
             actual_referral_fee = referral_fee;
 
             included_fee_input_amount
@@ -507,7 +533,8 @@ impl Pool {
             excluded_fee_input_amount: input_amount,
             output_amount: amount_out,
             next_sqrt_price,
-            trading_fee: actual_trading_fee,
+            claiming_fee: actual_claiming_fee,
+            compounding_fee: actual_compounding_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
         })
@@ -521,10 +548,13 @@ impl Pool {
         current_point: u64,
     ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
-        let mut actual_trading_fee = 0;
+        let mut actual_claiming_fee = 0;
+        let mut actual_compounding_fee = 0;
         let mut actual_referral_fee = 0;
 
-        let max_fee_numerator = get_max_fee_numerator(self.version)?;
+        let liquidity_handler = self.get_liquidity_handler()?;
+
+        let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
         let trade_fee_numerator = self
             .pool_fees
@@ -540,7 +570,8 @@ impl Pool {
         let mut actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
                 amount,
-                trading_fee,
+                claiming_fee,
+                compounding_fee,
                 protocol_fee,
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
@@ -550,7 +581,8 @@ impl Pool {
             )?;
 
             actual_protocol_fee = protocol_fee;
-            actual_trading_fee = trading_fee;
+            actual_claiming_fee = claiming_fee;
+            actual_compounding_fee = compounding_fee;
             actual_referral_fee = referral_fee;
 
             amount
@@ -563,8 +595,12 @@ impl Pool {
             output_amount,
             next_sqrt_price,
         } = match trade_direction {
-            TradeDirection::AtoB => self.calculate_a_to_b_from_partial_amount_in(actual_amount_in),
-            TradeDirection::BtoA => self.calculate_b_to_a_from_partial_amount_in(actual_amount_in),
+            TradeDirection::AtoB => {
+                liquidity_handler.calculate_a_to_b_from_partial_amount_in(actual_amount_in)
+            }
+            TradeDirection::BtoA => {
+                liquidity_handler.calculate_b_to_a_from_partial_amount_in(actual_amount_in)
+            }
         }?;
 
         let included_fee_input_amount = if amount_left > 0 {
@@ -586,7 +622,8 @@ impl Pool {
                     PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, actual_amount_in)?;
 
                 let SplitFees {
-                    trading_fee,
+                    claiming_fee,
+                    compounding_fee,
                     protocol_fee,
                     referral_fee,
                 } = self
@@ -594,7 +631,8 @@ impl Pool {
                     .split_fees(fee_amount, fee_mode.has_referral)?;
 
                 actual_protocol_fee = protocol_fee;
-                actual_trading_fee = trading_fee;
+                actual_claiming_fee = claiming_fee;
+                actual_compounding_fee = compounding_fee;
                 actual_referral_fee = referral_fee;
 
                 included_fee_amount_in
@@ -610,7 +648,8 @@ impl Pool {
         } else {
             let FeeOnAmountResult {
                 amount,
-                trading_fee,
+                claiming_fee,
+                compounding_fee,
                 protocol_fee,
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
@@ -620,7 +659,8 @@ impl Pool {
             )?;
 
             actual_protocol_fee = protocol_fee;
-            actual_trading_fee = trading_fee;
+            actual_claiming_fee = claiming_fee;
+            actual_compounding_fee = compounding_fee;
             actual_referral_fee = referral_fee;
 
             amount
@@ -632,7 +672,8 @@ impl Pool {
             amount_left,
             output_amount: actual_amount_out,
             next_sqrt_price,
-            trading_fee: actual_trading_fee,
+            claiming_fee: actual_claiming_fee,
+            compounding_fee: actual_compounding_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
         })
@@ -646,10 +687,13 @@ impl Pool {
         current_point: u64,
     ) -> Result<SwapResult2> {
         let mut actual_protocol_fee = 0;
-        let mut actual_trading_fee = 0;
+        let mut actual_claiming_fee = 0;
+        let mut actual_compounding_fee = 0;
         let mut actual_referral_fee = 0;
 
-        let max_fee_numerator = get_max_fee_numerator(self.version)?;
+        let liquidity_handler = self.get_liquidity_handler()?;
+
+        let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
         // We can compute the trade_fee_numerator here. Instead of separately for amount_in, and amount_out.
         // This is because FeeRateLimiter (fee rate scale based on amount) only applied when fee_mode.fees_on_input
@@ -669,7 +713,8 @@ impl Pool {
         let actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
                 amount,
-                trading_fee,
+                claiming_fee,
+                compounding_fee,
                 protocol_fee,
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
@@ -678,8 +723,9 @@ impl Pool {
                 fee_mode.has_referral,
             )?;
 
+            actual_claiming_fee = claiming_fee;
+            actual_compounding_fee = compounding_fee;
             actual_protocol_fee = protocol_fee;
-            actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
 
             amount
@@ -692,8 +738,12 @@ impl Pool {
             next_sqrt_price,
             amount_left,
         } = match trade_direction {
-            TradeDirection::AtoB => self.calculate_a_to_b_from_amount_in(actual_amount_in),
-            TradeDirection::BtoA => self.calculate_b_to_a_from_amount_in(actual_amount_in),
+            TradeDirection::AtoB => {
+                liquidity_handler.calculate_a_to_b_from_amount_in(actual_amount_in)
+            }
+            TradeDirection::BtoA => {
+                liquidity_handler.calculate_b_to_a_from_amount_in(actual_amount_in)
+            }
         }?;
 
         let actual_amount_out = if fee_mode.fees_on_input {
@@ -701,7 +751,8 @@ impl Pool {
         } else {
             let FeeOnAmountResult {
                 amount,
-                trading_fee,
+                claiming_fee,
+                compounding_fee,
                 protocol_fee,
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
@@ -710,8 +761,9 @@ impl Pool {
                 fee_mode.has_referral,
             )?;
 
+            actual_claiming_fee = claiming_fee;
+            actual_compounding_fee = compounding_fee;
             actual_protocol_fee = protocol_fee;
-            actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
 
             amount
@@ -723,184 +775,10 @@ impl Pool {
             excluded_fee_input_amount: actual_amount_in,
             output_amount: actual_amount_out,
             next_sqrt_price,
-            trading_fee: actual_trading_fee,
+            claiming_fee: actual_claiming_fee,
+            compounding_fee: actual_compounding_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
-        })
-    }
-
-    pub fn calculate_b_to_a_from_amount_out(
-        &self,
-        amount_out: u64,
-    ) -> Result<SwapAmountFromOutput> {
-        let next_sqrt_price =
-            get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount_out, false)?;
-
-        if next_sqrt_price > self.sqrt_max_price {
-            return Err(PoolError::PriceRangeViolation.into());
-        }
-
-        let in_amount = get_delta_amount_b_unsigned(
-            self.sqrt_price,
-            next_sqrt_price,
-            self.liquidity,
-            Rounding::Up,
-        )?;
-
-        Ok(SwapAmountFromOutput {
-            input_amount: in_amount,
-            next_sqrt_price,
-        })
-    }
-
-    pub fn calculate_a_to_b_from_amount_out(
-        &self,
-        amount_out: u64,
-    ) -> Result<SwapAmountFromOutput> {
-        let next_sqrt_price =
-            get_next_sqrt_price_from_output(self.sqrt_price, self.liquidity, amount_out, true)?;
-
-        if next_sqrt_price < self.sqrt_min_price {
-            return Err(PoolError::PriceRangeViolation.into());
-        }
-
-        let in_amount = get_delta_amount_a_unsigned(
-            next_sqrt_price,
-            self.sqrt_price,
-            self.liquidity,
-            Rounding::Up,
-        )?;
-
-        Ok(SwapAmountFromOutput {
-            input_amount: in_amount,
-            next_sqrt_price,
-        })
-    }
-
-    pub fn calculate_b_to_a_from_partial_amount_in(
-        &self,
-        amount_in: u64,
-    ) -> Result<SwapAmountFromInput> {
-        let max_amount_in = get_delta_amount_b_unsigned_unchecked(
-            self.sqrt_price,
-            self.sqrt_max_price,
-            self.liquidity,
-            Rounding::Up,
-        )?;
-
-        let (consumed_in_amount, next_sqrt_price) = if U256::from(amount_in) >= max_amount_in {
-            (
-                max_amount_in
-                    .try_into()
-                    .map_err(|_| PoolError::TypeCastFailed)?,
-                self.sqrt_max_price,
-            )
-        } else {
-            let next_sqrt_price =
-                get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, false)?;
-            (amount_in, next_sqrt_price)
-        };
-
-        let output_amount = get_delta_amount_a_unsigned(
-            self.sqrt_price,
-            next_sqrt_price,
-            self.liquidity,
-            Rounding::Down,
-        )?;
-
-        let amount_left = amount_in.safe_sub(consumed_in_amount)?;
-
-        Ok(SwapAmountFromInput {
-            output_amount,
-            next_sqrt_price,
-            amount_left,
-        })
-    }
-
-    pub fn calculate_a_to_b_from_partial_amount_in(
-        &self,
-        amount_in: u64,
-    ) -> Result<SwapAmountFromInput> {
-        let max_amount_in = get_delta_amount_a_unsigned_unchecked(
-            self.sqrt_min_price,
-            self.sqrt_price,
-            self.liquidity,
-            Rounding::Up,
-        )?;
-
-        let (consumed_in_amount, next_sqrt_price) = if U256::from(amount_in) >= max_amount_in {
-            (
-                max_amount_in
-                    .try_into()
-                    .map_err(|_| PoolError::TypeCastFailed)?,
-                self.sqrt_min_price,
-            )
-        } else {
-            let next_sqrt_price =
-                get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, true)?;
-            (amount_in, next_sqrt_price)
-        };
-
-        let output_amount = get_delta_amount_b_unsigned(
-            next_sqrt_price,
-            self.sqrt_price,
-            self.liquidity,
-            Rounding::Down,
-        )?;
-
-        let amount_left = amount_in.safe_sub(consumed_in_amount)?;
-
-        Ok(SwapAmountFromInput {
-            output_amount,
-            next_sqrt_price,
-            amount_left,
-        })
-    }
-
-    fn calculate_a_to_b_from_amount_in(&self, amount_in: u64) -> Result<SwapAmountFromInput> {
-        // finding new target price
-        let next_sqrt_price =
-            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, true)?;
-
-        if next_sqrt_price < self.sqrt_min_price {
-            return Err(PoolError::PriceRangeViolation.into());
-        }
-
-        // finding output amount
-        let output_amount = get_delta_amount_b_unsigned(
-            next_sqrt_price,
-            self.sqrt_price,
-            self.liquidity,
-            Rounding::Down,
-        )?;
-
-        Ok(SwapAmountFromInput {
-            output_amount,
-            next_sqrt_price,
-            amount_left: 0,
-        })
-    }
-
-    fn calculate_b_to_a_from_amount_in(&self, amount_in: u64) -> Result<SwapAmountFromInput> {
-        // finding new target price
-        let next_sqrt_price =
-            get_next_sqrt_price_from_input(self.sqrt_price, self.liquidity, amount_in, false)?;
-
-        if next_sqrt_price > self.sqrt_max_price {
-            return Err(PoolError::PriceRangeViolation.into());
-        }
-        // finding output amount
-        let output_amount = get_delta_amount_a_unsigned(
-            self.sqrt_price,
-            next_sqrt_price,
-            self.liquidity,
-            Rounding::Down,
-        )?;
-
-        Ok(SwapAmountFromInput {
-            output_amount,
-            next_sqrt_price,
-            amount_left: 0,
         })
     }
 
@@ -908,20 +786,27 @@ impl Pool {
         &mut self,
         swap_result: &SwapResult2,
         fee_mode: &FeeMode,
+        trade_direction: TradeDirection,
         current_timestamp: u64,
     ) -> Result<()> {
         let &SwapResult2 {
-            trading_fee: lp_fee,
+            excluded_fee_input_amount,
+            output_amount: excluded_fee_output_amount,
+            compounding_fee,
+            claiming_fee,
             next_sqrt_price,
             protocol_fee,
+            referral_fee,
             ..
         } = swap_result;
 
         let old_sqrt_price = self.sqrt_price;
-        self.sqrt_price = next_sqrt_price;
 
-        let fee_per_token_stored = shl_div_256(lp_fee.into(), self.liquidity, LIQUIDITY_SCALE)
-            .ok_or_else(|| PoolError::MathOverflow)?;
+        let fee_per_token_stored =
+            shl_div_256(claiming_fee.into(), self.liquidity, LIQUIDITY_SCALE)
+                .ok_or_else(|| PoolError::MathOverflow)?;
+
+        let trading_fee = claiming_fee.safe_add(compounding_fee)?;
 
         if fee_mode.fees_on_token_a {
             self.protocol_a_fee = self.protocol_a_fee.safe_add(protocol_fee)?;
@@ -929,51 +814,55 @@ impl Pool {
                 .fee_a_per_liquidity()
                 .safe_add(fee_per_token_stored)?
                 .to_le_bytes();
-            self.metrics.accumulate_fee(lp_fee, protocol_fee, true)?;
+            // TODO should metrics store trading fee or claiming fee?
+            self.metrics
+                .accumulate_fee(trading_fee, protocol_fee, true)?;
         } else {
             self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
             self.fee_b_per_liquidity = self
                 .fee_b_per_liquidity()
                 .safe_add(fee_per_token_stored)?
                 .to_le_bytes();
-            self.metrics.accumulate_fee(lp_fee, protocol_fee, false)?;
+            // TODO should metrics store trading fee or claiming fee?
+            self.metrics
+                .accumulate_fee(trading_fee, protocol_fee, false)?;
         }
+
+        let included_fee_output_amount = if fee_mode.fees_on_input {
+            excluded_fee_output_amount
+        } else {
+            excluded_fee_output_amount
+                .safe_add(trading_fee)?
+                .safe_add(protocol_fee)?
+                .safe_add(referral_fee)?
+        };
+
+        if trade_direction == TradeDirection::AtoB {
+            self.token_a_amount = self.token_a_amount.safe_add(excluded_fee_input_amount)?;
+            self.token_b_amount = self.token_b_amount.safe_sub(included_fee_output_amount)?;
+        } else {
+            self.token_b_amount = self.token_b_amount.safe_add(excluded_fee_input_amount)?;
+            self.token_a_amount = self.token_a_amount.safe_sub(included_fee_output_amount)?;
+        }
+
+        // compounding fees are always accumulated in token b
+        self.token_b_amount = self.token_b_amount.safe_add(compounding_fee)?;
+
+        let liquidity_handler = self.get_liquidity_handler()?;
+        let next_sqrt_price = liquidity_handler.get_next_sqrt_price(next_sqrt_price)?;
+        self.sqrt_price = next_sqrt_price;
 
         self.update_post_swap(old_sqrt_price, current_timestamp)?;
 
         Ok(())
     }
 
-    pub fn get_amounts_for_modify_liquidity(
-        &self,
-        liquidity_delta: u128,
-        round: Rounding,
-    ) -> Result<ModifyLiquidityResult> {
-        // finding output amount
-        let token_a_amount = get_delta_amount_a_unsigned(
-            self.sqrt_price,
-            self.sqrt_max_price,
-            liquidity_delta,
-            round,
-        )?;
-
-        let token_b_amount = get_delta_amount_b_unsigned(
-            self.sqrt_min_price,
-            self.sqrt_price,
-            liquidity_delta,
-            round,
-        )?;
-
-        Ok(ModifyLiquidityResult {
-            token_a_amount,
-            token_b_amount,
-        })
-    }
-
     pub fn apply_add_liquidity(
         &mut self,
         position: &mut Position,
         liquidity_delta: u128,
+        token_a_amount: u64,
+        token_b_amount: u64,
     ) -> Result<()> {
         // update current fee for position
         position.update_fee(self.fee_a_per_liquidity(), self.fee_b_per_liquidity())?;
@@ -981,7 +870,10 @@ impl Pool {
         // add liquidity
         position.add_liquidity(liquidity_delta)?;
 
+        // update liquidity and reserve
         self.liquidity = self.liquidity.safe_add(liquidity_delta)?;
+        self.token_a_amount = self.token_a_amount.safe_add(token_a_amount)?;
+        self.token_b_amount = self.token_b_amount.safe_add(token_b_amount)?;
 
         Ok(())
     }
@@ -990,6 +882,8 @@ impl Pool {
         &mut self,
         position: &mut Position,
         liquidity_delta: u128,
+        token_a_amount: u64,
+        token_b_amount: u64,
     ) -> Result<()> {
         // update current fee for position
         position.update_fee(self.fee_a_per_liquidity(), self.fee_b_per_liquidity())?;
@@ -997,7 +891,10 @@ impl Pool {
         // remove liquidity
         position.remove_unlocked_liquidity(liquidity_delta)?;
 
+        // update liquidity and reserve
         self.liquidity = self.liquidity.safe_sub(liquidity_delta)?;
+        self.token_a_amount = self.token_a_amount.safe_sub(token_a_amount)?;
+        self.token_b_amount = self.token_b_amount.safe_sub(token_b_amount)?;
 
         Ok(())
     }
@@ -1114,29 +1011,6 @@ impl Pool {
         })
     }
 
-    #[cfg(test)]
-    pub fn get_max_amount_in(&self, trade_direction: TradeDirection) -> Result<u64> {
-        let amount = match trade_direction {
-            TradeDirection::AtoB => get_delta_amount_a_unsigned_unchecked(
-                self.sqrt_min_price,
-                self.sqrt_price,
-                self.liquidity,
-                Rounding::Down,
-            )?,
-            TradeDirection::BtoA => get_delta_amount_b_unsigned_unchecked(
-                self.sqrt_price,
-                self.sqrt_max_price,
-                self.liquidity,
-                Rounding::Down,
-            )?,
-        };
-        if amount > U256::from(u64::MAX) {
-            Ok(u64::MAX)
-        } else {
-            Ok(amount.try_into().unwrap())
-        }
-    }
-
     pub fn update_pre_swap(&mut self, current_timestamp: u64) -> Result<()> {
         if self.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
             self.pool_fees
@@ -1226,22 +1100,16 @@ impl Pool {
         signer == self.creator && reward_index == 0
     }
 
-    pub fn get_reserves_amount(&self) -> Result<(u64, u64)> {
-        let reserve_b_amount = get_delta_amount_b_unsigned(
-            self.sqrt_min_price,
-            self.sqrt_price,
-            self.liquidity,
-            Rounding::Down,
-        )?;
-
-        let reserve_a_amount = get_delta_amount_a_unsigned(
-            self.sqrt_price,
-            self.sqrt_max_price,
-            self.liquidity,
-            Rounding::Down,
-        )?;
-
-        Ok((reserve_a_amount, reserve_b_amount))
+    pub fn update_layout_version_if_needed(&mut self) -> Result<()> {
+        let layout_version: LayoutVersion = self.layout_version.safe_cast()?;
+        if layout_version == LayoutVersion::V0 {
+            let liquidity_handler = self.get_liquidity_handler()?;
+            let (token_a_amount, token_b_amount) = liquidity_handler.get_reserves_amount()?;
+            self.token_a_amount = token_a_amount;
+            self.token_b_amount = token_b_amount;
+            self.layout_version = LayoutVersion::V1.into();
+        }
+        Ok(())
     }
 
     pub fn validate_and_update_pool_fees(
@@ -1317,29 +1185,22 @@ impl Pool {
         }
         Ok(())
     }
-}
 
-/// Encodes all results of swapping
-#[derive(Debug, PartialEq, AnchorDeserialize, AnchorSerialize)]
-pub struct SwapResult {
-    pub output_amount: u64,
-    pub next_sqrt_price: u128,
-    pub lp_fee: u64,
-    pub protocol_fee: u64,
-    // for future use
-    pub padding: u64,
-    pub referral_fee: u64,
-}
-
-impl From<SwapResult2> for SwapResult {
-    fn from(value: SwapResult2) -> Self {
-        Self {
-            output_amount: value.output_amount,
-            next_sqrt_price: value.next_sqrt_price,
-            lp_fee: value.trading_fee,
-            protocol_fee: value.protocol_fee,
-            padding: 0,
-            referral_fee: value.referral_fee,
+    pub fn get_liquidity_handler(&self) -> Result<Box<dyn LiquidityHandler>> {
+        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
+        if collect_fee_mode == CollectFeeMode::Compounding {
+            Ok(Box::new(CompoundingLiquidity {
+                token_a_amount: self.token_a_amount,
+                token_b_amount: self.token_b_amount,
+                liquidity: self.liquidity,
+            }))
+        } else {
+            Ok(Box::new(ConcenstratedLiquidity {
+                sqrt_max_price: self.sqrt_max_price,
+                sqrt_min_price: self.sqrt_min_price,
+                liquidity: self.liquidity,
+                sqrt_price: self.sqrt_price,
+            }))
         }
     }
 }
@@ -1352,26 +1213,21 @@ pub struct SwapResult2 {
     pub amount_left: u64,
     pub output_amount: u64,
     pub next_sqrt_price: u128,
-    pub trading_fee: u64,
+    pub claiming_fee: u64,
     pub protocol_fee: u64,
+    pub compounding_fee: u64, // previous is partner_fee, now will be reused for compounding_fee
     pub referral_fee: u64,
 }
 
 pub struct SwapAmountFromInput {
-    output_amount: u64,
-    next_sqrt_price: u128,
-    amount_left: u64,
+    pub output_amount: u64,
+    pub next_sqrt_price: u128,
+    pub amount_left: u64,
 }
 
 pub struct SwapAmountFromOutput {
-    input_amount: u64,
-    next_sqrt_price: u128,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct ModifyLiquidityResult {
-    pub token_a_amount: u64,
-    pub token_b_amount: u64,
+    pub input_amount: u64,
+    pub next_sqrt_price: u128,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, PartialEq)]

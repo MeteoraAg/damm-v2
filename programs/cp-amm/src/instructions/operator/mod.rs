@@ -26,3 +26,5 @@ pub mod ix_fix_pool_fee_params;
 pub use ix_fix_pool_fee_params::*;
 pub mod ix_fix_config_fee_params;
 pub use ix_fix_config_fee_params::*;
+pub mod ix_fix_pool_layout_version;
+pub use ix_fix_pool_layout_version::*;

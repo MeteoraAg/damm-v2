@@ -46,7 +46,6 @@ pub struct BorshFeeRateLimiter {
     pub reference_amount: u64,
     // Must at offset 26 (without memory alignment padding)
     pub base_fee_mode: u8,
-    pub padding: [u8; 3],
 }
 static_assertions::const_assert_eq!(
     BaseFeeParameters::INIT_SPACE,

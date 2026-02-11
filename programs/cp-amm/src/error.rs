@@ -205,4 +205,7 @@ pub enum PoolError {
 
     #[msg("Invalid zap accounts")]
     InvalidZapAccounts,
+
+    #[msg("Invalid compounding fee bps")]
+    InvalidCompoundingFeeBps,
 }
