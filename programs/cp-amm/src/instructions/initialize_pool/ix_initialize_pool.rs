@@ -251,6 +251,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         initial_liquidity,
         sqrt_min_price,
         sqrt_max_price,
+        sqrt_price,
     } = get_initial_pool_information(
         config.collect_fee_mode.safe_cast()?,
         config.sqrt_min_price,

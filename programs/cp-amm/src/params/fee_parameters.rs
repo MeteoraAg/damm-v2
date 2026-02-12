@@ -7,7 +7,6 @@ use crate::error::PoolError;
 use crate::safe_math::SafeMath;
 use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
 use crate::state::{BaseFeeInfo, CollectFeeMode, DynamicFeeConfig, PoolFeesConfig};
-use crate::validate_compounding_fee;
 use anchor_lang::prelude::*;
 
 /// Information regarding fee charges
@@ -244,4 +243,23 @@ impl PoolFeeParameters {
         }
         Ok(())
     }
+}
+
+fn validate_compounding_fee(
+    collect_fee_mode: CollectFeeMode,
+    compounding_fee_bps: u16,
+) -> Result<()> {
+    if collect_fee_mode == CollectFeeMode::Compounding {
+        // not make sense to have zero compounding_fee_bps in compounding collect fee mode
+        require!(
+            compounding_fee_bps > 0 && compounding_fee_bps <= MAX_BASIS_POINT,
+            PoolError::InvalidCompoundingFeeBps
+        );
+    } else {
+        require!(
+            compounding_fee_bps == 0,
+            PoolError::InvalidCompoundingFeeBps
+        );
+    }
+    Ok(())
 }

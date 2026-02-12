@@ -31,7 +31,7 @@ pub fn get_sqrt_price_and_liquidity_from_amounts(
     .unwrap();
     let sqrt_price: u128 = sqrt_price.try_into().unwrap();
     require!(
-        sqrt_price >= MIN_SQRT_PRICE || sqrt_price <= MAX_SQRT_PRICE,
+        sqrt_price >= MIN_SQRT_PRICE && sqrt_price <= MAX_SQRT_PRICE,
         PoolError::InvalidPriceRange
     );
     let liquidity = sqrt_u256(
@@ -68,6 +68,7 @@ proptest! {
             token_a_amount,
             token_b_amount,
             initial_liquidity,
+            sqrt_price: _,
             sqrt_min_price: _,
             sqrt_max_price: _,
         } = get_initial_pool_information(
@@ -141,6 +142,7 @@ proptest! {
         let InitialPoolInformation {
             token_a_amount,
             token_b_amount,
+            sqrt_price: _,
             initial_liquidity:_,
             sqrt_min_price: _,
             sqrt_max_price: _,
@@ -203,6 +205,7 @@ proptest! {
         let InitialPoolInformation {
             token_a_amount,
             token_b_amount,
+            sqrt_price: _,
             initial_liquidity:_,
             sqrt_min_price: _,
             sqrt_max_price: _,
@@ -260,6 +263,7 @@ fn test_compounding_swap_basic() {
     let InitialPoolInformation {
         token_a_amount,
         token_b_amount,
+        sqrt_price: _,
         initial_liquidity: _,
         sqrt_min_price: _,
         sqrt_max_price: _,

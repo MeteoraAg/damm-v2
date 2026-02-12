@@ -26,6 +26,7 @@ proptest! {
         let InitialPoolInformation {
             token_a_amount,
             token_b_amount,
+            sqrt_price: _,
             initial_liquidity: _,
             sqrt_min_price,
             sqrt_max_price,
@@ -83,6 +84,7 @@ proptest! {
         let InitialPoolInformation {
             token_a_amount,
             token_b_amount,
+            sqrt_price: _,
             initial_liquidity: _,
             sqrt_min_price,
             sqrt_max_price,
@@ -141,6 +143,7 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
     let InitialPoolInformation {
         token_a_amount,
         token_b_amount,
+        sqrt_price: _,
         initial_liquidity: _,
         sqrt_min_price,
         sqrt_max_price,
@@ -198,6 +201,7 @@ fn test_swap_basic() {
     let InitialPoolInformation {
         token_a_amount,
         token_b_amount,
+        sqrt_price: _,
         initial_liquidity: _,
         sqrt_min_price,
         sqrt_max_price,

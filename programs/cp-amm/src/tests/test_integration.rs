@@ -121,6 +121,7 @@ proptest! {
             token_a_amount,
             token_b_amount,
             initial_liquidity,
+            sqrt_price: _,
             sqrt_min_price: _,
             sqrt_max_price: _,
         } = get_initial_pool_information(

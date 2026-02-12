@@ -29,11 +29,12 @@ impl CompoundingLiquidity {
         // a * b = liquidity ^ 2
         // b / a = sqrt_price ^ 2
         // So we can calculate b = liquidity * sqrt_price and a = liquidity / sqrt_price
-        let token_a_amount = get_initial_token_a(sqrt_price, liquidity).unwrap();
-        let token_b_amount = get_initial_token_b(sqrt_price, liquidity).unwrap();
+        let token_a_amount = get_initial_token_a(sqrt_price, liquidity)?;
+        let token_b_amount = get_initial_token_b(sqrt_price, liquidity)?;
         Ok(InitialPoolInformation {
             token_a_amount,
             token_b_amount,
+            sqrt_price: get_sqrt_price_from_amounts(token_a_amount, token_b_amount)?,
             initial_liquidity: liquidity.safe_sub(DEAD_LIQUIDITY)?, // we lock DEAD_LIQUIDITY in pool
             sqrt_min_price: 0,
             sqrt_max_price: u128::MAX,
@@ -148,13 +149,7 @@ impl LiquidityHandler for CompoundingLiquidity {
     }
 
     fn get_next_sqrt_price(&self, _next_sqrt_price: u128) -> Result<u128> {
-        // b / a = sqrt_price ^ 2 => sqrt_price = sqrt(b/a)
-        let token_b_amount = U256::from(self.token_b_amount).safe_shl(128)?;
-        let next_price = token_b_amount.safe_div(U256::from(self.token_a_amount))?;
-        let next_sqrt_price = sqrt_u256(next_price).ok_or_else(|| PoolError::MathOverflow)?;
-        Ok(next_sqrt_price
-            .try_into()
-            .map_err(|_| PoolError::TypeCastFailed)?)
+        get_sqrt_price_from_amounts(self.token_a_amount, self.token_b_amount)
     }
 
     #[cfg(test)]
@@ -162,6 +157,16 @@ impl LiquidityHandler for CompoundingLiquidity {
         Ok(std::u64::MAX)
     }
 }
+
+fn get_sqrt_price_from_amounts(token_a_amount: u64, token_b_amount: u64) -> Result<u128> {
+    let token_b_amount = U256::from(token_b_amount).safe_shl(128)?;
+    let price = token_b_amount.safe_div(U256::from(token_a_amount))?;
+    let sqrt_price = sqrt_u256(price).ok_or_else(|| PoolError::MathOverflow)?;
+    Ok(sqrt_price
+        .try_into()
+        .map_err(|_| PoolError::TypeCastFailed)?)
+}
+
 fn get_initial_token_a(sqrt_price: u128, liquidity: u128) -> Result<u64> {
     let amount = liquidity.div_ceil(sqrt_price);
     return Ok(amount.safe_cast()?);

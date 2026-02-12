@@ -1,4 +1,5 @@
-pub mod test_calculate_init_sqrt_price;
+pub mod test_calculate_compounding_liquidity;
+pub mod test_calculate_concenstrated_initial_sqrt_price;
 pub mod test_quote_exact_in;
 pub mod test_quote_exact_out;
 pub mod test_quote_partial_fill_in;

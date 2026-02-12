@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::{
     activation_handler::{ActivationHandler, ActivationType},
-    constants::{fee::MAX_BASIS_POINT, seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::{seeds::CONFIG_PREFIX, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     event,
     params::{activation::ActivationParams, fee_parameters::PoolFeeParameters},
     state::{CollectFeeMode, Config, Operator},
@@ -18,25 +18,6 @@ pub struct StaticConfigParameters {
     pub pool_creator_authority: Pubkey,
     pub activation_type: u8,
     pub collect_fee_mode: u8,
-}
-
-pub fn validate_compounding_fee(
-    collect_fee_mode: CollectFeeMode,
-    compounding_fee_bps: u16,
-) -> Result<()> {
-    if collect_fee_mode == CollectFeeMode::Compounding {
-        // not make sense to have zero compounding_fee_bps in compounding collect fee mode
-        require!(
-            compounding_fee_bps > 0 && compounding_fee_bps <= MAX_BASIS_POINT,
-            PoolError::InvalidCompoundingFeeBps
-        );
-    } else {
-        require!(
-            compounding_fee_bps == 0,
-            PoolError::InvalidCompoundingFeeBps
-        );
-    }
-    Ok(())
 }
 
 #[event_cpi]

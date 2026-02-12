@@ -50,6 +50,7 @@ pub trait LiquidityHandler {
 pub struct InitialPoolInformation {
     pub token_a_amount: u64,
     pub token_b_amount: u64,
+    pub sqrt_price: u128,
     pub initial_liquidity: u128,
     pub sqrt_min_price: u128,
     pub sqrt_max_price: u128,

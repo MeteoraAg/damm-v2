@@ -38,6 +38,7 @@ impl ConcenstratedLiquidity {
         Ok(InitialPoolInformation {
             token_a_amount,
             token_b_amount,
+            sqrt_price,
             initial_liquidity: liquidity,
             sqrt_max_price,
             sqrt_min_price,
