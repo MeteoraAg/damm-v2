@@ -1,5 +1,4 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { BN } from "bn.js";
 import {
   BASIS_POINT_MAX,
   closeConfigIx,
@@ -21,13 +20,14 @@ import {
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
 import { LiteSVM } from "litesvm";
+import BN from "bn.js";
 
 describe("Admin function: Create config", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let whitelistedAccount: Keypair;
   let createConfigParams: CreateConfigParams;
-  let index;
+  let index: BN;
 
   beforeEach(async () => {
     svm = startSvm();

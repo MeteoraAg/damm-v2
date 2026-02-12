@@ -50,6 +50,27 @@ pub struct InitializeCustomizablePoolParameters {
     pub activation_point: Option<u64>,
 }
 
+pub fn validate_initial_sqrt_price(
+    collect_fee_mode: CollectFeeMode,
+    sqrt_price: u128,
+    sqrt_min_price: u128,
+    sqrt_max_price: u128,
+) -> Result<()> {
+    if collect_fee_mode == CollectFeeMode::Compounding {
+        // we still have a boundary for initial sqrt price
+        require!(
+            sqrt_price >= MIN_SQRT_PRICE && sqrt_price <= MAX_SQRT_PRICE,
+            PoolError::InvalidPriceRange
+        );
+    } else {
+        require!(
+            sqrt_price >= sqrt_min_price && sqrt_price <= sqrt_max_price,
+            PoolError::InvalidPriceRange
+        );
+    }
+    Ok(())
+}
+
 impl InitializeCustomizablePoolParameters {
     pub fn validate(&self) -> Result<()> {
         let activation_type = ActivationType::try_from(self.activation_type)
@@ -64,16 +85,19 @@ impl InitializeCustomizablePoolParameters {
                 self.sqrt_min_price >= MIN_SQRT_PRICE && self.sqrt_max_price <= MAX_SQRT_PRICE,
                 PoolError::InvalidPriceRange
             );
-            require!(
-                self.sqrt_price >= self.sqrt_min_price && self.sqrt_price <= self.sqrt_max_price,
-                PoolError::InvalidPriceRange
-            );
 
             require!(
                 self.sqrt_min_price < self.sqrt_max_price,
                 PoolError::InvalidPriceRange
             );
         }
+
+        validate_initial_sqrt_price(
+            collect_fee_mode,
+            self.sqrt_price,
+            self.sqrt_min_price,
+            self.sqrt_max_price,
+        )?;
 
         require!(self.liquidity > 0, PoolError::InvalidMinimumLiquidity);
 

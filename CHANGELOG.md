@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Pool now will track reserves balances `(token_a_amount, token_b_amount)` if `pool.layout_version == 1`. For pool layout_version 0, operator can call the new endpoint `fix_pool_layout_version` to pump pool version.
-- Add a new `collect_fee_mode (Compounding)`, in the new collect fee mode, fee will be collected in quote token, and a percentage of fee (configurable) will be added in reserves for compounding. In the new collect fee mode, the pool doesn't have concenstrated price range, instead following constant-product formula `token_a_amount * token_b_amount = constant`.
+- Add a new `collect_fee_mode (Compounding)`, in the new collect fee mode, fee will be collected in quote token, and a percentage of fee (configurable) will be added in reserves for compounding. In the new collect fee mode, the pool doesn't have concentrated price range, instead following constant-product formula `token_a_amount * token_b_amount = constant`.
 - Endpoints `create_config`, `initialize_customizable_pool` and `initialize_pool_with_dynamic_config` will allow user to create pool with `collect_fee_mode == Compounding`, and config for `compounding_fee_bps`.
 
 ### Changed

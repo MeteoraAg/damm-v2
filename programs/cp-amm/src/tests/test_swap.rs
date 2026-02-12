@@ -6,7 +6,7 @@ use crate::{
     safe_math::{SafeCast, SafeMath},
     state::{fee::FeeMode, CollectFeeMode, Pool},
     tests::LIQUIDITY_MAX,
-    ConcenstratedLiquidity, InitialPoolInformation,
+    ConcentratedLiquidity, InitialPoolInformation,
 };
 use proptest::prelude::*;
 
@@ -30,7 +30,7 @@ proptest! {
             initial_liquidity: _,
             sqrt_min_price,
             sqrt_max_price,
-        } = ConcenstratedLiquidity::get_initial_pool_information(
+        } = ConcentratedLiquidity::get_initial_pool_information(
             sqrt_min_price,
             sqrt_max_price,
             sqrt_price,
@@ -88,7 +88,7 @@ proptest! {
             initial_liquidity: _,
             sqrt_min_price,
             sqrt_max_price,
-        } = ConcenstratedLiquidity::get_initial_pool_information(
+        } = ConcentratedLiquidity::get_initial_pool_information(
             sqrt_min_price,
             sqrt_max_price,
             sqrt_price,
@@ -147,7 +147,7 @@ fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
         initial_liquidity: _,
         sqrt_min_price,
         sqrt_max_price,
-    } = ConcenstratedLiquidity::get_initial_pool_information(
+    } = ConcentratedLiquidity::get_initial_pool_information(
         sqrt_min_price,
         sqrt_max_price,
         sqrt_price,
@@ -205,7 +205,7 @@ fn test_swap_basic() {
         initial_liquidity: _,
         sqrt_min_price,
         sqrt_max_price,
-    } = ConcenstratedLiquidity::get_initial_pool_information(
+    } = ConcentratedLiquidity::get_initial_pool_information(
         sqrt_min_price,
         sqrt_max_price,
         sqrt_price,

@@ -2,14 +2,11 @@ use crate::{
     activation_handler::ActivationType,
     alpha_vault::alpha_vault,
     base_fee::base_fee_info_to_base_fee_parameters,
-    constants::{activation::*, MAX_SQRT_PRICE, MIN_SQRT_PRICE},
+    constants::activation::*,
     error::PoolError,
     params::fee_parameters::{BaseFeeParameters, DynamicFeeParameters, PoolFeeParameters},
-    safe_math::{SafeCast, SafeMath},
-    state::{
-        fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
-        CollectFeeMode,
-    },
+    safe_math::SafeMath,
+    state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
 };
 use anchor_lang::prelude::*;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -309,22 +306,5 @@ impl Config {
             clock,
         );
         timing_contraints.get_max_activation_point_from_current_time()
-    }
-
-    pub fn validate_initial_sqrt_price(&self, sqrt_price: u128) -> Result<()> {
-        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
-        if collect_fee_mode == CollectFeeMode::Compounding {
-            // we still have a boudary for initial sqrt price
-            require!(
-                sqrt_price >= MIN_SQRT_PRICE && sqrt_price <= MAX_SQRT_PRICE,
-                PoolError::InvalidPriceRange
-            );
-        } else {
-            require!(
-                sqrt_price >= self.sqrt_min_price && sqrt_price <= self.sqrt_max_price,
-                PoolError::InvalidPriceRange
-            );
-        }
-        Ok(())
     }
 }

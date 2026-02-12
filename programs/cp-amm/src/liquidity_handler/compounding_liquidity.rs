@@ -23,7 +23,7 @@ impl CompoundingLiquidity {
         liquidity: u128,
     ) -> Result<InitialPoolInformation> {
         require!(
-            liquidity >= DEAD_LIQUIDITY,
+            liquidity > DEAD_LIQUIDITY,
             PoolError::InvalidMinimumLiquidity
         );
         // a * b = liquidity ^ 2
@@ -169,7 +169,7 @@ fn get_sqrt_price_from_amounts(token_a_amount: u64, token_b_amount: u64) -> Resu
 
 fn get_initial_token_a(sqrt_price: u128, liquidity: u128) -> Result<u64> {
     let amount = liquidity.div_ceil(sqrt_price);
-    return Ok(amount.safe_cast()?);
+    Ok(amount.safe_cast()?)
 }
 
 fn get_initial_token_b(sqrt_price: u128, liquidity: u128) -> Result<u64> {
@@ -178,5 +178,5 @@ fn get_initial_token_b(sqrt_price: u128, liquidity: u128) -> Result<u64> {
     let numerator = liquidity.safe_mul(sqrt_price)?;
     let denominator = U256::from(1).safe_shl(128)?;
     let amount = numerator.div_ceil(denominator);
-    return Ok(amount.try_into().map_err(|_| PoolError::TypeCastFailed)?);
+    Ok(amount.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }

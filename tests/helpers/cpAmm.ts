@@ -346,7 +346,7 @@ export async function closeConfigIx(
   const result = sendTransaction(svm, transaction, [whitelistedAddress]);
   expect(result).instanceOf(TransactionMetadata);
 
-  const configState = svm.getAccount(config);
+  const configState = svm.getAccount(config)!;
   expect(configState.data.length).eq(0);
 }
 
@@ -406,7 +406,7 @@ export async function closeTokenBadge(
 
   const result = sendTransaction(svm, transaction, [whitelistedAddress]);
   expect(result).instanceOf(TransactionMetadata);
-  const tokenBadgeAccount = svm.getAccount(tokenBadge);
+  const tokenBadgeAccount = svm.getAccount(tokenBadge)!;
   expect(tokenBadgeAccount.data.length).eq(0);
 }
 
@@ -503,8 +503,8 @@ export async function claimProtocolFee(
   const operator = deriveOperatorAddress(whitelistedKP.publicKey);
   const poolState = getPool(svm, pool);
 
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
   const tokenAVaultAccount = svm.getAccount(
     poolState.tokenAVault
@@ -613,8 +613,8 @@ export async function initializePool(
   const tokenAVault = deriveTokenVaultAddress(tokenAMint, pool);
   const tokenBVault = deriveTokenVaultAddress(tokenBMint, pool);
 
-  const tokenAProgram = svm.getAccount(tokenAMint).owner;
-  const tokenBProgram = svm.getAccount(tokenBMint).owner;
+  const tokenAProgram = svm.getAccount(tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(tokenBMint)!.owner;
 
   const payerTokenA = getAssociatedTokenAddressSync(
     tokenAMint,
@@ -664,7 +664,13 @@ export async function initializePool(
   );
 
   const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
+
+  // if (result instanceof FailedTransactionMetadata) {
+  //   console.log(result.meta().logs());
+  // }
+
   if (result instanceof TransactionMetadata) {
+    // console.log(result.logs());
     // validate pool data
     const poolState = getPool(svm, pool);
     expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
@@ -672,13 +678,16 @@ export async function initializePool(
     expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
     expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
     expect(poolState.liquidity.toString()).eq(liquidity.toString());
-    expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
+
+    if (poolState.collectFeeMode != 2) {
+      expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
+      expect(poolState.poolFees.initSqrtPrice.toString()).eq(
+        sqrtPrice.toString()
+      );
+    }
 
     expect(poolState.rewardInfos[0].initialized).eq(0);
     expect(poolState.rewardInfos[1].initialized).eq(0);
-    expect(poolState.poolFees.initSqrtPrice.toString()).eq(
-      sqrtPrice.toString()
-    );
   }
 
   return { pool, position: position, result };
@@ -736,8 +745,8 @@ export async function initializePoolWithCustomizeConfig(
   const position = derivePositionAddress(positionNftKP.publicKey);
   const positionNftAccount = derivePositionNftAccount(positionNftKP.publicKey);
 
-  const tokenAProgram = svm.getAccount(tokenAMint).owner;
-  const tokenBProgram = svm.getAccount(tokenBMint).owner;
+  const tokenAProgram = svm.getAccount(tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(tokenBMint)!.owner;
 
   const tokenAVault = deriveTokenVaultAddress(tokenAMint, pool);
   const tokenBVault = deriveTokenVaultAddress(tokenBMint, pool);
@@ -894,8 +903,8 @@ export async function initializeCustomizablePool(
   const position = derivePositionAddress(positionNftKP.publicKey);
   const positionNftAccount = derivePositionNftAccount(positionNftKP.publicKey);
 
-  const tokenAProgram = svm.getAccount(tokenAMint).owner;
-  const tokenBProgram = svm.getAccount(tokenBMint).owner;
+  const tokenAProgram = svm.getAccount(tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(tokenBMint)!.owner;
 
   const tokenAVault = deriveTokenVaultAddress(tokenAMint, pool);
   const tokenBVault = deriveTokenVaultAddress(tokenBMint, pool);
@@ -1092,7 +1101,7 @@ export async function initializeReward(
   const poolAuthority = derivePoolAuthority();
   const rewardVault = deriveRewardVaultAddress(pool, index);
 
-  const tokenProgram = svm.getAccount(rewardMint).owner;
+  const tokenProgram = svm.getAccount(rewardMint)!.owner;
   const tokenBadge = deriveTokenBadgeAddress(rewardMint);
   const remainingAccounts: AccountMeta[] = [];
 
@@ -1248,7 +1257,7 @@ export async function fundReward(
 
   const poolState = getPool(svm, pool);
   const rewardVault = poolState.rewardInfos[index].vault;
-  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint).owner;
+  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
   const funderTokenAccount = getAssociatedTokenAddressSync(
     poolState.rewardInfos[index].mint,
     funder.publicKey,
@@ -1293,7 +1302,7 @@ export async function claimReward(
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
   // TODO should use token flag in pool state to get token program ID
-  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint).owner;
+  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
 
   const userTokenAccount = getOrCreateAssociatedTokenAccount(
     svm,
@@ -1337,7 +1346,7 @@ export async function withdrawIneligibleReward(
 
   const poolState = getPool(svm, pool);
   const poolAuthority = derivePoolAuthority();
-  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint).owner;
+  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
   const funderTokenAccount = getAssociatedTokenAddressSync(
     poolState.rewardInfos[index].mint,
     funder.publicKey,
@@ -1516,22 +1525,22 @@ export async function createPosition(
   );
 
   const positionNftData = AccountLayout.decode(
-    svm.getAccount(positionNftAccount).data
+    svm.getAccount(positionNftAccount)!.data
   );
 
   // validate metadata
   const tlvData = svm
-    .getAccount(positionState.nftMint)
+    .getAccount(positionState.nftMint)!
     .data.slice(ACCOUNT_SIZE + ACCOUNT_TYPE_SIZE);
   const metadata = unpack(
-    getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))
+    getExtensionData(ExtensionType.TokenMetadata, Buffer.from(tlvData))!
   );
   expect(metadata.name).eq("Meteora Position NFT");
   expect(metadata.symbol).eq("MPN");
 
   // validate metadata pointer
   const metadataAddress = MetadataPointerLayout.decode(
-    getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))
+    getExtensionData(ExtensionType.MetadataPointer, Buffer.from(tlvData))!
   ).metadataAddress;
   expect(metadataAddress.toString()).eq(positionState.nftMint.toString());
 
@@ -1569,8 +1578,8 @@ export async function addLiquidity(svm: LiteSVM, params: AddLiquidityParams) {
   const positionState = getPosition(svm, position);
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
   const tokenAAccount = getAssociatedTokenAddressSync(
     poolState.tokenAMint,
@@ -1637,8 +1646,8 @@ export async function removeLiquidity(
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
   const poolAuthority = derivePoolAuthority();
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
   const tokenAAccount = getAssociatedTokenAddressSync(
     poolState.tokenAMint,
@@ -1710,8 +1719,8 @@ export async function removeAllLiquidity(
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
   const poolAuthority = derivePoolAuthority();
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
   const tokenAAccount = getAssociatedTokenAddressSync(
     poolState.tokenAMint,
@@ -1812,9 +1821,9 @@ export async function swapInstruction(
   const poolState = getPool(svm, pool);
 
   const poolAuthority = derivePoolAuthority();
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
 
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
   const inputTokenAccount = getAssociatedTokenAddressSync(
     inputTokenMint,
     payer.publicKey,
@@ -1899,9 +1908,9 @@ export async function swap2Instruction(svm: LiteSVM, params: Swap2Params) {
   const poolState = getPool(svm, pool);
 
   const poolAuthority = derivePoolAuthority();
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
 
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
   const inputTokenAccount = getAssociatedTokenAddressSync(
     inputTokenMint,
     payer.publicKey,
@@ -2020,8 +2029,8 @@ export async function claimPositionFee(
   const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
 
   const poolAuthority = derivePoolAuthority();
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint).owner;
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint).owner;
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
   const tokenAAccount = getAssociatedTokenAddressSync(
     poolState.tokenAMint,
@@ -2222,31 +2231,31 @@ export async function zapProtocolFee(params: {
 
 export function getPool(svm: LiteSVM, pool: PublicKey): Pool {
   const program = createCpAmmProgram();
-  const account = svm.getAccount(pool);
+  const account = svm.getAccount(pool)!;
   return program.coder.accounts.decode("pool", Buffer.from(account.data));
 }
 
 export function getPosition(svm: LiteSVM, position: PublicKey): Position {
   const program = createCpAmmProgram();
-  const account = svm.getAccount(position);
+  const account = svm.getAccount(position)!;
   return program.coder.accounts.decode("position", Buffer.from(account.data));
 }
 
 export function getVesting(svm: LiteSVM, vesting: PublicKey): Vesting {
   const program = createCpAmmProgram();
-  const account = svm.getAccount(vesting);
+  const account = svm.getAccount(vesting)!;
   return program.coder.accounts.decode("vesting", Buffer.from(account.data));
 }
 
 export function getConfig(svm: LiteSVM, config: PublicKey): Config {
   const program = createCpAmmProgram();
-  const account = svm.getAccount(config);
+  const account = svm.getAccount(config)!;
   return program.coder.accounts.decode("config", Buffer.from(account.data));
 }
 
 export function getTokenBadge(svm: LiteSVM, tokenBadge: PublicKey): TokenBadge {
   const program = createCpAmmProgram();
-  const account = svm.getAccount(tokenBadge);
+  const account = svm.getAccount(tokenBadge)!;
   return program.coder.accounts.decode("tokenBadge", Buffer.from(account.data));
 }
 

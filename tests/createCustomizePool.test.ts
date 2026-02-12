@@ -3,7 +3,6 @@ import BN from "bn.js";
 
 import {
   createToken,
-  getPool,
   initializeCustomizablePool,
   InitializeCustomizablePoolParams,
   MAX_SQRT_PRICE,

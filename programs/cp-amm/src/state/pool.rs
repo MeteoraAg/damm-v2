@@ -25,7 +25,7 @@ use crate::{
     PoolError,
 };
 use crate::{
-    BaseFeeUpdateMode, CompoundingLiquidity, ConcenstratedLiquidity, DynamicFeeUpdateMode,
+    BaseFeeUpdateMode, CompoundingLiquidity, ConcentratedLiquidity, DynamicFeeUpdateMode,
     LiquidityHandler, UpdatePoolFeesParameters,
 };
 
@@ -1195,7 +1195,7 @@ impl Pool {
                 liquidity: self.liquidity,
             }))
         } else {
-            Ok(Box::new(ConcenstratedLiquidity {
+            Ok(Box::new(ConcentratedLiquidity {
                 sqrt_max_price: self.sqrt_max_price,
                 sqrt_min_price: self.sqrt_min_price,
                 liquidity: self.liquidity,

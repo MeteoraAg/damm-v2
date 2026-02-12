@@ -66,7 +66,7 @@ pub fn get_initial_pool_information(
     if collect_fee_mode == CollectFeeMode::Compounding {
         CompoundingLiquidity::get_initial_pool_information(sqrt_price, liquidity)
     } else {
-        ConcenstratedLiquidity::get_initial_pool_information(
+        ConcentratedLiquidity::get_initial_pool_information(
             sqrt_min_price,
             sqrt_max_price,
             sqrt_price,

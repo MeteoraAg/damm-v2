@@ -7,7 +7,7 @@ use crate::{
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     get_next_sqrt_price_from_input,
     tests::LIQUIDITY_MAX,
-    ConcenstratedLiquidity,
+    ConcentratedLiquidity,
 };
 use proptest::prelude::*;
 
@@ -22,7 +22,7 @@ fn test_get_initialize_amounts(
     ) {
         let sqrt_min_price = MIN_SQRT_PRICE;
         let sqrt_max_price = MAX_SQRT_PRICE;
-        ConcenstratedLiquidity::get_initial_pool_information(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity).unwrap();
+        ConcentratedLiquidity::get_initial_pool_information(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity).unwrap();
     }
 
 #[test]
@@ -49,7 +49,7 @@ fn test_get_initialize_amounts_single_case() {
     let sqrt_max_price = MAX_SQRT_PRICE;
     let sqrt_price = 29079168020;
     let liquidity = 13729854716085099837338887321;
-    let result = ConcenstratedLiquidity::get_initial_pool_information(
+    let result = ConcentratedLiquidity::get_initial_pool_information(
         sqrt_min_price,
         sqrt_max_price,
         sqrt_price,

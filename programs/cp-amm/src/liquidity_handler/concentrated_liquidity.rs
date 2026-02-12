@@ -15,14 +15,14 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 use ruint::aliases::U256;
-pub struct ConcenstratedLiquidity {
+pub struct ConcentratedLiquidity {
     pub sqrt_max_price: u128,
     pub sqrt_min_price: u128,
     pub sqrt_price: u128, // current sqrt price
     pub liquidity: u128,  // current liquidity
 }
 
-impl ConcenstratedLiquidity {
+impl ConcentratedLiquidity {
     pub fn get_initial_pool_information(
         sqrt_min_price: u128,
         sqrt_max_price: u128,
@@ -46,7 +46,7 @@ impl ConcenstratedLiquidity {
     }
 }
 
-impl LiquidityHandler for ConcenstratedLiquidity {
+impl LiquidityHandler for ConcentratedLiquidity {
     fn get_amounts_for_modify_liquidity(
         &self,
         liquidity_delta: u128,
@@ -304,7 +304,7 @@ pub fn get_delta_amount_a_unsigned(
         round,
     )?;
     require!(result <= U256::from(u64::MAX), PoolError::MathOverflow);
-    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
+    Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
 /// * i.e. `L * (√P_upper - √P_lower) / (√P_upper * √P_lower)`
@@ -322,7 +322,7 @@ pub fn get_delta_amount_a_unsigned_unchecked(
     assert!(denominator > U256::ZERO);
     let result = mul_div_u256(numerator_1, numerator_2, denominator, round)
         .ok_or_else(|| PoolError::MathOverflow)?;
-    return Ok(result);
+    Ok(result)
 }
 
 /// Gets the delta amount_b for given liquidity and price range
@@ -340,7 +340,7 @@ pub fn get_delta_amount_b_unsigned(
         round,
     )?;
     require!(result <= U256::from(u64::MAX), PoolError::MathOverflow);
-    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
+    Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
 // Δb = L * (√P_upper - √P_lower)
@@ -448,7 +448,7 @@ pub fn get_next_sqrt_price_from_amount_in_a_rounding_up(
     let denominator = liquidity.safe_add(U256::from(product))?;
     let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
         .ok_or_else(|| PoolError::MathOverflow)?;
-    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
+    Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
 ///  √P' = √P * L / (L - Δa * √P)
@@ -467,7 +467,7 @@ pub fn get_next_sqrt_price_from_amount_out_a_rounding_up(
     let denominator = liquidity.safe_sub(U256::from(product))?;
     let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
         .ok_or_else(|| PoolError::MathOverflow)?;
-    return Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?);
+    Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
 /// Gets the next sqrt price given a delta of token_b
