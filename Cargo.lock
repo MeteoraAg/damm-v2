@@ -736,18 +736,17 @@ dependencies = [
  "anchor-spl",
  "bytemuck",
  "const-crypto",
- "jupiter",
  "num",
  "num-traits",
  "num_enum",
- "pinocchio",
+ "pinocchio 0.9.0",
  "pinocchio-token",
  "pinocchio-token-2022",
  "proptest",
+ "protocol-zap",
  "ruint",
  "spl-token-metadata-interface",
  "static_assertions",
- "zap",
 ]
 
 [[package]]
@@ -1113,9 +1112,9 @@ dependencies = [
 [[package]]
 name = "jupiter"
 version = "0.1.0"
+source = "git+https://github.com/MeteoraAg/zap-program?rev=064c58b317b9a85f212c0de72caea286fc72fdb4#064c58b317b9a85f212c0de72caea286fc72fdb4"
 dependencies = [
  "anchor-lang",
- "bytemuck",
 ]
 
 [[package]]
@@ -1451,12 +1450,29 @@ version = "0.9.0"
 source = "git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed#17b0e862c01a868ea07ef81a2f8a9b4a504bdfed"
 
 [[package]]
+name = "pinocchio"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b971851087bc3699b001954ad02389d50c41405ece3548cbcafc88b3e20017a"
+
+[[package]]
+name = "pinocchio-pubkey"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb0225638cadcbebae8932cb7f49cb5da7c15c21beb19f048f05a5ca7d93f065"
+dependencies = [
+ "five8_const",
+ "pinocchio 0.9.2",
+ "sha2-const-stable",
+]
+
+[[package]]
 name = "pinocchio-pubkey"
 version = "0.3.0"
 source = "git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed#17b0e862c01a868ea07ef81a2f8a9b4a504bdfed"
 dependencies = [
  "five8_const",
- "pinocchio",
+ "pinocchio 0.9.0",
  "sha2-const-stable",
 ]
 
@@ -1465,8 +1481,8 @@ name = "pinocchio-token"
 version = "0.4.0"
 source = "git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed#17b0e862c01a868ea07ef81a2f8a9b4a504bdfed"
 dependencies = [
- "pinocchio",
- "pinocchio-pubkey",
+ "pinocchio 0.9.0",
+ "pinocchio-pubkey 0.3.0 (git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed)",
 ]
 
 [[package]]
@@ -1474,8 +1490,8 @@ name = "pinocchio-token-2022"
 version = "0.1.0"
 source = "git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed#17b0e862c01a868ea07ef81a2f8a9b4a504bdfed"
 dependencies = [
- "pinocchio",
- "pinocchio-pubkey",
+ "pinocchio 0.9.0",
+ "pinocchio-pubkey 0.3.0 (git+https://github.com/anza-xyz/pinocchio.git?rev=17b0e862c01a868ea07ef81a2f8a9b4a504bdfed)",
 ]
 
 [[package]]
@@ -1552,6 +1568,21 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
+]
+
+[[package]]
+name = "protocol-zap"
+version = "0.1.0"
+source = "git+https://github.com/MeteoraAg/zap-program?rev=064c58b317b9a85f212c0de72caea286fc72fdb4#064c58b317b9a85f212c0de72caea286fc72fdb4"
+dependencies = [
+ "borsh 0.10.3",
+ "jupiter",
+ "num_enum",
+ "pinocchio 0.9.2",
+ "pinocchio-pubkey 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ruint",
+ "thiserror 2.0.12",
+ "zap-sdk",
 ]
 
 [[package]]
@@ -3687,11 +3718,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "zap"
+name = "zap-sdk"
 version = "0.1.0"
+source = "git+https://github.com/MeteoraAg/zap-program?rev=064c58b317b9a85f212c0de72caea286fc72fdb4#064c58b317b9a85f212c0de72caea286fc72fdb4"
 dependencies = [
- "anchor-lang",
- "bytemuck",
+ "solana-pubkey",
 ]
 
 [[package]]
