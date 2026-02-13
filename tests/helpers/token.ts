@@ -23,7 +23,7 @@ import { expect } from "chai";
 import { LiteSVM, TransactionMetadata } from "litesvm";
 import { DECIMALS, NATIVE_MINT } from "./constants";
 import { sendTransaction } from "./svm";
-const rawAmount = 100_000_000 * 10 ** DECIMALS; // 1 millions
+const rawAmount = 100_000_000_000 * 10 ** DECIMALS; // 1 billions
 
 export function getOrCreateAssociatedTokenAccount(
   svm: LiteSVM,
@@ -77,7 +77,7 @@ export function createToken(
     mintKeypair.publicKey,
     DECIMALS,
     mintAuthority,
-    freezeAuthority
+    freezeAuthority ? freezeAuthority : null,
   );
 
   let transaction = new Transaction();
@@ -165,7 +165,7 @@ export function mintSplTokenTo(
 }
 
 export function getMint(svm: LiteSVM, mint: PublicKey): RawMint {
-  const account = svm.getAccount(mint);
+  const account = svm.getAccount(mint)!;
   const mintState = MintLayout.decode(account.data);
   return mintState;
 }

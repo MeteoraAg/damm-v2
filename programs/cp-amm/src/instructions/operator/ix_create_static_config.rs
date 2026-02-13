@@ -58,15 +58,25 @@ pub fn handle_create_static_config(
         collect_fee_mode,
     } = config_parameters;
 
-    require!(
-        sqrt_min_price >= MIN_SQRT_PRICE && sqrt_max_price <= MAX_SQRT_PRICE,
-        PoolError::InvalidPriceRange
-    );
+    let pool_collect_fee_mode =
+        CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::InvalidCollectFeeMode)?;
 
-    require!(
-        sqrt_min_price < sqrt_max_price,
-        PoolError::InvalidPriceRange
-    );
+    if pool_collect_fee_mode == CollectFeeMode::Compounding {
+        require!(
+            sqrt_min_price == 0 && sqrt_max_price == u128::MAX,
+            PoolError::InvalidPriceRange
+        );
+    } else {
+        require!(
+            sqrt_min_price >= MIN_SQRT_PRICE && sqrt_max_price <= MAX_SQRT_PRICE,
+            PoolError::InvalidPriceRange
+        );
+
+        require!(
+            sqrt_min_price < sqrt_max_price,
+            PoolError::InvalidPriceRange
+        );
+    }
 
     let has_alpha_vault = vault_config_key.ne(&Pubkey::default());
 
@@ -83,9 +93,6 @@ pub fn handle_create_static_config(
 
     let pool_activation_type =
         ActivationType::try_from(activation_type).map_err(|_| PoolError::InvalidActivationType)?;
-
-    let pool_collect_fee_mode =
-        CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::InvalidCollectFeeMode)?;
 
     pool_fees.validate(pool_collect_fee_mode, pool_activation_type)?;
 

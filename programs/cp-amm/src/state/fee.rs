@@ -23,9 +23,9 @@ use super::CollectFeeMode;
 #[derive(Debug, PartialEq)]
 pub struct FeeOnAmountResult {
     pub amount: u64,
-    pub trading_fee: u64,
+    pub claiming_fee: u64,
+    pub compounding_fee: u64,
     pub protocol_fee: u64,
-    pub partner_fee: u64,
     pub referral_fee: u64,
 }
 
@@ -64,7 +64,6 @@ pub enum BaseFeeMode {
 /// trading_fee = amount * trade_fee_numerator / denominator
 /// protocol_fee = trading_fee * protocol_fee_percentage / 100
 /// referral_fee = protocol_fee * referral_percentage / 100
-/// partner_fee = (protocol_fee - referral_fee) * partner_fee_percentage / denominator
 #[derive(Debug, InitSpace, Default)]
 pub struct PoolFeesStruct {
     /// Trade fees are extra token amounts that are held inside the token
@@ -77,12 +76,14 @@ pub struct PoolFeesStruct {
     /// the protocol of the program.
     /// Protocol trade fee numerator
     pub protocol_fee_percent: u8,
-    /// partner fee
-    pub partner_fee_percent: u8,
+    /// padding for future use
+    pub padding_0: u8,
     /// referral fee
     pub referral_fee_percent: u8,
     /// padding
-    pub padding_0: [u8; 5],
+    pub padding_1: [u8; 3],
+    /// compounding fee bps, only non-zero in CollectFeeMode::Compounding
+    pub compounding_fee_bps: u16,
 
     /// dynamic fee
     pub dynamic_fee: DynamicFeeStruct,
@@ -188,23 +189,22 @@ impl PoolFeesStruct {
         amount: u64,
         trade_fee_numerator: u64,
         has_referral: bool,
-        has_partner: bool,
     ) -> Result<FeeOnAmountResult> {
         let (amount, trading_fee) =
             PoolFeesStruct::get_excluded_fee_amount(trade_fee_numerator, amount)?;
 
         let SplitFees {
-            trading_fee,
+            claiming_fee,
+            compounding_fee,
             protocol_fee,
             referral_fee,
-            partner_fee,
-        } = self.split_fees(trading_fee, has_referral, has_partner)?;
+        } = self.split_fees(trading_fee, has_referral)?;
 
         Ok(FeeOnAmountResult {
             amount,
-            trading_fee,
+            claiming_fee,
+            compounding_fee,
             protocol_fee,
-            partner_fee,
             referral_fee,
         })
     }
@@ -237,12 +237,7 @@ impl PoolFeesStruct {
         Ok((included_fee_amount, fee_amount))
     }
 
-    pub fn split_fees(
-        &self,
-        fee_amount: u64,
-        has_referral: bool,
-        has_partner: bool,
-    ) -> Result<SplitFees> {
+    pub fn split_fees(&self, fee_amount: u64, has_referral: bool) -> Result<SplitFees> {
         let protocol_fee = safe_mul_div_cast_u64(
             fee_amount,
             self.protocol_fee_percent.into(),
@@ -252,6 +247,19 @@ impl PoolFeesStruct {
 
         // update trading fee
         let trading_fee: u64 = fee_amount.safe_sub(protocol_fee)?;
+
+        let (compounding_fee, claiming_fee) = if self.compounding_fee_bps > 0 {
+            let compounding_fee: u64 = safe_mul_div_cast_u64(
+                trading_fee,
+                self.compounding_fee_bps.into(),
+                MAX_BASIS_POINT.into(),
+                Rounding::Down,
+            )?;
+            let claiming_fee = trading_fee.safe_sub(compounding_fee)?;
+            (compounding_fee, claiming_fee)
+        } else {
+            (0, trading_fee)
+        };
 
         let referral_fee = if has_referral {
             safe_mul_div_cast_u64(
@@ -264,26 +272,13 @@ impl PoolFeesStruct {
             0
         };
 
-        let protocol_fee_after_referral_fee = protocol_fee.safe_sub(referral_fee)?;
-
-        let partner_fee = if has_partner && self.partner_fee_percent > 0 {
-            safe_mul_div_cast_u64(
-                protocol_fee_after_referral_fee,
-                self.partner_fee_percent.into(),
-                100,
-                Rounding::Down,
-            )?
-        } else {
-            0
-        };
-
-        let protocol_fee = protocol_fee_after_referral_fee.safe_sub(partner_fee)?;
+        let protocol_fee = protocol_fee.safe_sub(referral_fee)?;
 
         Ok(SplitFees {
-            trading_fee,
+            claiming_fee,
+            compounding_fee,
             protocol_fee,
             referral_fee,
-            partner_fee,
         })
     }
 }
@@ -407,13 +402,10 @@ pub struct FeeMode {
 
 impl FeeMode {
     pub fn get_fee_mode(
-        collect_fee_mode: u8,
+        collect_fee_mode: CollectFeeMode,
         trade_direction: TradeDirection,
         has_referral: bool,
-    ) -> Result<FeeMode> {
-        let collect_fee_mode = CollectFeeMode::try_from(collect_fee_mode)
-            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-
+    ) -> FeeMode {
         let (fees_on_input, fees_on_token_a) = match (collect_fee_mode, trade_direction) {
             // When collecting fees on output token
             (CollectFeeMode::BothToken, TradeDirection::AtoB) => (false, false),
@@ -422,104 +414,23 @@ impl FeeMode {
             // When collecting fees on tokenB
             (CollectFeeMode::OnlyB, TradeDirection::AtoB) => (false, false),
             (CollectFeeMode::OnlyB, TradeDirection::BtoA) => (true, false),
+
+            // when collecting fees on compounding
+            (CollectFeeMode::Compounding, TradeDirection::AtoB) => (false, false),
+            (CollectFeeMode::Compounding, TradeDirection::BtoA) => (true, false),
         };
 
-        Ok(FeeMode {
+        FeeMode {
             fees_on_input,
             fees_on_token_a,
             has_referral,
-        })
+        }
     }
 }
 
 pub struct SplitFees {
-    pub trading_fee: u64,
+    pub claiming_fee: u64,
+    pub compounding_fee: u64,
     pub protocol_fee: u64,
     pub referral_fee: u64,
-    pub partner_fee: u64,
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{params::swap::TradeDirection, state::CollectFeeMode};
-
-    use super::*;
-
-    #[test]
-    fn test_fee_mode_output_token_a_to_b() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::BothToken as u8, TradeDirection::AtoB, false)
-                .unwrap();
-
-        assert_eq!(fee_mode.fees_on_input, false);
-        assert_eq!(fee_mode.fees_on_token_a, false);
-        assert_eq!(fee_mode.has_referral, false);
-    }
-
-    #[test]
-    fn test_fee_mode_output_token_b_to_a() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::BothToken as u8, TradeDirection::BtoA, true)
-                .unwrap();
-
-        assert_eq!(fee_mode.fees_on_input, false);
-        assert_eq!(fee_mode.fees_on_token_a, true);
-        assert_eq!(fee_mode.has_referral, true);
-    }
-
-    #[test]
-    fn test_fee_mode_quote_token_a_to_b() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::AtoB, false)
-                .unwrap();
-
-        assert_eq!(fee_mode.fees_on_input, false);
-        assert_eq!(fee_mode.fees_on_token_a, false);
-        assert_eq!(fee_mode.has_referral, false);
-    }
-
-    #[test]
-    fn test_fee_mode_quote_token_b_to_a() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::BtoA, true).unwrap();
-
-        assert_eq!(fee_mode.fees_on_input, true);
-        assert_eq!(fee_mode.fees_on_token_a, false);
-        assert_eq!(fee_mode.has_referral, true);
-    }
-
-    #[test]
-    fn test_invalid_collect_fee_mode() {
-        let result = FeeMode::get_fee_mode(
-            2, // Invalid mode
-            TradeDirection::BtoA,
-            false,
-        );
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_fee_mode_default() {
-        let fee_mode = FeeMode::default();
-
-        assert_eq!(fee_mode.fees_on_input, false);
-        assert_eq!(fee_mode.fees_on_token_a, false);
-        assert_eq!(fee_mode.has_referral, false);
-    }
-
-    // Property-based test to ensure consistent behavior
-    #[test]
-    fn test_fee_mode_properties() {
-        // When trading BaseToQuote, fees should never be on input
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::AtoB, true).unwrap();
-        assert_eq!(fee_mode.fees_on_input, false);
-
-        // When using QuoteToken mode, base_token should always be false
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::BtoA, false)
-                .unwrap();
-        assert_eq!(fee_mode.fees_on_token_a, false);
-    }
 }

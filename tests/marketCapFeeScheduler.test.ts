@@ -35,10 +35,8 @@ const schedulerExpirationDuration = new BN(3600);
 describe("Market cap fee scheduler", () => {
   let svm: LiteSVM;
   let admin: Keypair;
-  let operator: Keypair;
-  let partner: Keypair;
   let user: Keypair;
-  let poolCreator: Keypair;
+  let creator: Keypair;
   let tokenA: PublicKey;
   let tokenB: PublicKey;
   let whitelistedAccount: Keypair;
@@ -46,10 +44,8 @@ describe("Market cap fee scheduler", () => {
   before(async () => {
     svm = startSvm();
     admin = generateKpAndFund(svm);
-    operator = generateKpAndFund(svm);
-    partner = generateKpAndFund(svm);
     user = generateKpAndFund(svm);
-    poolCreator = generateKpAndFund(svm);
+    creator = generateKpAndFund(svm);
     whitelistedAccount = generateKpAndFund(svm);
     tokenA = createToken(svm, admin.publicKey, admin.publicKey);
     tokenB = createToken(svm, admin.publicKey, admin.publicKey);
@@ -58,9 +54,9 @@ describe("Market cap fee scheduler", () => {
 
     mintSplTokenTo(svm, tokenB, admin, user.publicKey);
 
-    mintSplTokenTo(svm, tokenA, admin, poolCreator.publicKey);
+    mintSplTokenTo(svm, tokenA, admin, creator.publicKey);
 
-    mintSplTokenTo(svm, tokenB, admin, poolCreator.publicKey);
+    mintSplTokenTo(svm, tokenB, admin, creator.publicKey);
 
     let permission = encodePermissions([
       OperatorPermission.CreateConfigKey,
@@ -91,7 +87,8 @@ describe("Market cap fee scheduler", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: MIN_SQRT_PRICE,
@@ -102,8 +99,8 @@ describe("Market cap fee scheduler", () => {
       collectFeeMode: 1, // onlyB
       activationPoint: null,
       hasAlphaVault: false,
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
     });
@@ -126,7 +123,8 @@ describe("Market cap fee scheduler", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -146,8 +144,8 @@ describe("Market cap fee scheduler", () => {
     const liquidity = new BN(MIN_LP_AMOUNT);
 
     const initPoolParams: InitializePoolParams = {
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       config,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
@@ -160,7 +158,7 @@ describe("Market cap fee scheduler", () => {
 
     // Market cap increase
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -175,7 +173,7 @@ describe("Market cap fee scheduler", () => {
 
     // Market cap increase
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,

@@ -615,7 +615,8 @@ async function createPool(
       baseFee: {
         data: Array.from(baseFeeData),
       },
-      padding: [],
+      compoundingFeeBps: 0,
+      padding: 0,
       dynamicFee,
     },
     activationType: 0,

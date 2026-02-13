@@ -1,7 +1,5 @@
 use anchor_lang::constant;
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::ID as ASSOCIATED_TOKEN_PROGRAM_ID;
-use anchor_spl::token::ID as TOKEN_PROGRAM_ID;
 
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
 
@@ -56,7 +54,7 @@ pub const SPLIT_POSITION_DENOMINATOR: u32 = 1_000_000_000; // 1b
 pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
 pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
 
-pub const MAX_OPERATION: u8 = 11;
+pub const MAX_OPERATION: u8 = 12;
 
 static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,
@@ -67,63 +65,6 @@ const OKX_SMART_WALLET: Pubkey =
     Pubkey::from_str_const("va1t8sdGkReA6XFgAeZGXmdQoiEtMirwy4ifLv7yGdH");
 
 pub const RATE_LIMITER_STACK_WHITELIST_PROGRAMS: [[u8; 32]; 1] = [OKX_SMART_WALLET.to_bytes()];
-
-pub mod zap {
-    use super::*;
-    use ::zap::zap;
-    use const_crypto::ed25519;
-
-    pub const JUP_V6: Pubkey = pubkey!("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
-
-    pub const JUP_V6_SHARED_ACCOUNT_ROUTE_AMOUNT_IN_REVERSE_OFFSET: usize = 1 + 2 + 8 + 8; // Due to jupiter parameters have dynamic length type (vec), we have to do parameters_data.length - JUP_V6_SHARED_ACCOUNT_ROUTE_AMOUNT_IN_REVERSE_OFFSET
-    pub const JUP_V6_SHARED_ACCOUNT_ROUTE_SOURCE_ACCOUNT_INDEX: usize = 3;
-    pub const JUP_V6_SHARED_ACCOUNT_ROUTE_DESTINATION_ACCOUNT_INDEX: usize = 6;
-
-    pub const JUP_V6_ROUTE_AMOUNT_IN_REVERSE_OFFSET: usize = 1 + 2 + 8 + 8;
-    pub const JUP_V6_ROUTE_SOURCE_ACCOUNT_INDEX: usize = 2;
-    pub const JUP_V6_ROUTE_DESTINATION_ACCOUNT_INDEX: usize = 4;
-
-    pub const DAMM_V2_SWAP_AMOUNT_IN_OFFSET: u16 = 8;
-    pub const DAMM_V2_SWAP_SOURCE_ACCOUNT_INDEX: usize = 2;
-    pub const DAMM_V2_SWAP_DESTINATION_ACCOUNT_INDEX: usize = 3;
-
-    pub const USDC_ADDRESS: Pubkey =
-        Pubkey::from_str_const("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-
-    pub const SOL_ADDRESS: Pubkey =
-        Pubkey::from_str_const("So11111111111111111111111111111111111111112");
-
-    pub const MINTS_DISALLOWED_TO_ZAP_OUT: [Pubkey; 2] = [USDC_ADDRESS, SOL_ADDRESS];
-
-    pub const TREASURY_USDC_ADDRESS: Pubkey = Pubkey::new_from_array(
-        ed25519::derive_program_address(
-            &[
-                &treasury::ID.to_bytes(),
-                &TOKEN_PROGRAM_ID.to_bytes(),
-                &USDC_ADDRESS.to_bytes(),
-            ],
-            &ASSOCIATED_TOKEN_PROGRAM_ID.to_bytes(),
-        )
-        .0,
-    );
-
-    pub const TREASURY_SOL_ADDRESS: Pubkey = Pubkey::new_from_array(
-        ed25519::derive_program_address(
-            &[
-                &treasury::ID.to_bytes(),
-                &TOKEN_PROGRAM_ID.to_bytes(),
-                &SOL_ADDRESS.to_bytes(),
-            ],
-            &ASSOCIATED_TOKEN_PROGRAM_ID.to_bytes(),
-        )
-        .0,
-    );
-
-    pub const DAMM_V2_SWAP_DISC_REF: &[u8] = &zap::constants::DAMM_V2_SWAP_DISC;
-    pub const JUP_V6_ROUTE_DISC_REF: &[u8] = &zap::constants::JUP_V6_ROUTE_DISC;
-    pub const JUP_V6_SHARED_ACCOUNT_ROUTE_DISC_REF: &[u8] =
-        &zap::constants::JUP_V6_SHARED_ACCOUNT_ROUTE_DISC;
-}
 
 pub mod activation {
     #[cfg(not(feature = "local"))]
@@ -183,24 +124,24 @@ pub mod fee {
 
     /// Max basis point. 100% in pct
     #[constant]
-    pub const MAX_BASIS_POINT: u64 = 10_000;
+    pub const MAX_BASIS_POINT: u16 = 10_000;
 
     pub const MIN_FEE_BPS: u64 = 1; // 0.01%
     #[constant]
     pub const MIN_FEE_NUMERATOR: u64 = 100_000;
 
     static_assertions::const_assert_eq!(
-        MAX_FEE_BPS_V0 * FEE_DENOMINATOR / MAX_BASIS_POINT,
+        MAX_FEE_BPS_V0 * FEE_DENOMINATOR / MAX_BASIS_POINT as u64,
         MAX_FEE_NUMERATOR_V0
     );
 
     static_assertions::const_assert_eq!(
-        MAX_FEE_BPS_V1 * FEE_DENOMINATOR / MAX_BASIS_POINT,
+        MAX_FEE_BPS_V1 * FEE_DENOMINATOR / MAX_BASIS_POINT as u64,
         MAX_FEE_NUMERATOR_V1
     );
 
     static_assertions::const_assert_eq!(
-        MIN_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT,
+        MIN_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT as u64,
         MIN_FEE_NUMERATOR
     );
 
@@ -208,25 +149,22 @@ pub mod fee {
 
     pub const HOST_FEE_PERCENT: u8 = 20; // 20% of protocol fee
 
-    pub const PARTNER_FEE_PERCENT: u8 = 0; // percentage of partner fee
-
     static_assertions::const_assert!(PROTOCOL_FEE_PERCENT <= 50);
     static_assertions::const_assert!(HOST_FEE_PERCENT <= 50);
-    static_assertions::const_assert!(PARTNER_FEE_PERCENT <= 50);
 
     #[constant]
     pub const CURRENT_POOL_VERSION: u8 = 1;
 
-    pub fn get_max_fee_numerator(pool_version: u8) -> Result<u64> {
-        match pool_version {
+    pub fn get_max_fee_numerator(fee_version: u8) -> Result<u64> {
+        match fee_version {
             0 => Ok(MAX_FEE_NUMERATOR_V0),
             1 => Ok(MAX_FEE_NUMERATOR_V1),
             _ => Err(PoolError::InvalidPoolVersion.into()),
         }
     }
 
-    pub fn get_max_fee_bps(pool_version: u8) -> Result<u64> {
-        match pool_version {
+    pub fn get_max_fee_bps(fee_version: u8) -> Result<u64> {
+        match fee_version {
             0 => Ok(MAX_FEE_BPS_V0),
             1 => Ok(MAX_FEE_BPS_V1),
             _ => Err(PoolError::InvalidPoolVersion.into()),
