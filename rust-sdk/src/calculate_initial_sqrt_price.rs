@@ -11,7 +11,7 @@ use ruint::aliases::U256;
 // => s ^ 2 + s * (-pa + x * y) - y = 0
 // s = [(pa - xy) + √((xy - pa)² + 4y)]/2, // pa: min_sqrt_price, pb: max_sqrt_price
 // s = [(pa - b << 128 / a / pb) + sqrt((b << 128 / a / pb - pa)² + 4 * b << 128 / a)] / 2
-pub fn calculate_concenstrated_initial_sqrt_price(
+pub fn calculate_concentrated_initial_sqrt_price(
     token_a_amount: u64,
     token_b_amount: u64,
     min_sqrt_price: u128,

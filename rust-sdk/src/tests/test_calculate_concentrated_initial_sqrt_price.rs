@@ -8,7 +8,7 @@ use cp_amm::{
 };
 use ruint::aliases::{U256, U512};
 
-use crate::calculate_initial_sqrt_price::calculate_concenstrated_initial_sqrt_price;
+use crate::calculate_initial_sqrt_price::calculate_concentrated_initial_sqrt_price;
 use anyhow::{Ok, Result};
 
 // Δa = L * (1 / √P_lower - 1 / √P_upper) => L = Δa / (1 / √P_lower - 1 / √P_upper)
@@ -76,7 +76,7 @@ fn test_b_div_a_larger_than_pa_mul_pb() {
         .unwrap();
 
     let init_sqrt_price =
-        calculate_concenstrated_initial_sqrt_price(a, b, MIN_SQRT_PRICE, MAX_SQRT_PRICE).unwrap();
+        calculate_concentrated_initial_sqrt_price(a, b, MIN_SQRT_PRICE, MAX_SQRT_PRICE).unwrap();
 
     println!("init_sqrt_price: {:?}", init_sqrt_price);
 
@@ -137,7 +137,7 @@ fn test_b_div_a_less_than_pa_mul_pb() {
         .unwrap();
 
     let init_sqrt_price =
-        calculate_concenstrated_initial_sqrt_price(a, b, MIN_SQRT_PRICE, MAX_SQRT_PRICE).unwrap();
+        calculate_concentrated_initial_sqrt_price(a, b, MIN_SQRT_PRICE, MAX_SQRT_PRICE).unwrap();
 
     println!("init_sqrt_price: {:?}", init_sqrt_price);
 
@@ -193,7 +193,7 @@ fn test_b_div_a_equal_pa_mul_pb() {
 
     let a = u64::try_from(token_a_in_amount).unwrap();
     let init_sqrt_price =
-        calculate_concenstrated_initial_sqrt_price(a, b, MIN_SQRT_PRICE, MAX_SQRT_PRICE).unwrap();
+        calculate_concentrated_initial_sqrt_price(a, b, MIN_SQRT_PRICE, MAX_SQRT_PRICE).unwrap();
 
     println!("init_sqrt_price: {:?}", init_sqrt_price);
 
