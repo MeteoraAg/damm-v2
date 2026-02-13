@@ -56,7 +56,7 @@ pub const SPLIT_POSITION_DENOMINATOR: u32 = 1_000_000_000; // 1b
 pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
 pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
 
-pub const MAX_OPERATION: u8 = 11;
+pub const MAX_OPERATION: u8 = 12;
 
 static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,
@@ -183,24 +183,24 @@ pub mod fee {
 
     /// Max basis point. 100% in pct
     #[constant]
-    pub const MAX_BASIS_POINT: u64 = 10_000;
+    pub const MAX_BASIS_POINT: u16 = 10_000;
 
     pub const MIN_FEE_BPS: u64 = 1; // 0.01%
     #[constant]
     pub const MIN_FEE_NUMERATOR: u64 = 100_000;
 
     static_assertions::const_assert_eq!(
-        MAX_FEE_BPS_V0 * FEE_DENOMINATOR / MAX_BASIS_POINT,
+        MAX_FEE_BPS_V0 * FEE_DENOMINATOR / MAX_BASIS_POINT as u64,
         MAX_FEE_NUMERATOR_V0
     );
 
     static_assertions::const_assert_eq!(
-        MAX_FEE_BPS_V1 * FEE_DENOMINATOR / MAX_BASIS_POINT,
+        MAX_FEE_BPS_V1 * FEE_DENOMINATOR / MAX_BASIS_POINT as u64,
         MAX_FEE_NUMERATOR_V1
     );
 
     static_assertions::const_assert_eq!(
-        MIN_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT,
+        MIN_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT as u64,
         MIN_FEE_NUMERATOR
     );
 
@@ -214,16 +214,16 @@ pub mod fee {
     #[constant]
     pub const CURRENT_POOL_VERSION: u8 = 1;
 
-    pub fn get_max_fee_numerator(pool_version: u8) -> Result<u64> {
-        match pool_version {
+    pub fn get_max_fee_numerator(fee_version: u8) -> Result<u64> {
+        match fee_version {
             0 => Ok(MAX_FEE_NUMERATOR_V0),
             1 => Ok(MAX_FEE_NUMERATOR_V1),
             _ => Err(PoolError::InvalidPoolVersion.into()),
         }
     }
 
-    pub fn get_max_fee_bps(pool_version: u8) -> Result<u64> {
-        match pool_version {
+    pub fn get_max_fee_bps(fee_version: u8) -> Result<u64> {
+        match fee_version {
             0 => Ok(MAX_FEE_BPS_V0),
             1 => Ok(MAX_FEE_BPS_V1),
             _ => Err(PoolError::InvalidPoolVersion.into()),

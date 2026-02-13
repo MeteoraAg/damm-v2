@@ -23,10 +23,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.0]
 
+### Added
+
+- Pool now will track reserves balances `(token_a_amount, token_b_amount)` if `pool.layout_version == 1`. For pool layout_version 0, operator can call the new endpoint `fix_pool_layout_version` to pump pool version.
+- Add a new `collect_fee_mode (Compounding)`, in the new collect fee mode, fee will be collected in quote token, and a percentage of fee (configurable) will be added in reserves for compounding. In the new collect fee mode, the pool doesn't have concentrated price range, instead following constant-product formula `token_a_amount * token_b_amount = constant`.
+- Endpoints `create_config`, `initialize_customizable_pool` and `initialize_pool_with_dynamic_config` will allow user to create pool with `collect_fee_mode == Compounding`, and config for `compounding_fee_bps`.
+
+### Changed
+
+- Related to event `EvtSwap2`, in `swap_result` field, `partner_fee` will be replaced by `compounding_fee`, now total_trading_fee will be calculated as `swap_result.claiming_fee + swap_result.compounding_fee`
+
 ### Removed
 
 - Removed `partner` field from Pool struct
 - Removed unused `partner_fee` feature and the `claim_partner_fee` endpoint
+
+### Breaking Changes
+
+- Quote function will be changed by the new fee mode
 
 ## cp_amm [0.1.8][PR #177](https://github.com/MeteoraAg/damm-v2/pull/177)
 

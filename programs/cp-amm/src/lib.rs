@@ -19,7 +19,8 @@ pub use utils::*;
 pub mod base_fee;
 pub mod math;
 pub use math::*;
-pub mod curve;
+pub mod liquidity_handler;
+pub use liquidity_handler::*;
 
 pub mod tests;
 
@@ -264,19 +265,10 @@ pub mod cp_amm {
 
     pub fn swap(_ctx: Context<SwapCtx>, _params: SwapParameters) -> Result<()> {
         Ok(())
-        // instructions::swap::handle_swap_wrapper(
-        //     &ctx,
-        //     SwapParameters2 {
-        //         amount_0: params.amount_in,
-        //         amount_1: params.minimum_amount_out,
-        //         swap_mode: SwapMode::ExactIn.into(),
-        //     },
-        // )
     }
 
     pub fn swap2(_ctx: Context<SwapCtx>, _params: SwapParameters2) -> Result<()> {
         Ok(())
-        // instructions::swap::handle_swap_wrapper(&ctx, params)
     }
 
     pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
@@ -335,6 +327,11 @@ pub mod cp_amm {
                 inner_vesting_liquidity_numerator: numerator,
             },
         )
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::FixPool))]
+    pub fn fix_pool_layout_version(ctx: Context<FixPoolLayoutVersionCtx>) -> Result<()> {
+        instructions::handle_fix_pool_layout_version(ctx)
     }
 
     #[cfg(feature = "idl-build")]

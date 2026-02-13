@@ -10,15 +10,15 @@ use crate::{
     constants::seeds::{
         POOL_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX,
     },
-    create_position_nft,
-    curve::get_initialize_amounts,
-    get_whitelisted_alpha_vault,
+    create_position_nft, get_initial_pool_information, get_whitelisted_alpha_vault,
+    safe_math::SafeCast,
     state::{Config, ConfigType, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
-    EvtCreatePosition, EvtInitializePool, InitializeCustomizablePoolParameters, PoolError,
+    EvtCreatePosition, EvtInitializePool, InitialPoolInformation,
+    InitializeCustomizablePoolParameters, PoolError,
 };
 
 use super::{max_key, min_key};
@@ -214,8 +214,21 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         PoolError::InvalidConfigType
     );
 
-    let (token_a_amount, token_b_amount) =
-        get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity)?;
+    let InitialPoolInformation {
+        token_a_amount,
+        token_b_amount,
+        initial_liquidity,
+        sqrt_min_price,
+        sqrt_max_price,
+        sqrt_price,
+    } = get_initial_pool_information(
+        collect_fee_mode.safe_cast()?,
+        sqrt_min_price,
+        sqrt_max_price,
+        sqrt_price,
+        liquidity,
+    )?;
+
     require!(
         token_a_amount > 0 || token_b_amount > 0,
         PoolError::AmountIsZero
@@ -252,6 +265,8 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         liquidity,
         collect_fee_mode,
         pool_type,
+        token_a_amount,
+        token_b_amount,
     );
 
     let mut position = ctx.accounts.position.load_init()?;
@@ -259,7 +274,7 @@ pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
         &mut pool,
         ctx.accounts.pool.key(),
         ctx.accounts.position_nft_mint.key(),
-        liquidity,
+        initial_liquidity,
     );
 
     // create position nft

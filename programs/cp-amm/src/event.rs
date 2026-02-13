@@ -104,7 +104,6 @@ pub struct EvtSwap2 {
     pub collect_fee_mode: u8,
     pub has_referral: bool,
     pub params: SwapParameters2,
-    // excluded_transfer_fee_amount_in is swap_result.included_fee_amount_in
     pub swap_result: SwapResult2,
     pub included_transfer_fee_amount_in: u64,
     pub included_transfer_fee_amount_out: u64,

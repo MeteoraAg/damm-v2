@@ -14,15 +14,16 @@ use crate::{
     constants::seeds::{
         POOL_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX,
     },
-    create_position_nft,
-    curve::get_initialize_amounts,
+    create_position_nft, get_initial_pool_information,
     params::activation::ActivationParams,
+    safe_math::SafeCast,
     state::{Config, ConfigType, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
     },
-    EvtCreatePosition, EvtInitializePool, PoolError,
+    validate_initial_sqrt_price, EvtCreatePosition, EvtInitializePool, InitialPoolInformation,
+    PoolError,
 };
 
 // To fix IDL generation: https://github.com/coral-xyz/anchor/issues/3209
@@ -243,12 +244,22 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         config.activation_type,
     )?);
 
-    require!(
-        sqrt_price >= config.sqrt_min_price && sqrt_price <= config.sqrt_max_price,
-        PoolError::InvalidPriceRange
-    );
+    validate_initial_sqrt_price(
+        config.collect_fee_mode.safe_cast()?,
+        sqrt_price,
+        config.sqrt_min_price,
+        config.sqrt_max_price,
+    )?;
 
-    let (token_a_amount, token_b_amount) = get_initialize_amounts(
+    let InitialPoolInformation {
+        token_a_amount,
+        token_b_amount,
+        initial_liquidity,
+        sqrt_min_price,
+        sqrt_max_price,
+        sqrt_price,
+    } = get_initial_pool_information(
+        config.collect_fee_mode.safe_cast()?,
         config.sqrt_min_price,
         config.sqrt_max_price,
         sqrt_price,
@@ -274,8 +285,8 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         ctx.accounts.token_a_vault.key(),
         ctx.accounts.token_b_vault.key(),
         alpha_vault,
-        config.sqrt_min_price,
-        config.sqrt_max_price,
+        sqrt_min_price,
+        sqrt_max_price,
         sqrt_price,
         activation_point,
         config.activation_type,
@@ -284,6 +295,8 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         liquidity,
         config.collect_fee_mode,
         pool_type,
+        token_a_amount,
+        token_b_amount,
     );
 
     // init position
@@ -293,7 +306,7 @@ pub fn handle_initialize_pool<'c: 'info, 'info>(
         &mut pool,
         ctx.accounts.pool.key(),
         ctx.accounts.position_nft_mint.key(),
-        liquidity,
+        initial_liquidity,
     );
 
     // create position nft

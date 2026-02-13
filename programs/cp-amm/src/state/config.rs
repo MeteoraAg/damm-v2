@@ -41,7 +41,9 @@ pub struct PoolFeesConfig {
     pub protocol_fee_percent: u8,
     pub padding_0: u8,
     pub referral_fee_percent: u8,
-    pub padding_1: [u8; 5],
+    pub padding_1: [u8; 3],
+    /// Compounding fee bps, only non-zero if collect_fee_mode is compounding
+    pub compounding_fee_bps: u16,
     pub padding_2: [u64; 5],
 }
 
@@ -73,6 +75,7 @@ impl PoolFeesConfig {
     pub fn to_pool_fee_parameters(&self) -> Result<PoolFeeParameters> {
         let &PoolFeesConfig {
             base_fee,
+            compounding_fee_bps,
             dynamic_fee:
                 DynamicFeeConfig {
                     initialized,
@@ -90,6 +93,7 @@ impl PoolFeesConfig {
         if initialized == 1 {
             Ok(PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters()?,
+                compounding_fee_bps,
                 dynamic_fee: Some(DynamicFeeParameters {
                     bin_step,
                     bin_step_u128,
@@ -99,10 +103,12 @@ impl PoolFeesConfig {
                     max_volatility_accumulator,
                     variable_fee_control,
                 }),
+                ..Default::default()
             })
         } else {
             Ok(PoolFeeParameters {
                 base_fee: base_fee.to_base_fee_parameters()?,
+                compounding_fee_bps,
                 ..Default::default()
             })
         }
@@ -113,6 +119,7 @@ impl PoolFeesConfig {
             base_fee,
             protocol_fee_percent,
             referral_fee_percent,
+            compounding_fee_bps,
             dynamic_fee,
             ..
         } = self;
@@ -121,6 +128,7 @@ impl PoolFeesConfig {
             base_fee: base_fee.to_base_fee_struct(),
             protocol_fee_percent,
             referral_fee_percent,
+            compounding_fee_bps,
             dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
             init_sqrt_price,
             ..Default::default()

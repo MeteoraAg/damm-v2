@@ -36,4 +36,4 @@ zap = { path = "../../libs/zap" }
 jupiter = { path = "../../libs/jupiter" }
 
 [dev-dependencies]
-proptest = "1.2.0"
+proptest = { workspace = true}

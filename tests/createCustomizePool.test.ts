@@ -3,7 +3,6 @@ import BN from "bn.js";
 
 import {
   createToken,
-  getPool,
   initializeCustomizablePool,
   InitializeCustomizablePoolParams,
   MAX_SQRT_PRICE,
@@ -71,7 +70,8 @@ describe("Initialize customizable pool", () => {
           baseFee: {
             data: Array.from(data),
           },
-          padding: [],
+          compoundingFeeBps: 0,
+          padding: 0,
           dynamicFee: null,
         },
         activationType: 0,
@@ -154,7 +154,8 @@ describe("Initialize customizable pool", () => {
           baseFee: {
             data: Array.from(data),
           },
-          padding: [],
+          compoundingFeeBps: 0,
+          padding: 0,
           dynamicFee: null,
         },
         activationType: 0,
