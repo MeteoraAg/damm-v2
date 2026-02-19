@@ -1051,7 +1051,9 @@ impl Pool {
         fee_b_numerator: u32,
         reward_0_numerator: u32,
         reward_1_numerator: u32,
-    ) -> Result<SplitAmountInfo> {
+        inner_vesting_liquidity_numerator: u32,
+        current_point: u64,
+    ) -> Result<SplitAmountInfo2> {
         // update current fee for first position
         first_position.update_fee(self.fee_a_per_liquidity(), self.fee_b_per_liquidity())?;
         // update current fee for second position
@@ -1059,10 +1061,19 @@ impl Pool {
 
         let mut unlocked_liquidity_split = 0;
         let mut permanent_locked_liquidity_split = 0;
+        let mut vested_liquidity_split = 0;
         let mut fee_a_split = 0;
         let mut fee_b_split = 0;
         let mut reward_0_split = 0;
         let mut reward_1_split = 0;
+
+        if inner_vesting_liquidity_numerator > 0 && !first_position.inner_vesting.is_empty() {
+            vested_liquidity_split = first_position.split_inner_vesting(
+                second_position,
+                inner_vesting_liquidity_numerator,
+                current_point,
+            )?;
+        }
 
         // split unlocked liquidity by percentage
         if unlocked_liquidity_numerator > 0 {
@@ -1088,7 +1099,7 @@ impl Pool {
             permanent_locked_liquidity_split = permanent_locked_liquidity_delta;
         }
 
-        // split pending lp fee  by percentage
+        // split pending lp fee by percentage
         if fee_a_numerator > 0 || fee_b_numerator > 0 {
             let SplitFeeAmount {
                 fee_a_amount,
@@ -1131,9 +1142,10 @@ impl Pool {
             }
         }
 
-        Ok(SplitAmountInfo {
+        Ok(SplitAmountInfo2 {
             unlocked_liquidity: unlocked_liquidity_split,
             permanent_locked_liquidity: permanent_locked_liquidity_split,
+            vested_liquidity: vested_liquidity_split,
             fee_a: fee_a_split,
             fee_b: fee_b_split,
             reward_0: reward_0_split,
@@ -1329,7 +1341,7 @@ impl Pool {
 
                 // validate current base fee is smaller than our cap
                 // because base fee is static, so we just need to use min base fee numerator
-                let current_base_fee_numerator = base_fee_handler.get_min_base_fee_numerator()?;
+                let current_base_fee_numerator = base_fee_handler.get_min_fee_numerator()?;
                 require!(
                     current_base_fee_numerator <= MAX_FEE_NUMERATOR_POST_UPDATE,
                     PoolError::InvalidUpdatePoolFeesParameters
@@ -1421,6 +1433,30 @@ pub struct ModifyLiquidityResult {
 pub struct SplitAmountInfo {
     pub permanent_locked_liquidity: u128,
     pub unlocked_liquidity: u128,
+    pub fee_a: u64,
+    pub fee_b: u64,
+    pub reward_0: u64,
+    pub reward_1: u64,
+}
+
+impl From<SplitAmountInfo2> for SplitAmountInfo {
+    fn from(value: SplitAmountInfo2) -> Self {
+        Self {
+            permanent_locked_liquidity: value.permanent_locked_liquidity,
+            unlocked_liquidity: value.unlocked_liquidity,
+            fee_a: value.fee_a,
+            fee_b: value.fee_b,
+            reward_0: value.reward_0,
+            reward_1: value.reward_1,
+        }
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, PartialEq, Clone, Copy)]
+pub struct SplitAmountInfo2 {
+    pub permanent_locked_liquidity: u128,
+    pub unlocked_liquidity: u128,
+    pub vested_liquidity: u128,
     pub fee_a: u64,
     pub fee_b: u64,
     pub reward_0: u64,

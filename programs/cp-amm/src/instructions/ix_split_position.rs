@@ -5,7 +5,7 @@ use crate::{
     constants::SPLIT_POSITION_DENOMINATOR,
     safe_math::SafeMath,
     state::{Pool, Position},
-    PoolError, SplitPositionParameters2,
+    PoolError, SplitPositionParameters3,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -22,16 +22,18 @@ pub struct SplitPositionParameters {
     pub reward_0_percentage: u8,
     /// Percentage of reward 1 pending to split to the second position
     pub reward_1_percentage: u8,
+    /// Percentage of inner vesting liquidity
+    pub inner_vesting_liquidity_percentage: u8,
     /// padding for future
-    pub padding: [u8; 16],
+    pub padding: [u8; 15],
 }
 
 impl SplitPositionParameters {
-    pub fn get_split_position_parameters2(&self) -> Result<SplitPositionParameters2> {
+    pub fn get_split_position_parameters(&self) -> Result<SplitPositionParameters3> {
         self.validate()?;
         let numerator_factor = SPLIT_POSITION_DENOMINATOR.safe_div(100)?;
 
-        Ok(SplitPositionParameters2 {
+        Ok(SplitPositionParameters3 {
             unlocked_liquidity_numerator: numerator_factor
                 .safe_mul(self.unlocked_liquidity_percentage.into())?,
             permanent_locked_liquidity_numerator: numerator_factor
@@ -40,6 +42,9 @@ impl SplitPositionParameters {
             fee_b_numerator: numerator_factor.safe_mul(self.fee_b_percentage.into())?,
             reward_0_numerator: numerator_factor.safe_mul(self.reward_0_percentage.into())?,
             reward_1_numerator: numerator_factor.safe_mul(self.reward_1_percentage.into())?,
+            inner_vesting_liquidity_numerator: numerator_factor
+                .safe_mul(self.inner_vesting_liquidity_percentage.into())?,
+            ..Default::default()
         })
     }
 
@@ -70,12 +75,18 @@ impl SplitPositionParameters {
         );
 
         require!(
+            self.inner_vesting_liquidity_percentage <= 100,
+            PoolError::InvalidSplitPositionParameters
+        );
+
+        require!(
             self.unlocked_liquidity_percentage > 0
                 || self.permanent_locked_liquidity_percentage > 0
                 || self.fee_a_percentage > 0
                 || self.fee_b_percentage > 0
                 || self.reward_0_percentage > 0
-                || self.reward_1_percentage > 0,
+                || self.reward_1_percentage > 0
+                || self.inner_vesting_liquidity_percentage > 0,
             PoolError::InvalidSplitPositionParameters
         );
 

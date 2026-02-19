@@ -10,7 +10,7 @@ export const ALPHA_VAULT_PROGRAM_ID = new PublicKey(
 );
 
 export const TREASURY = new PublicKey(
-  "4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"
+  "6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm"
 );
 
 export const NATIVE_MINT = new PublicKey(

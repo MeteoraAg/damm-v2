@@ -139,6 +139,7 @@ describe("Split position", () => {
       feeBPercentage: 0,
       reward0Percentage: 0,
       reward1Percentage: 0,
+      innerVestingLiquidityPercentage: 0,
     };
 
     const errorCode = getCpAmmProgramErrorCode("SamePosition");
@@ -174,6 +175,7 @@ describe("Split position", () => {
       feeBPercentage: 0,
       reward0Percentage: 0,
       reward1Percentage: 0,
+      innerVestingLiquidityPercentage: 0,
     };
 
     const errorCode = getCpAmmProgramErrorCode(
@@ -234,6 +236,7 @@ describe("Split position", () => {
       feeBPercentage: 50,
       reward0Percentage: 0,
       reward1Percentage: 0,
+      innerVestingLiquidityPercentage: 0,
     };
 
     const newLiquidityDelta = firstPositionState.unlockedLiquidity
@@ -291,6 +294,7 @@ describe("Split position", () => {
       feeBPercentage: 0,
       reward0Percentage: 0,
       reward1Percentage: 0,
+      innerVestingLiquidityPercentage: 0,
     };
 
     const permanentLockedLiquidityDelta =
@@ -363,6 +367,7 @@ describe("Split position", () => {
       feeBPercentage: 100,
       reward0Percentage: 100,
       reward1Percentage: 100,
+      innerVestingLiquidityPercentage: 100,
     };
 
     await splitPosition(svm, {

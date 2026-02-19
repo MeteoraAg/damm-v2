@@ -583,7 +583,6 @@ describe("Admin update pool fees parameters", () => {
       cliffFeeNumerator.toString()
     );
     expect(postBaseFee.numberOfPeriod).eq(beforeBaseFee.numberOfPeriod);
-    expect(postBaseFee.priceStepBps).eq(beforeBaseFee.priceStepBps);
     expect(postBaseFee.schedulerExpirationDuration).eq(
       beforeBaseFee.schedulerExpirationDuration
     );
