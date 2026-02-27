@@ -368,7 +368,7 @@ pub fn get_delta_amount_b_unsigned_unchecked(
 }
 
 /// Gets the next sqrt price given an input amount of token_a or token_b
-/// Throws if price or liquidity are 0, or if the next price is out of bounds
+/// Throws if price or liquidity are 0, or if the next price overflow q64.64
 pub fn get_next_sqrt_price_from_input(
     sqrt_price: u128,
     liquidity: u128,
@@ -387,7 +387,7 @@ pub fn get_next_sqrt_price_from_input(
 }
 
 /// Gets the next sqrt price given an output amount of token_a or token_b
-/// Throws if price or liquidity are 0, or if the next price is out of bounds
+/// Throws if price or liquidity are 0, or if the next price overflow q64.64
 pub fn get_next_sqrt_price_from_output(
     sqrt_price: u128,
     liquidity: u128,
