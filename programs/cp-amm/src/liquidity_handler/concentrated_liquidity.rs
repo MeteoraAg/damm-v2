@@ -257,6 +257,7 @@ impl LiquidityHandler for ConcentratedLiquidity {
         Ok((reserve_a_amount, reserve_b_amount))
     }
 
+    // It does nothing because next_sqrt_price is computed by swap-path + rounding direction.
     fn get_next_sqrt_price(&self, next_sqrt_price: u128) -> Result<u128> {
         Ok(next_sqrt_price)
     }
