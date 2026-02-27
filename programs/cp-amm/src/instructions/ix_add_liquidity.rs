@@ -138,6 +138,12 @@ pub fn handle_add_liquidity(
         PoolError::ExceededSlippage
     );
 
+    // SOVEREIGN OPTIMIZATION: Transparency Log for Actual Slippage
+    msg!("Sovereign Efficiency Guard: A_Slippage: {}, B_Slippage: {}", 
+        token_a_amount_threshold.saturating_sub(total_amount_a),
+        token_b_amount_threshold.saturating_sub(total_amount_b)
+    );
+
     transfer_from_user(
         &ctx.accounts.owner,
         &ctx.accounts.token_a_mint,
