@@ -1,17 +1,10 @@
 #[cfg(test)]
 use crate::params::swap::TradeDirection;
 use crate::{
-    // curve::{
-    //     get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
-    //     get_delta_amount_b_unsigned, get_delta_amount_b_unsigned_unchecked,
-    //     get_next_sqrt_price_from_input, get_next_sqrt_price_from_output,
-    // },
     safe_math::SafeMath,
     state::{SwapAmountFromInput, SwapAmountFromOutput},
     u128x128_math::{mul_div_u256, Rounding},
-    InitialPoolInformation,
-    LiquidityHandler,
-    PoolError,
+    InitialPoolInformation, LiquidityHandler, PoolError,
 };
 use anchor_lang::prelude::*;
 use ruint::aliases::U256;
@@ -368,7 +361,7 @@ pub fn get_delta_amount_b_unsigned_unchecked(
 }
 
 /// Gets the next sqrt price given an input amount of token_a or token_b
-/// Throws if price or liquidity are 0, or if the next price is out of bounds
+/// Throws if price or liquidity are 0, or if the next price overflow q64.64
 pub fn get_next_sqrt_price_from_input(
     sqrt_price: u128,
     liquidity: u128,
@@ -391,7 +384,7 @@ pub fn get_next_sqrt_price_from_input(
 }
 
 /// Gets the next sqrt price given an output amount of token_a or token_b
-/// Throws if price or liquidity are 0, or if the next price is out of bounds
+/// Throws if price or liquidity are 0, or if the next price overflow q64.64
 pub fn get_next_sqrt_price_from_output(
     sqrt_price: u128,
     liquidity: u128,
