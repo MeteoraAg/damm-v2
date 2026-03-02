@@ -262,13 +262,13 @@ impl LiquidityHandler for ConcentratedLiquidity {
                 self.sqrt_min_price,
                 self.sqrt_price,
                 self.liquidity,
-                Rounding::Down,
+                Rounding::Up,
             )?,
             TradeDirection::BtoA => get_delta_amount_b_unsigned_unchecked(
                 self.sqrt_price,
                 self.sqrt_max_price,
                 self.liquidity,
-                Rounding::Down,
+                Rounding::Up,
             )?,
         };
         if amount > U256::from(u64::MAX) {
