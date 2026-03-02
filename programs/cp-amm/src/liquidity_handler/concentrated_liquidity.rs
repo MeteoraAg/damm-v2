@@ -1,17 +1,10 @@
 #[cfg(test)]
 use crate::params::swap::TradeDirection;
 use crate::{
-    // curve::{
-    //     get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
-    //     get_delta_amount_b_unsigned, get_delta_amount_b_unsigned_unchecked,
-    //     get_next_sqrt_price_from_input, get_next_sqrt_price_from_output,
-    // },
     safe_math::SafeMath,
     state::{SwapAmountFromInput, SwapAmountFromOutput},
     u128x128_math::{mul_div_u256, Rounding},
-    InitialPoolInformation,
-    LiquidityHandler,
-    PoolError,
+    InitialPoolInformation, LiquidityHandler, PoolError,
 };
 use anchor_lang::prelude::*;
 use ruint::aliases::U256;
@@ -257,6 +250,7 @@ impl LiquidityHandler for ConcentratedLiquidity {
         Ok((reserve_a_amount, reserve_b_amount))
     }
 
+    // It does nothing because next_sqrt_price is computed by swap-path + rounding direction.
     fn get_next_sqrt_price(&self, next_sqrt_price: u128) -> Result<u128> {
         Ok(next_sqrt_price)
     }
@@ -268,13 +262,13 @@ impl LiquidityHandler for ConcentratedLiquidity {
                 self.sqrt_min_price,
                 self.sqrt_price,
                 self.liquidity,
-                Rounding::Down,
+                Rounding::Up,
             )?,
             TradeDirection::BtoA => get_delta_amount_b_unsigned_unchecked(
                 self.sqrt_price,
                 self.sqrt_max_price,
                 self.liquidity,
-                Rounding::Down,
+                Rounding::Up,
             )?,
         };
         if amount > U256::from(u64::MAX) {
@@ -368,7 +362,7 @@ pub fn get_delta_amount_b_unsigned_unchecked(
 }
 
 /// Gets the next sqrt price given an input amount of token_a or token_b
-/// Throws if price or liquidity are 0, or if the next price is out of bounds
+/// Throws if price or liquidity are 0, or if the next price overflow q64.64
 pub fn get_next_sqrt_price_from_input(
     sqrt_price: u128,
     liquidity: u128,
@@ -377,6 +371,10 @@ pub fn get_next_sqrt_price_from_input(
 ) -> Result<u128> {
     assert!(sqrt_price > 0);
     assert!(liquidity > 0);
+
+    if amount_in == 0 {
+        return Ok(sqrt_price);
+    }
 
     // round to make sure that we don't pass the target price
     if a_for_b {
@@ -387,7 +385,7 @@ pub fn get_next_sqrt_price_from_input(
 }
 
 /// Gets the next sqrt price given an output amount of token_a or token_b
-/// Throws if price or liquidity are 0, or if the next price is out of bounds
+/// Throws if price or liquidity are 0, or if the next price overflow q64.64
 pub fn get_next_sqrt_price_from_output(
     sqrt_price: u128,
     liquidity: u128,
@@ -396,6 +394,10 @@ pub fn get_next_sqrt_price_from_output(
 ) -> Result<u128> {
     assert!(sqrt_price > 0);
     assert!(liquidity > 0);
+
+    if amount_out == 0 {
+        return Ok(sqrt_price);
+    }
 
     // round to make sure that we don't pass the target price
     if a_for_b {
@@ -438,9 +440,6 @@ pub fn get_next_sqrt_price_from_amount_in_a_rounding_up(
     liquidity: u128,
     amount: u64,
 ) -> Result<u128> {
-    if amount == 0 {
-        return Ok(sqrt_price);
-    }
     let sqrt_price = U256::from(sqrt_price);
     let liquidity = U256::from(liquidity);
 
@@ -457,9 +456,6 @@ pub fn get_next_sqrt_price_from_amount_out_a_rounding_up(
     liquidity: u128,
     amount: u64,
 ) -> Result<u128> {
-    if amount == 0 {
-        return Ok(sqrt_price);
-    }
     let sqrt_price = U256::from(sqrt_price);
     let liquidity = U256::from(liquidity);
 
