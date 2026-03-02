@@ -1,17 +1,10 @@
 #[cfg(test)]
 use crate::params::swap::TradeDirection;
 use crate::{
-    // curve::{
-    //     get_delta_amount_a_unsigned, get_delta_amount_a_unsigned_unchecked,
-    //     get_delta_amount_b_unsigned, get_delta_amount_b_unsigned_unchecked,
-    //     get_next_sqrt_price_from_input, get_next_sqrt_price_from_output,
-    // },
     safe_math::SafeMath,
     state::{SwapAmountFromInput, SwapAmountFromOutput},
     u128x128_math::{mul_div_u256, Rounding},
-    InitialPoolInformation,
-    LiquidityHandler,
-    PoolError,
+    InitialPoolInformation, LiquidityHandler, PoolError,
 };
 use anchor_lang::prelude::*;
 use ruint::aliases::U256;
