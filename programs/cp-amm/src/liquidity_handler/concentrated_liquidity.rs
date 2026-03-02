@@ -378,6 +378,10 @@ pub fn get_next_sqrt_price_from_input(
     assert!(sqrt_price > 0);
     assert!(liquidity > 0);
 
+    if amount_in == 0 {
+        return Ok(sqrt_price);
+    }
+
     // round to make sure that we don't pass the target price
     if a_for_b {
         get_next_sqrt_price_from_amount_in_a_rounding_up(sqrt_price, liquidity, amount_in)
@@ -396,6 +400,10 @@ pub fn get_next_sqrt_price_from_output(
 ) -> Result<u128> {
     assert!(sqrt_price > 0);
     assert!(liquidity > 0);
+
+    if amount_out == 0 {
+        return Ok(sqrt_price);
+    }
 
     // round to make sure that we don't pass the target price
     if a_for_b {
@@ -438,9 +446,6 @@ pub fn get_next_sqrt_price_from_amount_in_a_rounding_up(
     liquidity: u128,
     amount: u64,
 ) -> Result<u128> {
-    if amount == 0 {
-        return Ok(sqrt_price);
-    }
     let sqrt_price = U256::from(sqrt_price);
     let liquidity = U256::from(liquidity);
 
@@ -457,9 +462,6 @@ pub fn get_next_sqrt_price_from_amount_out_a_rounding_up(
     liquidity: u128,
     amount: u64,
 ) -> Result<u128> {
-    if amount == 0 {
-        return Ok(sqrt_price);
-    }
     let sqrt_price = U256::from(sqrt_price);
     let liquidity = U256::from(liquidity);
 
