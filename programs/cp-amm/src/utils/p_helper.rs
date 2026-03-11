@@ -88,14 +88,22 @@ pub fn p_load_mut_checked<T: Pod + Discriminator + Owner>(
         return Err(ErrorCode::AccountDiscriminatorNotFound.into());
     }
 
-    let given_disc = &data[..disc.len()];
+    let disc_len = disc.len();
+    let expected_len = disc_len + mem::size_of::<T>();
+    if data.len() < expected_len {
+        return Err(ErrorCode::AccountDidNotDeserialize.into());
+    }
+
+    let given_disc = &data[..disc_len];
     if given_disc != disc {
         return Err(ErrorCode::AccountDiscriminatorMismatch.into());
     }
 
+    bytemuck::try_from_bytes::<T>(&data[disc_len..expected_len])
+        .map_err(|_| ErrorCode::AccountDidNotDeserialize)?;
+
     Ok(RefMut::map(data, |data| {
-        // just panic if it is wrong
-        bytemuck::from_bytes_mut(&mut data[disc.len()..mem::size_of::<T>() + disc.len()])
+        bytemuck::from_bytes_mut(&mut data[disc_len..expected_len])
     }))
 }
 
@@ -106,11 +114,17 @@ pub fn p_load_mut_unchecked<T: Pod + Discriminator + Owner>(
         .try_borrow_mut_data()
         .map_err(|err| ProgramError::from(u64::from(err)))?;
 
+    let disc_len = T::DISCRIMINATOR.len();
+    let expected_len = disc_len + mem::size_of::<T>();
+    if data.len() < expected_len {
+        return Err(ErrorCode::AccountDidNotDeserialize.into());
+    }
+
+    bytemuck::try_from_bytes::<T>(&data[disc_len..expected_len])
+        .map_err(|_| ErrorCode::AccountDidNotDeserialize)?;
+
     Ok(RefMut::map(data, |data| {
-        // just panic if it is wrong
-        bytemuck::from_bytes_mut(
-            &mut data[T::DISCRIMINATOR.len()..mem::size_of::<T>() + T::DISCRIMINATOR.len()],
-        )
+        bytemuck::from_bytes_mut(&mut data[disc_len..expected_len])
     }))
 }
 
