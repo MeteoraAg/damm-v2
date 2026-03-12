@@ -19,6 +19,11 @@ pub fn get_quote(
 
     ensure!(is_swap_enable(pool, current_point)?, "Swap is disabled");
 
+    ensure!(pool.sqrt_price > 0, "sqrt_price is zero");
+    ensure!(pool.liquidity > 0, "liquidity is zero");
+    ensure!(pool.sqrt_min_price > 0, "sqrt_min_price is zero");
+    ensure!(pool.sqrt_max_price > 0, "sqrt_max_price is zero");
+
     let trade_direction = if a_to_b {
         TradeDirection::AtoB
     } else {
