@@ -1,8 +1,8 @@
 use crate::utils::*;
-use anyhow::{ensure, Ok, Result};
+use anyhow::{ensure, Error, Ok, Result};
 use cp_amm::{
     params::swap::TradeDirection,
-    state::{fee::FeeMode, Pool, SwapResult2},
+    state::{fee::FeeMode, CollectFeeMode, Pool, SwapResult2},
 };
 
 pub fn get_quote(
@@ -25,11 +25,13 @@ pub fn get_quote(
         TradeDirection::BtoA
     };
 
-    let fee_mode = &FeeMode::get_fee_mode(pool.collect_fee_mode, trade_direction, has_referral)?;
+    let collect_fee_mode = CollectFeeMode::try_from(pool.collect_fee_mode)
+        .map_err(|_| Error::msg("Invalid collect fee mode"))?;
+    let fee_mode = FeeMode::get_fee_mode(collect_fee_mode, trade_direction, has_referral);
 
     let swap_result = pool.get_swap_result_from_partial_input(
         actual_amount_in,
-        fee_mode,
+        &fee_mode,
         trade_direction,
         current_point,
     )?;

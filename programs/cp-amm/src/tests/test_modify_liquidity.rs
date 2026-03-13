@@ -24,23 +24,25 @@ proptest! {
 
         let mut position = Position::default();
 
-        let result_0 = pool
+        let liquidity_handler = pool.get_liquidity_handler().unwrap();
+        let result_0 = liquidity_handler
             .get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)
             .unwrap();
 
         println!("result_0 {:?}", result_0);
-        pool.apply_add_liquidity(&mut position, liquidity_delta).unwrap();
+        pool.apply_add_liquidity(&mut position, liquidity_delta, result_0.0, result_0.1).unwrap();
 
 
-        let result_1 = pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Down).unwrap();
-        println!("result_1 {:?}", result_0);
+        let liquidity_handler = pool.get_liquidity_handler().unwrap();
+        let result_1 = liquidity_handler.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Down).unwrap();
+        println!("result_1 {:?}", result_1);
 
-        pool.apply_remove_liquidity(&mut position, liquidity_delta).unwrap();
+        pool.apply_remove_liquidity(&mut position, liquidity_delta, result_1.0, result_1.1).unwrap();
 
         assert_eq!(pool.liquidity, 0);
         assert_eq!(position.unlocked_liquidity, 0);
 
-        assert!(result_0.token_a_amount >= result_1.token_a_amount);
-        assert!(result_0.token_b_amount >= result_1.token_b_amount);
+        assert!(result_0.0 >= result_1.0);
+        assert!(result_0.1 >= result_1.1);
     }
 }

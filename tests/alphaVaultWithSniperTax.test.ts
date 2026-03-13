@@ -219,7 +219,8 @@ const alphaVaultWithSniperTaxFullFlow = async (
     activationPoint,
     poolFees: {
       baseFee,
-      padding: [],
+      compoundingFeeBps: 0,
+      padding: 0,
       dynamicFee: null,
     },
     activationType: 0, // slot

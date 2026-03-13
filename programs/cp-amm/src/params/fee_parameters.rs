@@ -1,9 +1,7 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
 use crate::base_fee::{base_fee_parameters_to_base_fee_info, BaseFeeHandlerBuilder};
-use crate::constants::fee::{
-    HOST_FEE_PERCENT, MAX_BASIS_POINT, PARTNER_FEE_PERCENT, PROTOCOL_FEE_PERCENT,
-};
+use crate::constants::fee::{HOST_FEE_PERCENT, MAX_BASIS_POINT, PROTOCOL_FEE_PERCENT};
 use crate::constants::{BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
@@ -16,17 +14,21 @@ use anchor_lang::prelude::*;
 pub struct PoolFeeParameters {
     /// Base fee
     pub base_fee: BaseFeeParameters,
+    /// compounding fee bps, only have value if CollectFeeMode::Compounding
+    pub compounding_fee_bps: u16,
+    /// padding for future use
+    pub padding: u8,
     /// dynamic fee
     pub dynamic_fee: Option<DynamicFeeParameters>,
 }
 
 #[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
 pub struct BaseFeeParameters {
-    pub data: [u8; 30],
+    pub data: [u8; 27],
 }
 
 impl BaseFeeParameters {
-    fn validate(
+    pub fn validate(
         &self,
         collect_fee_mode: CollectFeeMode,
         activation_type: ActivationType,
@@ -52,14 +54,16 @@ impl PoolFeeParameters {
     pub fn to_pool_fees_config(&self) -> Result<PoolFeesConfig> {
         let &PoolFeeParameters {
             base_fee,
+            compounding_fee_bps,
             dynamic_fee,
+            padding: _,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
             Ok(PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
+                compounding_fee_bps,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_config(),
                 ..Default::default()
             })
@@ -67,8 +71,8 @@ impl PoolFeeParameters {
             Ok(PoolFeesConfig {
                 base_fee: base_fee.to_base_fee_config()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
+                compounding_fee_bps,
                 ..Default::default()
             })
         }
@@ -76,14 +80,16 @@ impl PoolFeeParameters {
     pub fn to_pool_fees_struct(&self, init_sqrt_price: u128) -> Result<PoolFeesStruct> {
         let &PoolFeeParameters {
             base_fee,
+            compounding_fee_bps,
             dynamic_fee,
+            padding: _,
         } = self;
         if let Some(dynamic_fee) = dynamic_fee {
             Ok(PoolFeesStruct {
                 base_fee: base_fee.to_base_fee_struct()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
+                compounding_fee_bps,
                 dynamic_fee: dynamic_fee.to_dynamic_fee_struct(),
                 init_sqrt_price,
                 ..Default::default()
@@ -92,8 +98,8 @@ impl PoolFeeParameters {
             Ok(PoolFeesStruct {
                 base_fee: base_fee.to_base_fee_struct()?,
                 protocol_fee_percent: PROTOCOL_FEE_PERCENT,
-                partner_fee_percent: PARTNER_FEE_PERCENT,
                 referral_fee_percent: HOST_FEE_PERCENT,
+                compounding_fee_bps,
                 init_sqrt_price,
                 ..Default::default()
             })
@@ -226,7 +232,12 @@ impl PoolFeeParameters {
         collect_fee_mode: CollectFeeMode,
         activation_type: ActivationType,
     ) -> Result<()> {
+        // validate compounding fee
+        validate_compounding_fee(collect_fee_mode, self.compounding_fee_bps)?;
+
+        // validate base fee
         self.base_fee.validate(collect_fee_mode, activation_type)?;
+        // validate dynamic fee
         if let Some(dynamic_fee) = self.dynamic_fee {
             dynamic_fee.validate()?;
         }
@@ -234,24 +245,21 @@ impl PoolFeeParameters {
     }
 }
 
-#[derive(Copy, Clone, Debug, AnchorSerialize, AnchorDeserialize, InitSpace, Default)]
-pub struct PartnerInfo {
-    pub fee_percent: u8,
-    pub partner_authority: Pubkey,
-    pub pending_fee_a: u64,
-    pub pending_fee_b: u64,
-}
-
-impl PartnerInfo {
-    pub fn have_partner(&self) -> bool {
-        self.partner_authority != Pubkey::default()
+fn validate_compounding_fee(
+    collect_fee_mode: CollectFeeMode,
+    compounding_fee_bps: u16,
+) -> Result<()> {
+    if collect_fee_mode == CollectFeeMode::Compounding {
+        // not make sense to have zero compounding_fee_bps in compounding collect fee mode
+        require!(
+            compounding_fee_bps > 0 && compounding_fee_bps <= MAX_BASIS_POINT,
+            PoolError::InvalidCompoundingFeeBps
+        );
+    } else {
+        require!(
+            compounding_fee_bps == 0,
+            PoolError::InvalidCompoundingFeeBps
+        );
     }
-
-    pub fn validate(&self) -> Result<()> {
-        if !self.have_partner() {
-            require!(self.fee_percent == 0, PoolError::InvalidFee);
-        }
-
-        Ok(())
-    }
+    Ok(())
 }

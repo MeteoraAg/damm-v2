@@ -1,5 +1,4 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { BN } from "bn.js";
 import {
   BASIS_POINT_MAX,
   closeConfigIx,
@@ -21,13 +20,14 @@ import {
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
 import { LiteSVM } from "litesvm";
+import BN from "bn.js";
 
 describe("Admin function: Create config", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let whitelistedAccount: Keypair;
   let createConfigParams: CreateConfigParams;
-  let index;
+  let index: BN;
 
   beforeEach(async () => {
     svm = startSvm();
@@ -52,7 +52,8 @@ describe("Admin function: Create config", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -118,7 +119,8 @@ describe("Admin function: Create config", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: {
           binStep: binStep.toNumber(),
           binStepU128,
@@ -169,7 +171,8 @@ describe("Admin function: Create config", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),

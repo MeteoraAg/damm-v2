@@ -5,7 +5,7 @@ use crate::{
 
 #[test]
 fn test_initialize_with_full_permission() {
-    let permission: u128 = 0b11111111111;
+    let permission: u128 = 0b111111111111;
     assert!(permission > 1 << (MAX_OPERATION - 1) && permission < 1 << MAX_OPERATION);
 
     let operator = Operator {
@@ -55,6 +55,10 @@ fn test_initialize_with_full_permission() {
     );
     assert_eq!(
         operator.is_permission_allow(OperatorPermission::ZapProtocolFee),
+        true
+    );
+    assert_eq!(
+        operator.is_permission_allow(OperatorPermission::FixPool),
         true
     );
 }

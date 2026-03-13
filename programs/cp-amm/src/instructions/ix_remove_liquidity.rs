@@ -6,7 +6,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     activation_handler::ActivationHandler,
     const_pda, get_pool_access_validator,
-    state::{ModifyLiquidityResult, Pool, Position},
+    state::{Pool, Position},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
     EvtLiquidityChange, PoolError,
@@ -94,6 +94,7 @@ pub fn handle_remove_liquidity(
     }
 
     let mut pool = ctx.accounts.pool.load_mut()?;
+    pool.update_layout_version_if_needed()?;
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
     let mut position = ctx.accounts.position.load_mut()?;
@@ -109,10 +110,9 @@ pub fn handle_remove_liquidity(
     let current_time = Clock::get()?.unix_timestamp as u64;
     position.update_rewards(&mut pool, current_time)?;
 
-    let ModifyLiquidityResult {
-        token_a_amount,
-        token_b_amount,
-    } = pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Down)?;
+    let liquidity_handler = pool.get_liquidity_handler()?;
+    let (token_a_amount, token_b_amount) =
+        liquidity_handler.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Down)?;
 
     require!(
         token_a_amount > 0 || token_b_amount > 0,
@@ -146,7 +146,12 @@ pub fn handle_remove_liquidity(
         PoolError::ExceededSlippage
     );
 
-    pool.apply_remove_liquidity(&mut position, liquidity_delta)?;
+    pool.apply_remove_liquidity(
+        &mut position,
+        liquidity_delta,
+        token_a_amount,
+        token_b_amount,
+    )?;
 
     // send to user
     transfer_from_pool(
@@ -166,8 +171,6 @@ pub fn handle_remove_liquidity(
         token_b_amount,
     )?;
 
-    let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
-
     emit_cpi!(EvtLiquidityChange {
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
@@ -179,8 +182,8 @@ pub fn handle_remove_liquidity(
         token_b_amount: transfer_fee_excluded_amount_b,
         transfer_fee_included_token_a_amount: token_a_amount,
         transfer_fee_included_token_b_amount: token_b_amount,
-        reserve_b_amount,
-        reserve_a_amount,
+        reserve_a_amount: pool.token_a_amount,
+        reserve_b_amount: pool.token_b_amount,
         change_type: 1
     });
 
