@@ -12,8 +12,6 @@ type BorshFeeTimeScheduler = IdlTypes<CpAmm>["borshFeeTimeScheduler"];
 type BorshFeeMarketCapScheduler = IdlTypes<CpAmm>["borshFeeMarketCapScheduler"];
 type BorshRateLimiter = IdlTypes<CpAmm>["borshFeeRateLimiter"];
 
-const PADDING = Array.from(Buffer.alloc(3));
-
 export enum BaseFeeMode {
   FeeTimeSchedulerLinear,
   FeeTimeSchedulerExponential,
@@ -37,7 +35,6 @@ export function encodeFeeTimeSchedulerParams(
     periodFrequency: new BN(periodFrequency.toString()),
     reductionFactor: new BN(reductionFactor.toString()),
     baseFeeMode,
-    padding: PADDING,
   };
 
   const program = createCpAmmProgram();
@@ -75,7 +72,6 @@ export function encodeFeeMarketCapSchedulerParams(
     schedulerExpirationDuration,
     reductionFactor: new BN(reductionFactor.toString()),
     baseFeeMode,
-    padding: PADDING,
   };
 
   const program = createCpAmmProgram();
@@ -112,7 +108,6 @@ export function encodeFeeRateLimiterParams(
     maxLimiterDuration,
     maxFeeBps,
     referenceAmount: new BN(referenceAmount.toString()),
-    padding: PADDING,
     baseFeeMode: BaseFeeMode.RateLimiter,
   };
 

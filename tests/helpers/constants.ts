@@ -38,6 +38,7 @@ export const DECIMALS = 9;
 export const BASIS_POINT_MAX = 10_000;
 export const OFFSET = 64;
 export const U64_MAX = new BN("18446744073709551615");
+export const U128_MAX = new BN("340282366920938463463374607431768211455");
 export const MAX_FEE_BPS = 9900;
 export const MAX_FEE_NUMERATOR = 990_000_000;
 export const MIN_FEE_NUMERATOR = 100_000;

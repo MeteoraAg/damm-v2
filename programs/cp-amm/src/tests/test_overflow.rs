@@ -5,8 +5,9 @@ use ruint::aliases::U256;
 
 use crate::{
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
-    curve::{get_initialize_amounts, get_next_sqrt_price_from_input, RESOLUTION},
+    get_next_sqrt_price_from_input,
     tests::LIQUIDITY_MAX,
+    ConcentratedLiquidity,
 };
 use proptest::prelude::*;
 
@@ -21,7 +22,7 @@ fn test_get_initialize_amounts(
     ) {
         let sqrt_min_price = MIN_SQRT_PRICE;
         let sqrt_max_price = MAX_SQRT_PRICE;
-        get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity).unwrap();
+        ConcentratedLiquidity::get_initial_pool_information(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity).unwrap();
     }
 
 #[test]
@@ -48,9 +49,14 @@ fn test_get_initialize_amounts_single_case() {
     let sqrt_max_price = MAX_SQRT_PRICE;
     let sqrt_price = 29079168020;
     let liquidity = 13729854716085099837338887321;
-    let (a, b) =
-        get_initialize_amounts(sqrt_min_price, sqrt_max_price, sqrt_price, liquidity).unwrap();
-    println!("{} {}", a, b);
+    let result = ConcentratedLiquidity::get_initial_pool_information(
+        sqrt_min_price,
+        sqrt_max_price,
+        sqrt_price,
+        liquidity,
+    )
+    .unwrap();
+    println!("{:?}", result);
 }
 
 #[test]
@@ -73,6 +79,6 @@ pub fn _to_decimal(sqrt_price: u128) -> u128 {
     let precision = U256::from(1_000_000u128);
     let scaled_value = value.checked_mul(precision).unwrap();
     // ruint checked math is different with the rust std u128. If there's bit with 1 value being shifted out, it will return None. Therefore, we use overflowing_shr
-    let (scaled_down_value, _) = scaled_value.overflowing_shr(2 * RESOLUTION as usize);
+    let (scaled_down_value, _) = scaled_value.overflowing_shr(128);
     scaled_down_value.try_into().unwrap()
 }

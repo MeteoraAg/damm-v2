@@ -38,21 +38,17 @@ import { LiteSVM } from "litesvm";
 describe("Rate limiter", () => {
   let svm: LiteSVM;
   let admin: Keypair;
-  let operator: Keypair;
-  let partner: Keypair;
   let whitelistedAccount: Keypair;
   let user: Keypair;
-  let poolCreator: Keypair;
+  let creator: Keypair;
   let tokenA: PublicKey;
   let tokenB: PublicKey;
 
   beforeEach(async () => {
     svm = startSvm();
     admin = generateKpAndFund(svm);
-    operator = generateKpAndFund(svm);
-    partner = generateKpAndFund(svm);
     user = generateKpAndFund(svm);
-    poolCreator = generateKpAndFund(svm);
+    creator = generateKpAndFund(svm);
     whitelistedAccount = generateKpAndFund(svm);
 
     tokenA = createToken(svm, admin.publicKey);
@@ -62,9 +58,9 @@ describe("Rate limiter", () => {
 
     mintSplTokenTo(svm, tokenB, admin, user.publicKey);
 
-    mintSplTokenTo(svm, tokenA, admin, poolCreator.publicKey);
+    mintSplTokenTo(svm, tokenA, admin, creator.publicKey);
 
-    mintSplTokenTo(svm, tokenB, admin, poolCreator.publicKey);
+    mintSplTokenTo(svm, tokenB, admin, creator.publicKey);
   });
 
   it("Rate limiter", async () => {
@@ -88,7 +84,8 @@ describe("Rate limiter", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -117,8 +114,8 @@ describe("Rate limiter", () => {
     const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
     const initPoolParams: InitializePoolParams = {
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       config,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
@@ -132,7 +129,7 @@ describe("Rate limiter", () => {
     // swap with 1 SOL
 
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -154,7 +151,7 @@ describe("Rate limiter", () => {
     // swap with 2 SOL
 
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -180,7 +177,7 @@ describe("Rate limiter", () => {
     // swap with 2 SOL
 
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -219,15 +216,16 @@ describe("Rate limiter", () => {
     );
 
     const initPoolParams: InitializeCustomizablePoolParams = {
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
       poolFees: {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -243,7 +241,7 @@ describe("Rate limiter", () => {
 
     // swap with 1 SOL
     const swapIx = await swapInstruction(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -260,7 +258,7 @@ describe("Rate limiter", () => {
     const errorCode = getCpAmmProgramErrorCode(
       "FailToValidateSingleSwapInstruction"
     );
-    const result = sendTransaction(svm, transaction, [poolCreator]);
+    const result = sendTransaction(svm, transaction, [creator]);
     expectThrowsErrorCode(result, errorCode);
   });
 });

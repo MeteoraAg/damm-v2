@@ -93,7 +93,8 @@ describe("Dynamic config test", () => {
         baseFee: {
           data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       activationType: 0,

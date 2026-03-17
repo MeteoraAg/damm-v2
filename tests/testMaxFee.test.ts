@@ -39,10 +39,8 @@ const schedulerExpirationDuration = new BN(3600);
 describe("Test max fee 99%", () => {
   let svm: LiteSVM;
   let admin: Keypair;
-  let operator: Keypair;
-  let partner: Keypair;
   let user: Keypair;
-  let poolCreator: Keypair;
+  let creator: Keypair;
   let tokenA: PublicKey;
   let tokenB: PublicKey;
   let whitelistedAccount: Keypair;
@@ -51,10 +49,8 @@ describe("Test max fee 99%", () => {
   beforeEach(async () => {
     svm = startSvm();
     admin = generateKpAndFund(svm);
-    operator = generateKpAndFund(svm);
-    partner = generateKpAndFund(svm);
     user = generateKpAndFund(svm);
-    poolCreator = generateKpAndFund(svm);
+    creator = generateKpAndFund(svm);
     whitelistedAccount = generateKpAndFund(svm);
     tokenA = createToken(svm, admin.publicKey);
     tokenB = createToken(svm, admin.publicKey);
@@ -63,9 +59,9 @@ describe("Test max fee 99%", () => {
 
     mintSplTokenTo(svm, tokenB, admin, user.publicKey);
 
-    mintSplTokenTo(svm, tokenA, admin, poolCreator.publicKey);
+    mintSplTokenTo(svm, tokenA, admin, creator.publicKey);
 
-    mintSplTokenTo(svm, tokenB, admin, poolCreator.publicKey);
+    mintSplTokenTo(svm, tokenB, admin, creator.publicKey);
 
     let permission = encodePermissions([
       OperatorPermission.CreateConfigKey,
@@ -83,7 +79,8 @@ describe("Test max fee 99%", () => {
         baseFee: {
           data: Array.from([]),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -119,8 +116,8 @@ describe("Test max fee 99%", () => {
     const liquidity = new BN(MIN_LP_AMOUNT);
 
     const initPoolParams: InitializePoolParams = {
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       config,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
@@ -130,12 +127,12 @@ describe("Test max fee 99%", () => {
     };
     const { pool } = await initializePool(svm, initPoolParams);
     let poolState = getPool(svm, pool);
-    expect(poolState.version.toString()).eq("1");
+    expect(poolState.feeVersion.toString()).eq("1");
 
     // Market cap increase
     const amountIn = new BN(LAMPORTS_PER_SOL);
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -180,8 +177,8 @@ describe("Test max fee 99%", () => {
     const liquidity = new BN(MIN_LP_AMOUNT);
 
     const initPoolParams: InitializePoolParams = {
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       config,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
@@ -191,12 +188,12 @@ describe("Test max fee 99%", () => {
     };
     const { pool } = await initializePool(svm, initPoolParams);
     let poolState = getPool(svm, pool);
-    expect(poolState.version.toString()).eq("1");
+    expect(poolState.feeVersion.toString()).eq("1");
 
     // Market cap increase
     const amountIn = new BN(LAMPORTS_PER_SOL);
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -244,8 +241,8 @@ describe("Test max fee 99%", () => {
     const liquidity = new BN(MIN_LP_AMOUNT);
 
     const initPoolParams: InitializePoolParams = {
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       config,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
@@ -255,12 +252,12 @@ describe("Test max fee 99%", () => {
     };
     const { pool } = await initializePool(svm, initPoolParams);
     let poolState = getPool(svm, pool);
-    expect(poolState.version.toString()).eq("1");
+    expect(poolState.feeVersion.toString()).eq("1");
 
     // Market cap increase
     const amountIn = new BN(LAMPORTS_PER_SOL);
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -303,8 +300,8 @@ describe("Test max fee 99%", () => {
     const liquidity = new BN(MIN_LP_AMOUNT);
 
     const initPoolParams: InitializePoolParams = {
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       config,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
@@ -315,12 +312,12 @@ describe("Test max fee 99%", () => {
     const { pool } = await initializePool(svm, initPoolParams);
     let poolState = getPool(svm, pool);
 
-    expect(poolState.version.toString()).eq("1");
+    expect(poolState.feeVersion.toString()).eq("1");
 
     // Market cap increase
     const amountIn = new BN(LAMPORTS_PER_SOL);
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -363,8 +360,8 @@ describe("Test max fee 99%", () => {
     const liquidity = new BN(MIN_LP_AMOUNT);
 
     const initPoolParams: InitializePoolParams = {
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       config,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
@@ -378,7 +375,7 @@ describe("Test max fee 99%", () => {
     // Market cap increase
     const amountIn = new BN(LAMPORTS_PER_SOL);
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
@@ -426,8 +423,8 @@ describe("Test max fee 99%", () => {
     const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
     const initPoolParams: InitializePoolParams = {
-      payer: poolCreator,
-      creator: poolCreator.publicKey,
+      payer: creator,
+      creator: creator.publicKey,
       config,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
@@ -441,7 +438,7 @@ describe("Test max fee 99%", () => {
     // swap with 3 SOL
     const amountIn = referenceAmount.muln(3);
     await swapExactIn(svm, {
-      payer: poolCreator,
+      payer: creator,
       pool,
       inputTokenMint: tokenB,
       outputTokenMint: tokenA,
