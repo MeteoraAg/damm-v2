@@ -407,6 +407,85 @@ describe("Zap protocol fees", () => {
       );
     });
   });
+
+  describe("Fail case", () => {
+    const price = new Decimal(1);
+
+    const sqrtPrice = price.sqrt();
+    const sqrtPriceX64 = new BN(
+      sqrtPrice.mul(new Decimal(2).pow(64)).floor().toString()
+    );
+
+    it("reject when user_source_token_account does not match first swap source account", async () => {
+      const zapOutputMint = NATIVE_MINT;
+
+      const dammV2PoolAddress = await createCustomizableDammV2Pool({
+        svm,
+        sqrtPriceX64,
+        amountA: new BN(100).mul(new BN(10 ** DECIMALS)),
+        amountB: new BN(100).mul(new BN(10 ** 9)),
+        tokenAMint,
+        tokenBMint: NATIVE_MINT,
+        payer: creator,
+      });
+
+      const poolState = getPool(svm, pool);
+      const operatorAddress = whitelistedAccount.publicKey;
+
+      const claimAmount = poolState.metrics.totalProtocolAFee;
+      const tokenVault = poolState.tokenAVault;
+      const tokenMint = poolState.tokenAMint;
+      const receiverToken = getAssociatedTokenAddressSync(
+        poolState.tokenAMint,
+        operatorAddress
+      );
+
+      const zapOutIx = await buildZapOutJupV6UsingDammV2RouteInstruction(
+        svm,
+        dammV2PoolAddress,
+        claimAmount,
+        zapOutputMint,
+        operatorAddress,
+        TREASURY
+      );
+
+      // substitute the first DEX swap source account
+      // with operator's tokenB ATA instead of tokenA ATA
+      const altSourceAccount = getAssociatedTokenAddressSync(
+        tokenBMint,
+        operatorAddress
+      );
+      // the absolute index of the damm v2 swap source account is 14
+      // base offset is 12 (2 (ix_zap_out) + 9 (jup route accounts) + 1 (jup route swap_program)).
+      // the damm v2 input_token_account is the 3rd account (index 2). so (12 + 3 - 1 = 14)
+      // https://github.com/jup-ag/jupiter-aggregator-program/blob/e583ab6619f4646b4d7a0e2514aec62ae9fb62ec/dex_interfaces/src/lib.rs#L6150
+      zapOutIx.keys[14] = {
+        pubkey: altSourceAccount,
+        isSigner: false,
+        isWritable: true,
+      };
+
+      const res = await zapProtocolFee({
+        svm,
+        pool,
+        tokenVault,
+        tokenMint,
+        receiverToken,
+        operator: deriveOperatorAddress(operatorAddress),
+        signer: whitelistedAccount,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        maxAmount: claimAmount,
+        postInstruction: zapOutIx,
+      });
+
+      expect(res).instanceOf(FailedTransactionMetadata);
+      if (res instanceof FailedTransactionMetadata) {
+        const logs = res.meta().logs();
+        expect(logs.some((l: string) => l.includes("InvalidZapAccounts"))).to.be
+          .true;
+      }
+    });
+  });
 });
 
 async function zapOutAndAssert(
@@ -503,7 +582,6 @@ async function zapOutAndAssert(
   const afterAmount = afterTreasuryTokenAccount
     ? new BN(afterTreasuryTokenAccount.amount.toString())
     : new BN(0);
-
 
   expect(afterAmount.gt(beforeAmount)).to.be.true;
 }
