@@ -1,5 +1,6 @@
 use anchor_lang::constant;
-use anchor_lang::prelude::*;
+#[cfg(feature = "rate-limiter-stack-whitelist")]
+use anchor_lang::prelude::Pubkey;
 
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
 
@@ -61,10 +62,14 @@ static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SLOTS
 );
 
+#[cfg(feature = "rate-limiter-stack-whitelist")]
 const OKX_SMART_WALLET: Pubkey =
     Pubkey::from_str_const("va1t8sdGkReA6XFgAeZGXmdQoiEtMirwy4ifLv7yGdH");
 
+#[cfg(feature = "rate-limiter-stack-whitelist")]
 pub const RATE_LIMITER_STACK_WHITELIST_PROGRAMS: [[u8; 32]; 1] = [OKX_SMART_WALLET.to_bytes()];
+#[cfg(not(feature = "rate-limiter-stack-whitelist"))]
+pub const RATE_LIMITER_STACK_WHITELIST_PROGRAMS: [[u8; 32]; 0] = [];
 
 pub mod activation {
     #[cfg(not(feature = "local"))]

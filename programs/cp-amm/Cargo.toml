@@ -17,6 +17,7 @@ cpi = ["no-entrypoint", "no-custom-entrypoint"]
 default = ["no-entrypoint"]
 local = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+rate-limiter-stack-whitelist = []
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["event-cpi"] }
