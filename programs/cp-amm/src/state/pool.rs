@@ -874,6 +874,7 @@ impl Pool {
         self.liquidity = self.liquidity.safe_add(liquidity_delta)?;
         self.token_a_amount = self.token_a_amount.safe_add(token_a_amount)?;
         self.token_b_amount = self.token_b_amount.safe_add(token_b_amount)?;
+        self.sync_sqrt_price_from_reserves()?;
 
         Ok(())
     }
@@ -895,7 +896,14 @@ impl Pool {
         self.liquidity = self.liquidity.safe_sub(liquidity_delta)?;
         self.token_a_amount = self.token_a_amount.safe_sub(token_a_amount)?;
         self.token_b_amount = self.token_b_amount.safe_sub(token_b_amount)?;
+        self.sync_sqrt_price_from_reserves()?;
 
+        Ok(())
+    }
+
+    fn sync_sqrt_price_from_reserves(&mut self) -> Result<()> {
+        let liquidity_handler = self.get_liquidity_handler()?;
+        self.sqrt_price = liquidity_handler.get_next_sqrt_price(self.sqrt_price)?;
         Ok(())
     }
 

@@ -44,7 +44,7 @@ impl PoolActionAccess for PermissionlessActionAccess {
     }
 
     fn can_remove_liquidity(&self) -> bool {
-        self.current_point >= self.activation_point
+        self.is_enabled && self.current_point >= self.activation_point
     }
 
     fn can_swap(&self, sender: &Pubkey) -> bool {
@@ -67,5 +67,38 @@ impl PoolActionAccess for PermissionlessActionAccess {
     }
     fn can_split_position(&self) -> bool {
         self.is_enabled
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn access(is_enabled: bool, current_point: u64, activation_point: u64) -> PermissionlessActionAccess {
+        PermissionlessActionAccess {
+            is_enabled,
+            activation_point,
+            pre_activation_point: activation_point.saturating_sub(1),
+            current_point,
+            whitelisted_vault: Pubkey::default(),
+        }
+    }
+
+    #[test]
+    fn remove_liquidity_requires_pool_enabled() {
+        let access = access(false, 10, 0);
+        assert!(!access.can_remove_liquidity());
+    }
+
+    #[test]
+    fn remove_liquidity_requires_activation_reached() {
+        let access = access(true, 9, 10);
+        assert!(!access.can_remove_liquidity());
+    }
+
+    #[test]
+    fn remove_liquidity_allowed_when_enabled_and_activated() {
+        let access = access(true, 10, 10);
+        assert!(access.can_remove_liquidity());
     }
 }
