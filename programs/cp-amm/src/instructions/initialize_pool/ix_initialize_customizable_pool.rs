@@ -26,7 +26,7 @@ use crate::{
     EvtCreatePosition, EvtInitializePool, InitialPoolInformation, PoolError,
 };
 
-use super::{max_key, min_key};
+use super::{max_key, min_key, required_badge_indices};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeCustomizablePoolParameters {
@@ -253,24 +253,29 @@ pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
     params: InitializeCustomizablePoolParameters,
 ) -> Result<()> {
     params.validate()?;
-    if !is_supported_mint(&ctx.accounts.token_a_mint)? {
+    let token_a_requires_badge = !is_supported_mint(&ctx.accounts.token_a_mint)?;
+    let token_b_requires_badge = !is_supported_mint(&ctx.accounts.token_b_mint)?;
+    let (token_a_badge_idx, token_b_badge_idx) =
+        required_badge_indices(token_a_requires_badge, token_b_requires_badge);
+
+    if token_a_requires_badge {
         require!(
             is_token_badge_initialized(
                 ctx.accounts.token_a_mint.key(),
                 ctx.remaining_accounts
-                    .get(0)
+                    .get(token_a_badge_idx.ok_or(PoolError::InvalidTokenBadge)?)
                     .ok_or(PoolError::InvalidTokenBadge)?,
             )?,
             PoolError::InvalidTokenBadge
         )
     }
 
-    if !is_supported_mint(&ctx.accounts.token_b_mint)? {
+    if token_b_requires_badge {
         require!(
             is_token_badge_initialized(
                 ctx.accounts.token_b_mint.key(),
                 ctx.remaining_accounts
-                    .get(1)
+                    .get(token_b_badge_idx.ok_or(PoolError::InvalidTokenBadge)?)
                     .ok_or(PoolError::InvalidTokenBadge)?,
             )?,
             PoolError::InvalidTokenBadge
