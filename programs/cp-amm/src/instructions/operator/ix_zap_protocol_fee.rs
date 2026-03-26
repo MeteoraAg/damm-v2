@@ -54,33 +54,27 @@ pub(crate) fn validate_accounts_and_return_withdraw_direction<'info>(
     token_vault: &InterfaceAccount<'info, TokenAccount>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_program: &Interface<'info, TokenInterface>,
-) -> Result<bool> {
-    require!(
-        token_mint.key() == pool.token_a_mint || token_mint.key() == pool.token_b_mint,
-        PoolError::InvalidWithdrawProtocolFeeZapAccounts
-    );
+) -> Option<bool> {
+    if token_mint.key() != pool.token_a_mint && token_mint.key() != pool.token_b_mint {
+        return None;
+    }
 
     let is_withdrawing_token_a = token_mint.key() == pool.token_a_mint;
 
     if is_withdrawing_token_a {
-        require!(
-            token_vault.key() == pool.token_a_vault,
-            PoolError::InvalidWithdrawProtocolFeeZapAccounts
-        );
-    } else {
-        require!(
-            token_vault.key() == pool.token_b_vault,
-            PoolError::InvalidWithdrawProtocolFeeZapAccounts
-        );
+        if token_vault.key() != pool.token_a_vault {
+            return None;
+        }
+    } else if token_vault.key() != pool.token_b_vault {
+        return None;
     }
 
     let token_mint_ai = token_mint.to_account_info();
-    require!(
-        *token_mint_ai.owner == token_program.key(),
-        PoolError::InvalidWithdrawProtocolFeeZapAccounts
-    );
+    if *token_mint_ai.owner != token_program.key() {
+        return None;
+    }
 
-    Ok(is_withdrawing_token_a)
+    Some(is_withdrawing_token_a)
 }
 
 // Rules:
@@ -93,7 +87,8 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFeeCtx>, max_amount: u64)
         &ctx.accounts.token_vault,
         &ctx.accounts.token_mint,
         &ctx.accounts.token_program,
-    )?;
+    )
+    .ok_or_else(|| error!(PoolError::InvalidWithdrawProtocolFeeZapAccounts))?;
 
     require!(
         !MINTS_DISALLOWED_TO_ZAP_OUT.contains(&ctx.accounts.token_mint.key().to_bytes()),

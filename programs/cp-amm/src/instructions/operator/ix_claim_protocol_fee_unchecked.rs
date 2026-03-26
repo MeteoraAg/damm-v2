@@ -49,7 +49,8 @@ pub fn handle_claim_protocol_fee_unchecked(
         &ctx.accounts.token_vault,
         &ctx.accounts.token_mint,
         &ctx.accounts.token_program,
-    )?;
+    )
+    .ok_or_else(|| error!(PoolError::InvalidClaimProtocolFeeAccounts))?;
 
     let amount = if is_withdrawing_a {
         let (amount_a, _) = pool.claim_protocol_fee(max_amount, 0)?;

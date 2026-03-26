@@ -209,6 +209,9 @@ pub enum PoolError {
 
     #[msg("Invalid compounding fee bps")]
     InvalidCompoundingFeeBps,
+
+    #[msg("Invalid claim protocol fee accounts")]
+    InvalidClaimProtocolFeeAccounts,
 }
 
 impl From<ProtozolZapError> for PoolError {
