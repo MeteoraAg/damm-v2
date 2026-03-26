@@ -188,6 +188,14 @@ pub mod cp_amm {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFeeUnchecked))]
+    pub fn claim_protocol_fee_unchecked(
+        ctx: Context<ClaimProtocolFeeUncheckedCtx>,
+        max_amount: u64,
+    ) -> Result<()> {
+        instructions::handle_claim_protocol_fee_unchecked(ctx, max_amount)
+    }
+
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]
     pub fn close_token_badge(ctx: Context<CloseTokenBadgeCtx>) -> Result<()> {
         instructions::handle_close_token_badge(ctx)

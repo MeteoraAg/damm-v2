@@ -141,6 +141,14 @@ pub struct EvtClaimProtocolFee {
 }
 
 #[event]
+pub struct EvtClaimProtocolFeeUnchecked {
+    pub pool: Pubkey,
+    pub receiver_token_account: Pubkey,
+    pub token_mint: Pubkey,
+    pub amount: u64,
+}
+
+#[event]
 pub struct EvtSetPoolStatus {
     pub pool: Pubkey,
     pub status: u8,

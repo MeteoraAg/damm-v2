@@ -49,7 +49,7 @@ pub struct ZapProtocolFeeCtx<'info> {
     pub sysvar_instructions: UncheckedAccount<'info>,
 }
 
-fn validate_accounts_and_return_withdraw_direction<'info>(
+pub(crate) fn validate_accounts_and_return_withdraw_direction<'info>(
     pool: &Pool,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
     token_mint: &InterfaceAccount<'info, Mint>,

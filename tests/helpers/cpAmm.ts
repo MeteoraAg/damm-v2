@@ -423,6 +423,7 @@ export enum OperatorPermission {
   ClaimProtocolFee, // 9
   ZapProtocolFee, // 10
   FixPool, // 11
+  ClaimProtocolFeeUnchecked, // 12
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -568,8 +569,57 @@ export async function claimProtocolFee(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedKP]);
-  expect(result).instanceOf(TransactionMetadata);
+  return sendTransaction(svm, transaction, [whitelistedKP]);
+}
+
+export type ClaimProtocolFeeUncheckedParams = {
+  whitelistedKP: Keypair;
+  pool: PublicKey;
+  isTokenA: boolean;
+  destinationOwner: PublicKey;
+  maxAmount?: BN;
+};
+export async function claimProtocolFeeUnchecked(
+  svm: LiteSVM,
+  params: ClaimProtocolFeeUncheckedParams
+) {
+  const program = createCpAmmProgram();
+  const { whitelistedKP, pool, isTokenA, destinationOwner } = params;
+  const poolAuthority = derivePoolAuthority();
+  const operator = deriveOperatorAddress(whitelistedKP.publicKey);
+  const poolState = getPool(svm, pool);
+
+  const tokenMint = isTokenA ? poolState.tokenAMint : poolState.tokenBMint;
+  const tokenVault = isTokenA ? poolState.tokenAVault : poolState.tokenBVault;
+  const tokenProgram = svm.getAccount(tokenMint)!.owner;
+
+  const maxAmount =
+    params.maxAmount ??
+    (isTokenA ? poolState.protocolAFee : poolState.protocolBFee);
+
+  const receiverTokenAccount = getOrCreateAssociatedTokenAccount(
+    svm,
+    whitelistedKP,
+    tokenMint,
+    destinationOwner,
+    tokenProgram
+  );
+
+  const transaction = await program.methods
+    .claimProtocolFeeUnchecked(maxAmount)
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      tokenVault,
+      tokenMint,
+      receiverTokenAccount,
+      operator,
+      signer: whitelistedKP.publicKey,
+      tokenProgram,
+    })
+    .transaction();
+
+  return sendTransaction(svm, transaction, [whitelistedKP]);
 }
 
 export type InitializePoolParams = {

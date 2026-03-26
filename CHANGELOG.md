@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New endpoint `claim_protocol_fee_unchecked`, that is similar to `claim_protocol_fee` but allows an operator with the new `ClaimProtocolFeeUnchecked` permission to withdraw from a token_vault to any token account
+
 ### Changed
 
 ### Deprecated
