@@ -54,7 +54,7 @@ pub const SPLIT_POSITION_DENOMINATOR: u32 = 1_000_000_000; // 1b
 pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
 pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
 
-pub const MAX_OPERATION: u8 = 13;
+pub const MAX_OPERATION: u8 = 12;
 
 static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,
@@ -198,11 +198,12 @@ pub mod seeds {
     pub const REWARD_VAULT_PREFIX: &[u8] = b"reward_vault";
     pub const CLAIM_FEE_OPERATOR_PREFIX: &[u8] = b"cf_operator";
     pub const OPERATOR_PREFIX: &[u8] = b"operator";
+    // TODO: import from protocol_fee
+    pub const PROTOCOL_FEE_AUTHORITY_PREFIX: &[u8] = b"protocol_fee_authority";
 }
 
-pub mod treasury {
-    use anchor_lang::prelude::Pubkey;
-    use anchor_lang::pubkey;
-    // https://app.squads.so/squads/6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm/treasury
-    pub const ID: Pubkey = pubkey!("6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm");
+pub mod protocol_fee_program {
+    use anchor_lang::{prelude::Pubkey, pubkey};
+
+    pub const ID: Pubkey = pubkey!("pFee3tb7qh5z53jRF4PbLwmNd148Q8ypLNZbqsMeinA");
 }

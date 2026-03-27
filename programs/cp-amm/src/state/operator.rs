@@ -16,19 +16,18 @@ use static_assertions::const_assert_eq;
     AnchorSerialize,
 )]
 pub enum OperatorPermission {
-    CreateConfigKey,           // 0
-    RemoveConfigKey,           // 1
-    CreateTokenBadge,          // 2
-    CloseTokenBadge,           // 3
-    SetPoolStatus,             // 4
-    InitializeReward,          // 5
-    UpdateRewardDuration,      // 6
-    UpdateRewardFunder,        // 7
-    UpdatePoolFees,            // 8
-    ClaimProtocolFee,          // 9
-    ZapProtocolFee,            // 10
-    FixPool,                   // 11
-    ClaimProtocolFeeUnchecked, // 12
+    CreateConfigKey,      // 0
+    RemoveConfigKey,      // 1
+    CreateTokenBadge,     // 2
+    CloseTokenBadge,      // 3
+    SetPoolStatus,        // 4
+    InitializeReward,     // 5
+    UpdateRewardDuration, // 6
+    UpdateRewardFunder,   // 7
+    UpdatePoolFees,       // 8
+    ClaimProtocolFee,     // 9 (Unused. Kept for backward compatibility)
+    ZapProtocolFee,       // 10 (Unused. Kept for backward compatibility)
+    FixPool,              // 11
 }
 
 #[account(zero_copy)]

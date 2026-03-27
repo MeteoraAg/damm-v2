@@ -133,7 +133,7 @@ export type BaseFee = {
 
 export type PoolFees = {
   baseFee: BaseFee;
-  compoundingFeeBps: number,
+  compoundingFeeBps: number;
   padding: number;
   dynamicFee: DynamicFee | null;
 };
@@ -423,7 +423,6 @@ export enum OperatorPermission {
   ClaimProtocolFee, // 9
   ZapProtocolFee, // 10
   FixPool, // 11
-  ClaimProtocolFeeUnchecked, // 12
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -489,104 +488,19 @@ export async function updatePoolFeesParameters(
   return result;
 }
 
-export type ClaimProtocolFeeParams = {
-  whitelistedKP: Keypair;
-  pool: PublicKey;
-  treasury: PublicKey;
-};
 export async function claimProtocolFee(
   svm: LiteSVM,
-  params: ClaimProtocolFeeParams
+  params: {
+    signerKP: Keypair;
+    pool: PublicKey;
+    isTokenA: boolean;
+    destinationOwner: PublicKey;
+    maxAmount?: BN;
+  }
 ) {
   const program = createCpAmmProgram();
-  const { whitelistedKP, pool, treasury } = params;
+  const { signerKP, pool, isTokenA, destinationOwner } = params;
   const poolAuthority = derivePoolAuthority();
-  const operator = deriveOperatorAddress(whitelistedKP.publicKey);
-  const poolState = getPool(svm, pool);
-
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
-
-  const tokenAVaultAccount = svm.getAccount(
-    poolState.tokenAVault
-  ) as AccountInfo<Buffer>;
-
-  const tokenBVaultAccount = svm.getAccount(
-    poolState.tokenBVault
-  ) as AccountInfo<Buffer>;
-
-  const tokenAVaultState = unpackAccount(
-    poolState.tokenAVault,
-    tokenAVaultAccount,
-    tokenAProgram
-  );
-
-  const tokenBVaultState = unpackAccount(
-    poolState.tokenBVault,
-    tokenBVaultAccount,
-    tokenBProgram
-  );
-
-  const protocolFeeA = tokenAVaultState.isFrozen
-    ? new BN(0)
-    : poolState.protocolAFee;
-
-  const protocolFeeB = tokenBVaultState.isFrozen
-    ? new BN(0)
-    : poolState.protocolBFee;
-
-  const tokenAAccount = getOrCreateAssociatedTokenAccount(
-    svm,
-    whitelistedKP,
-    poolState.tokenAMint,
-    treasury,
-    tokenAProgram
-  );
-
-  const tokenBAccount = getOrCreateAssociatedTokenAccount(
-    svm,
-    whitelistedKP,
-    poolState.tokenBMint,
-    treasury,
-    tokenBProgram
-  );
-
-  const transaction = await program.methods
-    .claimProtocolFee(protocolFeeA, protocolFeeB)
-    .accountsPartial({
-      poolAuthority,
-      pool,
-      tokenAVault: poolState.tokenAVault,
-      tokenBVault: poolState.tokenBVault,
-      tokenAMint: poolState.tokenAMint,
-      tokenBMint: poolState.tokenBMint,
-      tokenAAccount,
-      tokenBAccount,
-      operator,
-      signer: whitelistedKP.publicKey,
-      tokenAProgram,
-      tokenBProgram,
-    })
-    .transaction();
-
-  return sendTransaction(svm, transaction, [whitelistedKP]);
-}
-
-export type ClaimProtocolFeeUncheckedParams = {
-  whitelistedKP: Keypair;
-  pool: PublicKey;
-  isTokenA: boolean;
-  destinationOwner: PublicKey;
-  maxAmount?: BN;
-};
-export async function claimProtocolFeeUnchecked(
-  svm: LiteSVM,
-  params: ClaimProtocolFeeUncheckedParams
-) {
-  const program = createCpAmmProgram();
-  const { whitelistedKP, pool, isTokenA, destinationOwner } = params;
-  const poolAuthority = derivePoolAuthority();
-  const operator = deriveOperatorAddress(whitelistedKP.publicKey);
   const poolState = getPool(svm, pool);
 
   const tokenMint = isTokenA ? poolState.tokenAMint : poolState.tokenBMint;
@@ -599,27 +513,26 @@ export async function claimProtocolFeeUnchecked(
 
   const receiverTokenAccount = getOrCreateAssociatedTokenAccount(
     svm,
-    whitelistedKP,
+    signerKP,
     tokenMint,
     destinationOwner,
     tokenProgram
   );
 
   const transaction = await program.methods
-    .claimProtocolFeeUnchecked(maxAmount)
+    .claimProtocolFee(maxAmount)
     .accountsPartial({
       poolAuthority,
       pool,
       tokenVault,
       tokenMint,
       receiverTokenAccount,
-      operator,
-      signer: whitelistedKP.publicKey,
+      signer: signerKP.publicKey,
       tokenProgram,
     })
     .transaction();
 
-  return sendTransaction(svm, transaction, [whitelistedKP]);
+  return sendTransaction(svm, transaction, [signerKP]);
 }
 
 export type InitializePoolParams = {
@@ -904,7 +817,7 @@ export async function setPoolStatus(svm: LiteSVM, params: SetPoolStatusParams) {
 
 export type PoolFeesParams = {
   baseFee: BaseFee;
-  compoundingFeeBps: number,
+  compoundingFeeBps: number;
   padding: number;
   dynamicFee: DynamicFee | null;
 };
@@ -1224,12 +1137,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1266,12 +1179,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -1534,8 +1447,6 @@ export async function lockPosition(
 
   return vestingAddress;
 }
-
-
 
 export async function createPosition(
   svm: LiteSVM,
@@ -2231,52 +2142,6 @@ export async function splitPosition2(
   ]);
 
   return result;
-}
-
-export async function zapProtocolFee(params: {
-  svm: LiteSVM;
-  pool: PublicKey;
-  tokenVault: PublicKey;
-  tokenMint: PublicKey;
-  receiverToken: PublicKey;
-  operator: PublicKey;
-  signer: Keypair;
-  tokenProgram: PublicKey;
-  maxAmount: BN;
-  postInstruction?: TransactionInstruction;
-}) {
-  const {
-    svm,
-    pool,
-    tokenVault,
-    tokenMint,
-    receiverToken,
-    operator,
-    signer,
-    tokenProgram,
-    maxAmount,
-    postInstruction,
-  } = params;
-
-  const program = createCpAmmProgram();
-
-  const tx = await program.methods
-    .zapProtocolFee(maxAmount)
-    .accountsPartial({
-      poolAuthority: derivePoolAuthority(),
-      pool,
-      tokenVault,
-      tokenMint,
-      operator,
-      receiverToken,
-      signer: signer.publicKey,
-      tokenProgram,
-      sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
-    })
-    .postInstructions(postInstruction ? [postInstruction] : [])
-    .transaction();
-
-  return sendTransaction(svm, tx, [signer]);
 }
 
 export function getPool(svm: LiteSVM, pool: PublicKey): Pool {

@@ -1,107 +1,105 @@
 use crate::{
-    const_pda,
-    constants::treasury,
-    state::{Operator, Pool},
-    token::{transfer_from_pool, validate_ata_token},
-    EvtClaimProtocolFee,
+    const_pda, state::Pool, token::transfer_from_pool, EvtClaimProtocolFeeUnchecked, PoolError,
 };
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
-/// Accounts for withdraw protocol fees
+/// Accounts for withdraw protocol fees unchecked
 #[event_cpi]
 #[derive(Accounts)]
-pub struct ClaimProtocolFeesCtx<'info> {
+pub struct ClaimProtocolFeeCtx<'info> {
     /// CHECK: pool authority
     #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
 
-    #[account(mut, has_one = token_a_vault, has_one = token_b_vault, has_one = token_a_mint, has_one = token_b_mint)]
+    #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
     /// The vault token account for input token
-    #[account(mut, token::token_program = token_a_program, token::mint = token_a_mint)]
-    pub token_a_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    #[account(mut, token::mint = token_mint, token::token_program = token_program)]
+    pub token_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// The vault token account for output token
-    #[account(mut, token::token_program = token_b_program, token::mint = token_b_mint)]
-    pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+    /// The mint of token
+    pub token_mint: Box<InterfaceAccount<'info, Mint>>,
 
-    /// The mint of token a
-    pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
+    #[account(mut, token::mint = token_mint, token::token_program = token_program)]
+    pub receiver_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// The mint of token b
-    pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    /// CHECK: The treasury token a account. Use UncheckedAccount to avoid unnecessary initialization
-    #[account(mut)]
-    pub token_a_account: UncheckedAccount<'info>,
-
-    /// CHECK: The treasury token b account. Use UncheckedAccount to avoid unnecessary initialization
-    #[account(mut)]
-    pub token_b_account: UncheckedAccount<'info>,
-
-    /// Claim fee operator
-    pub operator: AccountLoader<'info, Operator>,
-
-    /// Operator
+    #[account(address = const_pda::protocol_fee_authority::ID)]
     pub signer: Signer<'info>,
 
-    /// Token a program
-    pub token_a_program: Interface<'info, TokenInterface>,
-
-    /// Token b program
-    pub token_b_program: Interface<'info, TokenInterface>,
+    /// Token program
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
-/// withdraw protocol fees and validate destination is treasury ATA
-pub fn handle_claim_protocol_fee(
-    ctx: Context<ClaimProtocolFeesCtx>,
-    max_amount_a: u64,
-    max_amount_b: u64,
-) -> Result<()> {
+fn validate_accounts_and_return_withdraw_direction<'info>(
+    pool: &Pool,
+    token_vault: &InterfaceAccount<'info, TokenAccount>,
+    token_mint: &InterfaceAccount<'info, Mint>,
+    token_program: &Interface<'info, TokenInterface>,
+) -> Result<bool> {
+    require!(
+        token_mint.key() == pool.token_a_mint || token_mint.key() == pool.token_b_mint,
+        PoolError::InvalidClaimProtocolFeeAccounts
+    );
+
+    let is_withdrawing_token_a = token_mint.key() == pool.token_a_mint;
+
+    if is_withdrawing_token_a {
+        require!(
+            token_vault.key() == pool.token_a_vault,
+            PoolError::InvalidClaimProtocolFeeAccounts
+        );
+    } else {
+        require!(
+            token_vault.key() == pool.token_b_vault,
+            PoolError::InvalidClaimProtocolFeeAccounts
+        );
+    }
+
+    let token_mint_ai = token_mint.to_account_info();
+    require!(
+        *token_mint_ai.owner == token_program.key(),
+        PoolError::InvalidClaimProtocolFeeAccounts
+    );
+
+    Ok(is_withdrawing_token_a)
+}
+
+/// claim protocol fees
+pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeeCtx>, max_amount: u64) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
+    let is_withdrawing_a = validate_accounts_and_return_withdraw_direction(
+        &pool,
+        &ctx.accounts.token_vault,
+        &ctx.accounts.token_mint,
+        &ctx.accounts.token_program,
+    )?;
 
-    let (token_a_amount, token_b_amount) = pool.claim_protocol_fee(max_amount_a, max_amount_b)?;
+    let amount = if is_withdrawing_a {
+        let (amount_a, _) = pool.claim_protocol_fee(max_amount, 0)?;
+        amount_a
+    } else {
+        let (_, amount_b) = pool.claim_protocol_fee(0, max_amount)?;
+        amount_b
+    };
 
-    if token_a_amount > 0 {
-        validate_ata_token(
-            &ctx.accounts.token_a_account.to_account_info(),
-            &treasury::ID,
-            &ctx.accounts.token_a_mint.key(),
-            &ctx.accounts.token_a_program.key(),
-        )?;
-        transfer_from_pool(
-            ctx.accounts.pool_authority.to_account_info(),
-            &ctx.accounts.token_a_mint,
-            &ctx.accounts.token_a_vault,
-            &ctx.accounts.token_a_account.to_account_info(),
-            &ctx.accounts.token_a_program,
-            token_a_amount,
-        )?;
-    }
+    require!(amount > 0, PoolError::AmountIsZero);
 
-    if token_b_amount > 0 {
-        validate_ata_token(
-            &ctx.accounts.token_b_account.to_account_info(),
-            &treasury::ID,
-            &ctx.accounts.token_b_mint.key(),
-            &ctx.accounts.token_b_program.key(),
-        )?;
-        transfer_from_pool(
-            ctx.accounts.pool_authority.to_account_info(),
-            &ctx.accounts.token_b_mint,
-            &ctx.accounts.token_b_vault,
-            &ctx.accounts.token_b_account.to_account_info(),
-            &ctx.accounts.token_b_program,
-            token_b_amount,
-        )?;
-    }
+    transfer_from_pool(
+        ctx.accounts.pool_authority.to_account_info(),
+        &ctx.accounts.token_mint,
+        &ctx.accounts.token_vault,
+        &ctx.accounts.receiver_token_account.to_account_info(),
+        &ctx.accounts.token_program,
+        amount,
+    )?;
 
-    emit_cpi!(EvtClaimProtocolFee {
+    emit_cpi!(EvtClaimProtocolFeeUnchecked {
         pool: ctx.accounts.pool.key(),
-        token_a_amount,
-        token_b_amount
+        receiver_token_account: ctx.accounts.receiver_token_account.key(),
+        token_mint: ctx.accounts.token_mint.key(),
+        amount,
     });
 
     Ok(())

@@ -174,26 +174,8 @@ pub mod cp_amm {
         instructions::handle_set_pool_status(ctx, status)
     }
 
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
-    pub fn claim_protocol_fee(
-        ctx: Context<ClaimProtocolFeesCtx>,
-        max_amount_a: u64,
-        max_amount_b: u64,
-    ) -> Result<()> {
-        instructions::handle_claim_protocol_fee(ctx, max_amount_a, max_amount_b)
-    }
-
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
-    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFeeCtx>, max_amount: u64) -> Result<()> {
-        instructions::handle_zap_protocol_fee(ctx, max_amount)
-    }
-
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFeeUnchecked))]
-    pub fn claim_protocol_fee_unchecked(
-        ctx: Context<ClaimProtocolFeeUncheckedCtx>,
-        max_amount: u64,
-    ) -> Result<()> {
-        instructions::handle_claim_protocol_fee_unchecked(ctx, max_amount)
+    pub fn claim_protocol_fee(ctx: Context<ClaimProtocolFeeCtx>, max_amount: u64) -> Result<()> {
+        instructions::handle_claim_protocol_fee(ctx, max_amount)
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]

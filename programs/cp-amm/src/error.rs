@@ -1,6 +1,5 @@
 //! Error module includes error messages and codes of the program
 use anchor_lang::prelude::*;
-use protocol_zap::error::ProtozolZapError;
 
 /// Error messages and codes of the program
 #[error_code]
@@ -192,8 +191,8 @@ pub enum PoolError {
     #[msg("Invalid zap out parameters")]
     InvalidZapOutParameters,
 
-    #[msg("Invalid withdraw protocol fee zap accounts")]
-    InvalidWithdrawProtocolFeeZapAccounts,
+    #[msg("Invalid claim protocol fee accounts")]
+    InvalidClaimProtocolFeeAccounts,
 
     #[msg("SOL,USDC protocol fee cannot be withdrawn via zap")]
     MintRestrictedFromZap,
@@ -209,24 +208,4 @@ pub enum PoolError {
 
     #[msg("Invalid compounding fee bps")]
     InvalidCompoundingFeeBps,
-
-    #[msg("Invalid claim protocol fee accounts")]
-    InvalidClaimProtocolFeeAccounts,
-}
-
-impl From<ProtozolZapError> for PoolError {
-    fn from(e: ProtozolZapError) -> Self {
-        match e {
-            ProtozolZapError::MathOverflow => PoolError::MathOverflow,
-            ProtozolZapError::InvalidZapOutParameters => PoolError::InvalidZapOutParameters,
-            ProtozolZapError::TypeCastFailed => PoolError::TypeCastFailed,
-            ProtozolZapError::MissingZapOutInstruction => PoolError::MissingZapOutInstruction,
-            ProtozolZapError::InvalidWithdrawProtocolFeeZapAccounts => {
-                PoolError::InvalidWithdrawProtocolFeeZapAccounts
-            }
-            ProtozolZapError::MintRestrictedFromZap => PoolError::MintRestrictedFromZap,
-            ProtozolZapError::CpiDisabled => PoolError::CpiDisabled,
-            ProtozolZapError::InvalidZapAccounts => PoolError::InvalidZapAccounts,
-        }
-    }
 }
