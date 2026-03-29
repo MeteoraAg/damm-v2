@@ -196,14 +196,15 @@ pub mod seeds {
     pub const POSITION_NFT_ACCOUNT_PREFIX: &[u8] = b"position_nft_account";
     pub const TOKEN_BADGE_PREFIX: &[u8] = b"token_badge";
     pub const REWARD_VAULT_PREFIX: &[u8] = b"reward_vault";
-    pub const CLAIM_FEE_OPERATOR_PREFIX: &[u8] = b"cf_operator";
     pub const OPERATOR_PREFIX: &[u8] = b"operator";
-    // TODO: import from protocol_fee
-    pub const PROTOCOL_FEE_AUTHORITY_PREFIX: &[u8] = b"protocol_fee_authority";
 }
 
 pub mod protocol_fee_program {
     use anchor_lang::{prelude::Pubkey, pubkey};
 
     pub const ID: Pubkey = pubkey!("pFee3tb7qh5z53jRF4PbLwmNd148Q8ypLNZbqsMeinA");
+
+    pub mod seeds {
+        pub const PROTOCOL_FEE_AUTHORITY_PREFIX: &[u8] = b"protocol_fee_authority";
+    }
 }
