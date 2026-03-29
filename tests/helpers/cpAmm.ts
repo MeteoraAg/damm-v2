@@ -420,8 +420,8 @@ export enum OperatorPermission {
   UpdateRewardDuration, // 6
   UpdateRewardFunder, // 7
   UpdatePoolFees, // 8
-  ClaimProtocolFee, // 9
-  ZapProtocolFee, // 10
+  ClaimProtocolFee, // 9 (Unused. Kept for backward compatibility)
+  ZapProtocolFee, // 10 (Unused. Kept for backward compatibility)
   FixPool, // 11
 }
 

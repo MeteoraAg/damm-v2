@@ -1,10 +1,8 @@
-use crate::{
-    const_pda, state::Pool, token::transfer_from_pool, EvtClaimProtocolFeeUnchecked, PoolError,
-};
+use crate::{const_pda, state::Pool, token::transfer_from_pool, EvtClaimProtocolFee, PoolError};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
-/// Accounts for withdraw protocol fees unchecked
+/// Accounts for withdraw protocol fees
 #[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimProtocolFeeCtx<'info> {
@@ -95,7 +93,7 @@ pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeeCtx>, max_amount: 
         amount,
     )?;
 
-    emit_cpi!(EvtClaimProtocolFeeUnchecked {
+    emit_cpi!(EvtClaimProtocolFee {
         pool: ctx.accounts.pool.key(),
         receiver_token_account: ctx.accounts.receiver_token_account.key(),
         token_mint: ctx.accounts.token_mint.key(),

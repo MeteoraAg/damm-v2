@@ -16,7 +16,6 @@ import {
   createCpAmmProgram,
   JUPITER_V6_PROGRAM_ID,
   NATIVE_MINT,
-  ZAP_PROGRAM_ID,
 } from ".";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 
@@ -29,7 +28,6 @@ export function startSvm() {
   const sourceFileTransferhookPath = path.resolve(
     "./tests/fixtures/transfer_hook_counter.so"
   );
-  const sourceFileZapProgramPath = path.resolve("./tests/fixtures/zap.so");
   const sourceFileJupiterPath = path.resolve("./tests/fixtures/jupiter.so");
   svm.addProgramFromFile(new PublicKey(CP_AMM_PROGRAM_ID), sourceFileCpammPath);
   svm.addProgramFromFile(
@@ -41,7 +39,6 @@ export function startSvm() {
     sourceFileTransferhookPath
   );
   svm.addProgramFromFile(JUPITER_V6_PROGRAM_ID, sourceFileJupiterPath);
-  svm.addProgramFromFile(ZAP_PROGRAM_ID, sourceFileZapProgramPath);
 
   const accountInfo: AccountInfoBytes = {
     data: new Uint8Array(),
