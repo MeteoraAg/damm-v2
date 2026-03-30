@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Update anchor version to 1.0.0
 
-## cp_amm [0.2.0]
+## cp_amm [0.2.0][#PR 187](https://github.com/MeteoraAg/damm-v2/pull/187)
 
 ### Added
 
