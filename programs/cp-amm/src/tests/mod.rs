@@ -48,3 +48,9 @@ mod test_collect_fee_mode;
 
 #[cfg(test)]
 mod test_liquidity_compounding;
+
+#[cfg(test)]
+mod test_safe_math;
+
+#[cfg(test)]
+mod test_const_pda;
