@@ -134,6 +134,13 @@ pub struct EvtPermanentLockPosition {
 }
 
 #[event]
+pub struct EvtClaimProtocolFee {
+    pub pool: Pubkey,
+    pub token_a_amount: u64,
+    pub token_b_amount: u64,
+}
+
+#[event]
 pub struct EvtClaimProtocolFee2 {
     pub pool: Pubkey,
     pub receiver_token_account: Pubkey,

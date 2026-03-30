@@ -420,8 +420,8 @@ export enum OperatorPermission {
   UpdateRewardDuration, // 6
   UpdateRewardFunder, // 7
   UpdatePoolFees, // 8
-  ClaimProtocolFee, // 9 (Unused. Kept for backward compatibility)
-  ZapProtocolFee, // 10 (Unused. Kept for backward compatibility)
+  ClaimProtocolFee, // 9
+  ZapProtocolFee, // 10
   FixPool, // 11
 }
 
@@ -486,6 +486,90 @@ export async function updatePoolFeesParameters(
 
   const result = sendTransaction(svm, transaction, [whitelistedOperator]);
   return result;
+}
+
+export type ClaimProtocolFeeParams = {
+  whitelistedKP: Keypair;
+  pool: PublicKey;
+  treasury: PublicKey;
+};
+
+export async function claimProtocolFee(
+  svm: LiteSVM,
+  params: ClaimProtocolFeeParams
+) {
+  const program = createCpAmmProgram();
+  const { whitelistedKP, pool, treasury } = params;
+  const poolAuthority = derivePoolAuthority();
+  const operator = deriveOperatorAddress(whitelistedKP.publicKey);
+  const poolState = getPool(svm, pool);
+
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
+
+  const tokenAVaultAccount = svm.getAccount(
+    poolState.tokenAVault
+  ) as AccountInfo<Buffer>;
+
+  const tokenBVaultAccount = svm.getAccount(
+    poolState.tokenBVault
+  ) as AccountInfo<Buffer>;
+
+  const tokenAVaultState = unpackAccount(
+    poolState.tokenAVault,
+    tokenAVaultAccount,
+    tokenAProgram
+  );
+
+  const tokenBVaultState = unpackAccount(
+    poolState.tokenBVault,
+    tokenBVaultAccount,
+    tokenBProgram
+  );
+
+  const protocolFeeA = tokenAVaultState.isFrozen
+    ? new BN(0)
+    : poolState.protocolAFee;
+
+  const protocolFeeB = tokenBVaultState.isFrozen
+    ? new BN(0)
+    : poolState.protocolBFee;
+
+  const tokenAAccount = getOrCreateAssociatedTokenAccount(
+    svm,
+    whitelistedKP,
+    poolState.tokenAMint,
+    treasury,
+    tokenAProgram
+  );
+
+  const tokenBAccount = getOrCreateAssociatedTokenAccount(
+    svm,
+    whitelistedKP,
+    poolState.tokenBMint,
+    treasury,
+    tokenBProgram
+  );
+
+  const transaction = await program.methods
+    .claimProtocolFee(protocolFeeA, protocolFeeB)
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+      tokenAAccount,
+      tokenBAccount,
+      operator,
+      signer: whitelistedKP.publicKey,
+      tokenAProgram,
+      tokenBProgram,
+    })
+    .transaction();
+
+  return sendTransaction(svm, transaction, [whitelistedKP]);
 }
 
 export async function claimProtocolFee2(
@@ -2149,6 +2233,52 @@ export async function splitPosition2(
   ]);
 
   return result;
+}
+
+export async function zapProtocolFee(params: {
+  svm: LiteSVM;
+  pool: PublicKey;
+  tokenVault: PublicKey;
+  tokenMint: PublicKey;
+  receiverToken: PublicKey;
+  operator: PublicKey;
+  signer: Keypair;
+  tokenProgram: PublicKey;
+  maxAmount: BN;
+  postInstruction?: TransactionInstruction;
+}) {
+  const {
+    svm,
+    pool,
+    tokenVault,
+    tokenMint,
+    receiverToken,
+    operator,
+    signer,
+    tokenProgram,
+    maxAmount,
+    postInstruction,
+  } = params;
+
+  const program = createCpAmmProgram();
+
+  const tx = await program.methods
+    .zapProtocolFee(maxAmount)
+    .accountsPartial({
+      poolAuthority: derivePoolAuthority(),
+      pool,
+      tokenVault,
+      tokenMint,
+      operator,
+      receiverToken,
+      signer: signer.publicKey,
+      tokenProgram,
+      sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+    })
+    .postInstructions(postInstruction ? [postInstruction] : [])
+    .transaction();
+
+  return sendTransaction(svm, tx, [signer]);
 }
 
 export function getPool(svm: LiteSVM, pool: PublicKey): Pool {

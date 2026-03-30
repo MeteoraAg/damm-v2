@@ -17,8 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- Removed `zap_protocol_fee` endpoint
-
 ### Fixed
 
 ### Security

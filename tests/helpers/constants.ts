@@ -21,6 +21,10 @@ export const JUPITER_V6_PROGRAM_ID = new PublicKey(
   "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
 );
 
+export const ZAP_PROGRAM_ID = new PublicKey(
+  "zapvX9M3uf5pvy4wRPAbQgdQsM1xmuiFnkfHKPvwMiz"
+);
+
 export const JUP_V6_EVENT_AUTHORITY = new PublicKey(
   "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf"
 );
