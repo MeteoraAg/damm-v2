@@ -503,9 +503,13 @@ export async function claimProtocolFee(
   const poolAuthority = derivePoolAuthority();
   const poolState = getPool(svm, pool);
 
-  const tokenMint = isTokenA ? poolState.tokenAMint : poolState.tokenBMint;
-  const tokenVault = isTokenA ? poolState.tokenAVault : poolState.tokenBVault;
-  const tokenProgram = svm.getAccount(tokenMint)!.owner;
+  const claimedTokenMint = isTokenA
+    ? poolState.tokenAMint
+    : poolState.tokenBMint;
+  const claimedTokenProgram = svm.getAccount(claimedTokenMint)!.owner;
+
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
   const maxAmount =
     params.maxAmount ??
@@ -514,9 +518,9 @@ export async function claimProtocolFee(
   const receiverTokenAccount = getOrCreateAssociatedTokenAccount(
     svm,
     signerKP,
-    tokenMint,
+    claimedTokenMint,
     destinationOwner,
-    tokenProgram
+    claimedTokenProgram
   );
 
   const transaction = await program.methods
@@ -524,11 +528,14 @@ export async function claimProtocolFee(
     .accountsPartial({
       poolAuthority,
       pool,
-      tokenVault,
-      tokenMint,
       receiverTokenAccount,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
       signer: signerKP.publicKey,
-      tokenProgram,
+      tokenAProgram,
+      tokenBProgram,
     })
     .transaction();
 
