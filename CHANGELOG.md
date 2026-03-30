@@ -9,9 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-### Changed
+- Added `claim_protocol_fee2` which requires `protocol_fee_authority` as signer instead of an operator. Additionally, only one of pool token can be claimed per instruction call.
 
-- `claim_protocol_fee` now requires `protocol_fee_authority` as signer instead of an operator. Only one of pool token can be claimed per instruction call.
+### Changed
 
 ### Deprecated
 

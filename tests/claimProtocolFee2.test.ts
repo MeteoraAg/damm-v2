@@ -1,7 +1,7 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import {
-  claimProtocolFee,
+  claimProtocolFee2,
   createConfigIx,
   CreateConfigParams,
   createOperator,
@@ -30,7 +30,7 @@ import { expect } from "chai";
 
 const ANCHOR_CONSTRAINT_ACCOUNT_ERROR_CODE = 2012;
 
-describe("Claim fee", () => {
+describe("Claim Protocol Fee 2", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let user: Keypair;
@@ -171,7 +171,7 @@ describe("Claim fee", () => {
 
   describe("Fail case", () => {
     it("rejects when admin signs using the operator's account", async () => {
-      const result = await claimProtocolFee(svm, {
+      const result = await claimProtocolFee2(svm, {
         signerKP: admin,
         pool,
         isTokenA: true,
@@ -181,7 +181,7 @@ describe("Claim fee", () => {
     });
 
     it("rejects when admin signs without a registered operator account", async () => {
-      const result = await claimProtocolFee(svm, {
+      const result = await claimProtocolFee2(svm, {
         signerKP: admin,
         pool,
         isTokenA: true,

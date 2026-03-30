@@ -488,7 +488,7 @@ export async function updatePoolFeesParameters(
   return result;
 }
 
-export async function claimProtocolFee(
+export async function claimProtocolFee2(
   svm: LiteSVM,
   params: {
     signerKP: Keypair;
@@ -524,7 +524,7 @@ export async function claimProtocolFee(
   );
 
   const transaction = await program.methods
-    .claimProtocolFee(maxAmount)
+    .claimProtocolFee2(maxAmount)
     .accountsPartial({
       poolAuthority,
       pool,

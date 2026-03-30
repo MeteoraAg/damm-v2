@@ -174,8 +174,8 @@ pub mod cp_amm {
         instructions::handle_set_pool_status(ctx, status)
     }
 
-    pub fn claim_protocol_fee(ctx: Context<ClaimProtocolFeeCtx>, max_amount: u64) -> Result<()> {
-        instructions::handle_claim_protocol_fee(ctx, max_amount)
+    pub fn claim_protocol_fee2(ctx: Context<ClaimProtocolFee2Ctx>, max_amount: u64) -> Result<()> {
+        instructions::handle_claim_protocol_fee2(ctx, max_amount)
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]

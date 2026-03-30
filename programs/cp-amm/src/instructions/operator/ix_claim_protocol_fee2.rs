@@ -1,11 +1,11 @@
-use crate::{const_pda, state::Pool, token::transfer_from_pool, EvtClaimProtocolFee, PoolError};
+use crate::{const_pda, state::Pool, token::transfer_from_pool, EvtClaimProtocolFee2, PoolError};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 /// Accounts for claiming protocol fees
 #[event_cpi]
 #[derive(Accounts)]
-pub struct ClaimProtocolFeeCtx<'info> {
+pub struct ClaimProtocolFee2Ctx<'info> {
     /// CHECK: pool authority
     #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
@@ -71,7 +71,10 @@ fn get_claim_direction_and_validate_accounts(
 }
 
 /// claim protocol fees
-pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeeCtx>, max_amount: u64) -> Result<()> {
+pub fn handle_claim_protocol_fee2(
+    ctx: Context<ClaimProtocolFee2Ctx>,
+    max_amount: u64,
+) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
 
     let is_claiming_token_a = get_claim_direction_and_validate_accounts(
@@ -114,7 +117,7 @@ pub fn handle_claim_protocol_fee(ctx: Context<ClaimProtocolFeeCtx>, max_amount: 
         amount,
     )?;
 
-    emit_cpi!(EvtClaimProtocolFee {
+    emit_cpi!(EvtClaimProtocolFee2 {
         pool: ctx.accounts.pool.key(),
         receiver_token_account: ctx.accounts.receiver_token_account.key(),
         token_mint: token_mint.key(),
