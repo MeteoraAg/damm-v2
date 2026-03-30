@@ -578,12 +578,12 @@ export async function claimProtocolFee2(
     signerKP: Keypair;
     pool: PublicKey;
     isTokenA: boolean;
-    destinationOwner: PublicKey;
+    receiverTokenAccount: PublicKey;
     maxAmount?: BN;
   }
 ) {
   const program = createCpAmmProgram();
-  const { signerKP, pool, isTokenA, destinationOwner } = params;
+  const { signerKP, pool, isTokenA, receiverTokenAccount } = params;
   const poolAuthority = derivePoolAuthority();
   const poolState = getPool(svm, pool);
 
@@ -598,14 +598,6 @@ export async function claimProtocolFee2(
   const maxAmount =
     params.maxAmount ??
     (isTokenA ? poolState.protocolAFee : poolState.protocolBFee);
-
-  const receiverTokenAccount = getOrCreateAssociatedTokenAccount(
-    svm,
-    signerKP,
-    claimedTokenMint,
-    destinationOwner,
-    claimedTokenProgram
-  );
 
   const transaction = await program.methods
     .claimProtocolFee2(maxAmount)

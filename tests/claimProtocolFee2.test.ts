@@ -22,11 +22,13 @@ import {
   addLiquidity,
   swapExactIn,
   getPool,
+  getOrCreateAssociatedTokenAccount,
 } from "./helpers";
 import { generateKpAndFund, randomID } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import { LiteSVM } from "litesvm";
 import { expect } from "chai";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 const ANCHOR_CONSTRAINT_ACCOUNT_ERROR_CODE = 2012;
 
@@ -170,22 +172,38 @@ describe("Claim Protocol Fee 2", () => {
   });
 
   describe("Fail case", () => {
-    it("rejects when admin signs using the operator's account", async () => {
+    it("rejects when signed by full permission operator", async () => {
+      const receiverTokenAccount = getOrCreateAssociatedTokenAccount(
+        svm,
+        whitelistedAccount,
+        inputTokenMint,
+        admin.publicKey,
+        TOKEN_PROGRAM_ID
+      );
+
       const result = await claimProtocolFee2(svm, {
-        signerKP: admin,
+        signerKP: whitelistedAccount,
         pool,
         isTokenA: true,
-        destinationOwner: admin.publicKey,
+        receiverTokenAccount,
       });
       expectThrowsErrorCode(result, ANCHOR_CONSTRAINT_ACCOUNT_ERROR_CODE);
     });
 
-    it("rejects when admin signs without a registered operator account", async () => {
+    it("rejects when signed by admin", async () => {
+      const receiverTokenAccount = getOrCreateAssociatedTokenAccount(
+        svm,
+        admin,
+        inputTokenMint,
+        admin.publicKey,
+        TOKEN_PROGRAM_ID
+      );
+
       const result = await claimProtocolFee2(svm, {
         signerKP: admin,
         pool,
         isTokenA: true,
-        destinationOwner: admin.publicKey,
+        receiverTokenAccount,
       });
       expectThrowsErrorCode(result, ANCHOR_CONSTRAINT_ACCOUNT_ERROR_CODE);
     });

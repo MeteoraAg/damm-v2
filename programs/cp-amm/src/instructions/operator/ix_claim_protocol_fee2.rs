@@ -19,7 +19,7 @@ pub struct ClaimProtocolFee2Ctx<'info> {
     )]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// Receiver token account for the claimed token
+    /// receiver token account for the claimed token. validated through the protocol_fee program
     #[account(mut)]
     pub receiver_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -70,7 +70,7 @@ fn get_claim_direction_and_validate_accounts(
     Ok(is_claiming_token_a)
 }
 
-/// claim protocol fees
+/// claim protocol fees. called through the protocol_fee program
 pub fn handle_claim_protocol_fee2(
     ctx: Context<ClaimProtocolFee2Ctx>,
     max_amount: u64,
