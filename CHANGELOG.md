@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- Added `claim_protocol_fee2` which requires `protocol_fee_authority` as signer instead of an operator. Additionally, only one of pool token can be claimed per instruction call.
-
 ### Changed
 
 ### Deprecated
@@ -23,7 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-## cp_amm [0.2.1]
+## cp_amm [0.2.1][#PR 200](https://github.com/MeteoraAg/damm-v2/pull/200)
+
+### Added
+
+- Added `claim_protocol_fee2` which requires `protocol_fee_authority` as signer instead of an operator. Additionally, only one of pool token can be claimed per instruction call.
 
 ### Changed
 
