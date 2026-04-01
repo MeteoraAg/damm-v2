@@ -23,7 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `claim_protocol_fee2` which requires `protocol_fee_authority` as signer instead of an operator. Additionally, only one of pool token can be claimed per instruction call.
+- Added an endpoint `claim_protocol_fee2` that requires `protocol_fee_authority` as the signer instead of an operator. Additionally, only one of the pool tokens can be claimed per instruction call.
+
+### Deprecated
+
+- Deprecated `claim_protocol_fee` and `zap_protocol_fee` endpoints in favour of using `claim_protocol_fee2` through the `protocol_fee` wrapper program.
 
 ### Changed
 

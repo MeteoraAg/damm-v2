@@ -23,10 +23,10 @@ pub struct ClaimProtocolFee2Ctx<'info> {
     #[account(mut)]
     pub receiver_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    #[account(mut, token::mint = token_a_mint, token::token_program = token_a_program)]
+    #[account(mut)]
     pub token_a_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    #[account(mut, token::mint = token_b_mint, token::token_program = token_b_program)]
+    #[account(mut)]
     pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
@@ -92,7 +92,9 @@ pub fn handle_claim_protocol_fee2(
         amount_b
     };
 
-    require!(amount > 0, PoolError::AmountIsZero);
+    if amount == 0 {
+        return Ok(());
+    }
 
     let (token_vault, token_mint, token_program) = if is_claiming_token_a {
         (
