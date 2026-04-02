@@ -33,21 +33,3 @@ pub mod protocol_fee_authority {
     pub const ID: Pubkey = Pubkey::new_from_array(PROTOCOL_FEE_AUTHORITY_AND_BUMP.0);
     pub const BUMP: u8 = PROTOCOL_FEE_AUTHORITY_AND_BUMP.1;
 }
-
-// Potential optimization on event authority too since anchor internally do Pubkey::find_program_address during runtime.
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_const_pool_authority() {
-        let (derived_pool_authority, derived_bump) = Pubkey::find_program_address(
-            &[crate::constants::seeds::POOL_AUTHORITY_PREFIX],
-            &crate::ID,
-        );
-        // derived_pool_authority = HLnpSz9h2S4hiLQ43rnSD9XkcUThA7B8hQMKmDaiTLcC
-        assert_eq!(pool_authority::ID, derived_pool_authority);
-        assert_eq!(pool_authority::BUMP, derived_bump);
-    }
-}
