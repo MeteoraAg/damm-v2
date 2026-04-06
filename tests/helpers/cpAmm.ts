@@ -5,7 +5,7 @@ import {
   IdlTypes,
   Program,
   Wallet,
-} from "@coral-xyz/anchor";
+} from "@anchor-lang/core";
 import {
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,

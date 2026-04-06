@@ -1,5 +1,5 @@
 import { CpAmm } from "../../target/types/cp_amm";
-import { IdlTypes } from "@coral-xyz/anchor";
+import { IdlTypes } from "@anchor-lang/core";
 import { createCpAmmProgram } from "./cpAmm";
 import { BN } from "bn.js";
 

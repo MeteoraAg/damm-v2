@@ -13,8 +13,28 @@ incremental = false
 codegen-units = 1
 
 [workspace.dependencies]
-anchor-lang = { version = "0.31.0", features = ["init-if-needed"] }
-anchor-spl = "0.31.0"
-anchor-client = "0.31.0"
-bytemuck = { version = "1.20.0"}
-proptest = "1.2.0"
+anchor-lang = { version = "1.0.0", features = ["init-if-needed"] }
+anchor-spl = "1.0.0"
+anchor-client = "1.0.0"
+bytemuck = "1.20.0"
+static_assertions = "1.1.0"
+ruint = "1.3.0"
+num-traits = "0.2.19"
+num_enum = "0.7.0"
+num = "0.4.3"
+spl-token-metadata-interface = "0.8.0"
+solana-instructions-sysvar = "3.0.0"
+solana-instruction = { version = "3.3.0", features = ["syscalls"] }
+borsh = "1"
+const-crypto = "0.3.0"
+pinocchio = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
+pinocchio-token = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
+pinocchio-token-2022 = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
+protocol-zap = { git = "https://github.com/MeteoraAg/zap-program", rev = "064c58b317b9a85f212c0de72caea286fc72fdb4" }
+anyhow = "1.0.71"
+proptest = "1"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(target_os, values("solana"))',
+] }

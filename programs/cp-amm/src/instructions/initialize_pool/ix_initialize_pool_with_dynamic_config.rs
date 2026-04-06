@@ -164,8 +164,8 @@ pub struct InitializePoolWithDynamicConfigCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_pool_with_dynamic_config<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializePoolWithDynamicConfigCtx<'info>>,
+pub fn handle_initialize_pool_with_dynamic_config<'info>(
+    ctx: Context<'info, InitializePoolWithDynamicConfigCtx<'info>>,
     params: InitializeCustomizablePoolParameters,
 ) -> Result<()> {
     params.validate()?;
