@@ -53,6 +53,8 @@ jobs:
       - uses: ./.github/actions/setup-solana
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
+      # Install bun
+      - uses: oven-sh/setup-bun@v2
         # Cache rust, cargo
       - uses: Swatinem/rust-cache@v2
         with:
@@ -62,7 +64,7 @@ jobs:
         with:
           path: ~/.anchor
           key: anchor-${{ runner.os }}-${{ hashFiles('Anchor.toml') }}
-      - run: anchor build
+      - run: bun run build-local
         shell: bash
 
   rust_sdk_unit_test:
@@ -104,8 +106,6 @@ jobs:
       - uses: ./.github/actions/setup-solana
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
-      # Install bun
-      - uses: oven-sh/setup-bun@v2
       # Install rust + toolchain
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -122,5 +122,5 @@ jobs:
       # Testing
       - run: bun install
         shell: bash
-      - run: bun run build-local-test
+      - run: bun run test
         shell: bash
