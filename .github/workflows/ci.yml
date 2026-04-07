@@ -134,5 +134,5 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install
         shell: bash
-      - run: bun run test
+      - run: bun run build-local-test
         shell: bash
