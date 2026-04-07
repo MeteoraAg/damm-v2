@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## cp_amm [0.2.1]
+
+### Changed
+
+- Update anchor version to 1.0.0
+
 ## cp_amm [0.2.0]
 
 ### Added
