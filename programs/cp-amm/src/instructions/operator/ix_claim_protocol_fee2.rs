@@ -3,12 +3,17 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 /// Accounts for claiming protocol fees
-#[event_cpi]
 #[derive(Accounts)]
 pub struct ClaimProtocolFee2Ctx<'info> {
-    /// CHECK: pool authority
-    #[account(address = const_pda::pool_authority::ID)]
-    pub pool_authority: UncheckedAccount<'info>,
+    /// receiver token account for the claimed token. validated through the protocol_fee program
+    #[account(mut)]
+    pub receiver_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    pub token_a_program: Interface<'info, TokenInterface>,
+    pub token_b_program: Interface<'info, TokenInterface>,
 
     #[account(
         mut,
@@ -19,26 +24,17 @@ pub struct ClaimProtocolFee2Ctx<'info> {
     )]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// receiver token account for the claimed token. validated through the protocol_fee program
-    #[account(mut)]
-    pub receiver_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
-
     #[account(mut)]
     pub token_a_vault: Box<InterfaceAccount<'info, TokenAccount>>,
-
     #[account(mut)]
     pub token_b_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    pub token_a_mint: Box<InterfaceAccount<'info, Mint>>,
-
-    pub token_b_mint: Box<InterfaceAccount<'info, Mint>>,
+    /// CHECK: pool authority
+    #[account(address = const_pda::pool_authority::ID)]
+    pub pool_authority: UncheckedAccount<'info>,
 
     #[account(address = const_pda::protocol_fee_authority::ID)]
     pub signer: Signer<'info>,
-
-    pub token_a_program: Interface<'info, TokenInterface>,
-
-    pub token_b_program: Interface<'info, TokenInterface>,
 }
 
 fn get_claim_direction_and_validate_accounts(
@@ -119,7 +115,7 @@ pub fn handle_claim_protocol_fee2(
         amount,
     )?;
 
-    emit_cpi!(EvtClaimProtocolFee2 {
+    emit!(EvtClaimProtocolFee2 {
         pool: ctx.accounts.pool.key(),
         receiver_token_account: ctx.accounts.receiver_token_account.key(),
         token_mint: token_mint.key(),
