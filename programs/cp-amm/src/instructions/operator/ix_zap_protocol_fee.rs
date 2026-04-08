@@ -7,7 +7,7 @@ use crate::{
     token::transfer_from_pool,
 };
 use anchor_lang::prelude::*;
-use solana_instructions_sysvar::ID as SYSVAR_IX_ID;
+use anchor_lang::solana_program::sysvar::SysvarId;
 
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
@@ -44,7 +44,7 @@ pub struct ZapProtocolFee<'info> {
 
     /// CHECK: Sysvar Instructions account
     #[account(
-        address = SYSVAR_IX_ID,
+        address = Instructions::id(),
     )]
     pub sysvar_instructions: AccountInfo<'info>,
 }

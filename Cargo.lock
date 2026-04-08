@@ -917,7 +917,6 @@ dependencies = [
  "protocol-zap",
  "ruint",
  "solana-instruction 3.3.0",
- "solana-instructions-sysvar 3.0.0",
  "spl-token-metadata-interface",
  "static_assertions",
 ]

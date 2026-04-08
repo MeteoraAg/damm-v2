@@ -31,7 +31,6 @@ num-traits = { workspace = true }
 num_enum = { workspace = true }
 num = { workspace = true }
 spl-token-metadata-interface = { workspace = true }
-solana-instructions-sysvar = { workspace = true }
 solana-instruction = { workspace = true }
 borsh = { workspace = true }
 const-crypto = { workspace = true }
@@ -44,4 +43,4 @@ protocol-zap = { workspace = true }
 workspace = true
 
 [dev-dependencies]
-proptest = { workspace = true}
+proptest = { workspace = true }

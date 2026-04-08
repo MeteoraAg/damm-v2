@@ -23,7 +23,6 @@ num-traits = "0.2.19"
 num_enum = "0.7.0"
 num = "0.4.3"
 spl-token-metadata-interface = "0.8.0"
-solana-instructions-sysvar = "3.0.0"
 solana-instruction = { version = "3.3.0", features = ["syscalls"] }
 borsh = "1"
 const-crypto = "0.3.0"
