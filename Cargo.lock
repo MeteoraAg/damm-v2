@@ -84,7 +84,8 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-access-control"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b972f5fbd02524c92e4eb487c3c648904572702670f3d6fc81aef5f1751b1569"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -107,7 +108,8 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-account"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9acfcb07a92084bcfa9f6cc49a5c2e8e0e986f25f4b7caa184b7a2c9c9e561c2"
 dependencies = [
  "anchor-syn 1.0.0",
  "proc-macro2",
@@ -129,7 +131,8 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-constant"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f46cc38f819377f07663b8eb492a701427950065e79d2d7b622a782443deb7a"
 dependencies = [
  "anchor-syn 1.0.0",
  "quote",
@@ -150,7 +153,8 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-error"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c34748789107c9838329e058ca7b253e67f37b39ceae5a0a6c8d99f5d1bf1fe"
 dependencies = [
  "anchor-syn 1.0.0",
  "quote",
@@ -172,7 +176,8 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-event"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a28a3e5eefa03d9c5ef02b2139198f652547d38dddafc9c5545152dfba54556"
 dependencies = [
  "anchor-syn 1.0.0",
  "proc-macro2",
@@ -186,7 +191,7 @@ version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05ecfd49b2aeadeb32f35262230db402abed76ce87e27562b34f61318b2ec83c"
 dependencies = [
- "anchor-lang-idl 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "anchor-lang-idl",
  "anchor-syn 0.31.1",
  "anyhow",
  "bs58",
@@ -200,9 +205,10 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-program"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfaa03865053cb168bfc4debe5992be87f397aa027dd81b69a2e44f2e5bae1c5"
 dependencies = [
- "anchor-lang-idl 0.1.2 (git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning)",
+ "anchor-lang-idl",
  "anchor-syn 1.0.0",
  "anyhow",
  "heck",
@@ -225,7 +231,8 @@ dependencies = [
 [[package]]
 name = "anchor-derive-accounts"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eef330db08f9ceee45c18ef96b15b869883d280c0ab5c6ff5d2e2f6481da7911"
 dependencies = [
  "anchor-syn 1.0.0",
  "quote",
@@ -248,7 +255,8 @@ dependencies = [
 [[package]]
 name = "anchor-derive-serde"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0e80ff4e3ddb8c85aafd37926335c28f820516311e7106e5b7482b42e798aaa"
 dependencies = [
  "anchor-syn 1.0.0",
  "proc-macro-crate 3.5.0",
@@ -271,7 +279,8 @@ dependencies = [
 [[package]]
 name = "anchor-derive-space"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2672af0ef4dfd5f5b6199355867b580cd8b4048093ef5208dd2b441305c15b8b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -304,7 +313,8 @@ dependencies = [
 [[package]]
 name = "anchor-lang"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8de9dce227fa0c08be20fef008c5b04681e1e0a15cb396e9619a9a1f800ff6cd"
 dependencies = [
  "anchor-attribute-access-control 1.0.0",
  "anchor-attribute-account 1.0.0",
@@ -315,7 +325,7 @@ dependencies = [
  "anchor-derive-accounts 1.0.0",
  "anchor-derive-serde 1.0.0",
  "anchor-derive-space 1.0.0",
- "anchor-lang-idl 0.1.2 (git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning)",
+ "anchor-lang-idl",
  "base64 0.21.4",
  "bincode",
  "borsh 1.6.1",
@@ -351,20 +361,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32e8599d21995f68e296265aa5ab0c3cef582fd58afec014d01bd0bce18a4418"
 dependencies = [
- "anchor-lang-idl-spec 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "anyhow",
- "heck",
- "serde",
- "serde_json",
- "sha2 0.10.8",
-]
-
-[[package]]
-name = "anchor-lang-idl"
-version = "0.1.2"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
-dependencies = [
- "anchor-lang-idl-spec 0.1.0 (git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning)",
+ "anchor-lang-idl-spec",
  "anyhow",
  "heck",
  "regex",
@@ -378,15 +375,6 @@ name = "anchor-lang-idl-spec"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bdf143115440fe621bdac3a29a1f7472e09f6cd82b2aa569429a0c13f103838"
-dependencies = [
- "anyhow",
- "serde",
-]
-
-[[package]]
-name = "anchor-lang-idl-spec"
-version = "0.1.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
 dependencies = [
  "anyhow",
  "serde",
@@ -428,7 +416,8 @@ dependencies = [
 [[package]]
 name = "anchor-syn"
 version = "1.0.0"
-source = "git+https://github.com/MeteoraAg/anchor?branch=v1.0.0-patch-emit-cpi-warning#68f97d8dcbe3fee4b489479f1bdab2621781dcfe"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c62f42cb7e348c033bd9bfba59979bcd66431c026ba23490af94045aa357a950"
 dependencies = [
  "anyhow",
  "bs58",
