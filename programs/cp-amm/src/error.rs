@@ -212,6 +212,9 @@ pub enum PoolError {
 
     #[msg("Invalid claim protocol fee accounts")]
     InvalidClaimProtocolFeeAccounts,
+
+    #[msg("Transfer fee excluded amount is zero")]
+    TransferFeeExcludedAmountIsZero,
 }
 
 impl From<ProtozolZapError> for PoolError {

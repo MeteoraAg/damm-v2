@@ -1,4 +1,9 @@
-use crate::{const_pda, state::Pool, token::transfer_from_pool, EvtClaimProtocolFee2, PoolError};
+use crate::{
+    const_pda,
+    state::Pool,
+    token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
+    EvtClaimProtocolFee2, PoolError,
+};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
@@ -106,6 +111,15 @@ pub fn handle_claim_protocol_fee2(
         )
     };
 
+    let transfer_fee_excluded = calculate_transfer_fee_excluded_amount(
+        &token_mint.to_account_info().try_borrow_data()?,
+        amount,
+    )?;
+    require!(
+        transfer_fee_excluded.amount > 0,
+        PoolError::TransferFeeExcludedAmountIsZero
+    );
+
     transfer_from_pool(
         ctx.accounts.pool_authority.to_account_info(),
         token_mint,
@@ -115,6 +129,7 @@ pub fn handle_claim_protocol_fee2(
         amount,
     )?;
 
+    // emit! log could be truncated. should not rely on this
     emit!(EvtClaimProtocolFee2 {
         pool: ctx.accounts.pool.key(),
         receiver_token_account: ctx.accounts.receiver_token_account.key(),
