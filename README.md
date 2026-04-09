@@ -84,7 +84,7 @@ anchor build --ignore-keys
 
 ```
 bun install
-bun run test
+bun run build-local-test
 ```
 
 ## Deployments
