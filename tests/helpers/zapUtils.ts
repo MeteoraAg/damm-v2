@@ -1,4 +1,4 @@
-import * as borsh from "@coral-xyz/borsh";
+import * as borsh from "@anchor-lang/borsh";
 import {
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
