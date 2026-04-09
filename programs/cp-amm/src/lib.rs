@@ -1,5 +1,3 @@
-// Ignored due to https://github.com/solana-foundation/anchor/issues/4378
-#![allow(deprecated)]
 use anchor_lang::prelude::*;
 
 #[macro_use]
@@ -12,7 +10,10 @@ pub mod constants;
 pub mod error;
 pub mod state;
 pub use error::*;
+
+#[allow(deprecated)]
 pub mod event;
+
 pub use event::*;
 pub mod utils;
 pub use utils::*;
