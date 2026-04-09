@@ -46,7 +46,7 @@ pub struct ZapProtocolFee<'info> {
     #[account(
         address = Instructions::id(),
     )]
-    pub sysvar_instructions: AccountInfo<'info>,
+    pub sysvar_instructions: UncheckedAccount<'info>,
 }
 
 fn validate_accounts_and_return_withdraw_direction<'info>(
