@@ -7,10 +7,9 @@ on:
       - release_*
 
 env:
-  SOLANA_CLI_VERSION: 2.3.13
-  NODE_VERSION: 18.20.6
-  ANCHOR_CLI_VERSION: 0.31.0
-  TOOLCHAIN: 1.85.0
+  SOLANA_CLI_VERSION: 3.1.10
+  ANCHOR_CLI_VERSION: 1.0.0
+  TOOLCHAIN: 1.93.0
 
 jobs:
   program_changed_files:
@@ -43,6 +42,17 @@ jobs:
           files: |
             rust-sdk
 
+  cargo_fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+        shell: bash
+
   anchor_build:
     runs-on: ubuntu-latest
     needs: program_changed_files
@@ -54,6 +64,8 @@ jobs:
       - uses: ./.github/actions/setup-solana
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
+      # Install bun
+      - uses: oven-sh/setup-bun@v2
         # Cache rust, cargo
       - uses: Swatinem/rust-cache@v2
         with:
@@ -63,7 +75,7 @@ jobs:
         with:
           path: ~/.anchor
           key: anchor-${{ runner.os }}-${{ hashFiles('Anchor.toml') }}
-      - run: anchor build
+      - run: bun run build-local
         shell: bash
 
   rust_sdk_unit_test:
@@ -77,7 +89,7 @@ jobs:
           toolchain: ${{ env.TOOLCHAIN }}
           components: clippy
       # Cache rust, cargo
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - run: cargo test --package rust-sdk
         shell: bash
 
@@ -92,7 +104,7 @@ jobs:
           toolchain: ${{ env.TOOLCHAIN }}
           components: clippy
       # Cache rust, cargo
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       - run: cargo test --package cp-amm
         shell: bash
 
@@ -105,25 +117,22 @@ jobs:
       - uses: ./.github/actions/setup-solana
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
-      # Install pnpm
-      - uses: pnpm/action-setup@v3 # docs https://pnpm.io/continuous-integration#github-actions
-        with:
-          version: 9.5.0 # Optional: specify a pnpm version
       # Install rust + toolchain
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.TOOLCHAIN }}
           components: clippy
       # Cache rust, cargo
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
       # Cache node_modules
       - uses: actions/cache@v4
         id: cache-node-modules
         with:
           path: ./node_modules
-          key: ${{ runner.os }}-${{ hashFiles('./pnpm-lock.yaml') }}
-      # Testing
-      - run: pnpm install
+          key: ${{ runner.os }}-${{ hashFiles('./bun.lock') }}
+      # Install bun
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
         shell: bash
-      - run: pnpm test
+      - run: bun run build-local-test
         shell: bash

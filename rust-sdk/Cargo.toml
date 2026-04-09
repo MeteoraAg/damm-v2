@@ -5,9 +5,12 @@ edition = "2021"
 description = "cp-amm sdk"
 
 [dependencies]
-anyhow = "1.0.71"
+anyhow = { workspace = true }
 cp-amm = { path = "../programs/cp-amm", features=["no-entrypoint", "no-custom-entrypoint"] }
-ruint = "1.3.0"
+ruint = { workspace = true }
+
+[lints]
+workspace = true
 
 [dev-dependencies]
 bytemuck = { workspace = true}

@@ -1,10 +1,16 @@
 name: "Setup anchor-cli"
-description: "Setup node js and anchor cli"
+description: "Setup anchor cli"
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-node@v2
+    - name: Cache Anchor CLI
+      uses: actions/cache@v4
+      id: cache-anchor
       with:
-        node-version: ${{ env.NODE_VERSION }}
-    - run: cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_CLI_VERSION }} anchor-cli --locked
+        path: ~/.cargo/bin/anchor
+        key: anchor-cli-${{ runner.os }}-${{ env.ANCHOR_CLI_VERSION }}
+
+    - name: Install Anchor CLI
+      if: steps.cache-anchor.outputs.cache-hit != 'true'
+      run: cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_CLI_VERSION }} anchor-cli --locked
       shell: bash

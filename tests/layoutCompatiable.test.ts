@@ -4,7 +4,7 @@ import BN from "bn.js";
 import fs from "fs";
 
 import { CpAmm } from "../target/types/cp_amm";
-import { IdlAccounts } from "@coral-xyz/anchor";
+import { IdlAccounts } from "@anchor-lang/core";
 import { decodePodAlignedFeeTimeScheduler } from "./helpers/feeCodec";
 type ConfigAccount = IdlAccounts<CpAmm>["config"];
 type PoolAccount = IdlAccounts<CpAmm>["pool"];

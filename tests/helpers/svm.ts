@@ -1,4 +1,4 @@
-import { base64 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { base64 } from "@anchor-lang/core/dist/cjs/utils/bytes";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, Signer, SystemProgram, Transaction } from "@solana/web3.js";
 import BN from "bn.js";
