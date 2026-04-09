@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[derive(Accounts)]
-pub struct RefreshVesting<'info> {
+pub struct RefreshVestingCtx<'info> {
     pub pool: AccountLoader<'info, Pool>,
 
     #[account(
@@ -48,7 +48,7 @@ impl<'info> VestingRemainingAccount<'info> {
     }
 }
 
-pub fn handle_refresh_vesting<'info>(ctx: Context<'info, RefreshVesting<'info>>) -> Result<()> {
+pub fn handle_refresh_vesting<'info>(ctx: Context<'info, RefreshVestingCtx<'info>>) -> Result<()> {
     let pool = ctx.accounts.pool.load()?;
 
     let (current_point, _) =

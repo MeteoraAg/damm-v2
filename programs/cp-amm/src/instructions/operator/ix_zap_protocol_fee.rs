@@ -16,7 +16,7 @@ use protocol_zap::utils::validate_zap_out_to_treasury;
 
 /// Accounts for zap protocol fees
 #[derive(Accounts)]
-pub struct ZapProtocolFee<'info> {
+pub struct ZapProtocolFeeCtx<'info> {
     /// CHECK: pool authority
     #[account(address = const_pda::pool_authority::ID)]
     pub pool_authority: UncheckedAccount<'info>,
@@ -86,7 +86,7 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 // Rules:
 // 1. If the token mint is SOL or USDC, then must withdraw to treasury using `claim_protocol_fee` endpoint. No zap out allowed.
 // 2. If the token mint is not SOL or USDC, operator require to zap out to SOL or USDC or either one of the token of the pool
-pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
+pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFeeCtx>, max_amount: u64) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
     let is_withdrawing_a = validate_accounts_and_return_withdraw_direction(
         &pool,

@@ -114,7 +114,7 @@ pub mod cp_amm {
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
     pub fn fix_pool_fee_params(
-        ctx: Context<FixPoolFeeParams>,
+        ctx: Context<FixPoolFeeParamsCtx>,
         params: BaseFeeParameters,
     ) -> Result<()> {
         instructions::handle_fix_pool_fee_params(ctx, params)
@@ -122,7 +122,7 @@ pub mod cp_amm {
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
     pub fn fix_config_fee_params(
-        ctx: Context<FixConfigFeeParams>,
+        ctx: Context<FixConfigFeeParamsCtx>,
         params: BaseFeeParameters,
     ) -> Result<()> {
         instructions::handle_fix_config_fee_params(ctx, params)
@@ -184,7 +184,7 @@ pub mod cp_amm {
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
-    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
+    pub fn zap_protocol_fee(ctx: Context<ZapProtocolFeeCtx>, max_amount: u64) -> Result<()> {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
     }
 
@@ -287,7 +287,7 @@ pub mod cp_amm {
         instructions::handle_lock_inner_position(ctx, params)
     }
 
-    pub fn refresh_vesting<'info>(ctx: Context<'info, RefreshVesting<'info>>) -> Result<()> {
+    pub fn refresh_vesting<'info>(ctx: Context<'info, RefreshVestingCtx<'info>>) -> Result<()> {
         instructions::handle_refresh_vesting(ctx)
     }
 
