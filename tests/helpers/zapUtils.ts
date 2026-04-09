@@ -645,7 +645,8 @@ export async function createCustomizableDammV2Pool(params: {
       baseFee: {
         data: Array.from(data),
       },
-      padding: [],
+      compoundingFeeBps: 0,
+      padding: 0,
       dynamicFee: null,
     },
     activationType: 0, // slot

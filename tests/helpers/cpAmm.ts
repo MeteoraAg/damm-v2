@@ -133,7 +133,7 @@ export type BaseFee = {
 
 export type PoolFees = {
   baseFee: BaseFee;
-  compoundingFeeBps: number,
+  compoundingFeeBps: number;
   padding: number;
   dynamicFee: DynamicFee | null;
 };
@@ -493,6 +493,7 @@ export type ClaimProtocolFeeParams = {
   pool: PublicKey;
   treasury: PublicKey;
 };
+
 export async function claimProtocolFee(
   svm: LiteSVM,
   params: ClaimProtocolFeeParams
@@ -568,8 +569,53 @@ export async function claimProtocolFee(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedKP]);
-  expect(result).instanceOf(TransactionMetadata);
+  return sendTransaction(svm, transaction, [whitelistedKP]);
+}
+
+export async function claimProtocolFee2(
+  svm: LiteSVM,
+  params: {
+    signerKP: Keypair;
+    pool: PublicKey;
+    isTokenA: boolean;
+    receiverTokenAccount: PublicKey;
+    maxAmount?: BN;
+  }
+) {
+  const program = createCpAmmProgram();
+  const { signerKP, pool, isTokenA, receiverTokenAccount } = params;
+  const poolAuthority = derivePoolAuthority();
+  const poolState = getPool(svm, pool);
+
+  const claimedTokenMint = isTokenA
+    ? poolState.tokenAMint
+    : poolState.tokenBMint;
+  const claimedTokenProgram = svm.getAccount(claimedTokenMint)!.owner;
+
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
+
+  const maxAmount =
+    params.maxAmount ??
+    (isTokenA ? poolState.protocolAFee : poolState.protocolBFee);
+
+  const transaction = await program.methods
+    .claimProtocolFee2(maxAmount)
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      receiverTokenAccount,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+      signer: signerKP.publicKey,
+      tokenAProgram,
+      tokenBProgram,
+    })
+    .transaction();
+
+  return sendTransaction(svm, transaction, [signerKP]);
 }
 
 export type InitializePoolParams = {
@@ -854,7 +900,7 @@ export async function setPoolStatus(svm: LiteSVM, params: SetPoolStatusParams) {
 
 export type PoolFeesParams = {
   baseFee: BaseFee;
-  compoundingFeeBps: number,
+  compoundingFeeBps: number;
   padding: number;
   dynamicFee: DynamicFee | null;
 };
@@ -1174,12 +1220,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1216,12 +1262,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -1484,8 +1530,6 @@ export async function lockPosition(
 
   return vestingAddress;
 }
-
-
 
 export async function createPosition(
   svm: LiteSVM,

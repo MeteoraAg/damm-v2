@@ -174,6 +174,10 @@ pub mod cp_amm {
         instructions::handle_set_pool_status(ctx, status)
     }
 
+    #[deprecated(
+        since = "0.2.1",
+        note = "Use claim_protocol_fee2 through protocol_fee program instead"
+    )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_fee(
         ctx: Context<ClaimProtocolFeesCtx>,
@@ -183,9 +187,17 @@ pub mod cp_amm {
         instructions::handle_claim_protocol_fee(ctx, max_amount_a, max_amount_b)
     }
 
+    #[deprecated(
+        since = "0.2.1",
+        note = "Use claim_protocol_fee2 through protocol_fee program instead"
+    )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
     pub fn zap_protocol_fee(ctx: Context<ZapProtocolFeeCtx>, max_amount: u64) -> Result<()> {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
+    }
+
+    pub fn claim_protocol_fee2(ctx: Context<ClaimProtocolFee2Ctx>, max_amount: u64) -> Result<()> {
+        instructions::handle_claim_protocol_fee2(ctx, max_amount)
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]
