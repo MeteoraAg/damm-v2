@@ -4,8 +4,7 @@
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "build-local": "anchor build --ignore-keys -- --features local",
-    "test": "ANCHOR_WALLET=keys/local/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json bunx ts-mocha -p ./tsconfig.json -t 1000000 tests/*.test.ts",
-    "build-local-test": "bun run build-local && bun run test"
+    "test": "bun run build-local && ANCHOR_WALLET=keys/local/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json bunx ts-mocha -p ./tsconfig.json -t 1000000 tests/*.test.ts"
   },
   "dependencies": {
     "@anchor-lang/core": "^1.0.0",
