@@ -66,13 +66,13 @@ pub fn apply_next_sqrt_price(
             (a, b)
         }
         TradeDirection::BtoA => {
-            let a = pool
-                .token_a_amount
-                .checked_sub(included_fee_output_amount)
-                .ok_or_else(|| Error::msg("Math overflow"))?;
             let b = pool
                 .token_b_amount
                 .checked_add(swap_result.excluded_fee_input_amount)
+                .ok_or_else(|| Error::msg("Math overflow"))?;
+            let a = pool
+                .token_a_amount
+                .checked_sub(included_fee_output_amount)
                 .ok_or_else(|| Error::msg("Math overflow"))?;
             (a, b)
         }
