@@ -31,10 +31,8 @@ pub fn apply_next_sqrt_price(
     swap_result: &SwapResult2,
     fee_mode: &FeeMode,
     trade_direction: TradeDirection,
+    collect_fee_mode: CollectFeeMode,
 ) -> Result<u128> {
-    let collect_fee_mode = CollectFeeMode::try_from(pool.collect_fee_mode)
-        .map_err(|_| Error::msg("Invalid collect fee mode"))?;
-
     if collect_fee_mode != CollectFeeMode::Compounding {
         return Ok(swap_result.next_sqrt_price);
     }
