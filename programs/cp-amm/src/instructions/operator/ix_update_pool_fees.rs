@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    params::fee_parameters::DynamicFeeParameters,
+    params::fee_parameters::{validate_compounding_fee_bps, DynamicFeeParameters},
     state::{Operator, Pool},
     EvtUpdatePoolFees, PoolError,
 };
@@ -17,6 +17,10 @@ pub struct UpdatePoolFeesParameters {
     /// - Some(with default value): disable dynamic fee
     /// - Some(with non default value): enable dynamic fee if disabled or update dynamic fee if enabled
     pub dynamic_fee: Option<DynamicFeeParameters>,
+    /// Compounding fee update mode:
+    /// - None: skip compounding fee update
+    /// - Some: update compounding_fee_bps; pool must use CollectFeeMode::Compounding
+    pub compounding_fee_bps: Option<u16>,
 }
 
 #[repr(u8)]
@@ -32,6 +36,13 @@ pub enum DynamicFeeUpdateMode {
 pub enum BaseFeeUpdateMode {
     Skip,
     Update(u64),
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CompoundingFeeUpdateMode {
+    Skip,
+    Update(u16),
 }
 
 impl UpdatePoolFeesParameters {
@@ -53,11 +64,21 @@ impl UpdatePoolFeesParameters {
             DynamicFeeUpdateMode::Skip
         }
     }
+
+    pub fn get_compounding_fee_update_mode(&self) -> CompoundingFeeUpdateMode {
+        match self.compounding_fee_bps {
+            Some(compounding_fee_bps) => CompoundingFeeUpdateMode::Update(compounding_fee_bps),
+            None => CompoundingFeeUpdateMode::Skip,
+        }
+    }
+
     fn validate(&self) -> Result<()> {
         // We don't need to validate `cliff_fee_numerator` in case we update it.
         // Because after update pool fee we will validate pool fee with new updated parameters
         require!(
-            self.cliff_fee_numerator.is_some() || self.dynamic_fee.is_some(),
+            self.cliff_fee_numerator.is_some()
+                || self.dynamic_fee.is_some()
+                || self.compounding_fee_bps.is_some(),
             PoolError::InvalidUpdatePoolFeesParameters
         );
 
@@ -65,6 +86,10 @@ impl UpdatePoolFeesParameters {
             if dynamic_fee != DynamicFeeParameters::default() {
                 dynamic_fee.validate()?;
             }
+        }
+
+        if let Some(compounding_fee_bps) = self.compounding_fee_bps {
+            validate_compounding_fee_bps(compounding_fee_bps)?;
         }
 
         Ok(())

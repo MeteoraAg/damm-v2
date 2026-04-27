@@ -464,18 +464,26 @@ export type UpdatePoolFeesParams = {
   whitelistedOperator: Keypair;
   cliffFeeNumerator: BN | null;
   dynamicFee: DynamicFee | null;
+  compoundingFeeBps?: number | null;
 };
 
 export async function updatePoolFeesParameters(
   svm: LiteSVM,
   params: UpdatePoolFeesParams
 ): Promise<TransactionMetadata | FailedTransactionMetadata> {
-  const { pool, whitelistedOperator, cliffFeeNumerator, dynamicFee } = params;
+  const {
+    pool,
+    whitelistedOperator,
+    cliffFeeNumerator,
+    dynamicFee,
+    compoundingFeeBps,
+  } = params;
   const program = createCpAmmProgram();
   const transaction = await program.methods
     .updatePoolFees({
       cliffFeeNumerator,
       dynamicFee,
+      compoundingFeeBps: compoundingFeeBps ?? null,
     })
     .accountsPartial({
       pool,
@@ -1022,12 +1030,14 @@ export async function initializeCustomizablePool(
   expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
   expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
   expect(poolState.liquidity.toString()).eq(liquidity.toString());
-  expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
+  // Compounding pools recompute sqrt_price from token amounts, so skip the equality check
+  if (collectFeeMode !== 2) {
+    expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
+    expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
+  }
 
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
-
-  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
 
   // Check the offset at base_fee_serde.rs
   const baseFeeModeInParams = params.poolFees.baseFee.data[26];

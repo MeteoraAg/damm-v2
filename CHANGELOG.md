@@ -25,10 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added an endpoint `claim_protocol_fee2` that requires `protocol_fee_authority` as the signer instead of an operator. Additionally, only one of the pool tokens can be claimed per instruction call.
 
-
 ### Changed
 
 - Update anchor version to 1.0.0
+- Endpoint `update_pool_fees` now supports updating `compounding_fee_bps` for pools with `CollectFeeMode::Compounding`
 
 ### Deprecated
 
