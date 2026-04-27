@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    params::fee_parameters::{validate_compounding_fee_bps, DynamicFeeParameters},
+    constants::fee::MAX_BASIS_POINT,
+    params::fee_parameters::DynamicFeeParameters,
     state::{Operator, Pool},
     EvtUpdatePoolFees, PoolError,
 };
@@ -89,7 +90,11 @@ impl UpdatePoolFeesParameters {
         }
 
         if let Some(compounding_fee_bps) = self.compounding_fee_bps {
-            validate_compounding_fee_bps(compounding_fee_bps)?;
+            // allow updating compounding_fee_bps to 0
+            require!(
+                compounding_fee_bps <= MAX_BASIS_POINT,
+                PoolError::InvalidCompoundingFeeBps
+            );
         }
 
         Ok(())

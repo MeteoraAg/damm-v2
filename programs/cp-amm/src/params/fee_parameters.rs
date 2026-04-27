@@ -250,21 +250,16 @@ fn validate_compounding_fee(
     compounding_fee_bps: u16,
 ) -> Result<()> {
     if collect_fee_mode == CollectFeeMode::Compounding {
-        validate_compounding_fee_bps(compounding_fee_bps)?;
+        // not make sense to have zero compounding_fee_bps in compounding collect fee mode
+        require!(
+            compounding_fee_bps > 0 && compounding_fee_bps <= MAX_BASIS_POINT,
+            PoolError::InvalidCompoundingFeeBps
+        );
     } else {
         require!(
             compounding_fee_bps == 0,
             PoolError::InvalidCompoundingFeeBps
         );
     }
-    Ok(())
-}
-
-pub fn validate_compounding_fee_bps(compounding_fee_bps: u16) -> Result<()> {
-    // not make sense to have zero compounding_fee_bps in compounding collect fee mode
-    require!(
-        compounding_fee_bps > 0 && compounding_fee_bps <= MAX_BASIS_POINT,
-        PoolError::InvalidCompoundingFeeBps
-    );
     Ok(())
 }

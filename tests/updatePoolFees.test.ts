@@ -638,6 +638,49 @@ describe("Admin update pool fees parameters", () => {
       await swapExactIn(svm, swapParams);
     });
 
+    it("succeeds when setting compounding fee bps to 0", async () => {
+      const cliffFeeNumerator = new BN(2_500_000);
+      const poolFeesData = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        0,
+        BigInt(0),
+        BigInt(0),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+      const poolAddress = await createCompoundingPool(
+        svm,
+        creator,
+        tokenAMint,
+        tokenBMint,
+        poolFeesData,
+        5000
+      );
+
+      const swapParams = {
+        payer: creator,
+        pool: poolAddress,
+        inputTokenMint: tokenAMint,
+        outputTokenMint: tokenBMint,
+        amountIn: new BN(10),
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+      };
+      await swapExactIn(svm, swapParams);
+
+      await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator: null,
+        dynamicFee: null,
+        compoundingFeeBps: 0,
+      });
+
+      const poolState = getPool(svm, poolAddress);
+      expect(poolState.poolFees.compoundingFeeBps).eq(0);
+
+      await swapExactIn(svm, swapParams);
+    });
+
     it("fails on non-compounding pool", async () => {
       const cliffFeeNumerator = new BN(2_500_000);
       const poolFeesData = encodeFeeTimeSchedulerParams(
