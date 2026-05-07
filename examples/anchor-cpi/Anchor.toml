@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-cpi_example_damm_v2 = "FEa6XcabmRuJtMpQSfKqvf1YKD2Y4V1ndt1YyR38gV6"
+cpi_example_damm_v2 = "Fr2zPxoMXPTEhRAVDQcJvR3JKsaST7GWY6PDjLJxKy3L"
 
 [registry]
 url = "https://api.apr.dev"

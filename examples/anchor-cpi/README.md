@@ -1,10 +1,11 @@
 # cpi-example-damm-v2
 
-Anchor + TypeScript test project that initializes a Meteora DAMM v2 pool via CPI on **Solana devnet/mainnet**.
+Anchor + TypeScript test project that initializes a Meteora DAMM v2 pool and performs a swap (`swap2`) via CPI on **Solana devnet/mainnet**.
 
 ## Program
 
 - Program name: `cpi_example_damm_v2`
+- CPI instructions supported: `initialize_pool`, `swap2`
 - Program ID (devnet): `FEa6XcabmRuJtMpQSfKqvf1YKD2Y4V1ndt1YyR38gV6`
 - Program ID (mainnet): your deployed program ID
 
@@ -118,18 +119,31 @@ anchor test --skip-build --skip-deploy
 
 Note: there is **no** `yarn test` script in `package.json`. Tests are run via Anchor’s `[scripts].test` defined in `Anchor.toml` (uses `ts-mocha`).
 
+This repo includes two TypeScript tests:
+
+- `tests/initialize_pool.test.ts`: initializes a Meteora DAMM v2 pool via CPI.
+- `tests/swap2.test.ts`: performs a Meteora DAMM v2 `swap2` via CPI (validated on devnet with the **USDC-wSOL** pair).
+
 ### Run the full test suite (recommended)
 
-This runs the TypeScript tests against the configured cluster (devnet by default):
+This runs both TypeScript tests against the configured cluster (devnet by default):
 
 ```bash
 anchor test --skip-build --skip-deploy
 ```
 
-### Run only the DAMM v2 test file
+### Run only the initialize_pool test file
 
 ```bash
-yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/damm_v2.test.ts
+yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/initialize_pool.test.ts
+```
+
+### Run only the swap2 test file
+
+Tests are validated on devnet using the **USDC-wSOL** pair. Your wallet must have **USDC** in its associated token account (ATA) for the USDC mint.
+
+```bash
+yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/swap2.test.ts
 ```
 
 ## Deploy your own CPI program (to build your own caller)
@@ -177,4 +191,5 @@ anchor test --skip-build --skip-deploy
 
 - **Insufficient SOL**: the test creates mints/ATAs and sends transactions. `solana airdrop 2` works on devnet only; on mainnet you must fund the wallet with real SOL.
 - **Wrong cluster**: confirm `solana config get` and/or `ANCHOR_PROVIDER_URL` matches your selected cluster.
-- **Meteora DAMM v2 dependencies**: the test calls `cpAmm.getAllConfigs()` and initializes a pool via CPI; this requires the relevant Meteora programs/configs to exist on your selected cluster.
+- **Meteora DAMM v2 dependencies**: the tests call `cpAmm.getAllConfigs()`, initialize a pool via CPI, and perform `swap2` via CPI; this requires the relevant Meteora programs/configs to exist on your selected cluster.
+- **swap2 prerequisites**: the `swap2` test is validated on devnet using the USDC/wSOL pair; your wallet must have USDC in its USDC ATA.
