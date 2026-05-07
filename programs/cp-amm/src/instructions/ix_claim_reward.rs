@@ -96,7 +96,7 @@ pub fn handle_claim_reward(
                 ctx.accounts.pool_authority.to_account_info(),
                 &ctx.accounts.reward_mint,
                 &ctx.accounts.reward_vault,
-                &ctx.accounts.user_token_account,
+                &ctx.accounts.user_token_account.to_account_info(),
                 &ctx.accounts.token_program,
                 total_reward,
             )?;

@@ -3,10 +3,10 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     get_pool_access_validator,
-    state::{ModifyLiquidityResult, Pool, Position},
+    state::{Pool, Position},
     token::{calculate_transfer_fee_included_amount, transfer_from_user},
     u128x128_math::Rounding,
-    EvtAddLiquidity, EvtLiquidityChange, PoolError,
+    EvtLiquidityChange, PoolError,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Copy, Clone)]
@@ -93,28 +93,47 @@ pub fn handle_add_liquidity(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
 
+    pool.update_layout_version_if_needed()?;
+
     let mut position = ctx.accounts.position.load_mut()?;
 
     // update current pool reward & postion reward before any logic
     let current_time = Clock::get()?.unix_timestamp as u64;
     position.update_rewards(&mut pool, current_time)?;
 
-    let ModifyLiquidityResult {
-        token_a_amount,
-        token_b_amount,
-    } = pool.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)?;
+    let liquidity_handler = pool.get_liquidity_handler()?;
+    let (token_a_amount, token_b_amount) =
+        liquidity_handler.get_amounts_for_modify_liquidity(liquidity_delta, Rounding::Up)?;
 
     require!(
         token_a_amount > 0 || token_b_amount > 0,
         PoolError::AmountIsZero
     );
 
-    pool.apply_add_liquidity(&mut position, liquidity_delta)?;
+    pool.apply_add_liquidity(
+        &mut position,
+        liquidity_delta,
+        token_a_amount,
+        token_b_amount,
+    )?;
 
-    let total_amount_a =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_a_mint, token_a_amount)?.amount;
-    let total_amount_b =
-        calculate_transfer_fee_included_amount(&ctx.accounts.token_b_mint, token_b_amount)?.amount;
+    let total_amount_a = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_a_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_a_amount,
+    )?
+    .amount;
+
+    let total_amount_b = calculate_transfer_fee_included_amount(
+        &ctx.accounts
+            .token_b_mint
+            .to_account_info()
+            .try_borrow_data()?,
+        token_b_amount,
+    )?
+    .amount;
 
     require!(
         total_amount_a <= token_a_amount_threshold,
@@ -143,19 +162,6 @@ pub fn handle_add_liquidity(
         total_amount_b,
     )?;
 
-    emit_cpi!(EvtAddLiquidity {
-        pool: ctx.accounts.pool.key(),
-        position: ctx.accounts.position.key(),
-        owner: ctx.accounts.owner.key(),
-        params,
-        token_a_amount,
-        token_b_amount,
-        total_amount_a,
-        total_amount_b,
-    });
-
-    let (reserve_a_amount, reserve_b_amount) = pool.get_reserves_amount()?;
-
     emit_cpi!(EvtLiquidityChange {
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
@@ -167,8 +173,8 @@ pub fn handle_add_liquidity(
         token_b_amount,
         transfer_fee_included_token_a_amount: total_amount_a,
         transfer_fee_included_token_b_amount: total_amount_b,
-        reserve_b_amount,
-        reserve_a_amount,
+        reserve_a_amount: pool.token_a_amount,
+        reserve_b_amount: pool.token_b_amount,
         change_type: 0
     });
 

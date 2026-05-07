@@ -1,5 +1,7 @@
 pub mod admin;
 pub use admin::*;
+pub mod operator;
+pub use operator::*;
 pub mod swap;
 pub use swap::*;
 pub mod ix_add_liquidity;
@@ -20,8 +22,6 @@ pub mod ix_permanent_lock_position;
 pub use ix_permanent_lock_position::*;
 pub mod ix_claim_reward;
 pub use ix_claim_reward::*;
-pub mod partner;
-pub use partner::*;
 pub mod ix_fund_reward;
 pub use ix_fund_reward::*;
 pub mod ix_withdraw_ineligible_reward;
@@ -33,3 +33,6 @@ pub use ix_split_position::*;
 
 pub mod ix_split_position2;
 pub use ix_split_position2::*;
+
+pub mod ix_lock_inner_position;
+pub use ix_lock_inner_position::*;

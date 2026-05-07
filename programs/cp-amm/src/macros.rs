@@ -7,3 +7,13 @@ macro_rules! pool_authority_seeds {
         ]
     };
 }
+
+#[allow(unused_macros)]
+macro_rules! unwrap_or_return {
+    ( $result:expr, $value:expr ) => {
+        match $result {
+            Ok(x) => x,
+            Err(_) => return $value,
+        }
+    };
+}

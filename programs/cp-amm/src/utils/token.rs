@@ -1,4 +1,5 @@
 use crate::math::safe_math::SafeMath;
+use crate::safe_math::SafeCast;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::system_instruction::transfer;
 
@@ -6,6 +7,8 @@ use anchor_lang::{
     prelude::InterfaceAccount,
     solana_program::program::{invoke, invoke_signed},
 };
+use anchor_spl::associated_token::get_associated_token_address_with_program_id;
+use anchor_spl::token::accessor;
 use anchor_spl::{
     token::Token,
     token_2022::spl_token_2022::{
@@ -43,6 +46,14 @@ pub fn get_token_program_flags<'a, 'info>(
     }
 }
 
+pub fn get_token_program_from_flag(token_program_flag: u8) -> Result<Pubkey> {
+    let token_program_flag: TokenProgramFlags = token_program_flag.safe_cast()?;
+    match token_program_flag {
+        TokenProgramFlags::TokenProgram => Ok(anchor_spl::token::ID),
+        TokenProgramFlags::TokenProgram2022 => Ok(anchor_spl::token_2022::ID),
+    }
+}
+
 /// refer code from Orca
 #[derive(Debug)]
 pub struct TransferFeeIncludedAmount {
@@ -56,11 +67,11 @@ pub struct TransferFeeExcludedAmount {
     pub transfer_fee: u64,
 }
 
-pub fn calculate_transfer_fee_excluded_amount<'info>(
-    token_mint: &InterfaceAccount<'info, Mint>,
+pub fn calculate_transfer_fee_excluded_amount(
+    token_mint_data: &[u8],
     transfer_fee_included_amount: u64,
 ) -> Result<TransferFeeExcludedAmount> {
-    if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint)? {
+    if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint_data)? {
         let transfer_fee = epoch_transfer_fee
             .calculate_fee(transfer_fee_included_amount)
             .ok_or_else(|| PoolError::MathOverflow)?;
@@ -79,8 +90,8 @@ pub fn calculate_transfer_fee_excluded_amount<'info>(
     })
 }
 
-pub fn calculate_transfer_fee_included_amount<'info>(
-    token_mint: &InterfaceAccount<'info, Mint>,
+pub fn calculate_transfer_fee_included_amount(
+    token_mint_data: &[u8],
     transfer_fee_excluded_amount: u64,
 ) -> Result<TransferFeeIncludedAmount> {
     if transfer_fee_excluded_amount == 0 {
@@ -90,7 +101,7 @@ pub fn calculate_transfer_fee_included_amount<'info>(
         });
     }
 
-    if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint)? {
+    if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint_data)? {
         let transfer_fee: u64 =
             if u16::from(epoch_transfer_fee.transfer_fee_basis_points) == MAX_FEE_BASIS_POINTS {
                 // edge-case: if transfer fee rate is 100%, current SPL implementation returns 0 as inverse fee.
@@ -130,15 +141,7 @@ pub fn calculate_transfer_fee_included_amount<'info>(
     })
 }
 
-pub fn get_epoch_transfer_fee<'info>(
-    token_mint: &InterfaceAccount<'info, Mint>,
-) -> Result<Option<TransferFee>> {
-    let token_mint_info = token_mint.to_account_info();
-    if *token_mint_info.owner == Token::id() {
-        return Ok(None);
-    }
-
-    let token_mint_data = token_mint_info.try_borrow_data()?;
+fn get_epoch_transfer_fee(token_mint_data: &[u8]) -> Result<Option<TransferFee>> {
     let token_mint_unpacked =
         StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
     if let Ok(transfer_fee_config) =
@@ -188,7 +191,7 @@ pub fn transfer_from_pool<'c: 'info, 'info>(
     pool_authority: AccountInfo<'info>,
     token_mint: &InterfaceAccount<'info, Mint>,
     token_vault: &InterfaceAccount<'info, TokenAccount>,
-    token_owner_account: &InterfaceAccount<'info, TokenAccount>,
+    token_owner_account: &AccountInfo<'info>,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
 ) -> Result<()> {
@@ -282,5 +285,21 @@ pub fn update_account_lamports_to_minimum_balance<'info>(
         )?;
     }
 
+    Ok(())
+}
+
+pub fn validate_ata_token<'info>(
+    token_account: &AccountInfo<'info>,
+    owner: &Pubkey,
+    mint: &Pubkey,
+    token_program_id: &Pubkey,
+) -> Result<()> {
+    // validate ata address
+    let ata_address = get_associated_token_address_with_program_id(owner, mint, token_program_id);
+    require!(ata_address.eq(token_account.key), PoolError::IncorrectATA);
+
+    // validate owner
+    let current_owner = accessor::authority(token_account)?;
+    require!(current_owner.eq(owner), PoolError::IncorrectATA);
     Ok(())
 }

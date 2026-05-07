@@ -3,10 +3,16 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
-    constants::{fee::FEE_DENOMINATOR, BASIS_POINT_MAX, ONE_Q64},
+    base_fee::{
+        fee_rate_limiter::PodAlignedFeeRateLimiter, BaseFeeEnumReader, BaseFeeHandlerBuilder,
+    },
+    constants::{
+        fee::{FEE_DENOMINATOR, MAX_BASIS_POINT},
+        ONE_Q64,
+    },
     params::swap::TradeDirection,
     safe_math::SafeMath,
+    state::BaseFeeInfo,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u64, safe_shl_div_cast},
     PoolError,
@@ -17,9 +23,9 @@ use super::CollectFeeMode;
 #[derive(Debug, PartialEq)]
 pub struct FeeOnAmountResult {
     pub amount: u64,
-    pub trading_fee: u64,
+    pub claiming_fee: u64,
+    pub compounding_fee: u64,
     pub protocol_fee: u64,
-    pub partner_fee: u64,
     pub referral_fee: u64,
 }
 
@@ -39,11 +45,18 @@ pub struct FeeOnAmountResult {
 // https://www.desmos.com/calculator/oxdndn2xdx
 pub enum BaseFeeMode {
     // fee = cliff_fee_numerator - passed_period * reduction_factor
-    FeeSchedulerLinear,
+    // passed_period = (current_point - activation_point) / period_frequency
+    FeeTimeSchedulerLinear,
     // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
-    FeeSchedulerExponential,
+    FeeTimeSchedulerExponential,
     // rate limiter
     RateLimiter,
+    // fee = cliff_fee_numerator - passed_period * reduction_factor
+    // passed_period = changed_price / sqrt_price_step_bps
+    // passed_period = (current_sqrt_price - init_sqrt_price) * 10_000 / init_sqrt_price / sqrt_price_step_bps
+    FeeMarketCapSchedulerLinear,
+    // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
+    FeeMarketCapSchedulerExponential,
 }
 
 #[zero_copy]
@@ -51,7 +64,6 @@ pub enum BaseFeeMode {
 /// trading_fee = amount * trade_fee_numerator / denominator
 /// protocol_fee = trading_fee * protocol_fee_percentage / 100
 /// referral_fee = protocol_fee * referral_percentage / 100
-/// partner_fee = (protocol_fee - referral_fee) * partner_fee_percentage / denominator
 #[derive(Debug, InitSpace, Default)]
 pub struct PoolFeesStruct {
     /// Trade fees are extra token amounts that are held inside the token
@@ -64,18 +76,19 @@ pub struct PoolFeesStruct {
     /// the protocol of the program.
     /// Protocol trade fee numerator
     pub protocol_fee_percent: u8,
-    /// partner fee
-    pub partner_fee_percent: u8,
+    /// padding for future use
+    pub padding_0: u8,
     /// referral fee
     pub referral_fee_percent: u8,
     /// padding
-    pub padding_0: [u8; 5],
+    pub padding_1: [u8; 3],
+    /// compounding fee bps, only non-zero in CollectFeeMode::Compounding
+    pub compounding_fee_bps: u16,
 
     /// dynamic fee
     pub dynamic_fee: DynamicFeeStruct,
 
-    /// padding
-    pub padding_1: [u64; 2],
+    pub init_sqrt_price: u128,
 }
 
 const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
@@ -83,54 +96,27 @@ const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
 #[zero_copy]
 #[derive(Debug, InitSpace, Default)]
 pub struct BaseFeeStruct {
-    pub cliff_fee_numerator: u64,
-    // In fee scheduler first_factor: number_of_period, second_factor: period_frequency, third_factor: reduction_factor
-    // in rate limiter: first_factor: fee_increment_bps, second_factor: max_limiter_duration, max_fee_bps, third_factor: reference_amount
-    pub base_fee_mode: u8,
-    pub padding_0: [u8; 5],
-    pub first_factor: u16,
-    pub second_factor: [u8; 8],
-    pub third_factor: u64,
+    pub base_fee_info: BaseFeeInfo,
     pub padding_1: u64,
 }
 
-const_assert_eq!(BaseFeeStruct::INIT_SPACE, 40);
-
 impl BaseFeeStruct {
-    pub fn get_fee_rate_limiter(&self) -> Result<FeeRateLimiter> {
-        let base_fee_mode =
-            BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;
-        if base_fee_mode == BaseFeeMode::RateLimiter {
-            Ok(FeeRateLimiter {
-                cliff_fee_numerator: self.cliff_fee_numerator,
-                fee_increment_bps: self.first_factor,
-                max_limiter_duration: u32::from_le_bytes(
-                    self.second_factor[0..4]
-                        .try_into()
-                        .map_err(|_| PoolError::TypeCastFailed)?,
-                ),
-                max_fee_bps: u32::from_le_bytes(
-                    self.second_factor[4..8]
-                        .try_into()
-                        .map_err(|_| PoolError::TypeCastFailed)?,
-                ),
-                reference_amount: self.third_factor,
-            })
-        } else {
-            Err(PoolError::InvalidFeeRateLimiter.into())
-        }
-    }
+    pub fn to_fee_rate_limiter(&self) -> Result<PodAlignedFeeRateLimiter> {
+        let base_fee_mode = self.base_fee_info.get_base_fee_mode()?;
+        require!(
+            base_fee_mode == BaseFeeMode::RateLimiter,
+            PoolError::InvalidBaseFeeMode
+        );
 
-    pub fn get_base_fee_handler(&self) -> Result<Box<dyn BaseFeeHandler>> {
-        get_base_fee_handler(
-            self.cliff_fee_numerator,
-            self.first_factor,
-            self.second_factor,
-            self.third_factor,
-            self.base_fee_mode,
-        )
+        let fee_rate_limiter =
+            *bytemuck::try_from_bytes::<PodAlignedFeeRateLimiter>(&self.base_fee_info.data)
+                .map_err(|_| PoolError::UndeterminedError)?;
+
+        Ok(fee_rate_limiter)
     }
 }
+
+const_assert_eq!(BaseFeeStruct::INIT_SPACE, 40);
 
 impl PoolFeesStruct {
     fn get_total_fee_numerator(
@@ -159,14 +145,17 @@ impl PoolFeesStruct {
         included_fee_amount: u64,
         trade_direction: TradeDirection,
         max_fee_numerator: u64,
+        sqrt_price: u128,
     ) -> Result<u64> {
-        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+        let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
 
         let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
             current_point,
             activation_point,
             trade_direction,
             included_fee_amount,
+            self.init_sqrt_price,
+            sqrt_price,
         )?;
 
         self.get_total_fee_numerator(base_fee_numerator, max_fee_numerator)
@@ -179,14 +168,17 @@ impl PoolFeesStruct {
         excluded_fee_amount: u64,
         trade_direction: TradeDirection,
         max_fee_numerator: u64,
+        sqrt_price: u128,
     ) -> Result<u64> {
-        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+        let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
 
         let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
             current_point,
             activation_point,
             trade_direction,
             excluded_fee_amount,
+            self.init_sqrt_price,
+            sqrt_price,
         )?;
 
         self.get_total_fee_numerator(base_fee_numerator, max_fee_numerator)
@@ -197,23 +189,22 @@ impl PoolFeesStruct {
         amount: u64,
         trade_fee_numerator: u64,
         has_referral: bool,
-        has_partner: bool,
     ) -> Result<FeeOnAmountResult> {
         let (amount, trading_fee) =
             PoolFeesStruct::get_excluded_fee_amount(trade_fee_numerator, amount)?;
 
         let SplitFees {
-            trading_fee,
+            claiming_fee,
+            compounding_fee,
             protocol_fee,
             referral_fee,
-            partner_fee,
-        } = self.split_fees(trading_fee, has_referral, has_partner)?;
+        } = self.split_fees(trading_fee, has_referral)?;
 
         Ok(FeeOnAmountResult {
             amount,
-            trading_fee,
+            claiming_fee,
+            compounding_fee,
             protocol_fee,
-            partner_fee,
             referral_fee,
         })
     }
@@ -246,12 +237,7 @@ impl PoolFeesStruct {
         Ok((included_fee_amount, fee_amount))
     }
 
-    pub fn split_fees(
-        &self,
-        fee_amount: u64,
-        has_referral: bool,
-        has_partner: bool,
-    ) -> Result<SplitFees> {
+    pub fn split_fees(&self, fee_amount: u64, has_referral: bool) -> Result<SplitFees> {
         let protocol_fee = safe_mul_div_cast_u64(
             fee_amount,
             self.protocol_fee_percent.into(),
@@ -261,6 +247,19 @@ impl PoolFeesStruct {
 
         // update trading fee
         let trading_fee: u64 = fee_amount.safe_sub(protocol_fee)?;
+
+        let (compounding_fee, claiming_fee) = if self.compounding_fee_bps > 0 {
+            let compounding_fee: u64 = safe_mul_div_cast_u64(
+                trading_fee,
+                self.compounding_fee_bps.into(),
+                MAX_BASIS_POINT.into(),
+                Rounding::Down,
+            )?;
+            let claiming_fee = trading_fee.safe_sub(compounding_fee)?;
+            (compounding_fee, claiming_fee)
+        } else {
+            (0, trading_fee)
+        };
 
         let referral_fee = if has_referral {
             safe_mul_div_cast_u64(
@@ -273,26 +272,13 @@ impl PoolFeesStruct {
             0
         };
 
-        let protocol_fee_after_referral_fee = protocol_fee.safe_sub(referral_fee)?;
-
-        let partner_fee = if has_partner && self.partner_fee_percent > 0 {
-            safe_mul_div_cast_u64(
-                protocol_fee_after_referral_fee,
-                self.partner_fee_percent.into(),
-                100,
-                Rounding::Down,
-            )?
-        } else {
-            0
-        };
-
-        let protocol_fee = protocol_fee_after_referral_fee.safe_sub(partner_fee)?;
+        let protocol_fee = protocol_fee.safe_sub(referral_fee)?;
 
         Ok(SplitFees {
-            trading_fee,
+            claiming_fee,
+            compounding_fee,
             protocol_fee,
             referral_fee,
-            partner_fee,
         })
     }
 }
@@ -344,7 +330,7 @@ impl DynamicFeeStruct {
 
         let volatility_accumulator = self
             .volatility_reference
-            .safe_add(delta_price.safe_mul(BASIS_POINT_MAX.into())?)?;
+            .safe_add(delta_price.safe_mul(MAX_BASIS_POINT.into())?)?;
 
         self.volatility_accumulator = std::cmp::min(
             volatility_accumulator,
@@ -371,7 +357,7 @@ impl DynamicFeeStruct {
                 let volatility_reference = self
                     .volatility_accumulator
                     .safe_mul(self.reduction_factor.into())?
-                    .safe_div(BASIS_POINT_MAX.into())?;
+                    .safe_div(MAX_BASIS_POINT.into())?;
 
                 self.volatility_reference = volatility_reference;
             }
@@ -393,7 +379,7 @@ impl DynamicFeeStruct {
                 .volatility_accumulator
                 .safe_mul(self.bin_step.into())?
                 .checked_pow(2)
-                .unwrap();
+                .ok_or_else(|| PoolError::TypeCastFailed)?;
             // Variable fee control, volatility accumulator, bin step are in basis point unit (10_000)
             // This is 1e20. Which > 1e9. Scale down it to 1e9 unit and ceiling the remaining.
             let v_fee = square_vfa_bin.safe_mul(self.variable_fee_control.into())?;
@@ -416,13 +402,10 @@ pub struct FeeMode {
 
 impl FeeMode {
     pub fn get_fee_mode(
-        collect_fee_mode: u8,
+        collect_fee_mode: CollectFeeMode,
         trade_direction: TradeDirection,
         has_referral: bool,
-    ) -> Result<FeeMode> {
-        let collect_fee_mode = CollectFeeMode::try_from(collect_fee_mode)
-            .map_err(|_| PoolError::InvalidCollectFeeMode)?;
-
+    ) -> FeeMode {
         let (fees_on_input, fees_on_token_a) = match (collect_fee_mode, trade_direction) {
             // When collecting fees on output token
             (CollectFeeMode::BothToken, TradeDirection::AtoB) => (false, false),
@@ -431,104 +414,23 @@ impl FeeMode {
             // When collecting fees on tokenB
             (CollectFeeMode::OnlyB, TradeDirection::AtoB) => (false, false),
             (CollectFeeMode::OnlyB, TradeDirection::BtoA) => (true, false),
+
+            // when collecting fees on compounding
+            (CollectFeeMode::Compounding, TradeDirection::AtoB) => (false, false),
+            (CollectFeeMode::Compounding, TradeDirection::BtoA) => (true, false),
         };
 
-        Ok(FeeMode {
+        FeeMode {
             fees_on_input,
             fees_on_token_a,
             has_referral,
-        })
+        }
     }
 }
 
 pub struct SplitFees {
-    pub trading_fee: u64,
+    pub claiming_fee: u64,
+    pub compounding_fee: u64,
     pub protocol_fee: u64,
     pub referral_fee: u64,
-    pub partner_fee: u64,
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{params::swap::TradeDirection, state::CollectFeeMode};
-
-    use super::*;
-
-    #[test]
-    fn test_fee_mode_output_token_a_to_b() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::BothToken as u8, TradeDirection::AtoB, false)
-                .unwrap();
-
-        assert_eq!(fee_mode.fees_on_input, false);
-        assert_eq!(fee_mode.fees_on_token_a, false);
-        assert_eq!(fee_mode.has_referral, false);
-    }
-
-    #[test]
-    fn test_fee_mode_output_token_b_to_a() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::BothToken as u8, TradeDirection::BtoA, true)
-                .unwrap();
-
-        assert_eq!(fee_mode.fees_on_input, false);
-        assert_eq!(fee_mode.fees_on_token_a, true);
-        assert_eq!(fee_mode.has_referral, true);
-    }
-
-    #[test]
-    fn test_fee_mode_quote_token_a_to_b() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::AtoB, false)
-                .unwrap();
-
-        assert_eq!(fee_mode.fees_on_input, false);
-        assert_eq!(fee_mode.fees_on_token_a, false);
-        assert_eq!(fee_mode.has_referral, false);
-    }
-
-    #[test]
-    fn test_fee_mode_quote_token_b_to_a() {
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::BtoA, true).unwrap();
-
-        assert_eq!(fee_mode.fees_on_input, true);
-        assert_eq!(fee_mode.fees_on_token_a, false);
-        assert_eq!(fee_mode.has_referral, true);
-    }
-
-    #[test]
-    fn test_invalid_collect_fee_mode() {
-        let result = FeeMode::get_fee_mode(
-            2, // Invalid mode
-            TradeDirection::BtoA,
-            false,
-        );
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_fee_mode_default() {
-        let fee_mode = FeeMode::default();
-
-        assert_eq!(fee_mode.fees_on_input, false);
-        assert_eq!(fee_mode.fees_on_token_a, false);
-        assert_eq!(fee_mode.has_referral, false);
-    }
-
-    // Property-based test to ensure consistent behavior
-    #[test]
-    fn test_fee_mode_properties() {
-        // When trading BaseToQuote, fees should never be on input
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::AtoB, true).unwrap();
-        assert_eq!(fee_mode.fees_on_input, false);
-
-        // When using QuoteToken mode, base_token should always be false
-        let fee_mode =
-            FeeMode::get_fee_mode(CollectFeeMode::OnlyB as u8, TradeDirection::BtoA, false)
-                .unwrap();
-        assert_eq!(fee_mode.fees_on_token_a, false);
-    }
 }

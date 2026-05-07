@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::TokenAccount;
 
 use crate::{
+    activation_handler::ActivationHandler,
     get_pool_access_validator,
     state::{Pool, Position},
     EvtPermanentLockPosition, PoolError,
@@ -44,6 +45,11 @@ pub fn handle_permanent_lock_position(
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
 
+    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
+    // refresh inner vesting firstly to retrieve the latest state of unlocked liquidity
+    position.refresh_inner_vesting(current_point)?;
+
+    // permanent lock liquidity
     position.permanent_lock_liquidity(permanent_lock_liquidity)?;
     pool.accumulate_permanent_locked_liquidity(permanent_lock_liquidity)?;
 

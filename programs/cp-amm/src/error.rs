@@ -1,5 +1,6 @@
 //! Error module includes error messages and codes of the program
 use anchor_lang::prelude::*;
+use protocol_zap::error::ProtozolZapError;
 
 /// Error messages and codes of the program
 #[error_code]
@@ -156,11 +157,73 @@ pub enum PoolError {
     FailToValidateSingleSwapInstruction,
 
     #[msg("Invalid fee scheduler")]
-    InvalidFeeScheduler,
+    InvalidFeeTimeScheduler,
 
     #[msg("Undetermined error")]
     UndeterminedError,
 
     #[msg("Invalid pool version")]
     InvalidPoolVersion,
+
+    #[msg("Invalid authority to do that action")]
+    InvalidAuthority,
+
+    #[msg("Invalid permission")]
+    InvalidPermission,
+
+    #[msg("Invalid fee market cap scheduler")]
+    InvalidFeeMarketCapScheduler,
+
+    #[msg("Cannot update base fee")]
+    CannotUpdateBaseFee,
+
+    #[msg("Invalid dynamic fee parameters")]
+    InvalidDynamicFeeParameters,
+
+    #[msg("Invalid update pool fees parameters")]
+    InvalidUpdatePoolFeesParameters,
+
+    #[msg("Missing operator account")]
+    MissingOperatorAccount,
+
+    #[msg("Incorrect ATA")]
+    IncorrectATA,
+
+    #[msg("Invalid zap out parameters")]
+    InvalidZapOutParameters,
+
+    #[msg("Invalid withdraw protocol fee zap accounts")]
+    InvalidWithdrawProtocolFeeZapAccounts,
+
+    #[msg("SOL,USDC protocol fee cannot be withdrawn via zap")]
+    MintRestrictedFromZap,
+
+    #[msg("CPI disabled")]
+    CpiDisabled,
+
+    #[msg("Missing zap out instruction")]
+    MissingZapOutInstruction,
+
+    #[msg("Invalid zap accounts")]
+    InvalidZapAccounts,
+
+    #[msg("Invalid compounding fee bps")]
+    InvalidCompoundingFeeBps,
+}
+
+impl From<ProtozolZapError> for PoolError {
+    fn from(e: ProtozolZapError) -> Self {
+        match e {
+            ProtozolZapError::MathOverflow => PoolError::MathOverflow,
+            ProtozolZapError::InvalidZapOutParameters => PoolError::InvalidZapOutParameters,
+            ProtozolZapError::TypeCastFailed => PoolError::TypeCastFailed,
+            ProtozolZapError::MissingZapOutInstruction => PoolError::MissingZapOutInstruction,
+            ProtozolZapError::InvalidWithdrawProtocolFeeZapAccounts => {
+                PoolError::InvalidWithdrawProtocolFeeZapAccounts
+            }
+            ProtozolZapError::MintRestrictedFromZap => PoolError::MintRestrictedFromZap,
+            ProtozolZapError::CpiDisabled => PoolError::CpiDisabled,
+            ProtozolZapError::InvalidZapAccounts => PoolError::InvalidZapAccounts,
+        }
+    }
 }

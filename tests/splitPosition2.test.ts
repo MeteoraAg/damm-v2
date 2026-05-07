@@ -1,39 +1,41 @@
-import { expect } from "chai";
-import { ProgramTestContext } from "solana-bankrun";
-import {
-  convertToByteArray,
-  expectThrowsAsync,
-  generateKpAndFund,
-  startTest,
-} from "./bankrun-utils/common";
 import { Keypair, PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { expect } from "chai";
+import { LiteSVM } from "litesvm";
 import {
+  addLiquidity,
   createConfigIx,
   CreateConfigParams,
+  createOperator,
+  createPosition,
+  createToken,
+  derivePositionNftAccount,
+  encodePermissions,
+  expectThrowsErrorCode,
+  getCpAmmProgramErrorCode,
   getPool,
+  getPosition,
   initializePool,
   InitializePoolParams,
-  MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
-  createToken,
   mintSplTokenTo,
-  createPosition,
-  getPosition,
-  splitPosition2,
-  derivePositionNftAccount,
-  getCpAmmProgramErrorCodeHexString,
+  OperatorPermission,
   permanentLockPosition,
-  U64_MAX,
-  addLiquidity,
   SPLIT_POSITION_DENOMINATOR,
+  splitPosition2,
+  startSvm,
   swapExactIn,
-} from "./bankrun-utils";
-import BN from "bn.js";
+  U64_MAX,
+} from "./helpers";
+import { generateKpAndFund } from "./helpers/common";
+import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 
 describe("Split position 2", () => {
-  let context: ProgramTestContext;
+  let svm: LiteSVM;
   let admin: Keypair;
+  let whitelistedAccount: Keypair;
   let creator: Keypair;
   let config: PublicKey;
   let user: Keypair;
@@ -46,65 +48,45 @@ describe("Split position 2", () => {
   let position: PublicKey;
 
   beforeEach(async () => {
-    const root = Keypair.generate();
-    context = await startTest(root);
-    creator = await generateKpAndFund(context.banksClient, context.payer);
-    admin = await generateKpAndFund(context.banksClient, context.payer);
-    user = await generateKpAndFund(context.banksClient, context.payer);
+    svm = startSvm();
+    creator = generateKpAndFund(svm);
+    admin = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
+    user = generateKpAndFund(svm);
 
-    tokenAMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
-    tokenBMint = await createToken(
-      context.banksClient,
-      context.payer,
-      context.payer.publicKey
-    );
+    tokenAMint = createToken(svm, admin.publicKey);
+    tokenBMint = createToken(svm, admin.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenAMint,
-      context.payer,
-      creator.publicKey
-    );
+    mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenBMint,
-      context.payer,
-      creator.publicKey
-    );
+    mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenAMint,
-      context.payer,
-      user.publicKey
-    );
+    mintSplTokenTo(svm, tokenAMint, admin, user.publicKey);
 
-    await mintSplTokenTo(
-      context.banksClient,
-      context.payer,
-      tokenBMint,
-      context.payer,
-      user.publicKey
+    mintSplTokenTo(svm, tokenBMint, admin, user.publicKey);
+
+    let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
+    await createOperator(svm, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission,
+    });
+
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(2_500_000),
+      0,
+      BigInt(0),
+      BigInt(0),
+      BaseFeeMode.FeeTimeSchedulerLinear
     );
     // create config
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          cliffFeeNumerator: new BN(2_500_000),
-          firstFactor: 0,
-          secondFactor: convertToByteArray(new BN(0)),
-          thirdFactor: new BN(0),
-          baseFeeMode: 0,
+          data: Array.from(data),
         },
-        padding: [],
+        compoundingFeeBps: 0,
+        padding: 0,
         dynamicFee: null,
       },
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
@@ -116,8 +98,8 @@ describe("Split position 2", () => {
     };
 
     config = await createConfigIx(
-      context.banksClient,
-      admin,
+      svm,
+      whitelistedAccount,
       new BN(configId),
       createConfigParams
     );
@@ -136,77 +118,67 @@ describe("Split position 2", () => {
       activationPoint: null,
     };
 
-    const result = await initializePool(context.banksClient, initPoolParams);
+    const result = await initializePool(svm, initPoolParams);
     pool = result.pool;
     position = result.position;
   });
 
   it("Cannot split two same position", async () => {
-    const positionState = await getPosition(context.banksClient, position);
+    const positionState = getPosition(svm, position);
 
     const numerator = SPLIT_POSITION_DENOMINATOR / 2;
 
-    const errorCode = getCpAmmProgramErrorCodeHexString("SamePosition");
+    const errorCode = getCpAmmProgramErrorCode("SamePosition");
+    const res = await splitPosition2(svm, {
+      firstPositionOwner: creator,
+      secondPositionOwner: creator,
+      pool,
+      firstPosition: position,
+      secondPosition: position,
+      firstPositionNftAccount: derivePositionNftAccount(positionState.nftMint),
+      secondPositionNftAccount: derivePositionNftAccount(positionState.nftMint),
+      numerator,
+    });
 
-    await expectThrowsAsync(async () => {
-      await splitPosition2(context.banksClient, {
-        firstPositionOwner: creator,
-        secondPositionOwner: creator,
-        pool,
-        firstPosition: position,
-        secondPosition: position,
-        firstPositionNftAccount: derivePositionNftAccount(
-          positionState.nftMint
-        ),
-        secondPositionNftAccount: derivePositionNftAccount(
-          positionState.nftMint
-        ),
-        numerator,
-      });
-    }, errorCode);
+    expectThrowsErrorCode(res, errorCode);
   });
 
   it("Invalid parameters", async () => {
     // create new position
     const secondPosition = await createPosition(
-      context.banksClient,
+      svm,
       user,
       user.publicKey,
       pool
     );
-    const positionState = await getPosition(context.banksClient, position);
-    const secondPositionState = await getPosition(
-      context.banksClient,
-      secondPosition
-    );
+    const positionState = await getPosition(svm, position);
+    const secondPositionState = await getPosition(svm, secondPosition);
 
     const numerator = 0;
 
-    const errorCode = getCpAmmProgramErrorCodeHexString(
+    const errorCode = getCpAmmProgramErrorCode(
       "InvalidSplitPositionParameters"
     );
 
-    await expectThrowsAsync(async () => {
-      await splitPosition2(context.banksClient, {
-        firstPositionOwner: creator,
-        secondPositionOwner: user,
-        pool,
-        firstPosition: position,
-        secondPosition,
-        firstPositionNftAccount: derivePositionNftAccount(
-          positionState.nftMint
-        ),
-        secondPositionNftAccount: derivePositionNftAccount(
-          secondPositionState.nftMint
-        ),
-        numerator
-      });
-    }, errorCode);
+    const res = await splitPosition2(svm, {
+      firstPositionOwner: creator,
+      secondPositionOwner: user,
+      pool,
+      firstPosition: position,
+      secondPosition,
+      firstPositionNftAccount: derivePositionNftAccount(positionState.nftMint),
+      secondPositionNftAccount: derivePositionNftAccount(
+        secondPositionState.nftMint
+      ),
+      numerator,
+    });
+
+    expectThrowsErrorCode(res, errorCode);
   });
 
   it("Split position into two position", async () => {
     // swap
-    await swapExactIn(context.banksClient, {
+    await swapExactIn(svm, {
       payer: user,
       pool,
       inputTokenMint: tokenAMint,
@@ -216,7 +188,7 @@ describe("Split position 2", () => {
       referralTokenAccount: null,
     });
 
-    await swapExactIn(context.banksClient, {
+    await swapExactIn(svm, {
       payer: user,
       pool,
       inputTokenMint: tokenBMint,
@@ -228,12 +200,12 @@ describe("Split position 2", () => {
 
     // create new position
     const secondPosition = await createPosition(
-      context.banksClient,
+      svm,
       user,
       user.publicKey,
       pool
     );
-    const firstPositionState = await getPosition(context.banksClient, position);
+    const firstPositionState = getPosition(svm, position);
 
     const numerator = SPLIT_POSITION_DENOMINATOR / 2;
 
@@ -241,17 +213,13 @@ describe("Split position 2", () => {
       .mul(new BN(numerator))
       .div(new BN(SPLIT_POSITION_DENOMINATOR));
 
-
-    let secondPositionState = await getPosition(
-      context.banksClient,
-      secondPosition
-    );
-    let poolState = await getPool(context.banksClient, pool);
+    let secondPositionState = getPosition(svm, secondPosition);
+    let poolState = getPool(svm, pool);
     const beforeLiquidity = poolState.liquidity;
 
     const beforeSecondPositionLiquidity = secondPositionState.unlockedLiquidity;
 
-    await splitPosition2(context.banksClient, {
+    await splitPosition2(svm, {
       firstPositionOwner: creator,
       secondPositionOwner: user,
       pool,
@@ -266,11 +234,8 @@ describe("Split position 2", () => {
       numerator,
     });
 
-    poolState = await getPool(context.banksClient, pool);
-    secondPositionState = await getPosition(
-      context.banksClient,
-      secondPosition
-    );
+    poolState = getPool(svm, pool);
+    secondPositionState = getPosition(svm, secondPosition);
 
     // assert
     expect(beforeLiquidity.toString()).eq(poolState.liquidity.toString());
@@ -282,38 +247,30 @@ describe("Split position 2", () => {
 
   it("Split permanent locked liquidity position", async () => {
     // permanent lock position
-    await permanentLockPosition(
-      context.banksClient,
-      position,
-      creator,
-      creator
-    );
+    await permanentLockPosition(svm, position, creator, creator);
 
     // create new position
     const secondPosition = await createPosition(
-      context.banksClient,
+      svm,
       user,
       user.publicKey,
       pool
     );
-    const firstPositionState = await getPosition(context.banksClient, position);
+    const firstPositionState = getPosition(svm, position);
     const numerator = SPLIT_POSITION_DENOMINATOR / 2;
 
     const permanentLockedLiquidityDelta =
       firstPositionState.permanentLockedLiquidity
         .mul(new BN(numerator))
         .div(new BN(SPLIT_POSITION_DENOMINATOR));
-    let secondPositionState = await getPosition(
-      context.banksClient,
-      secondPosition
-    );
-    let poolState = await getPool(context.banksClient, pool);
+    let secondPositionState = getPosition(svm, secondPosition);
+    let poolState = getPool(svm, pool);
     const beforeLiquidity = poolState.liquidity;
 
     const beforeSecondPositionLiquidity =
       secondPositionState.permanentLockedLiquidity;
 
-    await splitPosition2(context.banksClient, {
+    await splitPosition2(svm, {
       firstPositionOwner: creator,
       secondPositionOwner: user,
       pool,
@@ -328,11 +285,8 @@ describe("Split position 2", () => {
       numerator,
     });
 
-    poolState = await getPool(context.banksClient, pool);
-    secondPositionState = await getPosition(
-      context.banksClient,
-      secondPosition
-    );
+    poolState = getPool(svm, pool);
+    secondPositionState = getPosition(svm, secondPosition);
 
     // assert
     expect(beforeLiquidity.toString()).eq(poolState.liquidity.toString());
@@ -345,12 +299,12 @@ describe("Split position 2", () => {
 
   it("Merge two position", async () => {
     const firstPosition = await createPosition(
-      context.banksClient,
+      svm,
       creator,
       creator.publicKey,
       pool
     );
-    await addLiquidity(context.banksClient, {
+    await addLiquidity(svm, {
       owner: creator,
       pool,
       position: firstPosition,
@@ -360,21 +314,15 @@ describe("Split position 2", () => {
     });
 
     const secondPosition = await createPosition(
-      context.banksClient,
+      svm,
       user,
       user.publicKey,
       pool
     );
-    const beforeFirstPositionState = await getPosition(
-      context.banksClient,
-      firstPosition
-    );
-    const beforeSeconPositionState = await getPosition(
-      context.banksClient,
-      secondPosition
-    );
+    const beforeFirstPositionState = getPosition(svm, firstPosition);
+    const beforeSecondPositionState = getPosition(svm, secondPosition);
 
-    await splitPosition2(context.banksClient, {
+    await splitPosition2(svm, {
       firstPositionOwner: creator,
       secondPositionOwner: user,
       pool,
@@ -384,19 +332,13 @@ describe("Split position 2", () => {
         beforeFirstPositionState.nftMint
       ),
       secondPositionNftAccount: derivePositionNftAccount(
-        beforeSeconPositionState.nftMint
+        beforeSecondPositionState.nftMint
       ),
-      numerator: SPLIT_POSITION_DENOMINATOR
+      numerator: SPLIT_POSITION_DENOMINATOR,
     });
 
-    const afterFirstPositionState = await getPosition(
-      context.banksClient,
-      firstPosition
-    );
-    const afterSeconPositionState = await getPosition(
-      context.banksClient,
-      secondPosition
-    );
+    const afterFirstPositionState = getPosition(svm, firstPosition);
+    const afterSecondPositionState = getPosition(svm, secondPosition);
 
     expect(afterFirstPositionState.unlockedLiquidity.toNumber()).eq(0);
     expect(afterFirstPositionState.permanentLockedLiquidity.toNumber()).eq(0);
@@ -404,23 +346,23 @@ describe("Split position 2", () => {
     expect(afterFirstPositionState.feeBPending.toNumber()).eq(0);
 
     expect(
-      afterSeconPositionState.unlockedLiquidity
-        .sub(beforeSeconPositionState.unlockedLiquidity)
+      afterSecondPositionState.unlockedLiquidity
+        .sub(beforeSecondPositionState.unlockedLiquidity)
         .toString()
     ).eq(beforeFirstPositionState.unlockedLiquidity.toString());
     expect(
-      afterSeconPositionState.permanentLockedLiquidity
-        .sub(beforeSeconPositionState.permanentLockedLiquidity)
+      afterSecondPositionState.permanentLockedLiquidity
+        .sub(beforeSecondPositionState.permanentLockedLiquidity)
         .toString()
     ).eq(beforeFirstPositionState.permanentLockedLiquidity.toString());
     expect(
-      afterSeconPositionState.feeAPending
-        .sub(beforeSeconPositionState.feeAPending)
+      afterSecondPositionState.feeAPending
+        .sub(beforeSecondPositionState.feeAPending)
         .toString()
     ).eq(beforeFirstPositionState.feeAPending.toString());
     expect(
-      afterSeconPositionState.feeBPending
-        .sub(beforeSeconPositionState.feeBPending)
+      afterSecondPositionState.feeBPending
+        .sub(beforeSecondPositionState.feeBPending)
         .toString()
     ).eq(beforeFirstPositionState.feeBPending.toString());
   });

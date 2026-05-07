@@ -1,6 +1,15 @@
 use anchor_lang::solana_program::pubkey::Pubkey;
 use const_crypto::ed25519;
 
+pub const EVENT_AUTHORITY_SEEDS: &[u8] = b"__event_authority";
+pub const EVENT_AUTHORITY_AND_BUMP: (pinocchio::pubkey::Pubkey, u8) = {
+    let (address, bump) = const_crypto::ed25519::derive_program_address(
+        &[EVENT_AUTHORITY_SEEDS],
+        &crate::ID_CONST.to_bytes(),
+    );
+    (address, bump)
+};
+
 pub mod pool_authority {
     use super::*;
 
