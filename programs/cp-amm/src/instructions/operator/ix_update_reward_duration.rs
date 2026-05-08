@@ -45,8 +45,8 @@ impl<'info> UpdateRewardDurationCtx<'info> {
     }
 }
 
-pub fn handle_update_reward_duration<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, UpdateRewardDurationCtx<'info>>,
+pub fn handle_update_reward_duration<'info>(
+    ctx: Context<'info, UpdateRewardDurationCtx<'info>>,
     reward_index: u8,
     new_reward_duration: u64,
 ) -> Result<()> {

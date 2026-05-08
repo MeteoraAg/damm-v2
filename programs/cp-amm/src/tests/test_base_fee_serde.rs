@@ -25,7 +25,7 @@ fn test_base_fee_serde_rate_limiter() {
 
     // convert to base fee params
     let mut base_fee_params = BaseFeeParameters::default();
-    let bytes = fee.try_to_vec().unwrap();
+    let bytes = borsh::to_vec(&fee).unwrap();
     base_fee_params.data.copy_from_slice(&bytes);
 
     assert!(BorshFeeRateLimiter::try_from_slice(&base_fee_params.data).is_ok());
@@ -84,7 +84,7 @@ fn test_base_fee_serde_time_scheduler() {
 
     // convert to base fee params
     let mut base_fee_params = BaseFeeParameters::default();
-    let bytes = fee.try_to_vec().unwrap();
+    let bytes = borsh::to_vec(&fee).unwrap();
     base_fee_params.data.copy_from_slice(&bytes);
 
     assert!(BorshFeeRateLimiter::try_from_slice(&base_fee_params.data).is_ok());
@@ -143,7 +143,7 @@ fn test_base_fee_serde_market_cap_scheduler() {
 
     // convert to base fee params
     let mut base_fee_params = BaseFeeParameters::default();
-    let bytes = fee.try_to_vec().unwrap();
+    let bytes = borsh::to_vec(&fee).unwrap();
     base_fee_params.data.copy_from_slice(&bytes);
 
     assert!(BorshFeeRateLimiter::try_from_slice(&base_fee_params.data).is_ok());

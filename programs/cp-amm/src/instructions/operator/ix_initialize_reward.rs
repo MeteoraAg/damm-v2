@@ -63,8 +63,8 @@ impl<'info> InitializeRewardCtx<'info> {
     }
 }
 
-pub fn handle_initialize_reward<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializeRewardCtx<'info>>,
+pub fn handle_initialize_reward<'info>(
+    ctx: Context<'info, InitializeRewardCtx<'info>>,
     reward_index: u8,
     reward_duration: u64,
     funder: Pubkey,

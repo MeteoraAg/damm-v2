@@ -136,7 +136,7 @@ pub fn create_position_nft<'info>(
         mint_authority: pool_authority.clone(),
         update_authority: pool_authority.clone(),
     };
-    let cpi_ctx = CpiContext::new_with_signer(token_program.clone(), cpi_accounts, signer_seeds);
+    let cpi_ctx = CpiContext::new_with_signer(token_program.key(), cpi_accounts, signer_seeds);
     token_metadata_initialize(
         cpi_ctx,
         String::from("Meteora Position NFT"), // TODO do we need to allow user to input custom name?
@@ -154,7 +154,7 @@ pub fn create_position_nft<'info>(
     // Mint the NFT
     token_2022::mint_to(
         CpiContext::new_with_signer(
-            token_program.clone(),
+            token_program.key(),
             token_2022::MintTo {
                 mint: position_nft_mint.clone(),
                 to: position_nft_account.clone(),

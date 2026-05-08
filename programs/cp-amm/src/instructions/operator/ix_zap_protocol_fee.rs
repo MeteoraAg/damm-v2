@@ -7,7 +7,7 @@ use crate::{
     token::transfer_from_pool,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::instructions::ID as SYSVAR_IX_ID;
+use solana_instructions_sysvar::ID as SYSVAR_IX_ID;
 
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};

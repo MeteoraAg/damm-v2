@@ -248,8 +248,8 @@ pub struct InitializeCustomizablePoolCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_customizable_pool<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializeCustomizablePoolCtx<'info>>,
+pub fn handle_initialize_customizable_pool(
+    ctx: Context<InitializeCustomizablePoolCtx>,
     params: InitializeCustomizablePoolParameters,
 ) -> Result<()> {
     params.validate()?;
