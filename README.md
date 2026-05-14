@@ -68,7 +68,7 @@ MCPA is a brand new AMM program of Meteora that includes almost all features fro
 
 ### Dependencies
 
-- anchor 1.0.0
+- anchor 1.0.2
 - solana 3.1.10
 - rust 1.93.0
 
