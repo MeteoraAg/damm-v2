@@ -15,5 +15,5 @@ wallet = "keys/local/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json"
 [hooks]
 
 [toolchain]
-anchor_version = "1.0.0"
+anchor_version = "1.0.2"
 solana_version = "3.1.10"
