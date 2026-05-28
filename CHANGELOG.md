@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Update anchor version to 1.0.0
+- Update anchor version to 1.0.2.
 - Operator endpoint `update_pool_fees` now supports updating `compounding_fee_bps` for pools with `CollectFeeMode::Compounding`
 
 ### Deprecated
