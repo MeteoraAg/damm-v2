@@ -75,7 +75,7 @@ import {
   decodePodAlignedFeeRateLimiter,
   decodePodAlignedFeeTimeScheduler,
 } from "./feeCodec";
-import { sendTransaction } from "./svm";
+import { expectThrowsErrorCode, sendTransaction } from "./svm";
 import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
@@ -1033,7 +1033,9 @@ export async function initializeCustomizablePool(
   // Compounding pools recompute sqrt_price from token amounts, so skip the equality check
   if (collectFeeMode !== 2) {
     expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
-    expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
+    expect(poolState.poolFees.initSqrtPrice.toString()).eq(
+      sqrtPrice.toString()
+    );
   }
 
   expect(poolState.rewardInfos[0].initialized).eq(0);
@@ -1465,7 +1467,8 @@ export async function permanentLockPosition(
   svm: LiteSVM,
   position: PublicKey,
   owner: Keypair,
-  payer: Keypair
+  payer: Keypair,
+  errorCode?: number
 ) {
   const program = createCpAmmProgram();
 
@@ -1483,7 +1486,11 @@ export async function permanentLockPosition(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [payer, owner]);
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
 
 export async function lockPosition(
@@ -1492,7 +1499,8 @@ export async function lockPosition(
   owner: Keypair,
   payer: Keypair,
   params: LockPositionParams,
-  innerPosition?: boolean
+  innerPosition?: boolean,
+  errorCode?: number
 ) {
   const program = createCpAmmProgram();
   const positionState = getPosition(svm, position);
@@ -1536,7 +1544,11 @@ export async function lockPosition(
   }
 
   const result = sendTransaction(svm, transaction, signers);
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 
   return vestingAddress;
 }
@@ -1617,7 +1629,11 @@ export type AddLiquidityParams = {
   tokenBAmountThreshold: BN;
 };
 
-export async function addLiquidity(svm: LiteSVM, params: AddLiquidityParams) {
+export async function addLiquidity(
+  svm: LiteSVM,
+  params: AddLiquidityParams,
+  errorCode?: number
+) {
   const {
     owner,
     pool,
@@ -1676,14 +1692,19 @@ export async function addLiquidity(svm: LiteSVM, params: AddLiquidityParams) {
 
   const result = sendTransaction(svm, transaction, [owner]);
 
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
 
 export type RemoveLiquidityParams = AddLiquidityParams;
 
 export async function removeLiquidity(
   svm: LiteSVM,
-  params: RemoveLiquidityParams
+  params: RemoveLiquidityParams,
+  errorCode?: number
 ) {
   const {
     owner,
@@ -1744,7 +1765,11 @@ export async function removeLiquidity(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [owner]);
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
 
 export type RemoveAllLiquidityParams = {
@@ -2073,7 +2098,8 @@ export type ClaimPositionFeeParams = {
 
 export async function claimPositionFee(
   svm: LiteSVM,
-  params: ClaimPositionFeeParams
+  params: ClaimPositionFeeParams,
+  errorCode?: number
 ) {
   const { owner, pool, position } = params;
 
@@ -2124,7 +2150,11 @@ export async function claimPositionFee(
 
   const result = sendTransaction(svm, transaction, [owner]);
 
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
 
 export type SplitPositionParams = {

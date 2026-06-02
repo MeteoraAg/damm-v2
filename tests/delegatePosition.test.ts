@@ -2,6 +2,7 @@ import {
   createApproveInstruction,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import BN from "bn.js";
@@ -19,6 +20,7 @@ import {
   derivePositionNftAccount,
   encodePermissions,
   fundReward,
+  getCpAmmProgramErrorCode,
   getPosition,
   getTokenBalance,
   initializePool,
@@ -44,6 +46,10 @@ import {
 } from "./helpers";
 import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+import { expectThrowsErrorCode } from "./helpers/svm";
+import { getOrCreateAssociatedTokenAccount } from "./helpers/token";
+
+const INVALID_AUTHORITY_CODE = getCpAmmProgramErrorCode("InvalidAuthority");
 
 function buildVestingParams(lockAmount: BN): LockPositionParams {
   const numberOfPeriod = 4;
@@ -65,6 +71,7 @@ describe("Delegate position lifecycle", () => {
   let admin: Keypair;
   let user: Keypair;
   let delegate: Keypair;
+  let nonAuthorizedUser: Keypair;
   let creator: Keypair;
   let whitelistedAccount: Keypair;
   let config: PublicKey;
@@ -88,6 +95,7 @@ describe("Delegate position lifecycle", () => {
     admin = generateKpAndFund(svm);
     user = generateKpAndFund(svm);
     delegate = generateKpAndFund(svm);
+    nonAuthorizedUser = generateKpAndFund(svm);
     creator = generateKpAndFund(svm);
     whitelistedAccount = generateKpAndFund(svm);
 
@@ -106,6 +114,28 @@ describe("Delegate position lifecycle", () => {
     delegateAtaReward = getAssociatedTokenAddressSync(
       rewardMint,
       delegate.publicKey
+    );
+
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      nonAuthorizedUser,
+      tokenAMint,
+      nonAuthorizedUser.publicKey,
+      TOKEN_PROGRAM_ID
+    );
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      nonAuthorizedUser,
+      tokenBMint,
+      nonAuthorizedUser.publicKey,
+      TOKEN_PROGRAM_ID
+    );
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      nonAuthorizedUser,
+      rewardMint,
+      nonAuthorizedUser.publicKey,
+      TOKEN_PROGRAM_ID
     );
 
     mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
@@ -234,6 +264,19 @@ describe("Delegate position lifecycle", () => {
     const afterB = new BN(getTokenBalance(svm, delegateAtaB));
     expect(afterA.lt(beforeA)).to.be.true;
     expect(afterB.lt(beforeB)).to.be.true;
+
+    await addLiquidity(
+      svm,
+      {
+        owner: nonAuthorizedUser,
+        pool,
+        position: position1,
+        liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+        tokenAAmountThreshold: U64_MAX,
+        tokenBAmountThreshold: U64_MAX,
+      },
+      INVALID_AUTHORITY_CODE
+    );
   });
 
   it("delegate claims position fee on position1", async () => {
@@ -276,6 +319,12 @@ describe("Delegate position lifecycle", () => {
 
     expect(afterA.gt(beforeA)).to.be.true;
     expect(afterB.gt(beforeB)).to.be.true;
+
+    await claimPositionFee(
+      svm,
+      { owner: nonAuthorizedUser, pool, position: position1 },
+      INVALID_AUTHORITY_CODE
+    );
   });
 
   it("delegate claims reward on position1", async () => {
@@ -294,6 +343,15 @@ describe("Delegate position lifecycle", () => {
 
     const afterReward = new BN(getTokenBalance(svm, delegateAtaReward));
     expect(afterReward.gt(beforeReward)).to.be.true;
+
+    const failResult = await claimReward(svm, {
+      index: rewardIndex,
+      user: nonAuthorizedUser,
+      pool,
+      position: position1,
+      skipReward: 0,
+    });
+    expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
   });
 
   it("delegate splits position1 into position2", async () => {
@@ -324,6 +382,24 @@ describe("Delegate position lifecycle", () => {
       .true;
     expect(afterSecond.unlockedLiquidity.gt(beforeSecond.unlockedLiquidity)).to
       .be.true;
+
+    const failResult = await splitPosition(svm, {
+      firstPositionOwner: nonAuthorizedUser,
+      secondPositionOwner: nonAuthorizedUser,
+      pool,
+      firstPosition: position1,
+      secondPosition: position2,
+      firstPositionNftAccount: position1NftAccount,
+      secondPositionNftAccount: position2NftAccount,
+      unlockedLiquidityPercentage: 20,
+      permanentLockedLiquidityPercentage: 0,
+      feeAPercentage: 0,
+      feeBPercentage: 0,
+      reward0Percentage: 0,
+      reward1Percentage: 0,
+      innerVestingLiquidityPercentage: 0,
+    });
+    expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
   });
 
   it("delegate locks portion of position1 with vesting account", async () => {
@@ -335,6 +411,16 @@ describe("Delegate position lifecycle", () => {
 
     const after = getPosition(svm, position1);
     expect(after.vestedLiquidity.gt(beforeVested)).to.be.true;
+
+    await lockPosition(
+      svm,
+      position1,
+      nonAuthorizedUser,
+      nonAuthorizedUser,
+      params,
+      false,
+      INVALID_AUTHORITY_CODE
+    );
   });
 
   it("delegate locks inner of position1", async () => {
@@ -346,6 +432,16 @@ describe("Delegate position lifecycle", () => {
 
     const after = getPosition(svm, position1);
     expect(after.vestedLiquidity.gt(beforeVested)).to.be.true;
+
+    await lockPosition(
+      svm,
+      position1,
+      nonAuthorizedUser,
+      nonAuthorizedUser,
+      params,
+      true,
+      INVALID_AUTHORITY_CODE
+    );
   });
 
   it("delegate removes part of unlocked liquidity from position1", async () => {
@@ -370,6 +466,19 @@ describe("Delegate position lifecycle", () => {
     const afterA = new BN(getTokenBalance(svm, delegateAtaA));
     const afterB = new BN(getTokenBalance(svm, delegateAtaB));
     expect(afterA.gt(beforeA) || afterB.gt(beforeB)).to.be.true;
+
+    await removeLiquidity(
+      svm,
+      {
+        owner: nonAuthorizedUser,
+        pool,
+        position: position1,
+        liquidityDelta: before.unlockedLiquidity.divn(2),
+        tokenAAmountThreshold: new BN(0),
+        tokenBAmountThreshold: new BN(0),
+      },
+      INVALID_AUTHORITY_CODE
+    );
   });
 
   it("delegate permanent-locks position2", async () => {
@@ -381,6 +490,14 @@ describe("Delegate position lifecycle", () => {
     const after = getPosition(svm, position2);
     expect(after.permanentLockedLiquidity.gt(new BN(0))).to.be.true;
     expect(after.unlockedLiquidity.isZero()).to.be.true;
+
+    await permanentLockPosition(
+      svm,
+      position2,
+      nonAuthorizedUser,
+      nonAuthorizedUser,
+      INVALID_AUTHORITY_CODE
+    );
   });
 
   it("delegate split_position2 between two fresh positions", async () => {
@@ -440,5 +557,17 @@ describe("Delegate position lifecycle", () => {
     expect(afterFrom.unlockedLiquidity.lt(beforeFrom.unlockedLiquidity)).to.be
       .true;
     expect(afterTo.unlockedLiquidity.gt(beforeTo.unlockedLiquidity)).to.be.true;
+
+    const failResult = await splitPosition2(svm, {
+      firstPositionOwner: nonAuthorizedUser,
+      secondPositionOwner: nonAuthorizedUser,
+      pool,
+      firstPosition: fromPosition,
+      secondPosition: toPosition,
+      firstPositionNftAccount: fromPositionNftAccount,
+      secondPositionNftAccount: toPositionNftAccount,
+      numerator: SPLIT_POSITION_DENOMINATOR / 5,
+    });
+    expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
   });
 });
