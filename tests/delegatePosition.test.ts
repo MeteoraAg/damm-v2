@@ -60,7 +60,7 @@ function buildVestingParams(lockAmount: BN): LockPositionParams {
   };
 }
 
-describe.only("Delegate position lifecycle", () => {
+describe("Delegate position lifecycle", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let user: Keypair;
