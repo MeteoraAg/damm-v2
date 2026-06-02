@@ -540,9 +540,12 @@ pub struct SplitPositionInfo2 {
     pub reward_1: u64,
 }
 
-pub fn is_position_authority(nft_ta: &TokenAccount, signer: &Pubkey) -> bool {
-    if nft_ta.owner == *signer {
-        return true;
+pub fn is_position_authority(nft_token_account: &TokenAccount, signer: &Pubkey) -> bool {
+    if nft_token_account.owner == *signer {
+        true
+    } else if let COption::Some(delegate) = nft_token_account.delegate {
+        delegate == *signer && nft_token_account.delegated_amount >= 1
+    } else {
+        false
     }
-    matches!(nft_ta.delegate, COption::Some(d) if d == *signer && nft_ta.delegated_amount >= 1)
 }
