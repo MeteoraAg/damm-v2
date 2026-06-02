@@ -189,8 +189,8 @@ pub fn handle_split_position2(
     {
         emit_cpi!(EvtSplitPosition2 {
             pool: ctx.accounts.pool.key(),
-            first_owner: ctx.accounts.first_owner.key(),
-            second_owner: ctx.accounts.second_owner.key(),
+            first_owner: ctx.accounts.first_position_nft_account.owner,
+            second_owner: ctx.accounts.second_position_nft_account.owner,
             first_position: ctx.accounts.first_position.key(),
             second_position: ctx.accounts.second_position.key(),
             amount_splits: split_amount_info.into(),
@@ -231,8 +231,8 @@ pub fn handle_split_position2(
 
     emit_cpi!(EvtSplitPosition3 {
         pool: ctx.accounts.pool.key(),
-        first_owner: ctx.accounts.first_owner.key(),
-        second_owner: ctx.accounts.second_owner.key(),
+        first_owner: ctx.accounts.first_position_nft_account.owner,
+        second_owner: ctx.accounts.second_position_nft_account.owner,
         first_position: ctx.accounts.first_position.key(),
         second_position: ctx.accounts.second_position.key(),
         amount_splits: split_amount_info,

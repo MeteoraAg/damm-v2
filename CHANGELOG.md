@@ -21,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.2]
 
+### Added
+
+- Added support for NFT delegates to manage positions. The following endpoints can now be signed by a delegate: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`, `split_position`, `split_position2`. The `close_position` endpoint remains callable by the owner only.
+
+### Changed
+
+- Events `EvtClaimPositionFee`, `EvtClaimReward`, `EvtLiquidityChange`, `EvtLockPosition`, `EvtSplitPosition2`, `EvtSplitPosition3` now source the `owner` field from `position_nft_account.owner` instead of the signer, since the signer can now be a delegate.
+
+### Breaking Changes
+
+- The following endpoints previously rejected unauthorized signers with Anchor's `ConstraintTokenOwner` (2015) and now reject with `PoolError::InvalidAuthority` (6053): `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`, `split_position`, `split_position2`.
+
 ## cp_amm [0.2.1][#PR 200](https://github.com/MeteoraAg/damm-v2/pull/200)
 
 ### Added
