@@ -4,7 +4,7 @@ use anchor_spl::token_interface::TokenAccount;
 use crate::{
     activation_handler::ActivationHandler,
     get_pool_access_validator,
-    state::{Pool, Position},
+    state::{is_position_authority, Pool, Position},
     EvtPermanentLockPosition, PoolError,
 };
 
@@ -21,11 +21,12 @@ pub struct PermanentLockPositionCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            token::authority = owner
+            constraint = is_position_authority(&position_nft_account, &owner.key())
+                @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner of position
+    /// owner or delegate of position NFT
     pub owner: Signer<'info>,
 }
 

@@ -6,7 +6,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     activation_handler::ActivationHandler,
     const_pda, get_pool_access_validator,
-    state::{Pool, Position},
+    state::{is_position_authority, Pool, Position},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
     EvtLiquidityChange, PoolError,
@@ -64,11 +64,12 @@ pub struct RemoveLiquidityCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            token::authority = owner
+            constraint = is_position_authority(&position_nft_account, &owner.key())
+                @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner of position
+    /// owner or delegate of position NFT
     pub owner: Signer<'info>,
 
     /// Token a program
@@ -174,7 +175,7 @@ pub fn handle_remove_liquidity(
     emit_cpi!(EvtLiquidityChange {
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
-        owner: ctx.accounts.owner.key(),
+        owner: ctx.accounts.position_nft_account.owner,
         liquidity_delta,
         token_a_amount_threshold,
         token_b_amount_threshold,

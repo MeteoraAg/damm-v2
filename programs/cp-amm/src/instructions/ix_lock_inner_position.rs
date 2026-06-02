@@ -1,7 +1,7 @@
 use crate::{
     activation_handler::ActivationHandler,
     error::PoolError,
-    state::{Pool, Position},
+    state::{is_position_authority, Pool, Position},
     EvtLockPosition, LockPositionInfo,
 };
 use crate::{process_initialize_inner_vesting, VestingParameters};
@@ -21,11 +21,12 @@ pub struct LockInnerPositionCtx<'info> {
     #[account(
         constraint = position_nft_account.mint == position.load()?.nft_mint,
         constraint = position_nft_account.amount == 1,
-        token::authority = owner
+        constraint = is_position_authority(&position_nft_account, &owner.key())
+            @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner of position
+    /// owner or delegate of position NFT
     pub owner: Signer<'info>,
 }
 
@@ -54,7 +55,7 @@ pub fn handle_lock_inner_position(
     emit_cpi!(EvtLockPosition {
         position: ctx.accounts.position.key(),
         pool: ctx.accounts.pool.key(),
-        owner: ctx.accounts.owner.key(),
+        owner: ctx.accounts.position_nft_account.owner,
         vesting: ctx.accounts.position.key(),
         cliff_point,
         period_frequency: params.period_frequency,

@@ -6,7 +6,7 @@ use crate::{
     constants::NUM_REWARDS,
     error::PoolError,
     event::EvtClaimReward,
-    state::{pool::Pool, position::Position},
+    state::{is_position_authority, pool::Pool, position::Position},
     token::transfer_from_pool,
 };
 
@@ -40,11 +40,12 @@ pub struct ClaimRewardCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            token::authority = owner
+            constraint = is_position_authority(&position_nft_account, &owner.key())
+                @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner of position
+    /// owner or delegate of position NFT
     pub owner: Signer<'info>,
 
     pub token_program: Interface<'info, TokenInterface>,
@@ -107,7 +108,7 @@ pub fn handle_claim_reward(
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
         mint_reward: ctx.accounts.reward_mint.key(),
-        owner: ctx.accounts.owner.key(),
+        owner: ctx.accounts.position_nft_account.owner,
         reward_index,
         total_reward,
     });

@@ -6,7 +6,7 @@ use crate::{
     error::PoolError,
     get_pool_access_validator,
     safe_math::SafeMath,
-    state::{InnerVesting, Pool, Position, Vesting},
+    state::{is_position_authority, InnerVesting, Pool, Position, Vesting},
     EvtLockPosition,
 };
 
@@ -89,11 +89,12 @@ pub struct LockPositionCtx<'info> {
     #[account(
         constraint = position_nft_account.mint == position.load()?.nft_mint,
         constraint = position_nft_account.amount == 1,
-        token::authority = owner
+        constraint = is_position_authority(&position_nft_account, &owner.key())
+            @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner of position
+    /// owner or delegate of position NFT
     pub owner: Signer<'info>,
 
     #[account(mut)]
@@ -125,7 +126,7 @@ pub fn handle_lock_position(
     emit_cpi!(EvtLockPosition {
         position: ctx.accounts.position.key(),
         pool: ctx.accounts.pool.key(),
-        owner: ctx.accounts.owner.key(),
+        owner: ctx.accounts.position_nft_account.owner,
         vesting: ctx.accounts.vesting.key(),
         cliff_point,
         period_frequency: params.period_frequency,

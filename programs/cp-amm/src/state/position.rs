@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program_option::COption;
+use anchor_spl::token_interface::TokenAccount;
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 use std::{cell::RefMut, u64};
@@ -536,4 +538,11 @@ pub struct SplitPositionInfo2 {
     pub fee_b: u64,
     pub reward_0: u64,
     pub reward_1: u64,
+}
+
+pub fn is_position_authority(nft_ta: &TokenAccount, signer: &Pubkey) -> bool {
+    if nft_ta.owner == *signer {
+        return true;
+    }
+    matches!(nft_ta.delegate, COption::Some(d) if d == *signer && nft_ta.delegated_amount >= 1)
 }

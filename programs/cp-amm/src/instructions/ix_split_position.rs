@@ -4,7 +4,7 @@ use anchor_spl::token_interface::TokenAccount;
 use crate::{
     constants::SPLIT_POSITION_DENOMINATOR,
     safe_math::SafeMath,
-    state::{Pool, Position},
+    state::{is_position_authority, Pool, Position},
     PoolError, SplitPositionParameters3,
 };
 
@@ -112,7 +112,8 @@ pub struct SplitPositionCtx<'info> {
     #[account(
         constraint = first_position_nft_account.mint == first_position.load()?.nft_mint,
         constraint = first_position_nft_account.amount == 1,
-        token::authority = first_owner
+        constraint = is_position_authority(&first_position_nft_account, &first_owner.key())
+            @ PoolError::InvalidAuthority,
     )]
     pub first_position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -127,13 +128,14 @@ pub struct SplitPositionCtx<'info> {
     #[account(
         constraint = second_position_nft_account.mint == second_position.load()?.nft_mint,
         constraint = second_position_nft_account.amount == 1,
-        token::authority = second_owner
+        constraint = is_position_authority(&second_position_nft_account, &second_owner.key())
+            @ PoolError::InvalidAuthority,
     )]
     pub second_position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Owner of first position
+    /// Owner or delegate of first position NFT
     pub first_owner: Signer<'info>,
 
-    /// Owner of second position
+    /// Owner or delegate of second position NFT
     pub second_owner: Signer<'info>,
 }
