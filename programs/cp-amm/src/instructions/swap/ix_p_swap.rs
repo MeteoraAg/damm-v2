@@ -11,11 +11,10 @@ use crate::{
     ProcessSwapParams, ProcessSwapResult, SwapCtx,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::instruction::{
-    get_processed_sibling_instruction, get_stack_height, Instruction,
-};
+use anchor_lang::solana_program::instruction::{get_stack_height, Instruction};
 use pinocchio::account_info::AccountInfo;
 use pinocchio::sysvars::instructions::{Instructions, IntrospectedInstruction, INSTRUCTIONS_ID};
+use solana_instruction::syscalls::get_processed_sibling_instruction;
 
 use crate::safe_math::{SafeCast, SafeMath};
 use crate::{

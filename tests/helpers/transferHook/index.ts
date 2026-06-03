@@ -1,4 +1,4 @@
-import { AnchorProvider, Program, Wallet, web3 } from "@coral-xyz/anchor";
+import { AnchorProvider, Program, Wallet, web3 } from "@anchor-lang/core";
 import TransferHookIdl from "./idl/transfer_hook.json";
 import { TransferHookCounter } from "./idl/transfer_hook";
 import {

@@ -25,8 +25,8 @@ use crate::{
     PoolError,
 };
 use crate::{
-    BaseFeeUpdateMode, CompoundingLiquidity, ConcentratedLiquidity, DynamicFeeUpdateMode,
-    LiquidityHandler, UpdatePoolFeesParameters,
+    BaseFeeUpdateMode, CompoundingFeeUpdateMode, CompoundingLiquidity, ConcentratedLiquidity,
+    DynamicFeeUpdateMode, LiquidityHandler, UpdatePoolFeesParameters,
 };
 
 use super::fee::FeeMode;
@@ -1183,6 +1183,23 @@ impl Pool {
                 // skip update, so we don't do anything
             }
         }
+
+        // update compounding fee bps
+        match params.get_compounding_fee_update_mode() {
+            CompoundingFeeUpdateMode::Update(compounding_fee_bps) => {
+                let collect_fee_mode = CollectFeeMode::try_from(self.collect_fee_mode)
+                    .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+                require!(
+                    collect_fee_mode == CollectFeeMode::Compounding,
+                    PoolError::InvalidCollectFeeMode
+                );
+                self.pool_fees.compounding_fee_bps = compounding_fee_bps;
+            }
+            _ => {
+                // skip update, so we don't do anything
+            }
+        }
+
         Ok(())
     }
 

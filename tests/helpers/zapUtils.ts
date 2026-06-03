@@ -1,4 +1,4 @@
-import * as borsh from "@coral-xyz/borsh";
+import * as borsh from "@anchor-lang/borsh";
 import {
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
@@ -645,7 +645,8 @@ export async function createCustomizableDammV2Pool(params: {
       baseFee: {
         data: Array.from(data),
       },
-      padding: [],
+      compoundingFeeBps: 0,
+      padding: 0,
       dynamicFee: null,
     },
     activationType: 0, // slot

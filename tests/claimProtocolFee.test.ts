@@ -10,6 +10,7 @@ import {
   createPosition,
   createToken,
   encodePermissions,
+  getPool,
   initializePool,
   InitializePoolParams,
   MAX_SQRT_PRICE,
@@ -21,17 +22,23 @@ import {
   swapExactIn,
   SwapParams,
   TREASURY,
+  expectThrowsErrorCode,
 } from "./helpers";
-import { generateKpAndFund, randomID } from "./helpers/common";
+import {
+  generateKpAndFund,
+  getCpAmmProgramErrorCode,
+  randomID,
+} from "./helpers/common";
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
   mintToToken2022,
 } from "./helpers/token2022";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM, TransactionMetadata } from "litesvm";
+import { expect } from "chai";
 
-describe("Claim fee", () => {
+describe("Claim Protocol Fee", () => {
   describe("SPL Token", () => {
     let svm: LiteSVM;
     let admin: Keypair;
@@ -157,11 +164,67 @@ describe("Claim fee", () => {
       await swapExactIn(svm, swapParams);
 
       // claim protocol fee
-      await claimProtocolFee(svm, {
+      const result = await claimProtocolFee(svm, {
         whitelistedKP: whitelistedAccount,
         pool,
         treasury: TREASURY,
       });
+      expect(result).instanceOf(TransactionMetadata);
+    });
+
+    it("Claim to non-treasury ATA should fail", async () => {
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(svm, addLiquidityParams);
+
+      // swap in both directions to accumulate protocol fees
+      const swapA2B: SwapParams = {
+        payer: user,
+        pool,
+        inputTokenMint,
+        outputTokenMint,
+        amountIn: new BN(10000),
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+      };
+
+      const swapB2A: SwapParams = {
+        payer: user,
+        pool,
+        inputTokenMint: outputTokenMint,
+        outputTokenMint: inputTokenMint,
+        amountIn: new BN(10000),
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+      };
+
+      await swapExactIn(svm, swapA2B);
+      await swapExactIn(svm, swapB2A);
+      await swapExactIn(svm, swapA2B);
+      await swapExactIn(svm, swapB2A);
+
+      // verify protocol fees are non-zero
+      const poolState = getPool(svm, pool);
+      expect(
+        poolState.protocolAFee.gt(new BN(0)) ||
+          poolState.protocolBFee.gt(new BN(0))
+      ).to.be.true;
+
+      // claim to an arbitrary (non-treasury) address should fail
+      const arbitraryReceiver = generateKpAndFund(svm);
+      const errorCode = getCpAmmProgramErrorCode("IncorrectATA");
+      const result = await claimProtocolFee(svm, {
+        whitelistedKP: whitelistedAccount,
+        pool,
+        treasury: arbitraryReceiver.publicKey,
+      });
+      expectThrowsErrorCode(result, errorCode);
     });
   });
 
@@ -313,11 +376,12 @@ describe("Claim fee", () => {
       await swapExactIn(svm, swapParams);
 
       // claim protocol fee
-      await claimProtocolFee(svm, {
+      const result = await claimProtocolFee(svm, {
         whitelistedKP: whitelistedAccount,
         pool,
         treasury: TREASURY,
       });
+      expect(result).instanceOf(TransactionMetadata);
     });
   });
 });

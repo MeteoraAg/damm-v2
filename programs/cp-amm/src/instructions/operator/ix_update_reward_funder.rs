@@ -30,8 +30,8 @@ impl<'info> UpdateRewardFunderCtx<'info> {
     }
 }
 
-pub fn handle_update_reward_funder<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, UpdateRewardFunderCtx<'info>>,
+pub fn handle_update_reward_funder<'info>(
+    ctx: Context<'info, UpdateRewardFunderCtx<'info>>,
     reward_index: u8,
     new_funder: Pubkey,
 ) -> Result<()> {

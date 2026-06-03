@@ -54,7 +54,7 @@ pub struct ClaimProtocolFeesCtx<'info> {
     pub token_b_program: Interface<'info, TokenInterface>,
 }
 
-/// Withdraw protocol fees. Permissionless.
+/// withdraw protocol fees and validate destination is treasury ATA
 pub fn handle_claim_protocol_fee(
     ctx: Context<ClaimProtocolFeesCtx>,
     max_amount_a: u64,

@@ -1,6 +1,6 @@
 [package]
 name = "cp-amm"
-version = "0.2.0"
+version = "0.2.1"
 description = "Created with Anchor"
 edition = "2021"
 
@@ -17,22 +17,30 @@ cpi = ["no-entrypoint", "no-custom-entrypoint"]
 default = ["no-entrypoint"]
 local = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+custom-heap = []
+custom-panic = []
+anchor-debug = []
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["event-cpi"] }
 anchor-spl = { workspace = true, features = [] }
 bytemuck = { workspace = true, features = ["derive", "min_const_generics"] }
-static_assertions = "1.1.0"
-ruint = "1.3.0"
-num-traits = "0.2.19"
-num_enum = "0.7.0"
-num = "0.4.3"
-spl-token-metadata-interface = { version = "=0.6.0" }
-const-crypto = "0.3.0"
-pinocchio = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
-pinocchio-token = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
-pinocchio-token-2022 = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
-protocol-zap = { git = "https://github.com/MeteoraAg/zap-program", rev = "064c58b317b9a85f212c0de72caea286fc72fdb4" }
+static_assertions = { workspace = true }
+ruint = { workspace = true }
+num-traits = { workspace = true }
+num_enum = { workspace = true }
+num = { workspace = true }
+spl-token-metadata-interface = { workspace = true }
+solana-instruction = { workspace = true }
+borsh = { workspace = true }
+const-crypto = { workspace = true }
+pinocchio = { workspace = true }
+pinocchio-token = { workspace = true }
+pinocchio-token-2022 = { workspace = true }
+protocol-zap = { workspace = true }
+
+[lints]
+workspace = true
 
 [dev-dependencies]
-proptest = { workspace = true}
+proptest = { workspace = true }

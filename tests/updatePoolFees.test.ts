@@ -3,6 +3,7 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   InitializeCustomizablePoolParams,
   initializeCustomizablePool,
+  LIQUIDITY_MAX,
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -590,6 +591,125 @@ describe("Admin update pool fees parameters", () => {
       beforeBaseFee.reductionFactor.toString()
     );
   });
+
+  describe("update compounding fee bps", () => {
+    it("succeeds on a compounding pool", async () => {
+      const cliffFeeNumerator = new BN(2_500_000);
+      const poolFeesData = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        0,
+        BigInt(0),
+        BigInt(0),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+      const poolAddress = await createCompoundingPool(
+        svm,
+        creator,
+        tokenAMint,
+        tokenBMint,
+        poolFeesData,
+        5000
+      );
+
+      const swapParams = {
+        payer: creator,
+        pool: poolAddress,
+        inputTokenMint: tokenAMint,
+        outputTokenMint: tokenBMint,
+        amountIn: new BN(10),
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+      };
+      await swapExactIn(svm, swapParams);
+
+      const newCompoundingFeeBps = 3000;
+      await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator: null,
+        dynamicFee: null,
+        compoundingFeeBps: newCompoundingFeeBps,
+      });
+
+      const poolState = getPool(svm, poolAddress);
+      expect(poolState.poolFees.compoundingFeeBps).eq(newCompoundingFeeBps);
+
+      // can swap after update
+      await swapExactIn(svm, swapParams);
+    });
+
+    it("succeeds when setting compounding fee bps to 0", async () => {
+      const cliffFeeNumerator = new BN(2_500_000);
+      const poolFeesData = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        0,
+        BigInt(0),
+        BigInt(0),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+      const poolAddress = await createCompoundingPool(
+        svm,
+        creator,
+        tokenAMint,
+        tokenBMint,
+        poolFeesData,
+        5000
+      );
+
+      const swapParams = {
+        payer: creator,
+        pool: poolAddress,
+        inputTokenMint: tokenAMint,
+        outputTokenMint: tokenBMint,
+        amountIn: new BN(10),
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+      };
+      await swapExactIn(svm, swapParams);
+
+      await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator: null,
+        dynamicFee: null,
+        compoundingFeeBps: 0,
+      });
+
+      const poolState = getPool(svm, poolAddress);
+      expect(poolState.poolFees.compoundingFeeBps).eq(0);
+
+      await swapExactIn(svm, swapParams);
+    });
+
+    it("fails on non-compounding pool", async () => {
+      const cliffFeeNumerator = new BN(2_500_000);
+      const poolFeesData = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        0,
+        BigInt(0),
+        BigInt(0),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+      const poolAddress = await createPool(
+        svm,
+        creator,
+        tokenAMint,
+        tokenBMint,
+        poolFeesData,
+        null
+      );
+
+      const errorCode = getCpAmmProgramErrorCode("InvalidCollectFeeMode");
+      const res = await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator: null,
+        dynamicFee: null,
+        compoundingFeeBps: 3000,
+      });
+      expectThrowsErrorCode(res, errorCode);
+    });
+  });
 });
 
 async function createPool(
@@ -621,6 +741,42 @@ async function createPool(
     },
     activationType: 0,
     collectFeeMode: 1,
+  };
+
+  const { pool } = await initializeCustomizablePool(svm, params);
+
+  return pool;
+}
+
+async function createCompoundingPool(
+  svm: LiteSVM,
+  creator: Keypair,
+  tokenAMint: PublicKey,
+  tokenBMint: PublicKey,
+  baseFeeData: Buffer,
+  compoundingFeeBps: number
+) {
+  const params: InitializeCustomizablePoolParams = {
+    payer: creator,
+    creator: creator.publicKey,
+    tokenAMint,
+    tokenBMint,
+    liquidity: LIQUIDITY_MAX,
+    sqrtPrice: MIN_SQRT_PRICE.muln(2),
+    sqrtMinPrice: MIN_SQRT_PRICE,
+    sqrtMaxPrice: MAX_SQRT_PRICE,
+    hasAlphaVault: false,
+    activationPoint: null,
+    poolFees: {
+      baseFee: {
+        data: Array.from(baseFeeData),
+      },
+      compoundingFeeBps,
+      padding: 0,
+      dynamicFee: null,
+    },
+    activationType: 0,
+    collectFeeMode: 2,
   };
 
   const { pool } = await initializeCustomizablePool(svm, params);

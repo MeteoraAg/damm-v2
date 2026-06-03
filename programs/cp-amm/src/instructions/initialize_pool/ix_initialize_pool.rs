@@ -183,8 +183,8 @@ pub struct InitializePoolCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_initialize_pool<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, InitializePoolCtx<'info>>,
+pub fn handle_initialize_pool<'info>(
+    ctx: Context<'info, InitializePoolCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
     if !is_supported_mint(&ctx.accounts.token_a_mint)? {
