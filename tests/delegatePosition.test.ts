@@ -1,5 +1,7 @@
 import {
+  AuthorityType,
   createApproveInstruction,
+  createSetAuthorityInstruction,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -18,6 +20,7 @@ import {
   createPosition,
   createToken,
   derivePositionNftAccount,
+  encodeDelegatePermissions,
   encodePermissions,
   fundReward,
   getCpAmmProgramErrorCode,
@@ -35,8 +38,10 @@ import {
   mintSplTokenTo,
   OperatorPermission,
   permanentLockPosition,
+  PositionDelegatePermission,
   removeLiquidity,
   sendTransaction,
+  updateDelegatePermission,
   splitPosition,
   splitPosition2,
   SPLIT_POSITION_DENOMINATOR,
@@ -66,7 +71,7 @@ function buildVestingParams(lockAmount: BN): LockPositionParams {
   };
 }
 
-describe("Delegate position lifecycle", () => {
+describe("Delegate Position", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let user: Keypair;
@@ -204,21 +209,24 @@ describe("Delegate position lifecycle", () => {
       getPosition(svm, position2).nftMint
     );
 
-    // user delegates position nft account
-    for (const nftAccount of [position1NftAccount, position2NftAccount]) {
-      const approveTx = new Transaction().add(
-        createApproveInstruction(
-          nftAccount,
-          delegate.publicKey,
-          user.publicKey,
-          1,
-          [],
-          TOKEN_2022_PROGRAM_ID
-        )
-      );
-      expect(sendTransaction(svm, approveTx, [user])).instanceOf(
-        TransactionMetadata
-      );
+    // user grants delegate full permissions on both positions
+    const fullPermission = encodeDelegatePermissions([
+      PositionDelegatePermission.AddLiquidity,
+      PositionDelegatePermission.RemoveLiquidity,
+      PositionDelegatePermission.ClaimPositionFee,
+      PositionDelegatePermission.ClaimReward,
+      PositionDelegatePermission.LockPosition,
+      PositionDelegatePermission.PermanentLockPosition,
+      PositionDelegatePermission.LockInnerPosition,
+      PositionDelegatePermission.SplitPosition,
+    ]);
+    for (const position of [position1, position2]) {
+      await updateDelegatePermission(svm, {
+        owner: user,
+        position,
+        delegate: delegate.publicKey,
+        permission: fullPermission,
+      });
     }
 
     await initializeReward(svm, {
@@ -241,333 +249,484 @@ describe("Delegate position lifecycle", () => {
     });
   });
 
-  it("delegate adds liquidity to position1", async () => {
-    const before = getPosition(svm, position1);
-    expect(before.unlockedLiquidity.isZero()).to.be.true;
+  it("Lifecycle", () => {
+    it("delegate adds liquidity to position1", async () => {
+      const before = getPosition(svm, position1);
+      expect(before.unlockedLiquidity.isZero()).to.be.true;
 
-    const beforeA = new BN(getTokenBalance(svm, delegateAtaA));
-    const beforeB = new BN(getTokenBalance(svm, delegateAtaB));
+      const beforeA = new BN(getTokenBalance(svm, delegateAtaA));
+      const beforeB = new BN(getTokenBalance(svm, delegateAtaB));
 
-    await addLiquidity(svm, {
-      owner: delegate,
-      pool,
-      position: position1,
-      liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
-      tokenAAmountThreshold: U64_MAX,
-      tokenBAmountThreshold: U64_MAX,
-    });
-
-    const after = getPosition(svm, position1);
-    expect(after.unlockedLiquidity.gt(before.unlockedLiquidity)).to.be.true;
-
-    const afterA = new BN(getTokenBalance(svm, delegateAtaA));
-    const afterB = new BN(getTokenBalance(svm, delegateAtaB));
-    expect(afterA.lt(beforeA)).to.be.true;
-    expect(afterB.lt(beforeB)).to.be.true;
-
-    await addLiquidity(
-      svm,
-      {
-        owner: nonAuthorizedUser,
+      await addLiquidity(svm, {
+        owner: delegate,
         pool,
         position: position1,
         liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
         tokenAAmountThreshold: U64_MAX,
         tokenBAmountThreshold: U64_MAX,
-      },
-      INVALID_AUTHORITY_CODE
-    );
-  });
+      });
 
-  it("delegate claims position fee on position1", async () => {
-    const swapB2A = {
-      payer: creator,
-      pool,
-      inputTokenMint: tokenBMint,
-      outputTokenMint: tokenAMint,
-      amountIn: new BN(1_000_000_000),
-      minimumAmountOut: new BN(0),
-      referralTokenAccount: null,
-    };
-    const swapA2B = {
-      payer: creator,
-      pool,
-      inputTokenMint: tokenAMint,
-      outputTokenMint: tokenBMint,
-      amountIn: new BN(1_000_000_000),
-      minimumAmountOut: new BN(0),
-      referralTokenAccount: null,
-    };
+      const after = getPosition(svm, position1);
+      expect(after.unlockedLiquidity.gt(before.unlockedLiquidity)).to.be.true;
 
-    // swap to accumulate fee
-    await swapExactIn(svm, swapB2A);
-    await swapExactIn(svm, swapA2B);
-    await swapExactIn(svm, swapB2A);
-    await swapExactIn(svm, swapA2B);
+      const afterA = new BN(getTokenBalance(svm, delegateAtaA));
+      const afterB = new BN(getTokenBalance(svm, delegateAtaB));
+      expect(afterA.lt(beforeA)).to.be.true;
+      expect(afterB.lt(beforeB)).to.be.true;
 
-    const beforeA = new BN(getTokenBalance(svm, delegateAtaA));
-    const beforeB = new BN(getTokenBalance(svm, delegateAtaB));
-
-    await claimPositionFee(svm, {
-      owner: delegate,
-      pool,
-      position: position1,
+      await addLiquidity(
+        svm,
+        {
+          owner: nonAuthorizedUser,
+          pool,
+          position: position1,
+          liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+          tokenAAmountThreshold: U64_MAX,
+          tokenBAmountThreshold: U64_MAX,
+        },
+        INVALID_AUTHORITY_CODE
+      );
     });
 
-    const afterA = new BN(getTokenBalance(svm, delegateAtaA));
-    const afterB = new BN(getTokenBalance(svm, delegateAtaB));
+    it("delegate claims position fee on position1", async () => {
+      const swapB2A = {
+        payer: creator,
+        pool,
+        inputTokenMint: tokenBMint,
+        outputTokenMint: tokenAMint,
+        amountIn: new BN(1_000_000_000),
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+      };
+      const swapA2B = {
+        payer: creator,
+        pool,
+        inputTokenMint: tokenAMint,
+        outputTokenMint: tokenBMint,
+        amountIn: new BN(1_000_000_000),
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+      };
 
-    expect(afterA.gt(beforeA)).to.be.true;
-    expect(afterB.gt(beforeB)).to.be.true;
+      // swap to accumulate fee
+      await swapExactIn(svm, swapB2A);
+      await swapExactIn(svm, swapA2B);
+      await swapExactIn(svm, swapB2A);
+      await swapExactIn(svm, swapA2B);
 
-    await claimPositionFee(
-      svm,
-      { owner: nonAuthorizedUser, pool, position: position1 },
-      INVALID_AUTHORITY_CODE
-    );
-  });
+      const beforeA = new BN(getTokenBalance(svm, delegateAtaA));
+      const beforeB = new BN(getTokenBalance(svm, delegateAtaB));
 
-  it("delegate claims reward on position1", async () => {
-    warpToTimestamp(svm, new BN(60 * 60));
+      await claimPositionFee(svm, {
+        owner: delegate,
+        pool,
+        position: position1,
+      });
 
-    const beforeReward = new BN(getTokenBalance(svm, delegateAtaReward));
+      const afterA = new BN(getTokenBalance(svm, delegateAtaA));
+      const afterB = new BN(getTokenBalance(svm, delegateAtaB));
 
-    const result = await claimReward(svm, {
-      index: rewardIndex,
-      user: delegate,
-      pool,
-      position: position1,
-      skipReward: 0,
-    });
-    expect(result).instanceOf(TransactionMetadata);
+      expect(afterA.gt(beforeA)).to.be.true;
+      expect(afterB.gt(beforeB)).to.be.true;
 
-    const afterReward = new BN(getTokenBalance(svm, delegateAtaReward));
-    expect(afterReward.gt(beforeReward)).to.be.true;
-
-    const failResult = await claimReward(svm, {
-      index: rewardIndex,
-      user: nonAuthorizedUser,
-      pool,
-      position: position1,
-      skipReward: 0,
-    });
-    expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
-  });
-
-  it("delegate splits position1 into position2", async () => {
-    const beforeFirst = getPosition(svm, position1);
-    const beforeSecond = getPosition(svm, position2);
-
-    await splitPosition(svm, {
-      firstPositionOwner: delegate,
-      secondPositionOwner: delegate,
-      pool,
-      firstPosition: position1,
-      secondPosition: position2,
-      firstPositionNftAccount: position1NftAccount,
-      secondPositionNftAccount: position2NftAccount,
-      unlockedLiquidityPercentage: 20,
-      permanentLockedLiquidityPercentage: 0,
-      feeAPercentage: 0,
-      feeBPercentage: 0,
-      reward0Percentage: 0,
-      reward1Percentage: 0,
-      innerVestingLiquidityPercentage: 0,
+      await claimPositionFee(
+        svm,
+        { owner: nonAuthorizedUser, pool, position: position1 },
+        INVALID_AUTHORITY_CODE
+      );
     });
 
-    const afterFirst = getPosition(svm, position1);
-    const afterSecond = getPosition(svm, position2);
+    it("delegate claims reward on position1", async () => {
+      warpToTimestamp(svm, new BN(60 * 60));
 
-    expect(afterFirst.unlockedLiquidity.lt(beforeFirst.unlockedLiquidity)).to.be
-      .true;
-    expect(afterSecond.unlockedLiquidity.gt(beforeSecond.unlockedLiquidity)).to
-      .be.true;
+      const beforeReward = new BN(getTokenBalance(svm, delegateAtaReward));
 
-    const failResult = await splitPosition(svm, {
-      firstPositionOwner: nonAuthorizedUser,
-      secondPositionOwner: nonAuthorizedUser,
-      pool,
-      firstPosition: position1,
-      secondPosition: position2,
-      firstPositionNftAccount: position1NftAccount,
-      secondPositionNftAccount: position2NftAccount,
-      unlockedLiquidityPercentage: 20,
-      permanentLockedLiquidityPercentage: 0,
-      feeAPercentage: 0,
-      feeBPercentage: 0,
-      reward0Percentage: 0,
-      reward1Percentage: 0,
-      innerVestingLiquidityPercentage: 0,
-    });
-    expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
-  });
+      const result = await claimReward(svm, {
+        index: rewardIndex,
+        user: delegate,
+        pool,
+        position: position1,
+        skipReward: 0,
+      });
+      expect(result).instanceOf(TransactionMetadata);
 
-  it("delegate locks portion of position1 with vesting account", async () => {
-    const state = getPosition(svm, position1);
-    const params = buildVestingParams(state.unlockedLiquidity.divn(4));
+      const afterReward = new BN(getTokenBalance(svm, delegateAtaReward));
+      expect(afterReward.gt(beforeReward)).to.be.true;
 
-    const beforeVested = state.vestedLiquidity;
-    await lockPosition(svm, position1, delegate, delegate, params);
-
-    const after = getPosition(svm, position1);
-    expect(after.vestedLiquidity.gt(beforeVested)).to.be.true;
-
-    await lockPosition(
-      svm,
-      position1,
-      nonAuthorizedUser,
-      nonAuthorizedUser,
-      params,
-      false,
-      INVALID_AUTHORITY_CODE
-    );
-  });
-
-  it("delegate locks inner of position1", async () => {
-    const state = getPosition(svm, position1);
-    const params = buildVestingParams(state.unlockedLiquidity.divn(4));
-
-    const beforeVested = state.vestedLiquidity;
-    await lockPosition(svm, position1, delegate, delegate, params, true);
-
-    const after = getPosition(svm, position1);
-    expect(after.vestedLiquidity.gt(beforeVested)).to.be.true;
-
-    await lockPosition(
-      svm,
-      position1,
-      nonAuthorizedUser,
-      nonAuthorizedUser,
-      params,
-      true,
-      INVALID_AUTHORITY_CODE
-    );
-  });
-
-  it("delegate removes part of unlocked liquidity from position1", async () => {
-    const before = getPosition(svm, position1);
-    expect(before.unlockedLiquidity.gt(new BN(0))).to.be.true;
-
-    const beforeA = new BN(getTokenBalance(svm, delegateAtaA));
-    const beforeB = new BN(getTokenBalance(svm, delegateAtaB));
-
-    await removeLiquidity(svm, {
-      owner: delegate,
-      pool,
-      position: position1,
-      liquidityDelta: before.unlockedLiquidity.divn(2),
-      tokenAAmountThreshold: new BN(0),
-      tokenBAmountThreshold: new BN(0),
+      const failResult = await claimReward(svm, {
+        index: rewardIndex,
+        user: nonAuthorizedUser,
+        pool,
+        position: position1,
+        skipReward: 0,
+      });
+      expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
     });
 
-    const after = getPosition(svm, position1);
-    expect(after.unlockedLiquidity.lt(before.unlockedLiquidity)).to.be.true;
+    it("delegate splits position1 into position2", async () => {
+      const beforeFirst = getPosition(svm, position1);
+      const beforeSecond = getPosition(svm, position2);
 
-    const afterA = new BN(getTokenBalance(svm, delegateAtaA));
-    const afterB = new BN(getTokenBalance(svm, delegateAtaB));
-    expect(afterA.gt(beforeA) || afterB.gt(beforeB)).to.be.true;
+      await splitPosition(svm, {
+        firstPositionOwner: delegate,
+        secondPositionOwner: delegate,
+        pool,
+        firstPosition: position1,
+        secondPosition: position2,
+        firstPositionNftAccount: position1NftAccount,
+        secondPositionNftAccount: position2NftAccount,
+        unlockedLiquidityPercentage: 20,
+        permanentLockedLiquidityPercentage: 0,
+        feeAPercentage: 0,
+        feeBPercentage: 0,
+        reward0Percentage: 0,
+        reward1Percentage: 0,
+        innerVestingLiquidityPercentage: 0,
+      });
 
-    await removeLiquidity(
-      svm,
-      {
-        owner: nonAuthorizedUser,
+      const afterFirst = getPosition(svm, position1);
+      const afterSecond = getPosition(svm, position2);
+
+      expect(afterFirst.unlockedLiquidity.lt(beforeFirst.unlockedLiquidity)).to
+        .be.true;
+      expect(afterSecond.unlockedLiquidity.gt(beforeSecond.unlockedLiquidity))
+        .to.be.true;
+
+      const failResult = await splitPosition(svm, {
+        firstPositionOwner: nonAuthorizedUser,
+        secondPositionOwner: nonAuthorizedUser,
+        pool,
+        firstPosition: position1,
+        secondPosition: position2,
+        firstPositionNftAccount: position1NftAccount,
+        secondPositionNftAccount: position2NftAccount,
+        unlockedLiquidityPercentage: 20,
+        permanentLockedLiquidityPercentage: 0,
+        feeAPercentage: 0,
+        feeBPercentage: 0,
+        reward0Percentage: 0,
+        reward1Percentage: 0,
+        innerVestingLiquidityPercentage: 0,
+      });
+      expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
+    });
+
+    it("delegate locks portion of position1 with vesting account", async () => {
+      const state = getPosition(svm, position1);
+      const params = buildVestingParams(state.unlockedLiquidity.divn(4));
+
+      const beforeVested = state.vestedLiquidity;
+      await lockPosition(svm, position1, delegate, delegate, params);
+
+      const after = getPosition(svm, position1);
+      expect(after.vestedLiquidity.gt(beforeVested)).to.be.true;
+
+      await lockPosition(
+        svm,
+        position1,
+        nonAuthorizedUser,
+        nonAuthorizedUser,
+        params,
+        false,
+        INVALID_AUTHORITY_CODE
+      );
+    });
+
+    it("delegate locks inner of position1", async () => {
+      const state = getPosition(svm, position1);
+      const params = buildVestingParams(state.unlockedLiquidity.divn(4));
+
+      const beforeVested = state.vestedLiquidity;
+      await lockPosition(svm, position1, delegate, delegate, params, true);
+
+      const after = getPosition(svm, position1);
+      expect(after.vestedLiquidity.gt(beforeVested)).to.be.true;
+
+      await lockPosition(
+        svm,
+        position1,
+        nonAuthorizedUser,
+        nonAuthorizedUser,
+        params,
+        true,
+        INVALID_AUTHORITY_CODE
+      );
+    });
+
+    it("delegate removes part of unlocked liquidity from position1", async () => {
+      const before = getPosition(svm, position1);
+      expect(before.unlockedLiquidity.gt(new BN(0))).to.be.true;
+
+      const beforeA = new BN(getTokenBalance(svm, delegateAtaA));
+      const beforeB = new BN(getTokenBalance(svm, delegateAtaB));
+
+      await removeLiquidity(svm, {
+        owner: delegate,
         pool,
         position: position1,
         liquidityDelta: before.unlockedLiquidity.divn(2),
         tokenAAmountThreshold: new BN(0),
         tokenBAmountThreshold: new BN(0),
-      },
-      INVALID_AUTHORITY_CODE
-    );
-  });
+      });
 
-  it("delegate permanent-locks position2", async () => {
-    const before = getPosition(svm, position2);
-    expect(before.unlockedLiquidity.gt(new BN(0))).to.be.true;
+      const after = getPosition(svm, position1);
+      expect(after.unlockedLiquidity.lt(before.unlockedLiquidity)).to.be.true;
 
-    await permanentLockPosition(svm, position2, delegate, delegate);
+      const afterA = new BN(getTokenBalance(svm, delegateAtaA));
+      const afterB = new BN(getTokenBalance(svm, delegateAtaB));
+      expect(afterA.gt(beforeA) || afterB.gt(beforeB)).to.be.true;
 
-    const after = getPosition(svm, position2);
-    expect(after.permanentLockedLiquidity.gt(new BN(0))).to.be.true;
-    expect(after.unlockedLiquidity.isZero()).to.be.true;
-
-    await permanentLockPosition(
-      svm,
-      position2,
-      nonAuthorizedUser,
-      nonAuthorizedUser,
-      INVALID_AUTHORITY_CODE
-    );
-  });
-
-  it("delegate split_position2 between two fresh positions", async () => {
-    const fromPosition = await createPosition(svm, user, user.publicKey, pool);
-    const toPosition = await createPosition(svm, user, user.publicKey, pool);
-    const fromPositionNftAccount = derivePositionNftAccount(
-      getPosition(svm, fromPosition).nftMint
-    );
-    const toPositionNftAccount = derivePositionNftAccount(
-      getPosition(svm, toPosition).nftMint
-    );
-
-    // user approves delegate on both new NFTs
-    for (const nftAccount of [fromPositionNftAccount, toPositionNftAccount]) {
-      sendTransaction(
+      await removeLiquidity(
         svm,
-        new Transaction().add(
-          createApproveInstruction(
-            nftAccount,
-            delegate.publicKey,
-            user.publicKey,
-            1,
-            [],
-            TOKEN_2022_PROGRAM_ID
-          )
-        ),
-        [user]
+        {
+          owner: nonAuthorizedUser,
+          pool,
+          position: position1,
+          liquidityDelta: before.unlockedLiquidity.divn(2),
+          tokenAAmountThreshold: new BN(0),
+          tokenBAmountThreshold: new BN(0),
+        },
+        INVALID_AUTHORITY_CODE
       );
-    }
-
-    await addLiquidity(svm, {
-      owner: delegate,
-      pool,
-      position: fromPosition,
-      liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
-      tokenAAmountThreshold: U64_MAX,
-      tokenBAmountThreshold: U64_MAX,
     });
 
-    const beforeFrom = getPosition(svm, fromPosition);
-    const beforeTo = getPosition(svm, toPosition);
+    it("delegate permanent-locks position2", async () => {
+      const before = getPosition(svm, position2);
+      expect(before.unlockedLiquidity.gt(new BN(0))).to.be.true;
 
-    const result = await splitPosition2(svm, {
-      firstPositionOwner: delegate,
-      secondPositionOwner: delegate,
-      pool,
-      firstPosition: fromPosition,
-      secondPosition: toPosition,
-      firstPositionNftAccount: fromPositionNftAccount,
-      secondPositionNftAccount: toPositionNftAccount,
-      numerator: SPLIT_POSITION_DENOMINATOR / 5,
+      await permanentLockPosition(svm, position2, delegate, delegate);
+
+      const after = getPosition(svm, position2);
+      expect(after.permanentLockedLiquidity.gt(new BN(0))).to.be.true;
+      expect(after.unlockedLiquidity.isZero()).to.be.true;
+
+      await permanentLockPosition(
+        svm,
+        position2,
+        nonAuthorizedUser,
+        nonAuthorizedUser,
+        INVALID_AUTHORITY_CODE
+      );
     });
-    expect(result).instanceOf(TransactionMetadata);
 
-    const afterFrom = getPosition(svm, fromPosition);
-    const afterTo = getPosition(svm, toPosition);
-    expect(afterFrom.unlockedLiquidity.lt(beforeFrom.unlockedLiquidity)).to.be
-      .true;
-    expect(afterTo.unlockedLiquidity.gt(beforeTo.unlockedLiquidity)).to.be.true;
+    it("delegate split_position2 between two fresh positions", async () => {
+      const fromPosition = await createPosition(
+        svm,
+        user,
+        user.publicKey,
+        pool
+      );
+      const toPosition = await createPosition(svm, user, user.publicKey, pool);
+      const fromPositionNftAccount = derivePositionNftAccount(
+        getPosition(svm, fromPosition).nftMint
+      );
+      const toPositionNftAccount = derivePositionNftAccount(
+        getPosition(svm, toPosition).nftMint
+      );
 
-    const failResult = await splitPosition2(svm, {
-      firstPositionOwner: nonAuthorizedUser,
-      secondPositionOwner: nonAuthorizedUser,
-      pool,
-      firstPosition: fromPosition,
-      secondPosition: toPosition,
-      firstPositionNftAccount: fromPositionNftAccount,
-      secondPositionNftAccount: toPositionNftAccount,
-      numerator: SPLIT_POSITION_DENOMINATOR / 5,
+      // user grants delegate split + add permissions on both fresh positions
+      const splitPermission = encodeDelegatePermissions([
+        PositionDelegatePermission.AddLiquidity,
+        PositionDelegatePermission.SplitPosition,
+      ]);
+      for (const position of [fromPosition, toPosition]) {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position,
+          delegate: delegate.publicKey,
+          permission: splitPermission,
+        });
+      }
+
+      await addLiquidity(svm, {
+        owner: delegate,
+        pool,
+        position: fromPosition,
+        liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+        tokenAAmountThreshold: U64_MAX,
+        tokenBAmountThreshold: U64_MAX,
+      });
+
+      const beforeFrom = getPosition(svm, fromPosition);
+      const beforeTo = getPosition(svm, toPosition);
+
+      const result = await splitPosition2(svm, {
+        firstPositionOwner: delegate,
+        secondPositionOwner: delegate,
+        pool,
+        firstPosition: fromPosition,
+        secondPosition: toPosition,
+        firstPositionNftAccount: fromPositionNftAccount,
+        secondPositionNftAccount: toPositionNftAccount,
+        numerator: SPLIT_POSITION_DENOMINATOR / 5,
+      });
+      expect(result).instanceOf(TransactionMetadata);
+
+      const afterFrom = getPosition(svm, fromPosition);
+      const afterTo = getPosition(svm, toPosition);
+      expect(afterFrom.unlockedLiquidity.lt(beforeFrom.unlockedLiquidity)).to.be
+        .true;
+      expect(afterTo.unlockedLiquidity.gt(beforeTo.unlockedLiquidity)).to.be
+        .true;
+
+      const failResult = await splitPosition2(svm, {
+        firstPositionOwner: nonAuthorizedUser,
+        secondPositionOwner: nonAuthorizedUser,
+        pool,
+        firstPosition: fromPosition,
+        secondPosition: toPosition,
+        firstPositionNftAccount: fromPositionNftAccount,
+        secondPositionNftAccount: toPositionNftAccount,
+        numerator: SPLIT_POSITION_DENOMINATOR / 5,
+      });
+      expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
     });
-    expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
+  });
+
+  it("Permission handling", () => {
+    it("rejects when spl approve without delegate permission", async () => {
+      const targetPosition = await createPosition(
+        svm,
+        user,
+        user.publicKey,
+        pool
+      );
+      const targetNftAccount = derivePositionNftAccount(
+        getPosition(svm, targetPosition).nftMint
+      );
+
+      const approveTx = new Transaction().add(
+        createApproveInstruction(
+          targetNftAccount,
+          delegate.publicKey,
+          user.publicKey,
+          1,
+          [],
+          TOKEN_2022_PROGRAM_ID
+        )
+      );
+      expect(sendTransaction(svm, approveTx, [user])).instanceOf(
+        TransactionMetadata
+      );
+
+      await addLiquidity(
+        svm,
+        {
+          owner: delegate,
+          pool,
+          position: targetPosition,
+          liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+          tokenAAmountThreshold: U64_MAX,
+          tokenBAmountThreshold: U64_MAX,
+        },
+        INVALID_AUTHORITY_CODE
+      );
+    });
+
+    it("rejects when delegate permission set without spl approve", async () => {
+      const targetPosition = await createPosition(
+        svm,
+        user,
+        user.publicKey,
+        pool
+      );
+
+      // grant only AddLiquidity, withhold RemoveLiquidity
+      await updateDelegatePermission(svm, {
+        owner: user,
+        position: targetPosition,
+        delegate: delegate.publicKey,
+        permission: encodeDelegatePermissions([
+          PositionDelegatePermission.AddLiquidity,
+        ]),
+      });
+
+      await addLiquidity(svm, {
+        owner: delegate,
+        pool,
+        position: targetPosition,
+        liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+        tokenAAmountThreshold: U64_MAX,
+        tokenBAmountThreshold: U64_MAX,
+      });
+
+      await removeLiquidity(
+        svm,
+        {
+          owner: delegate,
+          pool,
+          position: targetPosition,
+          liquidityDelta: new BN(1),
+          tokenAAmountThreshold: new BN(0),
+          tokenBAmountThreshold: new BN(0),
+        },
+        INVALID_AUTHORITY_CODE
+      );
+    });
+
+    it("permission inheritance after nft transfer", async () => {
+      const newOwner = generateKpAndFund(svm);
+      const newDelegate = generateKpAndFund(svm);
+      mintSplTokenTo(svm, tokenAMint, admin, newDelegate.publicKey);
+      mintSplTokenTo(svm, tokenBMint, admin, newDelegate.publicKey);
+
+      const position = await createPosition(svm, user, user.publicKey, pool);
+      const targetNftAccount = derivePositionNftAccount(
+        getPosition(svm, position).nftMint
+      );
+
+      await updateDelegatePermission(svm, {
+        owner: user,
+        position,
+        delegate: delegate.publicKey,
+        permission: encodeDelegatePermissions([
+          PositionDelegatePermission.AddLiquidity,
+        ]),
+      });
+
+      // transfer nft
+      const transferTx = new Transaction().add(
+        createSetAuthorityInstruction(
+          targetNftAccount,
+          user.publicKey,
+          AuthorityType.AccountOwner,
+          newOwner.publicKey,
+          [],
+          TOKEN_2022_PROGRAM_ID
+        )
+      );
+      expect(sendTransaction(svm, transferTx, [user])).instanceOf(
+        TransactionMetadata
+      );
+
+      // set new delegate
+      const approveTx = new Transaction().add(
+        createApproveInstruction(
+          targetNftAccount,
+          newDelegate.publicKey,
+          newOwner.publicKey,
+          1,
+          [],
+          TOKEN_2022_PROGRAM_ID
+        )
+      );
+      expect(sendTransaction(svm, approveTx, [newOwner])).instanceOf(
+        TransactionMetadata
+      );
+
+      // newDelegate inherits existing perms
+      const before = getPosition(svm, position);
+      await addLiquidity(svm, {
+        owner: newDelegate,
+        pool,
+        position,
+        liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+        tokenAAmountThreshold: U64_MAX,
+        tokenBAmountThreshold: U64_MAX,
+      });
+
+      const after = getPosition(svm, position);
+      expect(after.unlockedLiquidity.gt(before.unlockedLiquidity)).to.be.true;
+    });
   });
 });

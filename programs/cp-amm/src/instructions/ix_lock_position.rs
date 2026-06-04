@@ -6,7 +6,10 @@ use crate::{
     error::PoolError,
     get_pool_access_validator,
     safe_math::SafeMath,
-    state::{is_position_authority, InnerVesting, Pool, Position, Vesting},
+    state::{
+        assert_position_authority, InnerVesting, Pool, Position, PositionDelegatePermission,
+        Vesting,
+    },
     EvtLockPosition,
 };
 
@@ -89,8 +92,6 @@ pub struct LockPositionCtx<'info> {
     #[account(
         constraint = position_nft_account.mint == position.load()?.nft_mint,
         constraint = position_nft_account.amount == 1,
-        constraint = is_position_authority(&position_nft_account, &owner.key())
-            @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -107,6 +108,15 @@ pub fn handle_lock_position(
     ctx: Context<LockPositionCtx>,
     params: VestingParameters,
 ) -> Result<()> {
+    let mut position = ctx.accounts.position.load_mut()?;
+
+    assert_position_authority(
+        &ctx.accounts.position_nft_account,
+        &position,
+        &ctx.accounts.owner.key(),
+        PositionDelegatePermission::LockPosition,
+    )?;
+
     let mut vesting = ctx.accounts.vesting.load_init()?;
     vesting.initialize(ctx.accounts.position.key());
 
@@ -115,7 +125,6 @@ pub fn handle_lock_position(
         cliff_point,
     } = process_initialize_inner_vesting(&params, &ctx.accounts.pool, &mut vesting.inner_vesting)?;
 
-    let mut position = ctx.accounts.position.load_mut()?;
     let pool = ctx.accounts.pool.load()?;
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
     // refresh inner vesting firstly to retrieve the latest state of unlocked liquidity

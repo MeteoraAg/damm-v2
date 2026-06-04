@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program_option::COption;
 use anchor_spl::token_interface::TokenAccount;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
+use std::ops::BitAnd;
 use std::{cell::RefMut, u64};
 
 use crate::{
@@ -16,6 +17,28 @@ use crate::{
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
     PoolError,
 };
+
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+)]
+pub enum PositionDelegatePermission {
+    AddLiquidity,          // 0
+    RemoveLiquidity,       // 1
+    ClaimPositionFee,      // 2
+    ClaimReward,           // 3
+    LockPosition,          // 4
+    PermanentLockPosition, // 5
+    LockInnerPosition,     // 6
+    SplitPosition,         // 7
+}
 
 #[zero_copy]
 #[derive(Default, Debug, InitSpace, PartialEq)]
@@ -80,8 +103,8 @@ pub struct Position {
     pub reward_infos: [UserRewardInfo; NUM_REWARDS],
     /// inner vesting info
     pub inner_vesting: InnerVesting,
-    /// padding for future usage
-    pub padding: u128,
+    /// delegate permission bitmask (paired with SPL token Approve)
+    pub delegate_permission: u128,
 }
 
 const_assert_eq!(Position::INIT_SPACE, 400);
@@ -502,6 +525,17 @@ impl Position {
                 .unwrap_or(0),
         }
     }
+
+    pub fn set_delegate_permission(&mut self, permission: u128) {
+        self.delegate_permission = permission;
+    }
+
+    pub fn is_delegate_permission_allowed(&self, permission: PositionDelegatePermission) -> bool {
+        let result = self
+            .delegate_permission
+            .bitand(1u128 << Into::<u8>::into(permission));
+        result != 0
+    }
 }
 
 pub struct SplitFeeAmount {
@@ -540,12 +574,27 @@ pub struct SplitPositionInfo2 {
     pub reward_1: u64,
 }
 
-pub fn is_position_authority(nft_token_account: &TokenAccount, signer: &Pubkey) -> bool {
-    if nft_token_account.owner == *signer {
-        true
-    } else if let COption::Some(delegate) = nft_token_account.delegate {
-        delegate == *signer && nft_token_account.delegated_amount >= 1
-    } else {
-        false
+pub fn assert_position_authority(
+    nft_token_account: &TokenAccount,
+    position: &Position,
+    signer: &Pubkey,
+    permission: PositionDelegatePermission,
+) -> Result<()> {
+    if nft_token_account.owner.eq(signer) {
+        return Ok(());
     }
+
+    let delegate = nft_token_account
+        .delegate
+        .ok_or_else(|| PoolError::InvalidAuthority)?;
+    require!(
+        delegate.eq(signer) && nft_token_account.delegated_amount >= 1,
+        PoolError::InvalidAuthority
+    );
+    require!(
+        position.is_delegate_permission_allowed(permission),
+        PoolError::InvalidAuthority
+    );
+
+    Ok(())
 }
