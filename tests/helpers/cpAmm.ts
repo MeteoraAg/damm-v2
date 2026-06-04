@@ -10,6 +10,7 @@ import {
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,
   AccountLayout,
+  createApproveInstruction,
   ExtensionType,
   getAssociatedTokenAddressSync,
   getExtensionData,
@@ -2443,4 +2444,72 @@ export function getFeeShedulerParams(
     reductionFactor,
     baseFeeMode,
   };
+}
+
+export enum PositionDelegatePermission {
+  AddLiquidity = 0,
+  RemoveLiquidity = 1,
+  ClaimPositionFee = 2,
+  ClaimReward = 3,
+  LockPosition = 4,
+  PermanentLockPosition = 5,
+  LockInnerPosition = 6,
+  SplitPosition = 7,
+}
+
+export function encodeDelegatePermissions(
+  permissions: PositionDelegatePermission[]
+): BN {
+  return permissions.reduce(
+    (acc, p) => acc.or(new BN(1).shln(p as number)),
+    new BN(0)
+  );
+}
+
+export type UpdateDelegatePermissionParams = {
+  owner: Keypair;
+  position: PublicKey;
+  delegate: PublicKey;
+  permission: BN;
+};
+
+export async function updateDelegatePermission(
+  svm: LiteSVM,
+  params: UpdateDelegatePermissionParams,
+  errorCode?: number
+) {
+  const { owner, position, delegate, permission } = params;
+  const program = createCpAmmProgram();
+  const positionState = getPosition(svm, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  const setIx = await program.methods
+    .updateDelegatePermission(permission)
+    .accountsPartial({
+      position,
+      positionNftAccount,
+      owner: owner.publicKey,
+    })
+    .instruction();
+
+  const transaction = new Transaction()
+    .add(
+      createApproveInstruction(
+        positionNftAccount,
+        delegate,
+        owner.publicKey,
+        1,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    )
+    .add(setIx);
+
+  const result = sendTransaction(svm, transaction, [owner]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }

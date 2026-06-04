@@ -3,9 +3,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    state::{is_position_authority, Pool, Position},
+    state::{assert_position_authority, Pool, Position, PositionDelegatePermission},
     token::transfer_from_pool,
-    EvtClaimPositionFee, PoolError,
+    EvtClaimPositionFee,
 };
 
 #[event_cpi]
@@ -56,8 +56,6 @@ pub struct ClaimPositionFeeCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            constraint = is_position_authority(&position_nft_account, &owner.key())
-                @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -73,6 +71,13 @@ pub struct ClaimPositionFeeCtx<'info> {
 
 pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
     let mut position = ctx.accounts.position.load_mut()?;
+
+    assert_position_authority(
+        &ctx.accounts.position_nft_account,
+        &position,
+        &ctx.accounts.owner.key(),
+        PositionDelegatePermission::ClaimPositionFee,
+    )?;
 
     let pool = ctx.accounts.pool.load()?;
     position.update_fee(pool.fee_a_per_liquidity(), pool.fee_b_per_liquidity())?;

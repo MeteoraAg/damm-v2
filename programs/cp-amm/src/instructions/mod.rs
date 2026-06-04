@@ -36,3 +36,6 @@ pub use ix_split_position2::*;
 
 pub mod ix_lock_inner_position;
 pub use ix_lock_inner_position::*;
+
+pub mod ix_update_delegate_permission;
+pub use ix_update_delegate_permission::*;

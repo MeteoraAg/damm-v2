@@ -21,11 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.2][#PR 210](https://github.com/MeteoraAg/damm-v2/pull/210)
 
-- TODO
-
 ### Added
 
-- Added support for NFT delegates to manage positions. The following endpoints can now be signed by a delegate: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`, `split_position`, `split_position2`. The `close_position` endpoint remains callable by the owner only.
+- Added support for NFT delegates to manage positions. The following endpoints can now be signed by a delegate if the owner has granted them permission: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`, `split_position`, `split_position2`. The `close_position` endpoint remains callable by the owner only.
+- Added new endpoint `update_delegate_permission` to set permission bitmask to `Position.delegate_permission`. Pass `permission = 0` to clear all permissions. Callers are responsible for managing the SPL token delegate via SPL `Approve` / `Revoke` separately. The permission bitmask supports 8 permissions: `AddLiquidity`, `RemoveLiquidity`, `ClaimPositionFee`, `ClaimReward`, `LockPosition`, `PermanentLockPosition`, `LockInnerPosition`, `SplitPosition`.
 
 ### Changed
 

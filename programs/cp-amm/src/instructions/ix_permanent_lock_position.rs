@@ -4,7 +4,7 @@ use anchor_spl::token_interface::TokenAccount;
 use crate::{
     activation_handler::ActivationHandler,
     get_pool_access_validator,
-    state::{is_position_authority, Pool, Position},
+    state::{assert_position_authority, Pool, Position, PositionDelegatePermission},
     EvtPermanentLockPosition, PoolError,
 };
 
@@ -21,8 +21,6 @@ pub struct PermanentLockPositionCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            constraint = is_position_authority(&position_nft_account, &owner.key())
-                @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -45,6 +43,13 @@ pub fn handle_permanent_lock_position(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
+
+    assert_position_authority(
+        &ctx.accounts.position_nft_account,
+        &position,
+        &ctx.accounts.owner.key(),
+        PositionDelegatePermission::PermanentLockPosition,
+    )?;
 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
     // refresh inner vesting firstly to retrieve the latest state of unlocked liquidity

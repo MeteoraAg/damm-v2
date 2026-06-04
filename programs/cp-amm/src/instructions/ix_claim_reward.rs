@@ -6,7 +6,9 @@ use crate::{
     constants::NUM_REWARDS,
     error::PoolError,
     event::EvtClaimReward,
-    state::{is_position_authority, pool::Pool, position::Position},
+    state::{
+        assert_position_authority, pool::Pool, position::Position, PositionDelegatePermission,
+    },
     token::transfer_from_pool,
 };
 
@@ -40,8 +42,6 @@ pub struct ClaimRewardCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            constraint = is_position_authority(&position_nft_account, &owner.key())
-                @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -77,9 +77,16 @@ pub fn handle_claim_reward(
         .map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(index)?;
 
+    let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
 
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    assert_position_authority(
+        &ctx.accounts.position_nft_account,
+        &position,
+        &ctx.accounts.owner.key(),
+        PositionDelegatePermission::ClaimReward,
+    )?;
+
     let current_time = Clock::get()?.unix_timestamp as u64;
 
     // update pool reward & position reward

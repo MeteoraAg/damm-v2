@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     get_pool_access_validator,
-    state::{is_position_authority, Pool, Position},
+    state::{assert_position_authority, Pool, Position, PositionDelegatePermission},
     token::{calculate_transfer_fee_included_amount, transfer_from_user},
     u128x128_math::Rounding,
     EvtLiquidityChange, PoolError,
@@ -57,8 +57,6 @@ pub struct AddLiquidityCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            constraint = is_position_authority(&position_nft_account, &owner.key())
-                @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -93,10 +91,16 @@ pub fn handle_add_liquidity(
     }
 
     let mut pool = ctx.accounts.pool.load_mut()?;
+    let mut position = ctx.accounts.position.load_mut()?;
+
+    assert_position_authority(
+        &ctx.accounts.position_nft_account,
+        &position,
+        &ctx.accounts.owner.key(),
+        PositionDelegatePermission::AddLiquidity,
+    )?;
 
     pool.update_layout_version_if_needed()?;
-
-    let mut position = ctx.accounts.position.load_mut()?;
 
     // update current pool reward & postion reward before any logic
     let current_time = Clock::get()?.unix_timestamp as u64;

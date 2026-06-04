@@ -6,7 +6,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     activation_handler::ActivationHandler,
     const_pda, get_pool_access_validator,
-    state::{is_position_authority, Pool, Position},
+    state::{assert_position_authority, Pool, Position, PositionDelegatePermission},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
     EvtLiquidityChange, PoolError,
@@ -64,8 +64,6 @@ pub struct RemoveLiquidityCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            constraint = is_position_authority(&position_nft_account, &owner.key())
-                @ PoolError::InvalidAuthority,
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -95,10 +93,18 @@ pub fn handle_remove_liquidity(
     }
 
     let mut pool = ctx.accounts.pool.load_mut()?;
-    pool.update_layout_version_if_needed()?;
-    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
-
     let mut position = ctx.accounts.position.load_mut()?;
+
+    assert_position_authority(
+        &ctx.accounts.position_nft_account,
+        &position,
+        &ctx.accounts.owner.key(),
+        PositionDelegatePermission::RemoveLiquidity,
+    )?;
+
+    pool.update_layout_version_if_needed()?;
+
+    let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
     position.refresh_inner_vesting(current_point)?;
 
     let liquidity_delta = liquidity_delta.unwrap_or(position.unlocked_liquidity);
