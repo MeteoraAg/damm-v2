@@ -1,7 +1,7 @@
 use crate::{
     activation_handler::ActivationHandler,
     error::PoolError,
-    state::{assert_position_authority, Pool, Position, PositionDelegatePermission},
+    state::{Pool, Position, PositionDelegatePermission},
     EvtLockPosition, LockPositionInfo,
 };
 use crate::{process_initialize_inner_vesting, VestingParameters};
@@ -34,9 +34,8 @@ pub fn handle_lock_inner_position(
 ) -> Result<()> {
     let mut position = ctx.accounts.position.load_mut()?;
 
-    assert_position_authority(
+    position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &position,
         &ctx.accounts.owner.key(),
         PositionDelegatePermission::LockInnerPosition,
     )?;

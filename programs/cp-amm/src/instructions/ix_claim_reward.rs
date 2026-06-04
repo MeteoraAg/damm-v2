@@ -6,9 +6,7 @@ use crate::{
     constants::NUM_REWARDS,
     error::PoolError,
     event::EvtClaimReward,
-    state::{
-        assert_position_authority, pool::Pool, position::Position, PositionDelegatePermission,
-    },
+    state::{pool::Pool, position::Position, PositionDelegatePermission},
     token::transfer_from_pool,
 };
 
@@ -80,9 +78,8 @@ pub fn handle_claim_reward(
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
 
-    assert_position_authority(
+    position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &position,
         &ctx.accounts.owner.key(),
         PositionDelegatePermission::ClaimReward,
     )?;

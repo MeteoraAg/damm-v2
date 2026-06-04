@@ -536,6 +536,31 @@ impl Position {
             .bitand(1u128 << Into::<u8>::into(permission));
         result != 0
     }
+
+    pub fn assert_authority(
+        &self,
+        nft_token_account: &TokenAccount,
+        signer: &Pubkey,
+        permission: PositionDelegatePermission,
+    ) -> Result<()> {
+        if nft_token_account.owner.eq(signer) {
+            return Ok(());
+        }
+
+        let delegate = nft_token_account
+            .delegate
+            .ok_or_else(|| PoolError::InvalidAuthority)?;
+        require!(
+            delegate.eq(signer) && nft_token_account.delegated_amount >= 1,
+            PoolError::InvalidAuthority
+        );
+        require!(
+            self.is_delegate_permission_allowed(permission),
+            PoolError::InvalidAuthority
+        );
+
+        Ok(())
+    }
 }
 
 pub struct SplitFeeAmount {
@@ -572,29 +597,4 @@ pub struct SplitPositionInfo2 {
     pub fee_b: u64,
     pub reward_0: u64,
     pub reward_1: u64,
-}
-
-pub fn assert_position_authority(
-    nft_token_account: &TokenAccount,
-    position: &Position,
-    signer: &Pubkey,
-    permission: PositionDelegatePermission,
-) -> Result<()> {
-    if nft_token_account.owner.eq(signer) {
-        return Ok(());
-    }
-
-    let delegate = nft_token_account
-        .delegate
-        .ok_or_else(|| PoolError::InvalidAuthority)?;
-    require!(
-        delegate.eq(signer) && nft_token_account.delegated_amount >= 1,
-        PoolError::InvalidAuthority
-    );
-    require!(
-        position.is_delegate_permission_allowed(permission),
-        PoolError::InvalidAuthority
-    );
-
-    Ok(())
 }

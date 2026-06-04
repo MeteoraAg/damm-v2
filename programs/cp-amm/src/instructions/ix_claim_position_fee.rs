@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    state::{assert_position_authority, Pool, Position, PositionDelegatePermission},
+    state::{Pool, Position, PositionDelegatePermission},
     token::transfer_from_pool,
     EvtClaimPositionFee,
 };
@@ -72,9 +72,8 @@ pub struct ClaimPositionFeeCtx<'info> {
 pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
     let mut position = ctx.accounts.position.load_mut()?;
 
-    assert_position_authority(
+    position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &position,
         &ctx.accounts.owner.key(),
         PositionDelegatePermission::ClaimPositionFee,
     )?;

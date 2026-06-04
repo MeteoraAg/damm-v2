@@ -6,10 +6,7 @@ use crate::{
     error::PoolError,
     get_pool_access_validator,
     safe_math::SafeMath,
-    state::{
-        assert_position_authority, InnerVesting, Pool, Position, PositionDelegatePermission,
-        Vesting,
-    },
+    state::{InnerVesting, Pool, Position, PositionDelegatePermission, Vesting},
     EvtLockPosition,
 };
 
@@ -110,9 +107,8 @@ pub fn handle_lock_position(
 ) -> Result<()> {
     let mut position = ctx.accounts.position.load_mut()?;
 
-    assert_position_authority(
+    position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &position,
         &ctx.accounts.owner.key(),
         PositionDelegatePermission::LockPosition,
     )?;
