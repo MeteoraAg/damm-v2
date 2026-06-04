@@ -6,7 +6,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     activation_handler::ActivationHandler,
     const_pda, get_pool_access_validator,
-    state::{assert_position_authority, Pool, Position, PositionDelegatePermission},
+    state::{Pool, Position, PositionDelegatePermission},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
     EvtLiquidityChange, PoolError,
@@ -95,9 +95,8 @@ pub fn handle_remove_liquidity(
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
 
-    assert_position_authority(
+    position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &position,
         &ctx.accounts.owner.key(),
         PositionDelegatePermission::RemoveLiquidity,
     )?;

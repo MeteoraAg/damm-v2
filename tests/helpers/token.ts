@@ -77,7 +77,7 @@ export function createToken(
     mintKeypair.publicKey,
     DECIMALS,
     mintAuthority,
-    freezeAuthority ? freezeAuthority : null,
+    freezeAuthority ? freezeAuthority : null
   );
 
   let transaction = new Transaction();
@@ -138,7 +138,8 @@ export function mintSplTokenTo(
   svm: LiteSVM,
   mint: PublicKey,
   mintAuthority: Keypair,
-  toWallet: PublicKey
+  toWallet: PublicKey,
+  amount?: BN
 ) {
   const payer = Keypair.generate();
   svm.airdrop(payer.publicKey, BigInt(LAMPORTS_PER_SOL));
@@ -154,7 +155,7 @@ export function mintSplTokenTo(
     mint,
     destination,
     mintAuthority.publicKey,
-    rawAmount
+    amount ? BigInt(amount.toString()) : rawAmount
   );
 
   let transaction = new Transaction();

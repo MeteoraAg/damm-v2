@@ -4,10 +4,7 @@ use crate::{
     activation_handler::ActivationHandler,
     constants::{REWARD_INDEX_0, REWARD_INDEX_1, SPLIT_POSITION_DENOMINATOR},
     get_pool_access_validator,
-    state::{
-        assert_position_authority, Position, PositionDelegatePermission, SplitAmountInfo2,
-        SplitPositionInfo,
-    },
+    state::{Position, PositionDelegatePermission, SplitAmountInfo2, SplitPositionInfo},
     EvtSplitPosition3, PoolError, SplitPositionCtx,
 };
 
@@ -155,15 +152,13 @@ pub fn handle_split_position2(
     let mut first_position = ctx.accounts.first_position.load_mut()?;
     let mut second_position = ctx.accounts.second_position.load_mut()?;
 
-    assert_position_authority(
+    first_position.assert_authority(
         &ctx.accounts.first_position_nft_account,
-        &first_position,
         &ctx.accounts.first_owner.key(),
         PositionDelegatePermission::SplitPosition,
     )?;
-    assert_position_authority(
+    second_position.assert_authority(
         &ctx.accounts.second_position_nft_account,
-        &second_position,
         &ctx.accounts.second_owner.key(),
         PositionDelegatePermission::SplitPosition,
     )?;

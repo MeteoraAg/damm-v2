@@ -249,7 +249,7 @@ describe("Delegate Position", () => {
     });
   });
 
-  it("Lifecycle", () => {
+  describe("Lifecycle", () => {
     it("delegate adds liquidity to position1", async () => {
       const before = getPosition(svm, position1);
       expect(before.unlockedLiquidity.isZero()).to.be.true;
@@ -583,7 +583,7 @@ describe("Delegate Position", () => {
     });
   });
 
-  it("Permission handling", () => {
+  describe("Permission handling", () => {
     it("rejects when spl approve without delegate permission", async () => {
       const targetPosition = await createPosition(
         svm,
@@ -667,8 +667,9 @@ describe("Delegate Position", () => {
     it("permission inheritance after nft transfer", async () => {
       const newOwner = generateKpAndFund(svm);
       const newDelegate = generateKpAndFund(svm);
-      mintSplTokenTo(svm, tokenAMint, admin, newDelegate.publicKey);
-      mintSplTokenTo(svm, tokenBMint, admin, newDelegate.publicKey);
+      const mintAmount = new BN(1_000_000).muln(10 ** 6);
+      mintSplTokenTo(svm, tokenAMint, admin, newDelegate.publicKey, mintAmount);
+      mintSplTokenTo(svm, tokenBMint, admin, newDelegate.publicKey, mintAmount);
 
       const position = await createPosition(svm, user, user.publicKey, pool);
       const targetNftAccount = derivePositionNftAccount(
