@@ -11,11 +11,13 @@ import BN from "bn.js";
 import { expect } from "chai";
 import { LiteSVM, TransactionMetadata } from "litesvm";
 import {
+  ANCHOR_CONSTRAINT_TOKEN_OWNER_ERROR_CODE,
   addLiquidity,
   claimPositionFee,
   claimReward,
   createConfigIx,
   CreateConfigParams,
+  createCpAmmProgram,
   createOperator,
   createPosition,
   createToken,
@@ -584,17 +586,17 @@ describe("Delegate Position", () => {
   });
 
   describe("Permission handling", () => {
-    it("rejects when spl approve without delegate permission", async () => {
-      const targetPosition = await createPosition(
-        svm,
-        user,
-        user.publicKey,
-        pool
-      );
-      const targetNftAccount = derivePositionNftAccount(
+    let targetPosition: PublicKey;
+    let targetNftAccount: PublicKey;
+
+    beforeEach(async () => {
+      targetPosition = await createPosition(svm, user, user.publicKey, pool);
+      targetNftAccount = derivePositionNftAccount(
         getPosition(svm, targetPosition).nftMint
       );
+    });
 
+    it("rejects when spl approve without delegate permission", async () => {
       const approveTx = new Transaction().add(
         createApproveInstruction(
           targetNftAccount,
@@ -624,13 +626,6 @@ describe("Delegate Position", () => {
     });
 
     it("rejects when delegate permission set without spl approve", async () => {
-      const targetPosition = await createPosition(
-        svm,
-        user,
-        user.publicKey,
-        pool
-      );
-
       // grant only AddLiquidity, withhold RemoveLiquidity
       await updateDelegatePermission(svm, {
         owner: user,
@@ -665,13 +660,6 @@ describe("Delegate Position", () => {
     });
 
     it("rejects add liquidity after owner revokes permission", async () => {
-      const targetPosition = await createPosition(
-        svm,
-        user,
-        user.publicKey,
-        pool
-      );
-
       await updateDelegatePermission(svm, {
         owner: user,
         position: targetPosition,
@@ -711,6 +699,30 @@ describe("Delegate Position", () => {
       );
     });
 
+    it("rejects when delegate attempts to update permission", async () => {
+      await updateDelegatePermission(svm, {
+        owner: user,
+        position: targetPosition,
+        delegate: delegate.publicKey,
+        permission: encodeDelegatePermissions([
+          PositionDelegatePermission.AddLiquidity,
+        ]),
+      });
+
+      const program = createCpAmmProgram();
+      const ix = await program.methods
+        .updateDelegatePermission(encodeDelegatePermissions([]))
+        .accountsPartial({
+          position: targetPosition,
+          positionNftAccount: targetNftAccount,
+          owner: delegate.publicKey,
+        })
+        .instruction();
+      const tx = new Transaction().add(ix);
+      const result = sendTransaction(svm, tx, [delegate]);
+      expectThrowsErrorCode(result, ANCHOR_CONSTRAINT_TOKEN_OWNER_ERROR_CODE);
+    });
+
     it("permission inheritance after nft transfer", async () => {
       const newOwner = generateKpAndFund(svm);
       const newDelegate = generateKpAndFund(svm);
@@ -718,14 +730,9 @@ describe("Delegate Position", () => {
       mintSplTokenTo(svm, tokenAMint, admin, newDelegate.publicKey, mintAmount);
       mintSplTokenTo(svm, tokenBMint, admin, newDelegate.publicKey, mintAmount);
 
-      const position = await createPosition(svm, user, user.publicKey, pool);
-      const targetNftAccount = derivePositionNftAccount(
-        getPosition(svm, position).nftMint
-      );
-
       await updateDelegatePermission(svm, {
         owner: user,
-        position,
+        position: targetPosition,
         delegate: delegate.publicKey,
         permission: encodeDelegatePermissions([
           PositionDelegatePermission.AddLiquidity,
@@ -763,17 +770,17 @@ describe("Delegate Position", () => {
       );
 
       // newDelegate inherits existing perms
-      const before = getPosition(svm, position);
+      const before = getPosition(svm, targetPosition);
       await addLiquidity(svm, {
         owner: newDelegate,
         pool,
-        position,
+        position: targetPosition,
         liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
         tokenAAmountThreshold: U64_MAX,
         tokenBAmountThreshold: U64_MAX,
       });
 
-      const after = getPosition(svm, position);
+      const after = getPosition(svm, targetPosition);
       expect(after.unlockedLiquidity.gt(before.unlockedLiquidity)).to.be.true;
     });
   });
