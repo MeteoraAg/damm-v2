@@ -635,7 +635,7 @@ describe("Delegate Position", () => {
     });
 
     it("rejects when delegate permission set without spl approve", async () => {
-      // grant only AddLiquidity, withhold RemoveLiquidity
+      // only AddLiquidity
       await updateDelegatePermission(svm, {
         owner: user,
         position: targetPosition,
@@ -668,7 +668,7 @@ describe("Delegate Position", () => {
       );
     });
 
-    it("rejects add liquidity after owner revokes permission", async () => {
+    it("rejects after owner revokes permission", async () => {
       await updateDelegatePermission(svm, {
         owner: user,
         position: targetPosition,

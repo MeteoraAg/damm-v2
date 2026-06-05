@@ -2459,7 +2459,7 @@ export enum PositionDelegatePermission {
 
 export function encodeDelegatePermissions(
   permissions: PositionDelegatePermission[]
-): BN {
+) {
   return permissions.reduce(
     (acc, p) => acc.or(new BN(1).shln(p as number)),
     new BN(0)
