@@ -550,9 +550,10 @@ impl Position {
         let delegate = nft_token_account
             .delegate
             .ok_or_else(|| PoolError::InvalidAuthority)?;
+        require!(delegate.eq(signer), PoolError::InvalidAuthority);
         require!(
-            delegate.eq(signer) && self.is_delegate_permission_allowed(permission),
-            PoolError::InvalidAuthority
+            self.is_delegate_permission_allowed(permission),
+            PoolError::InvalidPermission
         );
 
         // Not strictly required, but surfaces owner mistake. non-zero delegated_amount lets the delegate transfer/burn the nft
