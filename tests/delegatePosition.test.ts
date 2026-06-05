@@ -66,6 +66,7 @@ import {
 } from "./helpers/token";
 
 const INVALID_AUTHORITY_CODE = getCpAmmProgramErrorCode("InvalidAuthority");
+const INVALID_PERMISSION_CODE = getCpAmmProgramErrorCode("InvalidPermission");
 
 function buildVestingParams(lockAmount: BN): LockPositionParams {
   const numberOfPeriod = 4;
@@ -630,7 +631,7 @@ describe("Delegate Position", () => {
           tokenAAmountThreshold: U64_MAX,
           tokenBAmountThreshold: U64_MAX,
         },
-        INVALID_AUTHORITY_CODE
+        INVALID_PERMISSION_CODE
       );
     });
 
@@ -664,7 +665,7 @@ describe("Delegate Position", () => {
           tokenAAmountThreshold: new BN(0),
           tokenBAmountThreshold: new BN(0),
         },
-        INVALID_AUTHORITY_CODE
+        INVALID_PERMISSION_CODE
       );
     });
 
@@ -704,7 +705,7 @@ describe("Delegate Position", () => {
           tokenAAmountThreshold: U64_MAX,
           tokenBAmountThreshold: U64_MAX,
         },
-        INVALID_AUTHORITY_CODE
+        INVALID_PERMISSION_CODE
       );
     });
 
