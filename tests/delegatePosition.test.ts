@@ -1,7 +1,9 @@
 import {
   AuthorityType,
   createApproveInstruction,
+  createBurnCheckedInstruction,
   createSetAuthorityInstruction,
+  createTransferCheckedInstruction,
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -9,7 +11,11 @@ import {
 import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import {
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
 import {
   ANCHOR_CONSTRAINT_TOKEN_OWNER_ERROR_CODE,
   addLiquidity,
@@ -54,7 +60,10 @@ import {
 import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import { expectThrowsErrorCode } from "./helpers/svm";
-import { getOrCreateAssociatedTokenAccount } from "./helpers/token";
+import {
+  getOrCreateAssociatedTokenAccount,
+  getTokenAccount,
+} from "./helpers/token";
 
 const INVALID_AUTHORITY_CODE = getCpAmmProgramErrorCode("InvalidAuthority");
 
@@ -760,7 +769,7 @@ describe("Delegate Position", () => {
           targetNftAccount,
           newDelegate.publicKey,
           newOwner.publicKey,
-          1,
+          0,
           [],
           TOKEN_2022_PROGRAM_ID
         )
@@ -782,6 +791,67 @@ describe("Delegate Position", () => {
 
       const after = getPosition(svm, targetPosition);
       expect(after.unlockedLiquidity.gt(before.unlockedLiquidity)).to.be.true;
+    });
+
+    it("delegate cannot transfer or burn nft", async () => {
+      await updateDelegatePermission(svm, {
+        owner: user,
+        position: targetPosition,
+        delegate: delegate.publicKey,
+        permission: encodeDelegatePermissions([
+          PositionDelegatePermission.AddLiquidity,
+        ]),
+      });
+
+      const nftMint = getPosition(svm, targetPosition).nftMint;
+
+      const delegateAta = getOrCreateAssociatedTokenAccount(
+        svm,
+        delegate,
+        nftMint,
+        delegate.publicKey,
+        TOKEN_2022_PROGRAM_ID
+      );
+
+      const transferTx = new Transaction().add(
+        createTransferCheckedInstruction(
+          targetNftAccount,
+          nftMint,
+          delegateAta,
+          delegate.publicKey,
+          1,
+          0,
+          [],
+          TOKEN_2022_PROGRAM_ID
+        )
+      );
+      expect(sendTransaction(svm, transferTx, [delegate])).instanceOf(
+        FailedTransactionMetadata
+      );
+
+      const delegateNft = getTokenAccount(svm, delegateAta);
+      expect(delegateNft.amount.toString()).to.equal("0");
+
+      let ownerNft = getTokenAccount(svm, targetNftAccount);
+      expect(ownerNft.amount.toString()).to.equal("1");
+
+      const burnTx = new Transaction().add(
+        createBurnCheckedInstruction(
+          targetNftAccount,
+          nftMint,
+          delegate.publicKey,
+          1,
+          0,
+          [],
+          TOKEN_2022_PROGRAM_ID
+        )
+      );
+      expect(sendTransaction(svm, burnTx, [delegate])).instanceOf(
+        FailedTransactionMetadata
+      );
+
+      ownerNft = getTokenAccount(svm, targetNftAccount);
+      expect(ownerNft.amount.toString()).to.equal("1");
     });
   });
 });

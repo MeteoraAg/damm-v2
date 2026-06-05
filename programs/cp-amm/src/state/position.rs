@@ -551,12 +551,14 @@ impl Position {
             .delegate
             .ok_or_else(|| PoolError::InvalidAuthority)?;
         require!(
-            delegate.eq(signer) && nft_token_account.delegated_amount >= 1,
+            delegate.eq(signer) && self.is_delegate_permission_allowed(permission),
             PoolError::InvalidAuthority
         );
+
+        // delegated_amount should be 0, so delegate can't transfer the token to their own account and become the owner
         require!(
-            self.is_delegate_permission_allowed(permission),
-            PoolError::InvalidAuthority
+            nft_token_account.delegated_amount == 0,
+            PoolError::DelegatedAmountNonZero
         );
 
         Ok(())

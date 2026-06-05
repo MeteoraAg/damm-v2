@@ -2498,7 +2498,7 @@ export async function updateDelegatePermission(
         positionNftAccount,
         delegate,
         owner.publicKey,
-        1,
+        0,
         [],
         TOKEN_2022_PROGRAM_ID
       )
