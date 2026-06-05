@@ -664,6 +664,53 @@ describe("Delegate Position", () => {
       );
     });
 
+    it("rejects add liquidity after owner revokes permission", async () => {
+      const targetPosition = await createPosition(
+        svm,
+        user,
+        user.publicKey,
+        pool
+      );
+
+      await updateDelegatePermission(svm, {
+        owner: user,
+        position: targetPosition,
+        delegate: delegate.publicKey,
+        permission: encodeDelegatePermissions([
+          PositionDelegatePermission.AddLiquidity,
+        ]),
+      });
+
+      await addLiquidity(svm, {
+        owner: delegate,
+        pool,
+        position: targetPosition,
+        liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+        tokenAAmountThreshold: U64_MAX,
+        tokenBAmountThreshold: U64_MAX,
+      });
+
+      await updateDelegatePermission(svm, {
+        owner: user,
+        position: targetPosition,
+        delegate: delegate.publicKey,
+        permission: encodeDelegatePermissions([]),
+      });
+
+      await addLiquidity(
+        svm,
+        {
+          owner: delegate,
+          pool,
+          position: targetPosition,
+          liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+          tokenAAmountThreshold: U64_MAX,
+          tokenBAmountThreshold: U64_MAX,
+        },
+        INVALID_AUTHORITY_CODE
+      );
+    });
+
     it("permission inheritance after nft transfer", async () => {
       const newOwner = generateKpAndFund(svm);
       const newDelegate = generateKpAndFund(svm);
