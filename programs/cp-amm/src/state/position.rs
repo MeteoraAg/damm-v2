@@ -555,7 +555,7 @@ impl Position {
             PoolError::InvalidAuthority
         );
 
-        // delegated_amount should be 0, so delegate can't transfer the token to their own account and become the owner
+        // Not strictly required, but surfaces owner mistake. non-zero delegated_amount lets the delegate transfer/burn the nft
         require!(
             nft_token_account.delegated_amount == 0,
             PoolError::DelegatedAmountNonZero
