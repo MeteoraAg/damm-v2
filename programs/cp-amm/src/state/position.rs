@@ -104,7 +104,9 @@ pub struct Position {
     /// inner vesting info
     pub inner_vesting: InnerVesting,
     /// delegate permission bitmask (paired with SPL token Approve)
-    pub delegate_permission: u128,
+    pub delegate_permission: u32,
+    /// padding for future usage
+    pub padding: [u8; 12],
 }
 
 const_assert_eq!(Position::INIT_SPACE, 400);
@@ -526,14 +528,14 @@ impl Position {
         }
     }
 
-    pub fn set_delegate_permission(&mut self, permission: u128) {
+    pub fn set_delegate_permission(&mut self, permission: u32) {
         self.delegate_permission = permission;
     }
 
     pub fn is_delegate_permission_allowed(&self, permission: PositionDelegatePermission) -> bool {
         let result = self
             .delegate_permission
-            .bitand(1u128 << Into::<u8>::into(permission));
+            .bitand(1u32 << Into::<u8>::into(permission));
         result != 0
     }
 

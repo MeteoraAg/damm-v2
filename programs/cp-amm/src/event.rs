@@ -100,7 +100,7 @@ pub struct EvtClosePosition {
 pub struct EvtUpdateDelegatePermission {
     pub position: Pubkey,
     pub owner: Pubkey,
-    pub permission: u128,
+    pub permission: u32,
 }
 
 #[derive(Clone, Copy)]

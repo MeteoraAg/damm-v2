@@ -347,7 +347,7 @@ pub mod cp_amm {
 
     pub fn update_delegate_permission(
         ctx: Context<UpdateDelegatePermissionCtx>,
-        permission: u128,
+        permission: u32,
     ) -> Result<()> {
         instructions::handle_update_delegate_permission(ctx, permission)
     }

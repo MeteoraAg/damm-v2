@@ -32,10 +32,10 @@ pub struct UpdateDelegatePermissionCtx<'info> {
 
 pub fn handle_update_delegate_permission(
     ctx: Context<UpdateDelegatePermissionCtx>,
-    permission: u128,
+    permission: u32,
 ) -> Result<()> {
     require!(
-        permission < 1u128 << MAX_POSITION_DELEGATE_PERMISSION,
+        permission < 1u32 << MAX_POSITION_DELEGATE_PERMISSION,
         PoolError::InvalidPermission
     );
 

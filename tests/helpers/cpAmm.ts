@@ -2460,17 +2460,14 @@ export enum PositionDelegatePermission {
 export function encodeDelegatePermissions(
   permissions: PositionDelegatePermission[]
 ) {
-  return permissions.reduce(
-    (acc, p) => acc.or(new BN(1).shln(p as number)),
-    new BN(0)
-  );
+  return permissions.reduce((acc, p) => acc | (1 << (p as number)), 0);
 }
 
 export type UpdateDelegatePermissionParams = {
   owner: Keypair;
   position: PublicKey;
   delegate: PublicKey;
-  permission: BN;
+  permission: number;
 };
 
 export async function updateDelegatePermission(
