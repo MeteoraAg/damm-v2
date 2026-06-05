@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-- The following endpoints previously rejected unauthorized signers with Anchor's `ConstraintTokenOwner` (2015) and now reject with `PoolError::InvalidAuthority` (6053): `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`, `split_position`, `split_position2`.
+- The following endpoints previously rejected unauthorized signers with Anchor's `ConstraintTokenOwner` (2015) and now reject with `PoolError::InvalidAuthority` (6053), `PoolError::InvalidPermission` (6054), or `PoolError::DelegatedAmountNonZero` (6070): `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`, `split_position`, `split_position2`.
 
 ## cp_amm [0.2.1][#PR 200](https://github.com/MeteoraAg/damm-v2/pull/200)
 
