@@ -32,8 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+- Renamed the signer account from `owner` to `signer`, now that the signer may be a delegate, in the following endpoints: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`.
 - The following endpoints previously rejected unauthorized signers with Anchor's `ConstraintTokenOwner` (2015) and now reject with `PoolError::InvalidAuthority` (6053), `PoolError::InvalidPermission` (6054), or `PoolError::DelegatedAmountNonZero` (6070): `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`.
-- Renamed the signer account from `owner` to `signer` in the following endpoints now that the signer may be a delegate: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`.
 
 ## cp_amm [0.2.1][#PR 200](https://github.com/MeteoraAg/damm-v2/pull/200)
 
