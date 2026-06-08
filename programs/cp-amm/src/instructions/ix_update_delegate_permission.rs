@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::TokenAccount;
 
 use crate::{
-    constants::MAX_POSITION_DELEGATE_PERMISSION, state::Position, EvtUpdateDelegatePermission,
-    PoolError,
+    state::{Position, PositionDelegatePermission},
+    EvtUpdateDelegatePermission, PoolError,
 };
 
 /// Permission bits are stored on the Position account
@@ -35,7 +35,7 @@ pub fn handle_update_delegate_permission(
     permission: u32,
 ) -> Result<()> {
     require!(
-        permission < 1u32 << MAX_POSITION_DELEGATE_PERMISSION,
+        permission < 1u32 << PositionDelegatePermission::VARIANT_COUNT,
         PoolError::InvalidPermission
     );
 

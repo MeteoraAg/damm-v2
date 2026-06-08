@@ -1,14 +1,11 @@
-use crate::{
-    constants::MAX_POSITION_DELEGATE_PERMISSION,
-    state::{Position, PositionDelegatePermission},
-};
+use crate::state::{Position, PositionDelegatePermission};
 
 #[test]
 fn test_position_with_full_permission() {
     let permission: u32 = 0b11111111;
     assert!(
-        permission > 1 << (MAX_POSITION_DELEGATE_PERMISSION - 1)
-            && permission < 1 << MAX_POSITION_DELEGATE_PERMISSION
+        permission > 1 << (PositionDelegatePermission::VARIANT_COUNT - 1)
+            && permission < 1 << PositionDelegatePermission::VARIANT_COUNT
     );
 
     let position = Position {

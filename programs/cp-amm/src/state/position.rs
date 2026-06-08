@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::TokenAccount;
+use derive_variant_count::VariantCount;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
@@ -29,6 +30,7 @@ use crate::{
     TryFromPrimitive,
     AnchorDeserialize,
     AnchorSerialize,
+    VariantCount,
 )]
 pub enum PositionDelegatePermission {
     AddLiquidity,            // 0

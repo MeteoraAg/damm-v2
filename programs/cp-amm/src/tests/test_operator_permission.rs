@@ -1,12 +1,12 @@
-use crate::{
-    constants::MAX_OPERATION,
-    state::{Operator, OperatorPermission},
-};
+use crate::state::{Operator, OperatorPermission};
 
 #[test]
 fn test_initialize_with_full_permission() {
     let permission: u128 = 0b111111111111;
-    assert!(permission > 1 << (MAX_OPERATION - 1) && permission < 1 << MAX_OPERATION);
+    assert!(
+        permission > 1 << (OperatorPermission::VARIANT_COUNT - 1)
+            && permission < 1 << OperatorPermission::VARIANT_COUNT
+    );
 
     let operator = Operator {
         permission,

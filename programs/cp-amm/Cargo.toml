@@ -38,6 +38,7 @@ pinocchio = { workspace = true }
 pinocchio-token = { workspace = true }
 pinocchio-token-2022 = { workspace = true }
 protocol-zap = { workspace = true }
+derive-variant-count = { workspace = true }
 
 [lints]
 workspace = true
