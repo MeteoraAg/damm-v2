@@ -60,8 +60,8 @@ pub struct AddLiquidityCtx<'info> {
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner or delegate of position NFT
-    pub owner: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     /// Token a program
     pub token_a_program: Interface<'info, TokenInterface>,
@@ -95,7 +95,7 @@ pub fn handle_add_liquidity(
 
     position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &ctx.accounts.owner.key(),
+        &ctx.accounts.signer.key(),
         PositionDelegatePermission::AddLiquidity,
     )?;
 
@@ -149,7 +149,7 @@ pub fn handle_add_liquidity(
     );
 
     transfer_from_user(
-        &ctx.accounts.owner,
+        &ctx.accounts.signer,
         &ctx.accounts.token_a_mint,
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_a_vault,
@@ -158,7 +158,7 @@ pub fn handle_add_liquidity(
     )?;
 
     transfer_from_user(
-        &ctx.accounts.owner,
+        &ctx.accounts.signer,
         &ctx.accounts.token_b_mint,
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_b_vault,

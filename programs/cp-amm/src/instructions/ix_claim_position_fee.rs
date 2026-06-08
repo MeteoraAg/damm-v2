@@ -59,8 +59,8 @@ pub struct ClaimPositionFeeCtx<'info> {
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner or delegate of position NFT
-    pub owner: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     /// Token a program
     pub token_a_program: Interface<'info, TokenInterface>,
@@ -74,7 +74,7 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
 
     position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &ctx.accounts.owner.key(),
+        &ctx.accounts.signer.key(),
         PositionDelegatePermission::ClaimPositionFee,
     )?;
 

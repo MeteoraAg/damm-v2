@@ -1381,7 +1381,7 @@ export async function claimReward(
       poolAuthority,
       position,
       userTokenAccount,
-      owner: user.publicKey,
+      signer: user.publicKey,
       tokenProgram,
     })
     .transaction();
@@ -1482,7 +1482,7 @@ export async function permanentLockPosition(
       position,
       positionNftAccount,
       pool: positionState.pool,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
     })
     .transaction();
 
@@ -1517,7 +1517,7 @@ export async function lockPosition(
       .accountsPartial({
         position,
         positionNftAccount,
-        owner: owner.publicKey,
+        signer: owner.publicKey,
         pool: positionState.pool,
         program: CP_AMM_PROGRAM_ID,
       })
@@ -1533,7 +1533,7 @@ export async function lockPosition(
         position,
         positionNftAccount,
         vesting: vestingAddress,
-        owner: owner.publicKey,
+        signer: owner.publicKey,
         pool: positionState.pool,
         program: CP_AMM_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -1679,7 +1679,7 @@ export async function addLiquidity(
       pool,
       position,
       positionNftAccount,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
       tokenAAccount,
       tokenBAccount,
       tokenAVault,
@@ -1753,7 +1753,7 @@ export async function removeLiquidity(
       pool,
       position,
       positionNftAccount,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
       tokenAAccount,
       tokenBAccount,
       tokenAVault,
@@ -1826,7 +1826,7 @@ export async function removeAllLiquidity(
       pool,
       position,
       positionNftAccount,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
       tokenAAccount,
       tokenBAccount,
       tokenAVault,
@@ -2134,7 +2134,7 @@ export async function claimPositionFee(
     .claimPositionFee()
     .accountsPartial({
       poolAuthority,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
       pool,
       position,
       positionNftAccount,
@@ -2209,8 +2209,8 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
       firstPositionNftAccount,
       secondPosition,
       secondPositionNftAccount,
-      firstOwner: firstPositionOwner.publicKey,
-      secondOwner: secondPositionOwner.publicKey,
+      firstSigner: firstPositionOwner.publicKey,
+      secondSigner: secondPositionOwner.publicKey,
     })
     .transaction();
 
@@ -2255,8 +2255,8 @@ export async function splitPosition2(
       firstPositionNftAccount,
       secondPosition,
       secondPositionNftAccount,
-      firstOwner: firstPositionOwner.publicKey,
-      secondOwner: secondPositionOwner.publicKey,
+      firstSigner: firstPositionOwner.publicKey,
+      secondSigner: secondPositionOwner.publicKey,
     })
     .transaction();
 

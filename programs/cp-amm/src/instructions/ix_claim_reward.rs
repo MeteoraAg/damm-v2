@@ -43,8 +43,8 @@ pub struct ClaimRewardCtx<'info> {
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner or delegate of position NFT
-    pub owner: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     pub token_program: Interface<'info, TokenInterface>,
 }
@@ -80,7 +80,7 @@ pub fn handle_claim_reward(
 
     position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &ctx.accounts.owner.key(),
+        &ctx.accounts.signer.key(),
         PositionDelegatePermission::ClaimReward,
     )?;
 

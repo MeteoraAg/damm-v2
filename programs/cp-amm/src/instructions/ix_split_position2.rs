@@ -154,12 +154,12 @@ pub fn handle_split_position2(
 
     first_position.assert_authority(
         &ctx.accounts.first_position_nft_account,
-        &ctx.accounts.first_owner.key(),
+        &ctx.accounts.first_signer.key(),
         PositionDelegatePermission::SplitPosition,
     )?;
     second_position.assert_authority(
         &ctx.accounts.second_position_nft_account,
-        &ctx.accounts.second_owner.key(),
+        &ctx.accounts.second_signer.key(),
         PositionDelegatePermission::SplitPosition,
     )?;
 

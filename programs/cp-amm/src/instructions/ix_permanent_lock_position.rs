@@ -24,8 +24,8 @@ pub struct PermanentLockPositionCtx<'info> {
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner or delegate of position NFT
-    pub owner: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 }
 
 pub fn handle_permanent_lock_position(
@@ -46,7 +46,7 @@ pub fn handle_permanent_lock_position(
 
     position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &ctx.accounts.owner.key(),
+        &ctx.accounts.signer.key(),
         PositionDelegatePermission::PermanentLockPosition,
     )?;
 

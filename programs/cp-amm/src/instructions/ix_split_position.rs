@@ -129,9 +129,9 @@ pub struct SplitPositionCtx<'info> {
     )]
     pub second_position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Owner or delegate of first position NFT
-    pub first_owner: Signer<'info>,
+    /// Signer for first position
+    pub first_signer: Signer<'info>,
 
-    /// Owner or delegate of second position NFT
-    pub second_owner: Signer<'info>,
+    /// Signer for second position
+    pub second_signer: Signer<'info>,
 }

@@ -67,8 +67,8 @@ pub struct RemoveLiquidityCtx<'info> {
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner or delegate of position NFT
-    pub owner: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     /// Token a program
     pub token_a_program: Interface<'info, TokenInterface>,
@@ -97,7 +97,7 @@ pub fn handle_remove_liquidity(
 
     position.assert_authority(
         &ctx.accounts.position_nft_account,
-        &ctx.accounts.owner.key(),
+        &ctx.accounts.signer.key(),
         PositionDelegatePermission::RemoveLiquidity,
     )?;
 
