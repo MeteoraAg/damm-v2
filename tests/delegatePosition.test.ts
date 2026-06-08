@@ -471,7 +471,6 @@ describe("Delegate Position", () => {
         INVALID_AUTHORITY_CODE
       );
     });
-
   });
 
   describe("Permission handling", () => {
@@ -515,36 +514,32 @@ describe("Delegate Position", () => {
     });
 
     it("rejects when delegate permission set without spl approve", async () => {
-      // only AddLiquidity
-      await updateDelegatePermission(svm, {
-        owner: user,
-        position: targetPosition,
-        delegate: delegate.publicKey,
-        permission: encodeDelegatePermissions([
-          PositionDelegatePermission.AddLiquidity,
-        ]),
-      });
+      const program = createCpAmmProgram();
+      const ix = await program.methods
+        .updateDelegatePermission(
+          encodeDelegatePermissions([PositionDelegatePermission.AddLiquidity])
+        )
+        .accountsPartial({
+          position: targetPosition,
+          positionNftAccount: targetNftAccount,
+          owner: user.publicKey,
+        })
+        .instruction();
+      expect(
+        sendTransaction(svm, new Transaction().add(ix), [user])
+      ).instanceOf(TransactionMetadata);
 
-      await addLiquidity(svm, {
-        owner: delegate,
-        pool,
-        position: targetPosition,
-        liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
-        tokenAAmountThreshold: U64_MAX,
-        tokenBAmountThreshold: U64_MAX,
-      });
-
-      await removeLiquidity(
+      await addLiquidity(
         svm,
         {
           owner: delegate,
           pool,
           position: targetPosition,
-          liquidityDelta: new BN(1),
-          tokenAAmountThreshold: new BN(0),
-          tokenBAmountThreshold: new BN(0),
+          liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+          tokenAAmountThreshold: U64_MAX,
+          tokenBAmountThreshold: U64_MAX,
         },
-        INVALID_PERMISSION_CODE
+        INVALID_AUTHORITY_CODE
       );
     });
 
