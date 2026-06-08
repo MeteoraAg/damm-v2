@@ -95,10 +95,23 @@ pub fn handle_remove_liquidity(
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
 
-    position.assert_authority(
+    position.assert_authority_with_owner_destinations(
         &ctx.accounts.position_nft_account,
         &ctx.accounts.signer.key(),
         PositionDelegatePermission::RemoveLiquidity,
+        PositionDelegatePermission::RemoveLiquidityToOwner,
+        &[
+            (
+                &ctx.accounts.token_a_account.to_account_info(),
+                ctx.accounts.token_a_mint.key(),
+                ctx.accounts.token_a_program.key(),
+            ),
+            (
+                &ctx.accounts.token_b_account.to_account_info(),
+                ctx.accounts.token_b_mint.key(),
+                ctx.accounts.token_b_program.key(),
+            ),
+        ],
     )?;
 
     pool.update_layout_version_if_needed()?;

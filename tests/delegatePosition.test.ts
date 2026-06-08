@@ -55,6 +55,7 @@ import {
   SPLIT_POSITION_DENOMINATOR,
   startSvm,
   swapExactIn,
+  SwapParams,
   warpToTimestamp,
 } from "./helpers";
 import { generateKpAndFund } from "./helpers/common";
@@ -67,6 +68,7 @@ import {
 
 const INVALID_AUTHORITY_CODE = getCpAmmProgramErrorCode("InvalidAuthority");
 const INVALID_PERMISSION_CODE = getCpAmmProgramErrorCode("InvalidPermission");
+const INVALID_DESTINATION_CODE = getCpAmmProgramErrorCode("IncorrectATA");
 
 function buildVestingParams(lockAmount: BN): LockPositionParams {
   const numberOfPeriod = 4;
@@ -103,6 +105,8 @@ describe("Delegate Position", () => {
   let delegateAtaA: PublicKey;
   let delegateAtaB: PublicKey;
   let delegateAtaReward: PublicKey;
+  let swapB2A: SwapParams;
+  let swapA2B: SwapParams;
   const configId = Math.floor(Math.random() * 1000);
   const rewardIndex = 0;
 
@@ -160,6 +164,20 @@ describe("Delegate Position", () => {
     mintSplTokenTo(svm, rewardMint, admin, creator.publicKey);
     mintSplTokenTo(svm, tokenAMint, admin, delegate.publicKey);
     mintSplTokenTo(svm, tokenBMint, admin, delegate.publicKey);
+    mintSplTokenTo(
+      svm,
+      tokenAMint,
+      admin,
+      user.publicKey,
+      new BN(1_000_000).muln(10 ** 6)
+    );
+    mintSplTokenTo(
+      svm,
+      tokenBMint,
+      admin,
+      user.publicKey,
+      new BN(1_000_000).muln(10 ** 6)
+    );
 
     const cliffFeeNumerator = new BN(2_500_000);
     const data = encodeFeeTimeSchedulerParams(
@@ -210,6 +228,25 @@ describe("Delegate Position", () => {
     };
 
     pool = (await initializePool(svm, initPoolParams)).pool;
+
+    swapB2A = {
+      payer: creator,
+      pool,
+      inputTokenMint: tokenBMint,
+      outputTokenMint: tokenAMint,
+      amountIn: new BN(1_000_000_000),
+      minimumAmountOut: new BN(0),
+      referralTokenAccount: null,
+    };
+    swapA2B = {
+      payer: creator,
+      pool,
+      inputTokenMint: tokenAMint,
+      outputTokenMint: tokenBMint,
+      amountIn: new BN(1_000_000_000),
+      minimumAmountOut: new BN(0),
+      referralTokenAccount: null,
+    };
 
     position1 = await createPosition(svm, user, user.publicKey, pool);
     position2 = await createPosition(svm, user, user.publicKey, pool);
@@ -301,25 +338,6 @@ describe("Delegate Position", () => {
     });
 
     it("delegate claims position fee on position1", async () => {
-      const swapB2A = {
-        payer: creator,
-        pool,
-        inputTokenMint: tokenBMint,
-        outputTokenMint: tokenAMint,
-        amountIn: new BN(1_000_000_000),
-        minimumAmountOut: new BN(0),
-        referralTokenAccount: null,
-      };
-      const swapA2B = {
-        payer: creator,
-        pool,
-        inputTokenMint: tokenAMint,
-        outputTokenMint: tokenBMint,
-        amountIn: new BN(1_000_000_000),
-        minimumAmountOut: new BN(0),
-        referralTokenAccount: null,
-      };
-
       // swap to accumulate fee
       await swapExactIn(svm, swapB2A);
       await swapExactIn(svm, swapA2B);
@@ -612,7 +630,7 @@ describe("Delegate Position", () => {
           targetNftAccount,
           delegate.publicKey,
           user.publicKey,
-          1,
+          0,
           [],
           TOKEN_2022_PROGRAM_ID
         )
@@ -853,6 +871,282 @@ describe("Delegate Position", () => {
 
       ownerNft = getTokenAccount(svm, targetNftAccount);
       expect(ownerNft.amount.toString()).to.equal("1");
+    });
+  });
+
+  describe("ToOwner permissions", () => {
+    let targetPosition: PublicKey;
+    let userAtaA: PublicKey;
+    let userAtaB: PublicKey;
+    let userAtaReward: PublicKey;
+
+    before(() => {
+      userAtaA = getOrCreateAssociatedTokenAccount(
+        svm,
+        user,
+        tokenAMint,
+        user.publicKey,
+        TOKEN_PROGRAM_ID
+      );
+      userAtaB = getOrCreateAssociatedTokenAccount(
+        svm,
+        user,
+        tokenBMint,
+        user.publicKey,
+        TOKEN_PROGRAM_ID
+      );
+      userAtaReward = getOrCreateAssociatedTokenAccount(
+        svm,
+        user,
+        rewardMint,
+        user.publicKey,
+        TOKEN_PROGRAM_ID
+      );
+    });
+
+    beforeEach(async () => {
+      targetPosition = await createPosition(svm, user, user.publicKey, pool);
+
+      await addLiquidity(svm, {
+        owner: user,
+        pool,
+        position: targetPosition,
+        liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
+        tokenAAmountThreshold: U64_MAX,
+        tokenBAmountThreshold: U64_MAX,
+      });
+
+      await swapExactIn(svm, swapB2A);
+      await swapExactIn(svm, swapA2B);
+    });
+
+    describe("RemoveLiquidity", () => {
+      it("delegate can remove to owner ATA", async () => {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.RemoveLiquidityToOwner,
+          ]),
+        });
+
+        const before = getPosition(svm, targetPosition);
+        await removeLiquidity(svm, {
+          owner: delegate,
+          pool,
+          position: targetPosition,
+          liquidityDelta: before.unlockedLiquidity.divn(2),
+          tokenAAmountThreshold: new BN(0),
+          tokenBAmountThreshold: new BN(0),
+          tokenAAccount: userAtaA,
+          tokenBAccount: userAtaB,
+        });
+        const after = getPosition(svm, targetPosition);
+        expect(after.unlockedLiquidity.lt(before.unlockedLiquidity)).to.be.true;
+      });
+
+      it("delegate cannot remove to delegate ATA", async () => {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.RemoveLiquidityToOwner,
+          ]),
+        });
+
+        const state = getPosition(svm, targetPosition);
+        await removeLiquidity(
+          svm,
+          {
+            owner: delegate,
+            pool,
+            position: targetPosition,
+            liquidityDelta: state.unlockedLiquidity.divn(2),
+            tokenAAmountThreshold: new BN(0),
+            tokenBAmountThreshold: new BN(0),
+            tokenAAccount: delegateAtaA,
+            tokenBAccount: delegateAtaB,
+          },
+          INVALID_DESTINATION_CODE
+        );
+      });
+
+      it("delegate with neither perm is rejected", async () => {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.AddLiquidity,
+          ]),
+        });
+
+        const state = getPosition(svm, targetPosition);
+        await removeLiquidity(
+          svm,
+          {
+            owner: delegate,
+            pool,
+            position: targetPosition,
+            liquidityDelta: state.unlockedLiquidity.divn(2),
+            tokenAAmountThreshold: new BN(0),
+            tokenBAmountThreshold: new BN(0),
+            tokenAAccount: userAtaA,
+            tokenBAccount: userAtaB,
+          },
+          INVALID_PERMISSION_CODE
+        );
+      });
+    });
+
+    describe("ClaimPositionFee", () => {
+      it("delegate can claim to owner ATA", async () => {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.ClaimPositionFeeToOwner,
+          ]),
+        });
+
+        const beforeA = new BN(getTokenBalance(svm, userAtaA));
+        const beforeB = new BN(getTokenBalance(svm, userAtaB));
+        await claimPositionFee(svm, {
+          owner: delegate,
+          pool,
+          position: targetPosition,
+          tokenAAccount: userAtaA,
+          tokenBAccount: userAtaB,
+        });
+        const afterA = new BN(getTokenBalance(svm, userAtaA));
+        const afterB = new BN(getTokenBalance(svm, userAtaB));
+        expect(afterA.gt(beforeA) || afterB.gt(beforeB)).to.be.true;
+      });
+
+      it("delegate cannot claim to delegate ATA", async () => {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.ClaimPositionFeeToOwner,
+          ]),
+        });
+
+        await claimPositionFee(
+          svm,
+          {
+            owner: delegate,
+            pool,
+            position: targetPosition,
+            tokenAAccount: delegateAtaA,
+            tokenBAccount: delegateAtaB,
+          },
+          INVALID_DESTINATION_CODE
+        );
+      });
+
+      it("delegate with neither perm is rejected", async () => {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.AddLiquidity,
+          ]),
+        });
+
+        await claimPositionFee(
+          svm,
+          {
+            owner: delegate,
+            pool,
+            position: targetPosition,
+            tokenAAccount: userAtaA,
+            tokenBAccount: userAtaB,
+          },
+          INVALID_PERMISSION_CODE
+        );
+      });
+    });
+
+    describe("ClaimReward", () => {
+      beforeEach(() => {
+        const clock = svm.getClock();
+        warpToTimestamp(
+          svm,
+          new BN(clock.unixTimestamp.toString()).addn(60 * 60)
+        );
+      });
+
+      it("delegate can claim to owner ATA", async () => {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.ClaimRewardToOwner,
+          ]),
+        });
+
+        const before = new BN(getTokenBalance(svm, userAtaReward));
+        const result = await claimReward(svm, {
+          index: rewardIndex,
+          user: delegate,
+          pool,
+          position: targetPosition,
+          skipReward: 0,
+          userTokenAccount: userAtaReward,
+        });
+        expect(result).instanceOf(TransactionMetadata);
+        const after = new BN(getTokenBalance(svm, userAtaReward));
+        expect(after.gt(before)).to.be.true;
+      });
+
+      it("delegate cannot claim to delegate ATA", async () => {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.ClaimRewardToOwner,
+          ]),
+        });
+
+        const result = await claimReward(svm, {
+          index: rewardIndex,
+          user: delegate,
+          pool,
+          position: targetPosition,
+          skipReward: 0,
+          userTokenAccount: delegateAtaReward,
+        });
+        expectThrowsErrorCode(result, INVALID_DESTINATION_CODE);
+      });
+
+      it("delegate with neither perm is rejected", async () => {
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.AddLiquidity,
+          ]),
+        });
+
+        const result = await claimReward(svm, {
+          index: rewardIndex,
+          user: delegate,
+          pool,
+          position: targetPosition,
+          skipReward: 0,
+          userTokenAccount: userAtaReward,
+        });
+        expectThrowsErrorCode(result, INVALID_PERMISSION_CODE);
+      });
     });
   });
 });

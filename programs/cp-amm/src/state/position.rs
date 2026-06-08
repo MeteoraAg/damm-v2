@@ -14,6 +14,7 @@ use crate::{
     safe_math::SafeMath,
     state::{InnerVesting, Pool},
     u128x128_math::Rounding,
+    utils::token::validate_ata_token,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
     PoolError,
 };
@@ -30,14 +31,17 @@ use crate::{
     AnchorSerialize,
 )]
 pub enum PositionDelegatePermission {
-    AddLiquidity,          // 0
-    RemoveLiquidity,       // 1
-    ClaimPositionFee,      // 2
-    ClaimReward,           // 3
-    LockPosition,          // 4
-    PermanentLockPosition, // 5
-    LockInnerPosition,     // 6
-    SplitPosition,         // 7
+    AddLiquidity,            // 0
+    RemoveLiquidity,         // 1
+    RemoveLiquidityToOwner,  // 2
+    ClaimPositionFee,        // 3
+    ClaimPositionFeeToOwner, // 4
+    ClaimReward,             // 5
+    ClaimRewardToOwner,      // 6
+    LockPosition,            // 7
+    PermanentLockPosition,   // 8
+    LockInnerPosition,       // 9
+    SplitPosition,           // 10
 }
 
 #[zero_copy]
@@ -549,14 +553,56 @@ impl Position {
             return Ok(());
         }
 
-        let delegate = nft_token_account
-            .delegate
-            .ok_or_else(|| PoolError::InvalidAuthority)?;
-        require!(delegate.eq(signer), PoolError::InvalidAuthority);
+        self.assert_signer_is_delegate(nft_token_account, signer)?;
+
         require!(
             self.is_delegate_permission_allowed(permission),
             PoolError::InvalidPermission
         );
+
+        Ok(())
+    }
+
+    pub fn assert_authority_with_owner_destinations<'info>(
+        &self,
+        nft_token_account: &TokenAccount,
+        signer: &Pubkey,
+        unrestricted_permission: PositionDelegatePermission,
+        owner_destination_permission: PositionDelegatePermission,
+        destinations: &[(&AccountInfo<'info>, Pubkey, Pubkey)],
+    ) -> Result<()> {
+        if nft_token_account.owner.eq(signer) {
+            return Ok(());
+        }
+
+        self.assert_signer_is_delegate(nft_token_account, signer)?;
+
+        if self.is_delegate_permission_allowed(unrestricted_permission) {
+            // if delegate has the unrestricted permission, stop checking here
+            return Ok(());
+        }
+
+        require!(
+            self.is_delegate_permission_allowed(owner_destination_permission),
+            PoolError::InvalidPermission
+        );
+
+        for (dest, mint, token_program) in destinations {
+            validate_ata_token(dest, &nft_token_account.owner, mint, token_program)?;
+        }
+
+        Ok(())
+    }
+
+    fn assert_signer_is_delegate(
+        &self,
+        nft_token_account: &TokenAccount,
+        signer: &Pubkey,
+    ) -> Result<()> {
+        let delegate = nft_token_account
+            .delegate
+            .ok_or_else(|| PoolError::InvalidAuthority)?;
+        require!(delegate.eq(signer), PoolError::InvalidAuthority);
 
         // Not strictly required, but surfaces owner mistake. non-zero delegated_amount lets the delegate transfer/burn the nft
         require!(

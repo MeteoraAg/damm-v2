@@ -72,10 +72,23 @@ pub struct ClaimPositionFeeCtx<'info> {
 pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
     let mut position = ctx.accounts.position.load_mut()?;
 
-    position.assert_authority(
+    position.assert_authority_with_owner_destinations(
         &ctx.accounts.position_nft_account,
         &ctx.accounts.signer.key(),
         PositionDelegatePermission::ClaimPositionFee,
+        PositionDelegatePermission::ClaimPositionFeeToOwner,
+        &[
+            (
+                &ctx.accounts.token_a_account.to_account_info(),
+                ctx.accounts.token_a_mint.key(),
+                ctx.accounts.token_a_program.key(),
+            ),
+            (
+                &ctx.accounts.token_b_account.to_account_info(),
+                ctx.accounts.token_b_mint.key(),
+                ctx.accounts.token_b_program.key(),
+            ),
+        ],
     )?;
 
     let pool = ctx.accounts.pool.load()?;

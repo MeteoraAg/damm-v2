@@ -5,7 +5,7 @@ use crate::{
 
 #[test]
 fn test_position_with_full_permission() {
-    let permission: u32 = 0b11111111;
+    let permission: u32 = 0b11111111111;
     assert!(
         permission > 1 << (MAX_POSITION_DELEGATE_PERMISSION - 1)
             && permission < 1 << MAX_POSITION_DELEGATE_PERMISSION
@@ -18,8 +18,14 @@ fn test_position_with_full_permission() {
 
     assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::AddLiquidity));
     assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::RemoveLiquidity));
+    assert!(
+        position.is_delegate_permission_allowed(PositionDelegatePermission::RemoveLiquidityToOwner)
+    );
     assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::ClaimPositionFee));
+    assert!(position
+        .is_delegate_permission_allowed(PositionDelegatePermission::ClaimPositionFeeToOwner));
     assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::ClaimReward));
+    assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::ClaimRewardToOwner));
     assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::LockPosition));
     assert!(
         position.is_delegate_permission_allowed(PositionDelegatePermission::PermanentLockPosition)
@@ -38,11 +44,12 @@ fn test_is_delegate_allowed() {
     assert!(!position.is_delegate_permission_allowed(PositionDelegatePermission::RemoveLiquidity));
 
     let position = Position {
-        delegate_permission: 0b101,
+        delegate_permission: 0b10001,
         ..Default::default()
     };
     assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::AddLiquidity));
     assert!(!position.is_delegate_permission_allowed(PositionDelegatePermission::RemoveLiquidity));
-    assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::ClaimPositionFee));
+    assert!(position
+        .is_delegate_permission_allowed(PositionDelegatePermission::ClaimPositionFeeToOwner));
     assert!(!position.is_delegate_permission_allowed(PositionDelegatePermission::ClaimReward));
 }

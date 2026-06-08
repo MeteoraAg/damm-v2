@@ -1346,6 +1346,7 @@ export type ClaimRewardParams = {
   position: PublicKey;
   pool: PublicKey;
   skipReward: number;
+  userTokenAccount?: PublicKey;
 };
 
 export async function claimReward(
@@ -1363,13 +1364,15 @@ export async function claimReward(
   // TODO should use token flag in pool state to get token program ID
   const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
 
-  const userTokenAccount = getOrCreateAssociatedTokenAccount(
-    svm,
-    user,
-    poolState.rewardInfos[index].mint,
-    user.publicKey,
-    tokenProgram
-  );
+  const userTokenAccount =
+    params.userTokenAccount ??
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      user,
+      poolState.rewardInfos[index].mint,
+      user.publicKey,
+      tokenProgram
+    );
 
   const transaction = await program.methods
     .claimReward(index, skipReward)
@@ -1700,7 +1703,10 @@ export async function addLiquidity(
   }
 }
 
-export type RemoveLiquidityParams = AddLiquidityParams;
+export type RemoveLiquidityParams = AddLiquidityParams & {
+  tokenAAccount?: PublicKey;
+  tokenBAccount?: PublicKey;
+};
 
 export async function removeLiquidity(
   svm: LiteSVM,
@@ -1725,18 +1731,22 @@ export async function removeLiquidity(
   const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
   const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
-  const tokenAAccount = getAssociatedTokenAddressSync(
-    poolState.tokenAMint,
-    owner.publicKey,
-    true,
-    tokenAProgram
-  );
-  const tokenBAccount = getAssociatedTokenAddressSync(
-    poolState.tokenBMint,
-    owner.publicKey,
-    true,
-    tokenBProgram
-  );
+  const tokenAAccount =
+    params.tokenAAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenAMint,
+      owner.publicKey,
+      true,
+      tokenAProgram
+    );
+  const tokenBAccount =
+    params.tokenBAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenBMint,
+      owner.publicKey,
+      true,
+      tokenBProgram
+    );
   const tokenAVault = poolState.tokenAVault;
   const tokenBVault = poolState.tokenBVault;
   const tokenAMint = poolState.tokenAMint;
@@ -2095,6 +2105,8 @@ export type ClaimPositionFeeParams = {
   owner: Keypair;
   pool: PublicKey;
   position: PublicKey;
+  tokenAAccount?: PublicKey;
+  tokenBAccount?: PublicKey;
 };
 
 export async function claimPositionFee(
@@ -2113,18 +2125,22 @@ export async function claimPositionFee(
   const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
   const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
-  const tokenAAccount = getAssociatedTokenAddressSync(
-    poolState.tokenAMint,
-    owner.publicKey,
-    true,
-    tokenAProgram
-  );
-  const tokenBAccount = getAssociatedTokenAddressSync(
-    poolState.tokenBMint,
-    owner.publicKey,
-    true,
-    tokenBProgram
-  );
+  const tokenAAccount =
+    params.tokenAAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenAMint,
+      owner.publicKey,
+      true,
+      tokenAProgram
+    );
+  const tokenBAccount =
+    params.tokenBAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenBMint,
+      owner.publicKey,
+      true,
+      tokenBProgram
+    );
   const tokenAVault = poolState.tokenAVault;
   const tokenBVault = poolState.tokenBVault;
   const tokenAMint = poolState.tokenAMint;
@@ -2449,12 +2465,15 @@ export function getFeeShedulerParams(
 export enum PositionDelegatePermission {
   AddLiquidity = 0,
   RemoveLiquidity = 1,
-  ClaimPositionFee = 2,
-  ClaimReward = 3,
-  LockPosition = 4,
-  PermanentLockPosition = 5,
-  LockInnerPosition = 6,
-  SplitPosition = 7,
+  RemoveLiquidityToOwner = 2,
+  ClaimPositionFee = 3,
+  ClaimPositionFeeToOwner = 4,
+  ClaimReward = 5,
+  ClaimRewardToOwner = 6,
+  LockPosition = 7,
+  PermanentLockPosition = 8,
+  LockInnerPosition = 9,
+  SplitPosition = 10,
 }
 
 export function encodeDelegatePermissions(
