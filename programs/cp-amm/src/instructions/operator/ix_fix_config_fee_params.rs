@@ -8,7 +8,7 @@ use crate::state::{CollectFeeMode, Config};
 use crate::{base_fee::BaseFeeHandlerBuilder, state::Operator};
 
 #[derive(Accounts)]
-pub struct FixConfigFeeParams<'info> {
+pub struct FixConfigFeeParamsCtx<'info> {
     #[account(mut)]
     pub config: AccountLoader<'info, Config>,
 
@@ -18,7 +18,7 @@ pub struct FixConfigFeeParams<'info> {
 }
 
 pub fn handle_fix_config_fee_params(
-    ctx: Context<FixConfigFeeParams>,
+    ctx: Context<FixConfigFeeParamsCtx>,
     params: BaseFeeParameters,
 ) -> Result<()> {
     let mut config = ctx.accounts.config.load_mut()?;

@@ -1,5 +1,6 @@
 pub mod alpha_vault {
-    use anchor_lang::{prelude::Pubkey, solana_program::pubkey};
+    use anchor_lang::prelude::Pubkey;
+    use anchor_lang::pubkey;
 
     #[cfg(not(feature = "local"))]
     pub const ID: Pubkey = pubkey!("vaU6kP7iNEGkbmPkLmZfGwiGxd4Mob24QQCie5R9kd2");

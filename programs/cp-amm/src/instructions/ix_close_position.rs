@@ -61,7 +61,7 @@ pub fn handle_close_position(ctx: Context<ClosePositionCtx>) -> Result<()> {
     // burn
     token_2022::burn(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             token_2022::Burn {
                 mint: ctx.accounts.position_nft_mint.to_account_info(),
                 from: ctx.accounts.position_nft_account.to_account_info(),
@@ -73,7 +73,7 @@ pub fn handle_close_position(ctx: Context<ClosePositionCtx>) -> Result<()> {
 
     // close position_nft_account
     token_2022::close_account(CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.token_program.key(),
         token_2022::CloseAccount {
             account: ctx.accounts.position_nft_account.to_account_info(),
             destination: ctx.accounts.rent_receiver.to_account_info(),
@@ -84,7 +84,7 @@ pub fn handle_close_position(ctx: Context<ClosePositionCtx>) -> Result<()> {
     // close position_nft_mint
     let signer_seeds = pool_authority_seeds!();
     token_2022::close_account(CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
+        ctx.accounts.token_program.key(),
         token_2022::CloseAccount {
             account: ctx.accounts.position_nft_mint.to_account_info(),
             destination: ctx.accounts.rent_receiver.to_account_info(),

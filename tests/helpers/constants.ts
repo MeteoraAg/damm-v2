@@ -1,4 +1,4 @@
-import { BN } from "@coral-xyz/anchor";
+import { BN } from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
 
 export const CP_AMM_PROGRAM_ID = new PublicKey(

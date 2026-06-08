@@ -5,7 +5,7 @@ import {
   IdlTypes,
   Program,
   Wallet,
-} from "@coral-xyz/anchor";
+} from "@anchor-lang/core";
 import {
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,
@@ -133,7 +133,7 @@ export type BaseFee = {
 
 export type PoolFees = {
   baseFee: BaseFee;
-  compoundingFeeBps: number,
+  compoundingFeeBps: number;
   padding: number;
   dynamicFee: DynamicFee | null;
 };
@@ -464,18 +464,26 @@ export type UpdatePoolFeesParams = {
   whitelistedOperator: Keypair;
   cliffFeeNumerator: BN | null;
   dynamicFee: DynamicFee | null;
+  compoundingFeeBps?: number | null;
 };
 
 export async function updatePoolFeesParameters(
   svm: LiteSVM,
   params: UpdatePoolFeesParams
 ): Promise<TransactionMetadata | FailedTransactionMetadata> {
-  const { pool, whitelistedOperator, cliffFeeNumerator, dynamicFee } = params;
+  const {
+    pool,
+    whitelistedOperator,
+    cliffFeeNumerator,
+    dynamicFee,
+    compoundingFeeBps,
+  } = params;
   const program = createCpAmmProgram();
   const transaction = await program.methods
     .updatePoolFees({
       cliffFeeNumerator,
       dynamicFee,
+      compoundingFeeBps: compoundingFeeBps ?? null,
     })
     .accountsPartial({
       pool,
@@ -493,6 +501,7 @@ export type ClaimProtocolFeeParams = {
   pool: PublicKey;
   treasury: PublicKey;
 };
+
 export async function claimProtocolFee(
   svm: LiteSVM,
   params: ClaimProtocolFeeParams
@@ -568,8 +577,53 @@ export async function claimProtocolFee(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedKP]);
-  expect(result).instanceOf(TransactionMetadata);
+  return sendTransaction(svm, transaction, [whitelistedKP]);
+}
+
+export async function claimProtocolFee2(
+  svm: LiteSVM,
+  params: {
+    signerKP: Keypair;
+    pool: PublicKey;
+    isTokenA: boolean;
+    receiverTokenAccount: PublicKey;
+    maxAmount?: BN;
+  }
+) {
+  const program = createCpAmmProgram();
+  const { signerKP, pool, isTokenA, receiverTokenAccount } = params;
+  const poolAuthority = derivePoolAuthority();
+  const poolState = getPool(svm, pool);
+
+  const claimedTokenMint = isTokenA
+    ? poolState.tokenAMint
+    : poolState.tokenBMint;
+  const claimedTokenProgram = svm.getAccount(claimedTokenMint)!.owner;
+
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
+
+  const maxAmount =
+    params.maxAmount ??
+    (isTokenA ? poolState.protocolAFee : poolState.protocolBFee);
+
+  const transaction = await program.methods
+    .claimProtocolFee2(maxAmount)
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      receiverTokenAccount,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+      signer: signerKP.publicKey,
+      tokenAProgram,
+      tokenBProgram,
+    })
+    .transaction();
+
+  return sendTransaction(svm, transaction, [signerKP]);
 }
 
 export type InitializePoolParams = {
@@ -854,7 +908,7 @@ export async function setPoolStatus(svm: LiteSVM, params: SetPoolStatusParams) {
 
 export type PoolFeesParams = {
   baseFee: BaseFee;
-  compoundingFeeBps: number,
+  compoundingFeeBps: number;
   padding: number;
   dynamicFee: DynamicFee | null;
 };
@@ -976,12 +1030,14 @@ export async function initializeCustomizablePool(
   expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
   expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
   expect(poolState.liquidity.toString()).eq(liquidity.toString());
-  expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
+  // Compounding pools recompute sqrt_price from token amounts, so skip the equality check
+  if (collectFeeMode !== 2) {
+    expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
+    expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
+  }
 
   expect(poolState.rewardInfos[0].initialized).eq(0);
   expect(poolState.rewardInfos[1].initialized).eq(0);
-
-  expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
 
   // Check the offset at base_fee_serde.rs
   const baseFeeModeInParams = params.poolFees.baseFee.data[26];
@@ -1174,12 +1230,12 @@ export async function updateRewardDuration(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardDuration(index, newDuration)
     .accountsPartial({
@@ -1216,12 +1272,12 @@ export async function updateRewardFunder(
     operator == null
       ? []
       : [
-        {
-          pubkey: operator,
-          isSigner: false,
-          isWritable: false,
-        },
-      ];
+          {
+            pubkey: operator,
+            isSigner: false,
+            isWritable: false,
+          },
+        ];
   const transaction = await program.methods
     .updateRewardFunder(index, newFunder)
     .accountsPartial({
@@ -1484,8 +1540,6 @@ export async function lockPosition(
 
   return vestingAddress;
 }
-
-
 
 export async function createPosition(
   svm: LiteSVM,

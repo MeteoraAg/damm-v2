@@ -9,8 +9,8 @@ use anchor_spl::token_interface::TokenAccount;
 use bytemuck::Pod;
 use pinocchio::{
     account_info::{AccountInfo, RefMut},
-    entrypoint::ProgramResult,
     sysvars::instructions::IntrospectedInstruction,
+    ProgramResult,
 };
 
 pub fn p_transfer_from_user(
@@ -68,7 +68,7 @@ pub fn p_transfer_from_pool(
 // same as AccountLoader load_mut() but check for discriminator and owner
 pub fn p_load_mut_checked<T: Pod + Discriminator + Owner>(
     acc_info: &AccountInfo,
-) -> Result<RefMut<T>> {
+) -> Result<RefMut<'_, T>> {
     // validate owner
     require!(
         acc_info.owner().eq(&T::owner().to_bytes()),
@@ -101,7 +101,7 @@ pub fn p_load_mut_checked<T: Pod + Discriminator + Owner>(
 
 pub fn p_load_mut_unchecked<T: Pod + Discriminator + Owner>(
     acc_info: &AccountInfo,
-) -> Result<RefMut<T>> {
+) -> Result<RefMut<'_, T>> {
     let data = acc_info
         .try_borrow_mut_data()
         .map_err(|err| ProgramError::from(u64::from(err)))?;

@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(Accounts)]
-pub struct FixPoolFeeParams<'info> {
+pub struct FixPoolFeeParamsCtx<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -22,7 +22,7 @@ pub struct FixPoolFeeParams<'info> {
 }
 
 pub fn handle_fix_pool_fee_params(
-    ctx: Context<FixPoolFeeParams>,
+    ctx: Context<FixPoolFeeParamsCtx>,
     params: BaseFeeParameters,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;

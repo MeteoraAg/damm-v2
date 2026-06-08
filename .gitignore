@@ -9,3 +9,7 @@ test-ledger
 proptest-regressions
 commands
 deploy.sh
+
+.notes
+.claude
+bun.lockb

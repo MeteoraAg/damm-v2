@@ -5,8 +5,11 @@ use crate::{
     constants::{REWARD_INDEX_0, REWARD_INDEX_1, SPLIT_POSITION_DENOMINATOR},
     get_pool_access_validator,
     state::{Position, SplitAmountInfo2, SplitPositionInfo},
-    EvtSplitPosition2, EvtSplitPosition3, PoolError, SplitPositionCtx,
+    EvtSplitPosition3, PoolError, SplitPositionCtx,
 };
+
+#[allow(deprecated)]
+use crate::EvtSplitPosition2;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SplitPositionParameters2 {
@@ -182,46 +185,49 @@ pub fn handle_split_position2(
         current_point,
     )?;
 
-    emit_cpi!(EvtSplitPosition2 {
-        pool: ctx.accounts.pool.key(),
-        first_owner: ctx.accounts.first_owner.key(),
-        second_owner: ctx.accounts.second_owner.key(),
-        first_position: ctx.accounts.first_position.key(),
-        second_position: ctx.accounts.second_position.key(),
-        amount_splits: split_amount_info.into(),
-        current_sqrt_price: pool.sqrt_price,
-        first_position_info: SplitPositionInfo {
-            liquidity: first_position.get_total_liquidity()?,
-            fee_a: first_position.fee_a_pending,
-            fee_b: first_position.fee_b_pending,
-            reward_0: first_position
-                .reward_infos
-                .get(REWARD_INDEX_0)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-            reward_1: first_position
-                .reward_infos
-                .get(REWARD_INDEX_1)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-        },
-        second_position_info: SplitPositionInfo {
-            liquidity: second_position.get_total_liquidity()?,
-            fee_a: second_position.fee_a_pending,
-            fee_b: second_position.fee_b_pending,
-            reward_0: second_position
-                .reward_infos
-                .get(REWARD_INDEX_0)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-            reward_1: second_position
-                .reward_infos
-                .get(REWARD_INDEX_1)
-                .map(|r| r.reward_pendings)
-                .unwrap_or(0),
-        },
-        split_position_parameters: params.into()
-    });
+    #[allow(deprecated)]
+    {
+        emit_cpi!(EvtSplitPosition2 {
+            pool: ctx.accounts.pool.key(),
+            first_owner: ctx.accounts.first_owner.key(),
+            second_owner: ctx.accounts.second_owner.key(),
+            first_position: ctx.accounts.first_position.key(),
+            second_position: ctx.accounts.second_position.key(),
+            amount_splits: split_amount_info.into(),
+            current_sqrt_price: pool.sqrt_price,
+            first_position_info: SplitPositionInfo {
+                liquidity: first_position.get_total_liquidity()?,
+                fee_a: first_position.fee_a_pending,
+                fee_b: first_position.fee_b_pending,
+                reward_0: first_position
+                    .reward_infos
+                    .get(REWARD_INDEX_0)
+                    .map(|r| r.reward_pendings)
+                    .unwrap_or(0),
+                reward_1: first_position
+                    .reward_infos
+                    .get(REWARD_INDEX_1)
+                    .map(|r| r.reward_pendings)
+                    .unwrap_or(0),
+            },
+            second_position_info: SplitPositionInfo {
+                liquidity: second_position.get_total_liquidity()?,
+                fee_a: second_position.fee_a_pending,
+                fee_b: second_position.fee_b_pending,
+                reward_0: second_position
+                    .reward_infos
+                    .get(REWARD_INDEX_0)
+                    .map(|r| r.reward_pendings)
+                    .unwrap_or(0),
+                reward_1: second_position
+                    .reward_infos
+                    .get(REWARD_INDEX_1)
+                    .map(|r| r.reward_pendings)
+                    .unwrap_or(0),
+            },
+            split_position_parameters: params.into()
+        });
+    }
 
     emit_cpi!(EvtSplitPosition3 {
         pool: ctx.accounts.pool.key(),

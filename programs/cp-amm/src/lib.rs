@@ -1,5 +1,3 @@
-#![allow(unexpected_cfgs)]
-#![allow(deprecated)]
 use anchor_lang::prelude::*;
 
 #[macro_use]
@@ -12,7 +10,10 @@ pub mod constants;
 pub mod error;
 pub mod state;
 pub use error::*;
+
+#[allow(deprecated)]
 pub mod event;
+
 pub use event::*;
 pub mod utils;
 pub use utils::*;
@@ -113,7 +114,7 @@ pub mod cp_amm {
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
     pub fn fix_pool_fee_params(
-        ctx: Context<FixPoolFeeParams>,
+        ctx: Context<FixPoolFeeParamsCtx>,
         params: BaseFeeParameters,
     ) -> Result<()> {
         instructions::handle_fix_pool_fee_params(ctx, params)
@@ -121,14 +122,14 @@ pub mod cp_amm {
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
     pub fn fix_config_fee_params(
-        ctx: Context<FixConfigFeeParams>,
+        ctx: Context<FixConfigFeeParamsCtx>,
         params: BaseFeeParameters,
     ) -> Result<()> {
         instructions::handle_fix_config_fee_params(ctx, params)
     }
 
-    pub fn initialize_reward<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializeRewardCtx<'info>>,
+    pub fn initialize_reward<'info>(
+        ctx: Context<'info, InitializeRewardCtx<'info>>,
         reward_index: u8,
         reward_duration: u64,
         funder: Pubkey,
@@ -152,16 +153,16 @@ pub mod cp_amm {
         instructions::handle_withdraw_ineligible_reward(ctx, reward_index)
     }
 
-    pub fn update_reward_funder<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, UpdateRewardFunderCtx<'info>>,
+    pub fn update_reward_funder<'info>(
+        ctx: Context<'info, UpdateRewardFunderCtx<'info>>,
         reward_index: u8,
         new_funder: Pubkey,
     ) -> Result<()> {
         instructions::handle_update_reward_funder(ctx, reward_index, new_funder)
     }
 
-    pub fn update_reward_duration<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, UpdateRewardDurationCtx<'info>>,
+    pub fn update_reward_duration<'info>(
+        ctx: Context<'info, UpdateRewardDurationCtx<'info>>,
         reward_index: u8,
         new_duration: u64,
     ) -> Result<()> {
@@ -173,6 +174,10 @@ pub mod cp_amm {
         instructions::handle_set_pool_status(ctx, status)
     }
 
+    #[deprecated(
+        since = "0.2.1",
+        note = "Use claim_protocol_fee2 through protocol_fee program instead"
+    )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ClaimProtocolFee))]
     pub fn claim_protocol_fee(
         ctx: Context<ClaimProtocolFeesCtx>,
@@ -182,9 +187,17 @@ pub mod cp_amm {
         instructions::handle_claim_protocol_fee(ctx, max_amount_a, max_amount_b)
     }
 
+    #[deprecated(
+        since = "0.2.1",
+        note = "Use claim_protocol_fee2 through protocol_fee program instead"
+    )]
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::ZapProtocolFee))]
     pub fn zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
         instructions::handle_zap_protocol_fee(ctx, max_amount)
+    }
+
+    pub fn claim_protocol_fee2(ctx: Context<ClaimProtocolFee2Ctx>, max_amount: u64) -> Result<()> {
+        instructions::handle_claim_protocol_fee2(ctx, max_amount)
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]
@@ -202,22 +215,22 @@ pub mod cp_amm {
 
     /// USER FUNCTIONS ////
 
-    pub fn initialize_pool<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializePoolCtx<'info>>,
+    pub fn initialize_pool<'info>(
+        ctx: Context<'info, InitializePoolCtx<'info>>,
         params: InitializePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_pool(ctx, params)
     }
 
-    pub fn initialize_pool_with_dynamic_config<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializePoolWithDynamicConfigCtx<'info>>,
+    pub fn initialize_pool_with_dynamic_config<'info>(
+        ctx: Context<'info, InitializePoolWithDynamicConfigCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_pool_with_dynamic_config(ctx, params)
     }
 
-    pub fn initialize_customizable_pool<'c: 'info, 'info>(
-        ctx: Context<'_, '_, 'c, 'info, InitializeCustomizablePoolCtx<'info>>,
+    pub fn initialize_customizable_pool<'info>(
+        ctx: Context<'info, InitializeCustomizablePoolCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
         instructions::handle_initialize_customizable_pool(ctx, params)
@@ -286,9 +299,7 @@ pub mod cp_amm {
         instructions::handle_lock_inner_position(ctx, params)
     }
 
-    pub fn refresh_vesting<'a, 'b, 'c: 'info, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, RefreshVesting<'info>>,
-    ) -> Result<()> {
+    pub fn refresh_vesting<'info>(ctx: Context<'info, RefreshVestingCtx<'info>>) -> Result<()> {
         instructions::handle_refresh_vesting(ctx)
     }
 

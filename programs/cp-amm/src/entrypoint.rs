@@ -121,5 +121,5 @@ pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
         }
     }
 }
-solana_program::custom_heap_default!();
-solana_program::custom_panic_default!();
+solana_program::entrypoint::custom_heap_default!();
+solana_program::entrypoint::custom_panic_default!();

@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
 ### Changed
 
 ### Deprecated
@@ -21,7 +19,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-## cp_amm [0.2.0]
+## cp_amm [0.2.1][#PR 200](https://github.com/MeteoraAg/damm-v2/pull/200)
+
+### Added
+
+- Added an endpoint `claim_protocol_fee2` that requires `protocol_fee_authority` as the signer instead of an operator. Additionally, only one of the pool tokens can be claimed per instruction call.
+
+### Changed
+
+- Update anchor version to 1.0.2.
+- Operator endpoint `update_pool_fees` now supports updating `compounding_fee_bps` for pools with `CollectFeeMode::Compounding`
+
+### Deprecated
+
+- Deprecated `claim_protocol_fee` and `zap_protocol_fee` endpoints in favour of using `claim_protocol_fee2` through the `protocol_fee` wrapper program.
+
+### Breaking Changes
+
+- Operator endpoint `update_pool_fees`'s argument `UpdatePoolFeesParameters` now includes `compounding_fee_bps: Option<u16>`, which breaks deserialization for clients built against the old IDL.
+
+## cp_amm [0.2.0][#PR 187](https://github.com/MeteoraAg/damm-v2/pull/187)
 
 ### Added
 
