@@ -2225,8 +2225,8 @@ export async function splitPosition(svm: LiteSVM, params: SplitPositionParams) {
       firstPositionNftAccount,
       secondPosition,
       secondPositionNftAccount,
-      firstSigner: firstPositionOwner.publicKey,
-      secondSigner: secondPositionOwner.publicKey,
+      firstOwner: firstPositionOwner.publicKey,
+      secondOwner: secondPositionOwner.publicKey,
     })
     .transaction();
 
@@ -2271,8 +2271,8 @@ export async function splitPosition2(
       firstPositionNftAccount,
       secondPosition,
       secondPositionNftAccount,
-      firstSigner: firstPositionOwner.publicKey,
-      secondSigner: secondPositionOwner.publicKey,
+      firstOwner: firstPositionOwner.publicKey,
+      secondOwner: secondPositionOwner.publicKey,
     })
     .transaction();
 
@@ -2471,9 +2471,6 @@ export enum PositionDelegatePermission {
   ClaimReward = 5,
   ClaimRewardToOwner = 6,
   LockPosition = 7,
-  PermanentLockPosition = 8,
-  LockInnerPosition = 9,
-  SplitPosition = 10,
 }
 
 export function encodeDelegatePermissions(

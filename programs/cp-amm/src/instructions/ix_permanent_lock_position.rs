@@ -47,7 +47,7 @@ pub fn handle_permanent_lock_position(
     position.assert_authority(
         &ctx.accounts.position_nft_account,
         &ctx.accounts.signer.key(),
-        PositionDelegatePermission::PermanentLockPosition,
+        PositionDelegatePermission::LockPosition,
     )?;
 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;

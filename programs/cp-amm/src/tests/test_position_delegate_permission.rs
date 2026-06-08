@@ -5,7 +5,7 @@ use crate::{
 
 #[test]
 fn test_position_with_full_permission() {
-    let permission: u32 = 0b11111111111;
+    let permission: u32 = 0b11111111;
     assert!(
         permission > 1 << (MAX_POSITION_DELEGATE_PERMISSION - 1)
             && permission < 1 << MAX_POSITION_DELEGATE_PERMISSION
@@ -27,11 +27,6 @@ fn test_position_with_full_permission() {
     assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::ClaimReward));
     assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::ClaimRewardToOwner));
     assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::LockPosition));
-    assert!(
-        position.is_delegate_permission_allowed(PositionDelegatePermission::PermanentLockPosition)
-    );
-    assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::LockInnerPosition));
-    assert!(position.is_delegate_permission_allowed(PositionDelegatePermission::SplitPosition));
 }
 
 #[test]

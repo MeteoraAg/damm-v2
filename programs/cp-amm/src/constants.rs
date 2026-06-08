@@ -55,7 +55,7 @@ pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
 pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
 
 pub const MAX_OPERATION: u8 = 12;
-pub const MAX_POSITION_DELEGATE_PERMISSION: u8 = 11;
+pub const MAX_POSITION_DELEGATE_PERMISSION: u8 = 8;
 
 static_assertions::const_assert_eq!(
     MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,

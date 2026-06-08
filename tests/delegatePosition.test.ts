@@ -50,9 +50,6 @@ import {
   removeLiquidity,
   sendTransaction,
   updateDelegatePermission,
-  splitPosition,
-  splitPosition2,
-  SPLIT_POSITION_DENOMINATOR,
   startSvm,
   swapExactIn,
   SwapParams,
@@ -96,9 +93,6 @@ describe("Delegate Position", () => {
   let config: PublicKey;
   let pool: PublicKey;
   let position1: PublicKey;
-  let position2: PublicKey;
-  let position1NftAccount: PublicKey;
-  let position2NftAccount: PublicKey;
   let tokenAMint: PublicKey;
   let tokenBMint: PublicKey;
   let rewardMint: PublicKey;
@@ -249,34 +243,21 @@ describe("Delegate Position", () => {
     };
 
     position1 = await createPosition(svm, user, user.publicKey, pool);
-    position2 = await createPosition(svm, user, user.publicKey, pool);
 
-    position1NftAccount = derivePositionNftAccount(
-      getPosition(svm, position1).nftMint
-    );
-    position2NftAccount = derivePositionNftAccount(
-      getPosition(svm, position2).nftMint
-    );
-
-    // user grants delegate full permissions on both positions
+    // user grants delegate full permissions on position1
     const fullPermission = encodeDelegatePermissions([
       PositionDelegatePermission.AddLiquidity,
       PositionDelegatePermission.RemoveLiquidity,
       PositionDelegatePermission.ClaimPositionFee,
       PositionDelegatePermission.ClaimReward,
       PositionDelegatePermission.LockPosition,
-      PositionDelegatePermission.PermanentLockPosition,
-      PositionDelegatePermission.LockInnerPosition,
-      PositionDelegatePermission.SplitPosition,
     ]);
-    for (const position of [position1, position2]) {
-      await updateDelegatePermission(svm, {
-        owner: user,
-        position,
-        delegate: delegate.publicKey,
-        permission: fullPermission,
-      });
-    }
+    await updateDelegatePermission(svm, {
+      owner: user,
+      position: position1,
+      delegate: delegate.publicKey,
+      permission: fullPermission,
+    });
 
     await initializeReward(svm, {
       index: rewardIndex,
@@ -393,54 +374,6 @@ describe("Delegate Position", () => {
       expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
     });
 
-    it("delegate splits position1 into position2", async () => {
-      const beforeFirst = getPosition(svm, position1);
-      const beforeSecond = getPosition(svm, position2);
-
-      await splitPosition(svm, {
-        firstPositionOwner: delegate,
-        secondPositionOwner: delegate,
-        pool,
-        firstPosition: position1,
-        secondPosition: position2,
-        firstPositionNftAccount: position1NftAccount,
-        secondPositionNftAccount: position2NftAccount,
-        unlockedLiquidityPercentage: 20,
-        permanentLockedLiquidityPercentage: 0,
-        feeAPercentage: 0,
-        feeBPercentage: 0,
-        reward0Percentage: 0,
-        reward1Percentage: 0,
-        innerVestingLiquidityPercentage: 0,
-      });
-
-      const afterFirst = getPosition(svm, position1);
-      const afterSecond = getPosition(svm, position2);
-
-      expect(afterFirst.unlockedLiquidity.lt(beforeFirst.unlockedLiquidity)).to
-        .be.true;
-      expect(afterSecond.unlockedLiquidity.gt(beforeSecond.unlockedLiquidity))
-        .to.be.true;
-
-      const failResult = await splitPosition(svm, {
-        firstPositionOwner: nonAuthorizedUser,
-        secondPositionOwner: nonAuthorizedUser,
-        pool,
-        firstPosition: position1,
-        secondPosition: position2,
-        firstPositionNftAccount: position1NftAccount,
-        secondPositionNftAccount: position2NftAccount,
-        unlockedLiquidityPercentage: 20,
-        permanentLockedLiquidityPercentage: 0,
-        feeAPercentage: 0,
-        feeBPercentage: 0,
-        reward0Percentage: 0,
-        reward1Percentage: 0,
-        innerVestingLiquidityPercentage: 0,
-      });
-      expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
-    });
-
     it("delegate locks portion of position1 with vesting account", async () => {
       const state = getPosition(svm, position1);
       const params = buildVestingParams(state.unlockedLiquidity.divn(4));
@@ -520,97 +453,25 @@ describe("Delegate Position", () => {
       );
     });
 
-    it("delegate permanent-locks position2", async () => {
-      const before = getPosition(svm, position2);
+    it("delegate permanent-locks position1", async () => {
+      const before = getPosition(svm, position1);
       expect(before.unlockedLiquidity.gt(new BN(0))).to.be.true;
 
-      await permanentLockPosition(svm, position2, delegate, delegate);
+      await permanentLockPosition(svm, position1, delegate, delegate);
 
-      const after = getPosition(svm, position2);
+      const after = getPosition(svm, position1);
       expect(after.permanentLockedLiquidity.gt(new BN(0))).to.be.true;
       expect(after.unlockedLiquidity.isZero()).to.be.true;
 
       await permanentLockPosition(
         svm,
-        position2,
+        position1,
         nonAuthorizedUser,
         nonAuthorizedUser,
         INVALID_AUTHORITY_CODE
       );
     });
 
-    it("delegate split_position2 between two fresh positions", async () => {
-      const fromPosition = await createPosition(
-        svm,
-        user,
-        user.publicKey,
-        pool
-      );
-      const toPosition = await createPosition(svm, user, user.publicKey, pool);
-      const fromPositionNftAccount = derivePositionNftAccount(
-        getPosition(svm, fromPosition).nftMint
-      );
-      const toPositionNftAccount = derivePositionNftAccount(
-        getPosition(svm, toPosition).nftMint
-      );
-
-      // user grants delegate split + add permissions on both fresh positions
-      const splitPermission = encodeDelegatePermissions([
-        PositionDelegatePermission.AddLiquidity,
-        PositionDelegatePermission.SplitPosition,
-      ]);
-      for (const position of [fromPosition, toPosition]) {
-        await updateDelegatePermission(svm, {
-          owner: user,
-          position,
-          delegate: delegate.publicKey,
-          permission: splitPermission,
-        });
-      }
-
-      await addLiquidity(svm, {
-        owner: delegate,
-        pool,
-        position: fromPosition,
-        liquidityDelta: new BN(MIN_SQRT_PRICE).muln(1_000_000),
-        tokenAAmountThreshold: U64_MAX,
-        tokenBAmountThreshold: U64_MAX,
-      });
-
-      const beforeFrom = getPosition(svm, fromPosition);
-      const beforeTo = getPosition(svm, toPosition);
-
-      const result = await splitPosition2(svm, {
-        firstPositionOwner: delegate,
-        secondPositionOwner: delegate,
-        pool,
-        firstPosition: fromPosition,
-        secondPosition: toPosition,
-        firstPositionNftAccount: fromPositionNftAccount,
-        secondPositionNftAccount: toPositionNftAccount,
-        numerator: SPLIT_POSITION_DENOMINATOR / 5,
-      });
-      expect(result).instanceOf(TransactionMetadata);
-
-      const afterFrom = getPosition(svm, fromPosition);
-      const afterTo = getPosition(svm, toPosition);
-      expect(afterFrom.unlockedLiquidity.lt(beforeFrom.unlockedLiquidity)).to.be
-        .true;
-      expect(afterTo.unlockedLiquidity.gt(beforeTo.unlockedLiquidity)).to.be
-        .true;
-
-      const failResult = await splitPosition2(svm, {
-        firstPositionOwner: nonAuthorizedUser,
-        secondPositionOwner: nonAuthorizedUser,
-        pool,
-        firstPosition: fromPosition,
-        secondPosition: toPosition,
-        firstPositionNftAccount: fromPositionNftAccount,
-        secondPositionNftAccount: toPositionNftAccount,
-        numerator: SPLIT_POSITION_DENOMINATOR / 5,
-      });
-      expectThrowsErrorCode(failResult, INVALID_AUTHORITY_CODE);
-    });
   });
 
   describe("Permission handling", () => {

@@ -23,17 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added support for NFT delegates to manage positions. The following endpoints can now be signed by a delegate if the owner has granted them permission: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`, `split_position`, `split_position2`. The `close_position` endpoint remains callable by the owner only.
-- Added new endpoint `update_delegate_permission` to set permission bitmask to `Position.delegate_permission`. Pass `permission = 0` to clear all permissions. Callers are responsible for managing the SPL token delegate via SPL `Approve` / `Revoke` separately. The permission bitmask supports 8 permissions: `AddLiquidity`, `RemoveLiquidity`, `ClaimPositionFee`, `ClaimReward`, `LockPosition`, `PermanentLockPosition`, `LockInnerPosition`, `SplitPosition`.
+- Added support for NFT delegates to manage positions. The following endpoints can now be signed by a delegate if the owner has granted them permission: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`. Note: the `close_position`, `split_position`, and `split_position2` endpoints remain callable by the owner only.
+- Added new endpoint `update_delegate_permission` to set the permission bitmask on `Position.delegate_permission`. Pass `permission = 0` to clear all permissions. Callers are responsible for managing the SPL token delegate via SPL `Approve` / `Revoke` separately. The bitmask supports 8 permissions: `AddLiquidity`, `RemoveLiquidity`, `RemoveLiquidityToOwner`, `ClaimPositionFee`, `ClaimPositionFeeToOwner`, `ClaimReward`, `ClaimRewardToOwner`, `LockPosition`.
 
 ### Changed
 
-- Events `EvtClaimPositionFee`, `EvtClaimReward`, `EvtLiquidityChange`, `EvtLockPosition`, `EvtSplitPosition2`, `EvtSplitPosition3` now source the `owner` field from `position_nft_account.owner` instead of the signer, since the signer can now be a delegate.
+- Events `EvtClaimPositionFee`, `EvtClaimReward`, `EvtLiquidityChange` and `EvtLockPosition` now source the `owner` field from `position_nft_account.owner` instead of the signer, since the signer can now be a delegate.
 
 ### Breaking Changes
 
-- The following endpoints previously rejected unauthorized signers with Anchor's `ConstraintTokenOwner` (2015) and now reject with `PoolError::InvalidAuthority` (6053), `PoolError::InvalidPermission` (6054), or `PoolError::DelegatedAmountNonZero` (6070): `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`, `split_position`, `split_position2`.
-- Renamed the signer account in the following endpoints from `owner` to `signer` (and `first_owner`/`second_owner` to `first_signer`/`second_signer` for `split_position` / `split_position2`) now that the signer may be a delegate: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`, `split_position`, `split_position2`.
+- The following endpoints previously rejected unauthorized signers with Anchor's `ConstraintTokenOwner` (2015) and now reject with `PoolError::InvalidAuthority` (6053), `PoolError::InvalidPermission` (6054), or `PoolError::DelegatedAmountNonZero` (6070): `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`.
+- Renamed the signer account from `owner` to `signer` in the following endpoints now that the signer may be a delegate: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`.
 
 ## cp_amm [0.2.1][#PR 200](https://github.com/MeteoraAg/damm-v2/pull/200)
 

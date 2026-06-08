@@ -37,7 +37,7 @@ pub fn handle_lock_inner_position(
     position.assert_authority(
         &ctx.accounts.position_nft_account,
         &ctx.accounts.signer.key(),
-        PositionDelegatePermission::LockInnerPosition,
+        PositionDelegatePermission::LockPosition,
     )?;
 
     let pool = ctx.accounts.pool.load()?;

@@ -4,7 +4,7 @@ use crate::{
     activation_handler::ActivationHandler,
     constants::{REWARD_INDEX_0, REWARD_INDEX_1, SPLIT_POSITION_DENOMINATOR},
     get_pool_access_validator,
-    state::{Position, PositionDelegatePermission, SplitAmountInfo2, SplitPositionInfo},
+    state::{Position, SplitAmountInfo2, SplitPositionInfo},
     EvtSplitPosition3, PoolError, SplitPositionCtx,
 };
 
@@ -152,17 +152,6 @@ pub fn handle_split_position2(
     let mut first_position = ctx.accounts.first_position.load_mut()?;
     let mut second_position = ctx.accounts.second_position.load_mut()?;
 
-    first_position.assert_authority(
-        &ctx.accounts.first_position_nft_account,
-        &ctx.accounts.first_signer.key(),
-        PositionDelegatePermission::SplitPosition,
-    )?;
-    second_position.assert_authority(
-        &ctx.accounts.second_position_nft_account,
-        &ctx.accounts.second_signer.key(),
-        PositionDelegatePermission::SplitPosition,
-    )?;
-
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
     first_position.refresh_inner_vesting(current_point)?;
@@ -199,8 +188,8 @@ pub fn handle_split_position2(
     {
         emit_cpi!(EvtSplitPosition2 {
             pool: ctx.accounts.pool.key(),
-            first_owner: ctx.accounts.first_position_nft_account.owner,
-            second_owner: ctx.accounts.second_position_nft_account.owner,
+            first_owner: ctx.accounts.first_owner.key(),
+            second_owner: ctx.accounts.second_owner.key(),
             first_position: ctx.accounts.first_position.key(),
             second_position: ctx.accounts.second_position.key(),
             amount_splits: split_amount_info.into(),
@@ -241,8 +230,8 @@ pub fn handle_split_position2(
 
     emit_cpi!(EvtSplitPosition3 {
         pool: ctx.accounts.pool.key(),
-        first_owner: ctx.accounts.first_position_nft_account.owner,
-        second_owner: ctx.accounts.second_position_nft_account.owner,
+        first_owner: ctx.accounts.first_owner.key(),
+        second_owner: ctx.accounts.second_owner.key(),
         first_position: ctx.accounts.first_position.key(),
         second_position: ctx.accounts.second_position.key(),
         amount_splits: split_amount_info,

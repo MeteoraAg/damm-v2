@@ -112,6 +112,7 @@ pub struct SplitPositionCtx<'info> {
     #[account(
         constraint = first_position_nft_account.mint == first_position.load()?.nft_mint,
         constraint = first_position_nft_account.amount == 1,
+        token::authority = first_owner
     )]
     pub first_position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -126,12 +127,13 @@ pub struct SplitPositionCtx<'info> {
     #[account(
         constraint = second_position_nft_account.mint == second_position.load()?.nft_mint,
         constraint = second_position_nft_account.amount == 1,
+        token::authority = second_owner
     )]
     pub second_position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// Signer for first position
-    pub first_signer: Signer<'info>,
+    /// Owner of first position
+    pub first_owner: Signer<'info>,
 
-    /// Signer for second position
-    pub second_signer: Signer<'info>,
+    /// Owner of second position
+    pub second_owner: Signer<'info>,
 }

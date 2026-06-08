@@ -39,9 +39,6 @@ pub enum PositionDelegatePermission {
     ClaimReward,             // 5
     ClaimRewardToOwner,      // 6
     LockPosition,            // 7
-    PermanentLockPosition,   // 8
-    LockInnerPosition,       // 9
-    SplitPosition,           // 10
 }
 
 #[zero_copy]
