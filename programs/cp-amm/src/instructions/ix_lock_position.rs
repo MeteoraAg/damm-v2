@@ -6,7 +6,7 @@ use crate::{
     error::PoolError,
     get_pool_access_validator,
     safe_math::SafeMath,
-    state::{InnerVesting, Pool, Position, Vesting},
+    state::{InnerVesting, Pool, Position, PositionDelegatePermission, Vesting},
     EvtLockPosition,
 };
 
@@ -89,12 +89,11 @@ pub struct LockPositionCtx<'info> {
     #[account(
         constraint = position_nft_account.mint == position.load()?.nft_mint,
         constraint = position_nft_account.amount == 1,
-        token::authority = owner
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner of position
-    pub owner: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -106,6 +105,14 @@ pub fn handle_lock_position(
     ctx: Context<LockPositionCtx>,
     params: VestingParameters,
 ) -> Result<()> {
+    let mut position = ctx.accounts.position.load_mut()?;
+
+    position.assert_authority(
+        &ctx.accounts.position_nft_account,
+        &ctx.accounts.signer.key(),
+        PositionDelegatePermission::LockPosition,
+    )?;
+
     let mut vesting = ctx.accounts.vesting.load_init()?;
     vesting.initialize(ctx.accounts.position.key());
 
@@ -114,7 +121,6 @@ pub fn handle_lock_position(
         cliff_point,
     } = process_initialize_inner_vesting(&params, &ctx.accounts.pool, &mut vesting.inner_vesting)?;
 
-    let mut position = ctx.accounts.position.load_mut()?;
     let pool = ctx.accounts.pool.load()?;
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
     // refresh inner vesting firstly to retrieve the latest state of unlocked liquidity
@@ -125,7 +131,7 @@ pub fn handle_lock_position(
     emit_cpi!(EvtLockPosition {
         position: ctx.accounts.position.key(),
         pool: ctx.accounts.pool.key(),
-        owner: ctx.accounts.owner.key(),
+        owner: ctx.accounts.position_nft_account.owner,
         vesting: ctx.accounts.vesting.key(),
         cliff_point,
         period_frequency: params.period_frequency,

@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     get_pool_access_validator,
-    state::{Pool, Position},
+    state::{Pool, Position, PositionDelegatePermission},
     token::{calculate_transfer_fee_included_amount, transfer_from_user},
     u128x128_math::Rounding,
     EvtLiquidityChange, PoolError,
@@ -57,12 +57,11 @@ pub struct AddLiquidityCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            token::authority = owner
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner of position
-    pub owner: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     /// Token a program
     pub token_a_program: Interface<'info, TokenInterface>,
@@ -92,10 +91,15 @@ pub fn handle_add_liquidity(
     }
 
     let mut pool = ctx.accounts.pool.load_mut()?;
+    let mut position = ctx.accounts.position.load_mut()?;
+
+    position.assert_authority(
+        &ctx.accounts.position_nft_account,
+        &ctx.accounts.signer.key(),
+        PositionDelegatePermission::AddLiquidity,
+    )?;
 
     pool.update_layout_version_if_needed()?;
-
-    let mut position = ctx.accounts.position.load_mut()?;
 
     // update current pool reward & postion reward before any logic
     let current_time = Clock::get()?.unix_timestamp as u64;
@@ -145,7 +149,7 @@ pub fn handle_add_liquidity(
     );
 
     transfer_from_user(
-        &ctx.accounts.owner,
+        &ctx.accounts.signer,
         &ctx.accounts.token_a_mint,
         &ctx.accounts.token_a_account,
         &ctx.accounts.token_a_vault,
@@ -154,7 +158,7 @@ pub fn handle_add_liquidity(
     )?;
 
     transfer_from_user(
-        &ctx.accounts.owner,
+        &ctx.accounts.signer,
         &ctx.accounts.token_b_mint,
         &ctx.accounts.token_b_account,
         &ctx.accounts.token_b_vault,
@@ -165,7 +169,7 @@ pub fn handle_add_liquidity(
     emit_cpi!(EvtLiquidityChange {
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
-        owner: ctx.accounts.owner.key(),
+        owner: ctx.accounts.position_nft_account.owner,
         liquidity_delta: params.liquidity_delta,
         token_a_amount_threshold: params.token_a_amount_threshold,
         token_b_amount_threshold: params.token_b_amount_threshold,

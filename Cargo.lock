@@ -907,6 +907,7 @@ dependencies = [
  "borsh 1.6.1",
  "bytemuck",
  "const-crypto",
+ "derive-variant-count",
  "num",
  "num-traits",
  "num_enum",
@@ -1035,6 +1036,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "derive-variant-count"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]

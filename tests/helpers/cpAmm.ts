@@ -10,6 +10,7 @@ import {
   ACCOUNT_SIZE,
   ACCOUNT_TYPE_SIZE,
   AccountLayout,
+  createApproveInstruction,
   ExtensionType,
   getAssociatedTokenAddressSync,
   getExtensionData,
@@ -75,7 +76,7 @@ import {
   decodePodAlignedFeeRateLimiter,
   decodePodAlignedFeeTimeScheduler,
 } from "./feeCodec";
-import { sendTransaction } from "./svm";
+import { expectThrowsErrorCode, sendTransaction } from "./svm";
 import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
@@ -1033,7 +1034,9 @@ export async function initializeCustomizablePool(
   // Compounding pools recompute sqrt_price from token amounts, so skip the equality check
   if (collectFeeMode !== 2) {
     expect(poolState.sqrtPrice.toString()).eq(sqrtPrice.toString());
-    expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
+    expect(poolState.poolFees.initSqrtPrice.toString()).eq(
+      sqrtPrice.toString()
+    );
   }
 
   expect(poolState.rewardInfos[0].initialized).eq(0);
@@ -1343,6 +1346,7 @@ export type ClaimRewardParams = {
   position: PublicKey;
   pool: PublicKey;
   skipReward: number;
+  userTokenAccount?: PublicKey;
 };
 
 export async function claimReward(
@@ -1360,13 +1364,15 @@ export async function claimReward(
   // TODO should use token flag in pool state to get token program ID
   const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
 
-  const userTokenAccount = getOrCreateAssociatedTokenAccount(
-    svm,
-    user,
-    poolState.rewardInfos[index].mint,
-    user.publicKey,
-    tokenProgram
-  );
+  const userTokenAccount =
+    params.userTokenAccount ??
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      user,
+      poolState.rewardInfos[index].mint,
+      user.publicKey,
+      tokenProgram
+    );
 
   const transaction = await program.methods
     .claimReward(index, skipReward)
@@ -1378,7 +1384,7 @@ export async function claimReward(
       poolAuthority,
       position,
       userTokenAccount,
-      owner: user.publicKey,
+      signer: user.publicKey,
       tokenProgram,
     })
     .transaction();
@@ -1465,7 +1471,8 @@ export async function permanentLockPosition(
   svm: LiteSVM,
   position: PublicKey,
   owner: Keypair,
-  payer: Keypair
+  payer: Keypair,
+  errorCode?: number
 ) {
   const program = createCpAmmProgram();
 
@@ -1478,12 +1485,16 @@ export async function permanentLockPosition(
       position,
       positionNftAccount,
       pool: positionState.pool,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
     })
     .transaction();
 
   const result = sendTransaction(svm, transaction, [payer, owner]);
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
 
 export async function lockPosition(
@@ -1492,7 +1503,8 @@ export async function lockPosition(
   owner: Keypair,
   payer: Keypair,
   params: LockPositionParams,
-  innerPosition?: boolean
+  innerPosition?: boolean,
+  errorCode?: number
 ) {
   const program = createCpAmmProgram();
   const positionState = getPosition(svm, position);
@@ -1508,7 +1520,7 @@ export async function lockPosition(
       .accountsPartial({
         position,
         positionNftAccount,
-        owner: owner.publicKey,
+        signer: owner.publicKey,
         pool: positionState.pool,
         program: CP_AMM_PROGRAM_ID,
       })
@@ -1524,7 +1536,7 @@ export async function lockPosition(
         position,
         positionNftAccount,
         vesting: vestingAddress,
-        owner: owner.publicKey,
+        signer: owner.publicKey,
         pool: positionState.pool,
         program: CP_AMM_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -1536,7 +1548,11 @@ export async function lockPosition(
   }
 
   const result = sendTransaction(svm, transaction, signers);
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 
   return vestingAddress;
 }
@@ -1617,7 +1633,11 @@ export type AddLiquidityParams = {
   tokenBAmountThreshold: BN;
 };
 
-export async function addLiquidity(svm: LiteSVM, params: AddLiquidityParams) {
+export async function addLiquidity(
+  svm: LiteSVM,
+  params: AddLiquidityParams,
+  errorCode?: number
+) {
   const {
     owner,
     pool,
@@ -1662,7 +1682,7 @@ export async function addLiquidity(svm: LiteSVM, params: AddLiquidityParams) {
       pool,
       position,
       positionNftAccount,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
       tokenAAccount,
       tokenBAccount,
       tokenAVault,
@@ -1676,14 +1696,22 @@ export async function addLiquidity(svm: LiteSVM, params: AddLiquidityParams) {
 
   const result = sendTransaction(svm, transaction, [owner]);
 
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
 
-export type RemoveLiquidityParams = AddLiquidityParams;
+export type RemoveLiquidityParams = AddLiquidityParams & {
+  tokenAAccount?: PublicKey;
+  tokenBAccount?: PublicKey;
+};
 
 export async function removeLiquidity(
   svm: LiteSVM,
-  params: RemoveLiquidityParams
+  params: RemoveLiquidityParams,
+  errorCode?: number
 ) {
   const {
     owner,
@@ -1703,18 +1731,22 @@ export async function removeLiquidity(
   const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
   const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
-  const tokenAAccount = getAssociatedTokenAddressSync(
-    poolState.tokenAMint,
-    owner.publicKey,
-    true,
-    tokenAProgram
-  );
-  const tokenBAccount = getAssociatedTokenAddressSync(
-    poolState.tokenBMint,
-    owner.publicKey,
-    true,
-    tokenBProgram
-  );
+  const tokenAAccount =
+    params.tokenAAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenAMint,
+      owner.publicKey,
+      true,
+      tokenAProgram
+    );
+  const tokenBAccount =
+    params.tokenBAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenBMint,
+      owner.publicKey,
+      true,
+      tokenBProgram
+    );
   const tokenAVault = poolState.tokenAVault;
   const tokenBVault = poolState.tokenBVault;
   const tokenAMint = poolState.tokenAMint;
@@ -1731,7 +1763,7 @@ export async function removeLiquidity(
       pool,
       position,
       positionNftAccount,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
       tokenAAccount,
       tokenBAccount,
       tokenAVault,
@@ -1744,7 +1776,11 @@ export async function removeLiquidity(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [owner]);
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
 
 export type RemoveAllLiquidityParams = {
@@ -1800,7 +1836,7 @@ export async function removeAllLiquidity(
       pool,
       position,
       positionNftAccount,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
       tokenAAccount,
       tokenBAccount,
       tokenAVault,
@@ -2069,11 +2105,14 @@ export type ClaimPositionFeeParams = {
   owner: Keypair;
   pool: PublicKey;
   position: PublicKey;
+  tokenAAccount?: PublicKey;
+  tokenBAccount?: PublicKey;
 };
 
 export async function claimPositionFee(
   svm: LiteSVM,
-  params: ClaimPositionFeeParams
+  params: ClaimPositionFeeParams,
+  errorCode?: number
 ) {
   const { owner, pool, position } = params;
 
@@ -2086,18 +2125,22 @@ export async function claimPositionFee(
   const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
   const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
 
-  const tokenAAccount = getAssociatedTokenAddressSync(
-    poolState.tokenAMint,
-    owner.publicKey,
-    true,
-    tokenAProgram
-  );
-  const tokenBAccount = getAssociatedTokenAddressSync(
-    poolState.tokenBMint,
-    owner.publicKey,
-    true,
-    tokenBProgram
-  );
+  const tokenAAccount =
+    params.tokenAAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenAMint,
+      owner.publicKey,
+      true,
+      tokenAProgram
+    );
+  const tokenBAccount =
+    params.tokenBAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenBMint,
+      owner.publicKey,
+      true,
+      tokenBProgram
+    );
   const tokenAVault = poolState.tokenAVault;
   const tokenBVault = poolState.tokenBVault;
   const tokenAMint = poolState.tokenAMint;
@@ -2107,7 +2150,7 @@ export async function claimPositionFee(
     .claimPositionFee()
     .accountsPartial({
       poolAuthority,
-      owner: owner.publicKey,
+      signer: owner.publicKey,
       pool,
       position,
       positionNftAccount,
@@ -2124,7 +2167,11 @@ export async function claimPositionFee(
 
   const result = sendTransaction(svm, transaction, [owner]);
 
-  expect(result).instanceOf(TransactionMetadata);
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
 
 export type SplitPositionParams = {
@@ -2413,4 +2460,69 @@ export function getFeeShedulerParams(
     reductionFactor,
     baseFeeMode,
   };
+}
+
+export enum PositionDelegatePermission {
+  AddLiquidity = 0,
+  RemoveLiquidity = 1,
+  RemoveLiquidityToOwner = 2,
+  ClaimPositionFee = 3,
+  ClaimPositionFeeToOwner = 4,
+  ClaimReward = 5,
+  ClaimRewardToOwner = 6,
+  LockPosition = 7,
+}
+
+export function encodeDelegatePermissions(
+  permissions: PositionDelegatePermission[]
+) {
+  return permissions.reduce((acc, p) => acc | (1 << (p as number)), 0);
+}
+
+export type UpdateDelegatePermissionParams = {
+  owner: Keypair;
+  position: PublicKey;
+  delegate: PublicKey;
+  permission: number;
+};
+
+export async function updateDelegatePermission(
+  svm: LiteSVM,
+  params: UpdateDelegatePermissionParams,
+  errorCode?: number
+) {
+  const { owner, position, delegate, permission } = params;
+  const program = createCpAmmProgram();
+  const positionState = getPosition(svm, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  const setIx = await program.methods
+    .updateDelegatePermission(permission)
+    .accountsPartial({
+      position,
+      positionNftAccount,
+      owner: owner.publicKey,
+    })
+    .instruction();
+
+  const transaction = new Transaction()
+    .add(
+      createApproveInstruction(
+        positionNftAccount,
+        delegate,
+        owner.publicKey,
+        0,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      )
+    )
+    .add(setIx);
+
+  const result = sendTransaction(svm, transaction, [owner]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
