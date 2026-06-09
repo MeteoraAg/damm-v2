@@ -27,7 +27,7 @@ pub struct ClaimRewardCtx<'info> {
     pub position: AccountLoader<'info, Position>,
 
     /// The vault token account for reward token
-    #[account(mut)]
+    #[account(mut, token::token_program = token_program, token::mint = reward_mint)]
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     // Reward mint

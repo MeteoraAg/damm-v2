@@ -20,6 +20,10 @@ use crate::{
     PoolError,
 };
 
+/// For each pair below, when both permissions are set, the unrestricted permission takes precedence over the `ToOwner` permission:
+/// - `RemoveLiquidity` over `RemoveLiquidityToOwner`
+/// - `ClaimPositionFee` over `ClaimPositionFeeToOwner`
+/// - `ClaimReward` over `ClaimRewardToOwner`
 #[repr(u8)]
 #[derive(
     Clone,
