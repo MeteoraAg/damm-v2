@@ -345,6 +345,13 @@ pub mod cp_amm {
         instructions::handle_fix_pool_layout_version(ctx)
     }
 
+    pub fn update_delegate_permission(
+        ctx: Context<UpdateDelegatePermissionCtx>,
+        permission: u32,
+    ) -> Result<()> {
+        instructions::handle_update_delegate_permission(ctx, permission)
+    }
+
     #[cfg(feature = "idl-build")]
     pub fn dummy_ix(
         _ctx: Context<ForIdlTypeGenerationDoNotCallThis>,

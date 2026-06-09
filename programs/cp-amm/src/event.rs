@@ -96,6 +96,13 @@ pub struct EvtClosePosition {
     pub position_nft_mint: Pubkey,
 }
 
+#[event]
+pub struct EvtUpdateDelegatePermission {
+    pub position: Pubkey,
+    pub owner: Pubkey,
+    pub permission: u32,
+}
+
 #[derive(Clone, Copy)]
 #[event]
 pub struct EvtSwap2 {

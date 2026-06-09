@@ -900,13 +900,14 @@ checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
 name = "cp-amm"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anchor-lang 1.0.2",
  "anchor-spl",
  "borsh 1.6.1",
  "bytemuck",
  "const-crypto",
+ "derive-variant-count",
  "num",
  "num-traits",
  "num_enum",
@@ -1035,6 +1036,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "derive-variant-count"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -2066,7 +2075,7 @@ checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 
 [[package]]
 name = "rust-sdk"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "bytemuck",

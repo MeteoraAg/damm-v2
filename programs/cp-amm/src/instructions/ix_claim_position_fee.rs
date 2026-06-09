@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    state::{Pool, Position},
+    state::{Pool, Position, PositionDelegatePermission},
     token::transfer_from_pool,
     EvtClaimPositionFee,
 };
@@ -56,12 +56,11 @@ pub struct ClaimPositionFeeCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            token::authority = owner
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner of position
-    pub owner: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     /// Token a program
     pub token_a_program: Interface<'info, TokenInterface>,
@@ -72,6 +71,25 @@ pub struct ClaimPositionFeeCtx<'info> {
 
 pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
     let mut position = ctx.accounts.position.load_mut()?;
+
+    position.assert_authority_with_owner_destinations(
+        &ctx.accounts.position_nft_account,
+        &ctx.accounts.signer.key(),
+        PositionDelegatePermission::ClaimPositionFee,
+        PositionDelegatePermission::ClaimPositionFeeToOwner,
+        &[
+            (
+                &ctx.accounts.token_a_account.to_account_info(),
+                ctx.accounts.token_a_mint.key(),
+                ctx.accounts.token_a_program.key(),
+            ),
+            (
+                &ctx.accounts.token_b_account.to_account_info(),
+                ctx.accounts.token_b_mint.key(),
+                ctx.accounts.token_b_program.key(),
+            ),
+        ],
+    )?;
 
     let pool = ctx.accounts.pool.load()?;
     position.update_fee(pool.fee_a_per_liquidity(), pool.fee_b_per_liquidity())?;
@@ -111,7 +129,7 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
     emit_cpi!(EvtClaimPositionFee {
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
-        owner: ctx.accounts.owner.key(),
+        owner: ctx.accounts.position_nft_account.owner,
         fee_a_claimed: fee_a_pending,
         fee_b_claimed: fee_b_pending,
     });

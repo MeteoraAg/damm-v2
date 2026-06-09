@@ -1,6 +1,7 @@
 use std::ops::BitAnd;
 
 use anchor_lang::prelude::*;
+use derive_variant_count::VariantCount;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
@@ -14,6 +15,7 @@ use static_assertions::const_assert_eq;
     TryFromPrimitive,
     AnchorDeserialize,
     AnchorSerialize,
+    VariantCount,
 )]
 pub enum OperatorPermission {
     CreateConfigKey,      // 0
