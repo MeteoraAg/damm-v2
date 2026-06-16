@@ -34,7 +34,7 @@ import {
 import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 
-describe("Dead liquidity reward", () => {
+describe("Dead liquidity reward (Compounding fee mode only)", () => {
   let svm: LiteSVM;
   let admin: Keypair;
   let creator: Keypair;
@@ -48,6 +48,7 @@ describe("Dead liquidity reward", () => {
   const REWARD_INDEX = 0;
   const REWARD_DURATION = 24 * 60 * 60; // 1 day
   const REWARD_AMOUNT = new BN(REWARD_DURATION * 1_000); // divisible by 4
+  const REWARD_RATE_SCALE = 64;
 
   const baseFeeData = () =>
     encodeFeeTimeSchedulerParams(
@@ -148,7 +149,7 @@ describe("Dead liquidity reward", () => {
     return { pool, position, rewardEnd, rewardMid };
   }
 
-  describe("Compounding Fee - Funder can withdrawIneligibleReward from DEAD_LIQUIDITY", () => {
+  describe("Funder can withdrawIneligibleReward from DEAD_LIQUIDITY share", () => {
     it("After the last LP exits", async () => {
       const { pool, position, rewardEnd, rewardMid } =
         await setupFundedCompoundingPool();
@@ -225,5 +226,44 @@ describe("Dead liquidity reward", () => {
       // the empty-liquidity counter never increments since DEAD_LIQUIDITY keeps pool.liquidity > 0
       expect(recovered.gtn(0)).eq(true);
     });
+  });
+
+  it("Funding with carryForward = true carries forward the dead liquidity reward", async () => {
+    const { pool, position, rewardEnd } = await setupFundedCompoundingPool();
+
+    warpToTimestamp(svm, rewardEnd);
+    await claimReward(svm, {
+      index: REWARD_INDEX,
+      user: creator,
+      pool,
+      position,
+      skipReward: 0,
+    });
+
+    const rewardInfo = getPool(svm, pool).rewardInfos[REWARD_INDEX];
+    const deadInVault = new BN(getTokenBalance(svm, rewardInfo.vault));
+    expect(deadInVault.gtn(0)).eq(true);
+    // pool was never empty. this also ensures the carry forward only comes from dead liquidity reward
+    expect(rewardInfo.cumulativeSecondsWithEmptyLiquidityReward.eqn(0)).eq(
+      true
+    );
+
+    // second reward campaign
+    await fundReward(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+      carryForward: true,
+      amount: REWARD_AMOUNT,
+    });
+
+    const vaultAfter = new BN(getTokenBalance(svm, rewardInfo.vault));
+    const rateWithoutCarryOver =
+      REWARD_AMOUNT.shln(REWARD_RATE_SCALE).divn(REWARD_DURATION);
+    const actualRate = getPool(svm, pool).rewardInfos[REWARD_INDEX].rewardRate;
+
+    expect(vaultAfter.gt(REWARD_AMOUNT)).eq(true);
+    expect(vaultAfter.eq(REWARD_AMOUNT.add(deadInVault))).eq(true);
+    expect(actualRate.gt(rateWithoutCarryOver)).eq(true);
   });
 });

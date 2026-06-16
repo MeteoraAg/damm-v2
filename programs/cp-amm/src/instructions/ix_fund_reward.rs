@@ -96,11 +96,18 @@ pub fn handle_fund_reward(
         // because it will be brought forward to next reward window
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 
-        transfer_fee_excluded_amount_in.safe_add(carry_forward_ineligible_reward)?
+        // carry forward dead liquidity reward
+        let pending_dead_liquidity_reward = reward_info.pending_dead_liquidity_reward;
+        reward_info.pending_dead_liquidity_reward = 0;
+
+        transfer_fee_excluded_amount_in
+            .safe_add(carry_forward_ineligible_reward)?
+            .safe_add(pending_dead_liquidity_reward)?
     } else {
         // Because the program only keep track of cumulative seconds of rewards with empty liquidity,
         // and funding will affect the reward rate, which directly affect ineligible reward calculation.
         // ineligible_reward = reward_rate_per_seconds * cumulative_seconds_with_empty_liquidity_reward
+        // We don't require pending_dead_liquidity_reward == 0 since it doesn't affect the reward rate calculation
         require!(
             reward_info.cumulative_seconds_with_empty_liquidity_reward == 0,
             PoolError::MustWithdrawnIneligibleReward
