@@ -232,7 +232,7 @@ pub struct RewardInfo {
     pub reward_token_flag: u8,
     /// padding
     pub _padding_0: [u8; 6],
-    /// Reward for the funder from the unowned DEAD_LIQUIDITY share (Compounding Pool only)
+    /// Cumulative dead-liquidity reward (Compounding Pool only)
     pub dead_liquidity_reward_checkpoint: u64,
     /// Reward token mint.
     pub mint: Pubkey,
@@ -315,16 +315,20 @@ impl RewardInfo {
         self.last_update_time = min(current_time, self.reward_duration_end);
     }
 
+    /// Limitation: since dead_liquidity_reward_checkpoint is monotonic, it's possible to exceed u64::MAX, so we saturate it to u64::MAX.
+    /// At that point the reward stops accruing. This is accepted to keep the dead_liquidity_reward_checkpoint at 8 bytes.
     pub fn settle_dead_liquidity_reward(
         &mut self,
         collect_fee_mode: CollectFeeMode,
     ) -> Result<u64> {
         if collect_fee_mode == CollectFeeMode::Compounding {
+            // saturate on overflow
             let new_dead_liquidity_reward_checkpoint: u64 = safe_mul_shr_256_cast(
                 U256::from(DEAD_LIQUIDITY),
                 self.reward_per_token_stored(),
                 TOTAL_REWARD_SCALE,
-            )?;
+            )
+            .unwrap_or(u64::MAX); // saturate to u64::MAX
 
             let dead_liquidity_reward = new_dead_liquidity_reward_checkpoint
                 .safe_sub(self.dead_liquidity_reward_checkpoint)?;
