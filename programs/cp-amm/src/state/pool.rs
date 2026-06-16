@@ -233,7 +233,7 @@ pub struct RewardInfo {
     /// padding
     pub _padding_0: [u8; 6],
     /// Reward for the funder from the unowned DEAD_LIQUIDITY share (Compounding Pool only)
-    pub pending_dead_liquidity_reward: u64,
+    pub dead_liquidity_reward_checkpoint: u64,
     /// Reward token mint.
     pub mint: Pubkey,
     /// Reward vault token account.
@@ -284,12 +284,7 @@ impl RewardInfo {
         self.reward_token_flag = reward_token_flag;
     }
 
-    pub fn update_rewards(
-        &mut self,
-        liquidity_supply: u128,
-        collect_fee_mode: CollectFeeMode,
-        current_time: u64,
-    ) -> Result<()> {
+    pub fn update_rewards(&mut self, liquidity_supply: u128, current_time: u64) -> Result<()> {
         // Update reward if it initialized
         if self.initialized() {
             if liquidity_supply > 0 {
@@ -300,20 +295,6 @@ impl RewardInfo {
                     )?;
 
                 self.accumulate_reward_per_token_stored(reward_per_token_stored_delta)?;
-
-                if collect_fee_mode == CollectFeeMode::Compounding {
-                    // in Compounding fee mode, DEAD_LIQUIDITY is part of liquidity_supply but unowned.
-                    // So we accrue its reward as ineligible_reward that is withdrawable by the funder
-                    let dead_liquidity_reward: u64 = safe_mul_shr_256_cast(
-                        U256::from(DEAD_LIQUIDITY),
-                        reward_per_token_stored_delta,
-                        TOTAL_REWARD_SCALE,
-                    )?;
-
-                    self.pending_dead_liquidity_reward = self
-                        .pending_dead_liquidity_reward
-                        .safe_add(dead_liquidity_reward)?;
-                }
             } else {
                 // Time period which the reward was distributed to empty
                 let time_period = self.get_seconds_elapsed_since_last_update(current_time)?;
@@ -332,6 +313,27 @@ impl RewardInfo {
 
     pub fn update_last_update_time(&mut self, current_time: u64) {
         self.last_update_time = min(current_time, self.reward_duration_end);
+    }
+
+    pub fn settle_dead_liquidity_reward(
+        &mut self,
+        collect_fee_mode: CollectFeeMode,
+    ) -> Result<u64> {
+        if collect_fee_mode == CollectFeeMode::Compounding {
+            let new_dead_liquidity_reward_checkpoint: u64 = safe_mul_shr_256_cast(
+                U256::from(DEAD_LIQUIDITY),
+                self.reward_per_token_stored(),
+                TOTAL_REWARD_SCALE,
+            )?;
+
+            let dead_liquidity_reward = new_dead_liquidity_reward_checkpoint
+                .safe_sub(self.dead_liquidity_reward_checkpoint)?;
+            self.dead_liquidity_reward_checkpoint = new_dead_liquidity_reward_checkpoint;
+
+            Ok(dead_liquidity_reward)
+        } else {
+            Ok(0)
+        }
     }
 
     pub fn get_seconds_elapsed_since_last_update(&self, current_time: u64) -> Result<u64> {
@@ -1086,17 +1088,17 @@ impl Pool {
 
     /// Update the rewards per token stored.
     pub fn update_rewards(&mut self, current_time: u64) -> Result<()> {
-        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
-
         for reward_idx in 0..NUM_REWARDS {
             let reward_info = &mut self.reward_infos[reward_idx];
-            reward_info.update_rewards(self.liquidity, collect_fee_mode, current_time)?;
+            reward_info.update_rewards(self.liquidity, current_time)?;
         }
 
         Ok(())
     }
 
     pub fn claim_ineligible_reward(&mut self, reward_index: usize) -> Result<u64> {
+        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
+
         // calculate ineligible reward
         let reward_info = &mut self.reward_infos[reward_index];
         let empty_liquidity_reward: u64 = safe_mul_shr_cast(
@@ -1107,11 +1109,11 @@ impl Pool {
             REWARD_RATE_SCALE,
         )?;
 
-        let ineligible_reward =
-            empty_liquidity_reward.safe_add(reward_info.pending_dead_liquidity_reward)?;
+        let dead_liquidity_reward = reward_info.settle_dead_liquidity_reward(collect_fee_mode)?;
+
+        let ineligible_reward = empty_liquidity_reward.safe_add(dead_liquidity_reward)?;
 
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
-        reward_info.pending_dead_liquidity_reward = 0;
 
         Ok(ineligible_reward)
     }

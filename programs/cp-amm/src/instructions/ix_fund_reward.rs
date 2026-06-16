@@ -4,8 +4,8 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     constants::{NUM_REWARDS, REWARD_RATE_SCALE},
     event::EvtFundReward,
-    math::safe_math::SafeMath,
-    state::Pool,
+    math::safe_math::{SafeCast, SafeMath},
+    state::{CollectFeeMode, Pool},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_user},
     utils_math::safe_mul_shr_cast,
     PoolError,
@@ -76,6 +76,7 @@ pub fn handle_fund_reward(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let current_time = Clock::get()?.unix_timestamp;
+    let collect_fee_mode: CollectFeeMode = pool.collect_fee_mode.safe_cast()?;
     // 1. update pool rewards
     pool.update_rewards(current_time as u64)?;
 
@@ -97,17 +98,16 @@ pub fn handle_fund_reward(
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 
         // carry forward dead liquidity reward
-        let pending_dead_liquidity_reward = reward_info.pending_dead_liquidity_reward;
-        reward_info.pending_dead_liquidity_reward = 0;
+        let dead_liquidity_reward = reward_info.settle_dead_liquidity_reward(collect_fee_mode)?;
 
         transfer_fee_excluded_amount_in
             .safe_add(carry_forward_ineligible_reward)?
-            .safe_add(pending_dead_liquidity_reward)?
+            .safe_add(dead_liquidity_reward)?
     } else {
         // Because the program only keep track of cumulative seconds of rewards with empty liquidity,
         // and funding will affect the reward rate, which directly affect ineligible reward calculation.
         // ineligible_reward = reward_rate_per_seconds * cumulative_seconds_with_empty_liquidity_reward
-        // We don't require pending_dead_liquidity_reward == 0 since it doesn't affect the reward rate calculation
+        // We don't require the dead liquidity reward to be settled since its not affected by the reward rate calculation
         require!(
             reward_info.cumulative_seconds_with_empty_liquidity_reward == 0,
             PoolError::MustWithdrawnIneligibleReward
