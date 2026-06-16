@@ -25,10 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added support for NFT delegates to manage positions. The following endpoints can now be signed by a delegate if the owner has granted them permission: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`. Note: the `close_position`, `split_position`, and `split_position2` endpoints remain callable by the owner only.
 - Added new endpoint `update_delegate_permission` to set the permission bitmask on `Position.delegate_permission`. Pass `permission = 0` to clear all permissions. Callers are responsible for managing the SPL token delegate via SPL `Approve` / `Revoke` separately. The bitmask supports 8 permissions: `AddLiquidity`, `RemoveLiquidity`, `RemoveLiquidityToOwner`, `ClaimPositionFee`, `ClaimPositionFeeToOwner`, `ClaimReward`, `ClaimRewardToOwner`, `LockPosition`.
+- Added new field `dead_liquidity_reward_checkpoint` in Pool `RewardInfo` to track the unowned `DEAD_LIQUIDITY` reward share. See the related entry under `Fixed` below.
 
 ### Changed
 
 - Events `EvtClaimPositionFee`, `EvtClaimReward`, `EvtLiquidityChange` and `EvtLockPosition` now source the `owner` field from `position_nft_account.owner` instead of the signer, since the signer can now be a delegate.
+
+### Fixed
+
+- Fixed reward accounting for the unowned `DEAD_LIQUIDITY` share in `CollectFeeMode::Compounding` pools. This liquidity is part of `liquidity_supply` but is not owned by any position, so its reward share was previously stranded in the reward vault. It is now accrued as an ineligible reward that the funder can recover via `withdraw_ineligible_reward`, or carry it forward when calling `fund_reward` with `carry_forward = true`.
 
 ### Breaking Changes
 
