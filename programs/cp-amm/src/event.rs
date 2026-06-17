@@ -101,6 +101,7 @@ pub struct EvtUpdateDelegatePermission {
     pub position: Pubkey,
     pub owner: Pubkey,
     pub permission: u32,
+    pub delegate: Option<Pubkey>,
 }
 
 #[derive(Clone, Copy)]
