@@ -28,6 +28,7 @@ import {
   createPosition,
   createToken,
   derivePositionNftAccount,
+  deriveRewardVaultAddress,
   encodeDelegatePermissions,
   encodePermissions,
   fundReward,
@@ -59,6 +60,7 @@ import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import { expectThrowsErrorCode } from "./helpers/svm";
 import {
+  freezeTokenAccount,
   getOrCreateAssociatedTokenAccount,
   getTokenAccount,
 } from "./helpers/token";
@@ -960,6 +962,50 @@ describe("Delegate Position", () => {
         expect(result).instanceOf(TransactionMetadata);
         const after = new BN(getTokenBalance(svm, userAtaReward));
         expect(after.gt(before)).to.be.true;
+
+        // delegate with ClaimRewardToOwner permission must not be able to discard pending
+        // reward via skip_reward when the vault is frozen
+        const rewardVault = deriveRewardVaultAddress(pool, rewardIndex);
+        freezeTokenAccount(svm, admin, rewardMint, rewardVault);
+        expect(getTokenAccount(svm, rewardVault).state).eq(2); // frozen
+
+        const skipResult = await claimReward(svm, {
+          index: rewardIndex,
+          user: delegate,
+          pool,
+          position: targetPosition,
+          skipReward: 1,
+          userTokenAccount: userAtaReward,
+        });
+        expectThrowsErrorCode(skipResult, INVALID_PERMISSION_CODE);
+
+        // delegate with ClaimReward permission can discard the pending reward
+        // on a frozen vault without any transfer
+        await updateDelegatePermission(svm, {
+          owner: user,
+          position: targetPosition,
+          delegate: delegate.publicKey,
+          permission: encodeDelegatePermissions([
+            PositionDelegatePermission.ClaimReward,
+          ]),
+        });
+
+        const beforeDelegate = new BN(getTokenBalance(svm, delegateAtaReward));
+        const discardResult = await claimReward(svm, {
+          index: rewardIndex,
+          user: delegate,
+          pool,
+          position: targetPosition,
+          skipReward: 1,
+          userTokenAccount: userAtaReward,
+        });
+        expect(discardResult).instanceOf(TransactionMetadata);
+        const positionState = getPosition(svm, targetPosition);
+        expect(
+          positionState.rewardInfos[rewardIndex].rewardPendings.toNumber()
+        ).eq(0);
+        const afterDelegate = new BN(getTokenBalance(svm, delegateAtaReward));
+        expect(afterDelegate.eq(beforeDelegate)).to.be.true;
       });
 
       it("delegate cannot claim to delegate ATA", async () => {
