@@ -78,6 +78,7 @@ pub struct EvtClaimPositionFee {
     pub owner: Pubkey,
     pub fee_a_claimed: u64,
     pub fee_b_claimed: u64,
+    pub signer: Pubkey,
 }
 
 #[event]
@@ -131,6 +132,7 @@ pub struct EvtLockPosition {
     pub cliff_unlock_liquidity: u128,
     pub liquidity_per_period: u128,
     pub number_of_period: u16,
+    pub signer: Pubkey,
 }
 #[event]
 pub struct EvtPermanentLockPosition {
@@ -138,6 +140,7 @@ pub struct EvtPermanentLockPosition {
     pub position: Pubkey,
     pub lock_liquidity_amount: u128,
     pub total_permanent_locked_liquidity: u128,
+    pub signer: Pubkey,
 }
 
 #[event]
@@ -214,6 +217,8 @@ pub struct EvtClaimReward {
     pub reward_index: u8,
     // Total amount of reward claimed
     pub total_reward: u64,
+    // Actual signer of the instruction (owner or delegate)
+    pub signer: Pubkey,
 }
 
 #[event]
@@ -295,6 +300,7 @@ pub struct EvtLiquidityChange {
     pub token_b_amount_threshold: u64,
     // 0: add, 1: remove
     pub change_type: u8,
+    pub signer: Pubkey,
 }
 
 #[event]

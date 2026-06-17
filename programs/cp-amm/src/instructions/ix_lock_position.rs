@@ -138,6 +138,7 @@ pub fn handle_lock_position(
         cliff_unlock_liquidity: params.cliff_unlock_liquidity,
         liquidity_per_period: params.liquidity_per_period,
         number_of_period: params.number_of_period,
+        signer: ctx.accounts.signer.key(),
     });
 
     Ok(())

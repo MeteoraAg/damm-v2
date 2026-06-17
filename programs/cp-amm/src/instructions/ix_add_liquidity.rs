@@ -179,7 +179,8 @@ pub fn handle_add_liquidity(
         transfer_fee_included_token_b_amount: total_amount_b,
         reserve_a_amount: pool.token_a_amount,
         reserve_b_amount: pool.token_b_amount,
-        change_type: 0
+        change_type: 0,
+        signer: ctx.accounts.signer.key(),
     });
 
     Ok(())

@@ -203,7 +203,8 @@ pub fn handle_remove_liquidity(
         transfer_fee_included_token_b_amount: token_b_amount,
         reserve_a_amount: pool.token_a_amount,
         reserve_b_amount: pool.token_b_amount,
-        change_type: 1
+        change_type: 1,
+        signer: ctx.accounts.signer.key(),
     });
 
     Ok(())

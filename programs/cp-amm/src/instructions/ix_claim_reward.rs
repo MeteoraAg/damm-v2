@@ -121,6 +121,7 @@ pub fn handle_claim_reward(
         owner: ctx.accounts.position_nft_account.owner,
         reward_index,
         total_reward,
+        signer: ctx.accounts.signer.key(),
     });
 
     Ok(())

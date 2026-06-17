@@ -62,7 +62,8 @@ pub fn handle_permanent_lock_position(
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
         lock_liquidity_amount: permanent_lock_liquidity,
-        total_permanent_locked_liquidity: pool.permanent_lock_liquidity
+        total_permanent_locked_liquidity: pool.permanent_lock_liquidity,
+        signer: ctx.accounts.signer.key(),
     });
 
     Ok(())

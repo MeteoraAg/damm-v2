@@ -132,6 +132,7 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
         owner: ctx.accounts.position_nft_account.owner,
         fee_a_claimed: fee_a_pending,
         fee_b_claimed: fee_b_pending,
+        signer: ctx.accounts.signer.key(),
     });
 
     Ok(())
