@@ -46,6 +46,7 @@ pub fn handle_update_delegate_permission(
         position: ctx.accounts.position.key(),
         owner: ctx.accounts.owner.key(),
         permission,
+        delegate: ctx.accounts.position_nft_account.delegate.into(),
     });
 
     Ok(())
