@@ -78,17 +78,27 @@ pub fn handle_claim_reward(
     let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
 
-    position.assert_authority_with_owner_destinations(
-        &ctx.accounts.position_nft_account,
-        &ctx.accounts.signer.key(),
-        PositionDelegatePermission::ClaimReward,
-        PositionDelegatePermission::ClaimRewardToOwner,
-        &[(
-            &ctx.accounts.user_token_account.to_account_info(),
-            ctx.accounts.reward_mint.key(),
-            ctx.accounts.token_program.key(),
-        )],
-    )?;
+    if ctx.accounts.reward_vault.is_frozen() && skip_reward == 1 {
+        // this clears the pending reward without transferring it,
+        // so only the unrestricted `ClaimReward` permission allowed to perfomr it
+        position.assert_authority(
+            &ctx.accounts.position_nft_account,
+            &ctx.accounts.signer.key(),
+            PositionDelegatePermission::ClaimReward,
+        )?;
+    } else {
+        position.assert_authority_with_owner_destinations(
+            &ctx.accounts.position_nft_account,
+            &ctx.accounts.signer.key(),
+            PositionDelegatePermission::ClaimReward,
+            PositionDelegatePermission::ClaimRewardToOwner,
+            &[(
+                &ctx.accounts.user_token_account.to_account_info(),
+                ctx.accounts.reward_mint.key(),
+                ctx.accounts.token_program.key(),
+            )],
+        )?;
+    }
 
     let current_time = Clock::get()?.unix_timestamp as u64;
 
