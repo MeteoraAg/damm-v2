@@ -4,8 +4,8 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     constants::{NUM_REWARDS, REWARD_RATE_SCALE},
     event::EvtFundReward,
-    math::safe_math::SafeMath,
-    state::Pool,
+    math::safe_math::{SafeCast, SafeMath},
+    state::{CollectFeeMode, Pool},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_user},
     utils_math::safe_mul_shr_cast,
     PoolError,
@@ -76,6 +76,7 @@ pub fn handle_fund_reward(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let current_time = Clock::get()?.unix_timestamp;
+    let collect_fee_mode: CollectFeeMode = pool.collect_fee_mode.safe_cast()?;
     // 1. update pool rewards
     pool.update_rewards(current_time as u64)?;
 
@@ -96,13 +97,21 @@ pub fn handle_fund_reward(
         // because it will be brought forward to next reward window
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 
-        transfer_fee_excluded_amount_in.safe_add(carry_forward_ineligible_reward)?
+        // carry forward dead liquidity reward
+        let dead_liquidity_reward = reward_info.settle_dead_liquidity_reward(collect_fee_mode)?;
+
+        transfer_fee_excluded_amount_in
+            .safe_add(carry_forward_ineligible_reward)?
+            .safe_add(dead_liquidity_reward)?
     } else {
         // Because the program only keep track of cumulative seconds of rewards with empty liquidity,
         // and funding will affect the reward rate, which directly affect ineligible reward calculation.
         // ineligible_reward = reward_rate_per_seconds * cumulative_seconds_with_empty_liquidity_reward
+        //
+        // force withdrawal of pending dead_liquidity_reward first, so the wrapped checkpoint delta stays below 2^64
         require!(
-            reward_info.cumulative_seconds_with_empty_liquidity_reward == 0,
+            reward_info.cumulative_seconds_with_empty_liquidity_reward == 0
+                && reward_info.get_pending_dead_liquidity_reward(collect_fee_mode)? == 0,
             PoolError::MustWithdrawnIneligibleReward
         );
 

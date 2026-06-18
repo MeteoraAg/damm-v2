@@ -34,6 +34,7 @@ export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 
 export const LIQUIDITY_MAX = new BN("34028236692093846346337460743");
 export const MIN_LP_AMOUNT = new BN("1844674407370955161600");
+export const DEAD_LIQUIDITY = new BN(100).shln(64);
 export const DECIMALS = 9;
 export const BASIS_POINT_MAX = 10_000;
 export const OFFSET = 64;
