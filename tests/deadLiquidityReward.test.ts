@@ -11,11 +11,14 @@ import {
   claimReward,
   createConfigIx,
   CreateConfigParams,
+  createCpAmmProgram,
   createOperator,
   createToken,
   DEAD_LIQUIDITY,
   encodePermissions,
+  expectThrowsErrorCode,
   fundReward,
+  getCpAmmProgramErrorCode,
   getPool,
   getTokenBalance,
   initializePool,
@@ -26,13 +29,25 @@ import {
   mintSplTokenTo,
   OperatorPermission,
   removeAllLiquidity,
+  sendTransaction,
   startSvm,
   U128_MAX,
+  U64_MAX,
   warpToTimestamp,
   withdrawIneligibleReward,
 } from "./helpers";
 import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
+
+const mustWithdrawErrorCode = getCpAmmProgramErrorCode(
+  "MustWithdrawnIneligibleReward"
+);
+
+const assertCloseToU64Max = (amount: BN) => {
+  expect(
+    amount.lte(U64_MAX) && amount.gte(U64_MAX.sub(U64_MAX.divn(100))) // 1% tolerance
+  ).eq(true);
+};
 
 describe("Dead liquidity reward (Compounding fee mode only)", () => {
   let svm: LiteSVM;
@@ -265,5 +280,111 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
     expect(vaultAfter.gt(REWARD_AMOUNT)).eq(true);
     expect(vaultAfter.eq(REWARD_AMOUNT.add(deadInVault))).eq(true);
     expect(actualRate.gt(rateWithoutCarryOver)).eq(true);
+  });
+
+  it("dead_liquidity_reward_checkpoint wraps correctly", async () => {
+    // 2 reward campaigns that each emit u64::MAX of reward as dead_liquidity_reward,
+    // so the cumulative checkpoint exceeds u64::MAX and must wrap
+    // if the wrapping happens correctly, the funder should recover ~u64::MAX in round 2
+
+    // top the funder up to exactly u64::MAX reward tokens
+    mintSplTokenTo(
+      svm,
+      rewardMint,
+      admin,
+      funder.publicKey,
+      U64_MAX.sub(new BN(getTokenBalance(svm, funderRewardAta())))
+    );
+
+    const { pool, position } = await initializePool(svm, {
+      payer: creator,
+      creator: creator.publicKey,
+      config: compoundingConfig,
+      tokenAMint,
+      tokenBMint,
+      liquidity: DEAD_LIQUIDITY.muln(2),
+      sqrtPrice: MIN_SQRT_PRICE.muln(2),
+      activationPoint: null,
+    });
+
+    await initializeReward(svm, {
+      index: REWARD_INDEX,
+      payer: creator,
+      rewardDuration: new BN(REWARD_DURATION),
+      pool,
+      rewardMint,
+      funder: funder.publicKey,
+    });
+
+    const rewardVault = getPool(svm, pool).rewardInfos[REWARD_INDEX].vault;
+
+    // LP exits immediately so DEAD_LIQUIDITY is the only share for the whole campaign
+    await fundReward(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+      carryForward: false,
+      amount: U64_MAX,
+    });
+    await removeAllLiquidity(svm, {
+      owner: creator,
+      pool,
+      position,
+      tokenAAmountThreshold: new BN(0),
+      tokenBAmountThreshold: new BN(0),
+    });
+    expect(getPool(svm, pool).liquidity.eq(DEAD_LIQUIDITY)).eq(true);
+
+    const rewardEnd1 = getPool(svm, pool).rewardInfos[REWARD_INDEX]
+      .rewardDurationEnd;
+    warpToTimestamp(svm, rewardEnd1.addn(1));
+
+    // funding again before withdrawing the pending dead_liquidity_reward fails
+    const failedFundTx = await createCpAmmProgram()
+      .methods.fundReward(REWARD_INDEX, U64_MAX, false)
+      .accountsPartial({
+        pool,
+        rewardVault,
+        rewardMint,
+        funderTokenAccount: funderRewardAta(),
+        funder: funder.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .transaction();
+    expectThrowsErrorCode(
+      sendTransaction(svm, failedFundTx, [funder]),
+      mustWithdrawErrorCode
+    );
+
+    const funderBefore1 = new BN(getTokenBalance(svm, funderRewardAta()));
+    await withdrawIneligibleReward(svm, { index: REWARD_INDEX, funder, pool });
+    const recovered1 = new BN(getTokenBalance(svm, funderRewardAta())).sub(
+      funderBefore1
+    );
+
+    assertCloseToU64Max(recovered1);
+
+    // total supply is capped at u64::MAX, so fund the recovered balance (~u64::MAX);
+    // this still pushes the cumulative checkpoint past u64::MAX and forces a wrap
+    await fundReward(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+      carryForward: false,
+      amount: new BN(getTokenBalance(svm, funderRewardAta())),
+    });
+
+    const rewardEnd2 = getPool(svm, pool).rewardInfos[REWARD_INDEX]
+      .rewardDurationEnd;
+    warpToTimestamp(svm, rewardEnd2.addn(1));
+
+    const funderBefore2 = new BN(getTokenBalance(svm, funderRewardAta()));
+    await withdrawIneligibleReward(svm, { index: REWARD_INDEX, funder, pool });
+    const recovered2 = new BN(getTokenBalance(svm, funderRewardAta())).sub(
+      funderBefore2
+    );
+
+    // checkpoint has wrapped past u64::MAX; without wrapping this returns 0 or errors
+    assertCloseToU64Max(recovered2);
   });
 });

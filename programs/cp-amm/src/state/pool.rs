@@ -23,8 +23,8 @@ use crate::{
         fee::{DynamicFeeStruct, PoolFeesStruct},
         Position, SplitFeeAmount,
     },
-    u128x128_math::{shl_div_256, Rounding},
-    utils_math::{safe_mul_shr_256_cast, safe_mul_shr_cast, safe_shl_div_cast},
+    u128x128_math::{mul_shr_256, shl_div_256, Rounding},
+    utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
     PoolError,
 };
 use crate::{
@@ -315,24 +315,44 @@ impl RewardInfo {
         self.last_update_time = min(current_time, self.reward_duration_end);
     }
 
-    /// Limitation: since dead_liquidity_reward_checkpoint is monotonic, it's possible to exceed u64::MAX, so we saturate it to u64::MAX.
-    /// At that point the reward stops accruing. This is accepted to keep the dead_liquidity_reward_checkpoint at 8 bytes.
+    /// monotonic cumulative dead-liquidity reward, wrapped to u64 (mod 2^64).
+    /// The delta is recovered via `wrapping_sub`, valid while it stays below 2^64.
+    fn current_dead_liquidity_reward_checkpoint(&self) -> Result<u64> {
+        let cumulative = mul_shr_256(
+            U256::from(DEAD_LIQUIDITY),
+            self.reward_per_token_stored(),
+            TOTAL_REWARD_SCALE,
+        )
+        .ok_or_else(|| PoolError::MathOverflow)?;
+
+        Ok(cumulative as u64)
+    }
+
+    /// get pending dead_liquidity_reward without mutating the checkpoint
+    pub fn get_pending_dead_liquidity_reward(
+        &self,
+        collect_fee_mode: CollectFeeMode,
+    ) -> Result<u64> {
+        if collect_fee_mode == CollectFeeMode::Compounding {
+            let checkpoint = self.current_dead_liquidity_reward_checkpoint()?;
+            let dead_liquidity_reward =
+                checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
+            Ok(dead_liquidity_reward)
+        } else {
+            Ok(0)
+        }
+    }
+
+    /// get pending dead_liquidity_reward and update the checkpoint
     pub fn settle_dead_liquidity_reward(
         &mut self,
         collect_fee_mode: CollectFeeMode,
     ) -> Result<u64> {
         if collect_fee_mode == CollectFeeMode::Compounding {
-            // saturate on overflow
-            let new_dead_liquidity_reward_checkpoint: u64 = safe_mul_shr_256_cast(
-                U256::from(DEAD_LIQUIDITY),
-                self.reward_per_token_stored(),
-                TOTAL_REWARD_SCALE,
-            )
-            .unwrap_or(u64::MAX); // saturate to u64::MAX
-
-            let dead_liquidity_reward = new_dead_liquidity_reward_checkpoint
-                .safe_sub(self.dead_liquidity_reward_checkpoint)?;
-            self.dead_liquidity_reward_checkpoint = new_dead_liquidity_reward_checkpoint;
+            let checkpoint = self.current_dead_liquidity_reward_checkpoint()?;
+            let dead_liquidity_reward =
+                checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
+            self.dead_liquidity_reward_checkpoint = checkpoint;
 
             Ok(dead_liquidity_reward)
         } else {

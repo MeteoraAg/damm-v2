@@ -107,9 +107,11 @@ pub fn handle_fund_reward(
         // Because the program only keep track of cumulative seconds of rewards with empty liquidity,
         // and funding will affect the reward rate, which directly affect ineligible reward calculation.
         // ineligible_reward = reward_rate_per_seconds * cumulative_seconds_with_empty_liquidity_reward
-        // We don't require the dead liquidity reward to be settled since its not affected by the reward rate calculation
+        //
+        // force withdrawal of pending dead_liquidity_reward first, so the wrapped checkpoint delta stays below 2^64
         require!(
-            reward_info.cumulative_seconds_with_empty_liquidity_reward == 0,
+            reward_info.cumulative_seconds_with_empty_liquidity_reward == 0
+                && reward_info.get_pending_dead_liquidity_reward(collect_fee_mode)? == 0,
             PoolError::MustWithdrawnIneligibleReward
         );
 
