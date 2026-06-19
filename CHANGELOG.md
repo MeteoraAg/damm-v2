@@ -37,7 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-- `fund_reward` on a `CollectFeeMode::Compounding` pool now requires the pending dead-liquidity reward to be zero. Previously the funder could `fund_reward` mid-campaign on compounding pools. Now they must call `withdraw_dead_liquidity_reward` first, this must be bundled in the same transaction as `fund_reward` since the reward accrues every second. After the campaign ends, no bundling is needed.
 - Renamed the signer account from `owner` to `signer`, now that the signer may be a delegate, in the following endpoints: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `remove_all_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`.
 - The following endpoints previously rejected unauthorized signers with Anchor's `ConstraintTokenOwner` (2015) and now reject with `PoolError::InvalidAuthority` (6053), `PoolError::InvalidPermission` (6054), or `PoolError::DelegatedAmountNonZero` (6070): `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `remove_all_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`.
 

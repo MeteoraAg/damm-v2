@@ -315,38 +315,19 @@ impl RewardInfo {
         self.last_update_time = min(current_time, self.reward_duration_end);
     }
 
-    /// monotonic cumulative dead-liquidity reward, wrapped to u64 (mod 2^64).
-    /// The delta is recovered via `wrapping_sub`, valid while it stays below 2^64.
-    fn current_dead_liquidity_reward_checkpoint(&self) -> Result<u64> {
-        let cumulative = mul_shr_256(
-            U256::from(DEAD_LIQUIDITY),
-            self.reward_per_token_stored(),
-            TOTAL_REWARD_SCALE,
-        )
-        .ok_or_else(|| PoolError::MathOverflow)?;
-
-        Ok(cumulative as u64)
-    }
-
-    /// get pending dead_liquidity_reward without mutating the checkpoint
-    pub fn get_pending_dead_liquidity_reward(
-        &self,
-        collect_fee_mode: CollectFeeMode,
-    ) -> Result<u64> {
-        if collect_fee_mode == CollectFeeMode::Compounding {
-            let checkpoint = self.current_dead_liquidity_reward_checkpoint()?;
-            let dead_liquidity_reward =
-                checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
-            Ok(dead_liquidity_reward)
-        } else {
-            Ok(0)
-        }
-    }
-
-    /// get pending dead_liquidity_reward and update the checkpoint
+    /// get dead_liquidity_reward and update the checkpoint
     pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> Result<u64> {
         if collect_fee_mode == CollectFeeMode::Compounding {
-            let checkpoint = self.current_dead_liquidity_reward_checkpoint()?;
+            // Cumulative dead-liquidity reward, wrapped to u64 (mod 2^64)
+            // The checkpoint can grow past 2^64 across many funding rounds (so we use wrapping_sub),
+            // but the delta is the pending reward still sitting in the vault
+            // A vault balance is a u64, so the delta never reaches 2^64 and wraps at most once
+            let checkpoint: u64 = mul_shr_256(
+                U256::from(DEAD_LIQUIDITY),
+                self.reward_per_token_stored(),
+                TOTAL_REWARD_SCALE,
+            )
+            .ok_or_else(|| PoolError::MathOverflow)? as u64;
             let dead_liquidity_reward =
                 checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
             self.dead_liquidity_reward_checkpoint = checkpoint;

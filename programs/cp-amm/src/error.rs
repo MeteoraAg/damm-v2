@@ -218,9 +218,6 @@ pub enum PoolError {
 
     #[msg("Delegated amount is not zero")]
     DelegatedAmountNonZero,
-
-    #[msg("Must withdraw dead liquidity reward")]
-    MustWithdrawDeadLiquidityReward,
 }
 
 impl From<ProtozolZapError> for PoolError {

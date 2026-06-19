@@ -4,8 +4,8 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     constants::{NUM_REWARDS, REWARD_RATE_SCALE},
     event::EvtFundReward,
-    math::safe_math::{SafeCast, SafeMath},
-    state::{CollectFeeMode, Pool},
+    math::safe_math::SafeMath,
+    state::Pool,
     token::{calculate_transfer_fee_excluded_amount, transfer_from_user},
     utils_math::safe_mul_shr_cast,
     PoolError,
@@ -76,19 +76,12 @@ pub fn handle_fund_reward(
 
     let mut pool = ctx.accounts.pool.load_mut()?;
     let current_time = Clock::get()?.unix_timestamp;
-    let collect_fee_mode: CollectFeeMode = pool.collect_fee_mode.safe_cast()?;
     // 1. update pool rewards
     pool.update_rewards(current_time as u64)?;
 
     // 2. set new farming rate
     let reward_info = &mut pool.reward_infos[index];
     let pre_reward_rate = reward_info.reward_rate;
-
-    // force withdrawal of pending dead_liquidity_reward first, so the wrapped checkpoint delta stays below 2^64
-    require!(
-        reward_info.get_pending_dead_liquidity_reward(collect_fee_mode)? == 0,
-        PoolError::MustWithdrawDeadLiquidityReward
-    );
 
     let total_amount = if carry_forward {
         let carry_forward_ineligible_reward: u64 = safe_mul_shr_cast(

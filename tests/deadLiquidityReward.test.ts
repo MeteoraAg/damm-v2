@@ -42,10 +42,6 @@ import {
 import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 
-const mustWithdrawErrorCode = getCpAmmProgramErrorCode(
-  "MustWithdrawDeadLiquidityReward"
-);
-
 const invalidCollectFeeModeErrorCode = getCpAmmProgramErrorCode(
   "InvalidCollectFeeMode"
 );
@@ -245,60 +241,9 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
     });
   });
 
-  for (const carryForward of [false, true]) {
-    it(`Dead liquidity reward blocks funding until withdrawn (carryForward = ${carryForward})`, async () => {
-      const { pool, rewardMid } = await setupFundedCompoundingPool();
-      const rewardVault = getPool(svm, pool).rewardInfos[REWARD_INDEX].vault;
-
-      warpToTimestamp(svm, rewardMid);
-      // dead liquidity reward is pending, so funding is blocked for both carryForward values
-      const tx = await createCpAmmProgram()
-        .methods.fundReward(REWARD_INDEX, REWARD_AMOUNT, carryForward)
-        .accountsPartial({
-          pool,
-          rewardVault,
-          rewardMint,
-          funderTokenAccount: funderRewardAta(),
-          funder: funder.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        })
-        .transaction();
-
-      expectThrowsErrorCode(
-        sendTransaction(svm, tx, [funder]),
-        mustWithdrawErrorCode
-      );
-
-      // withdrawing mid-campaign returns the dead liquidity reward to the funder (it is not carried forward into the next campaign)
-      const funderBefore = new BN(getTokenBalance(svm, funderRewardAta()));
-      await withdrawDeadLiquidityReward(svm, {
-        index: REWARD_INDEX,
-        funder,
-        pool,
-      });
-      const funderAfter = new BN(getTokenBalance(svm, funderRewardAta()));
-      expect(funderAfter.gt(funderBefore)).eq(true);
-
-      const rewardEndBefore = getPool(svm, pool).rewardInfos[REWARD_INDEX]
-        .rewardDurationEnd;
-
-      await fundReward(svm, {
-        index: REWARD_INDEX,
-        funder,
-        pool,
-        carryForward,
-        amount: REWARD_AMOUNT,
-      });
-
-      const rewardEndAfter = getPool(svm, pool).rewardInfos[REWARD_INDEX]
-        .rewardDurationEnd;
-      expect(rewardEndAfter.gt(rewardEndBefore)).eq(true);
-    });
-  }
-
   it("dead_liquidity_reward_checkpoint wraps correctly", async () => {
-    // 2 reward campaigns that each emit u64::MAX of reward as dead_liquidity_reward,
-    // so the cumulative checkpoint exceeds u64::MAX and must wrap
+    // 2 reward campaigns that each emit ~u64::MAX of reward as dead_liquidity_reward,
+    // so the cumulative checkpoint exceeds u64::MAX and must wrap.
     // if the wrapping happens correctly, the funder should recover ~u64::MAX in round 2
 
     // top the funder up to exactly u64::MAX reward tokens
@@ -330,8 +275,6 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
       funder: funder.publicKey,
     });
 
-    const rewardVault = getPool(svm, pool).rewardInfos[REWARD_INDEX].vault;
-
     // LP exits immediately so DEAD_LIQUIDITY is the only share for the whole campaign
     await fundReward(svm, {
       index: REWARD_INDEX,
@@ -353,23 +296,6 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
       .rewardDurationEnd;
     warpToTimestamp(svm, rewardEnd1.addn(1));
 
-    // funding again before withdrawing the pending dead_liquidity_reward fails
-    const failedFundTx = await createCpAmmProgram()
-      .methods.fundReward(REWARD_INDEX, U64_MAX, false)
-      .accountsPartial({
-        pool,
-        rewardVault,
-        rewardMint,
-        funderTokenAccount: funderRewardAta(),
-        funder: funder.publicKey,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .transaction();
-    expectThrowsErrorCode(
-      sendTransaction(svm, failedFundTx, [funder]),
-      mustWithdrawErrorCode
-    );
-
     const funderBefore1 = new BN(getTokenBalance(svm, funderRewardAta()));
     await withdrawDeadLiquidityReward(svm, {
       index: REWARD_INDEX,
@@ -383,7 +309,7 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
     assertCloseToU64Max(recovered1);
 
     // total supply is capped at u64::MAX, so fund the recovered balance (~u64::MAX);
-    // this still pushes the cumulative checkpoint past u64::MAX and forces a wrap
+    // this pushes the cumulative checkpoint past u64::MAX and forces a wrap
     await fundReward(svm, {
       index: REWARD_INDEX,
       funder,
