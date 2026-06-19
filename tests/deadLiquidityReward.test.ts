@@ -241,6 +241,48 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
     });
   });
 
+  it("Funder can re-fund mid-campaign with pending dead-liquidity reward", async () => {
+    const { pool, rewardMid, rewardEnd } = await setupFundedCompoundingPool();
+
+    warpToTimestamp(svm, rewardMid);
+
+    // fund again without withdrawing first
+    const rewardEndBefore = getPool(svm, pool).rewardInfos[REWARD_INDEX]
+      .rewardDurationEnd;
+    expect(rewardEndBefore.eq(rewardEnd)).eq(true);
+
+    await fundReward(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+      carryForward: false,
+      amount: REWARD_AMOUNT,
+    });
+
+    const rewardEndAfter = getPool(svm, pool).rewardInfos[REWARD_INDEX]
+      .rewardDurationEnd;
+    expect(rewardEndAfter.gt(rewardEndBefore)).eq(true);
+  });
+
+  it("Funder can withdraw dead-liquidity reward mid-campaign", async () => {
+    const { pool, rewardMid } = await setupFundedCompoundingPool();
+
+    warpToTimestamp(svm, rewardMid);
+
+    const funderBefore = new BN(getTokenBalance(svm, funderRewardAta()));
+    await withdrawDeadLiquidityReward(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+    });
+    const funderAfter = new BN(getTokenBalance(svm, funderRewardAta()));
+
+    expect(funderAfter.gt(funderBefore)).eq(true);
+    const checkpointAfterWithdraw = getPool(svm, pool).rewardInfos[REWARD_INDEX]
+      .deadLiquidityRewardCheckpoint;
+    expect(checkpointAfterWithdraw.gtn(0)).eq(true);
+  });
+
   it("dead_liquidity_reward_checkpoint wraps correctly", async () => {
     // 2 reward campaigns that each emit ~u64::MAX of reward as dead_liquidity_reward,
     // so the cumulative checkpoint exceeds u64::MAX and must wrap.
