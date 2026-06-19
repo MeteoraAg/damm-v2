@@ -344,10 +344,7 @@ impl RewardInfo {
     }
 
     /// get pending dead_liquidity_reward and update the checkpoint
-    pub fn settle_dead_liquidity_reward(
-        &mut self,
-        collect_fee_mode: CollectFeeMode,
-    ) -> Result<u64> {
+    pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> Result<u64> {
         if collect_fee_mode == CollectFeeMode::Compounding {
             let checkpoint = self.current_dead_liquidity_reward_checkpoint()?;
             let dead_liquidity_reward =
@@ -1121,21 +1118,15 @@ impl Pool {
     }
 
     pub fn claim_ineligible_reward(&mut self, reward_index: usize) -> Result<u64> {
-        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
-
         // calculate ineligible reward
         let reward_info = &mut self.reward_infos[reward_index];
-        let empty_liquidity_reward: u64 = safe_mul_shr_cast(
+        let ineligible_reward: u64 = safe_mul_shr_cast(
             reward_info
                 .cumulative_seconds_with_empty_liquidity_reward
                 .into(),
             reward_info.reward_rate,
             REWARD_RATE_SCALE,
         )?;
-
-        let dead_liquidity_reward = reward_info.settle_dead_liquidity_reward(collect_fee_mode)?;
-
-        let ineligible_reward = empty_liquidity_reward.safe_add(dead_liquidity_reward)?;
 
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 

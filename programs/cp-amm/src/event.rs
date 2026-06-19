@@ -251,6 +251,13 @@ pub struct EvtWithdrawIneligibleReward {
     pub amount: u64,
 }
 
+#[event]
+pub struct EvtWithdrawDeadLiquidityReward {
+    pub pool: Pubkey,
+    pub reward_mint: Pubkey,
+    pub amount: u64,
+}
+
 #[deprecated(since = "0.1.8", note = "Use EvtSplitPosition3 instead")]
 #[event]
 pub struct EvtSplitPosition2 {
