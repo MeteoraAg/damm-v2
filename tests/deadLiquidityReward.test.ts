@@ -245,8 +245,8 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
     });
   });
 
-  it("Dead liquidity reward blocks funding until withdrawn, regardless of carryForward", async () => {
-    for (const carryForward of [false, true]) {
+  for (const carryForward of [false, true]) {
+    it(`Dead liquidity reward blocks funding until withdrawn (carryForward = ${carryForward})`, async () => {
       const { pool, rewardMid } = await setupFundedCompoundingPool();
       const rewardVault = getPool(svm, pool).rewardInfos[REWARD_INDEX].vault;
 
@@ -293,8 +293,8 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
       const rewardEndAfter = getPool(svm, pool).rewardInfos[REWARD_INDEX]
         .rewardDurationEnd;
       expect(rewardEndAfter.gt(rewardEndBefore)).eq(true);
-    }
-  });
+    });
+  }
 
   it("dead_liquidity_reward_checkpoint wraps correctly", async () => {
     // 2 reward campaigns that each emit u64::MAX of reward as dead_liquidity_reward,
