@@ -88,13 +88,13 @@ pub fn handle_withdraw_dead_liquidity_reward(
             &ctx.accounts.token_program,
             dead_liquidity_reward,
         )?;
-    }
 
-    emit_cpi!(EvtWithdrawDeadLiquidityReward {
-        amount: dead_liquidity_reward,
-        pool: ctx.accounts.pool.key(),
-        reward_mint: ctx.accounts.reward_mint.key(),
-    });
+        emit_cpi!(EvtWithdrawDeadLiquidityReward {
+            amount: dead_liquidity_reward,
+            pool: ctx.accounts.pool.key(),
+            reward_mint: ctx.accounts.reward_mint.key(),
+        });
+    }
 
     Ok(())
 }
