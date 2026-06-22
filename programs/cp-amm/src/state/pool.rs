@@ -315,41 +315,19 @@ impl RewardInfo {
         self.last_update_time = min(current_time, self.reward_duration_end);
     }
 
-    /// monotonic cumulative dead-liquidity reward, wrapped to u64 (mod 2^64).
-    /// The delta is recovered via `wrapping_sub`, valid while it stays below 2^64.
-    fn current_dead_liquidity_reward_checkpoint(&self) -> Result<u64> {
-        let cumulative = mul_shr_256(
-            U256::from(DEAD_LIQUIDITY),
-            self.reward_per_token_stored(),
-            TOTAL_REWARD_SCALE,
-        )
-        .ok_or_else(|| PoolError::MathOverflow)?;
-
-        Ok(cumulative as u64)
-    }
-
-    /// get pending dead_liquidity_reward without mutating the checkpoint
-    pub fn get_pending_dead_liquidity_reward(
-        &self,
-        collect_fee_mode: CollectFeeMode,
-    ) -> Result<u64> {
+    /// get dead_liquidity_reward and update the checkpoint
+    pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> Result<u64> {
         if collect_fee_mode == CollectFeeMode::Compounding {
-            let checkpoint = self.current_dead_liquidity_reward_checkpoint()?;
-            let dead_liquidity_reward =
-                checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
-            Ok(dead_liquidity_reward)
-        } else {
-            Ok(0)
-        }
-    }
-
-    /// get pending dead_liquidity_reward and update the checkpoint
-    pub fn settle_dead_liquidity_reward(
-        &mut self,
-        collect_fee_mode: CollectFeeMode,
-    ) -> Result<u64> {
-        if collect_fee_mode == CollectFeeMode::Compounding {
-            let checkpoint = self.current_dead_liquidity_reward_checkpoint()?;
+            // Cumulative dead-liquidity reward, wrapped to u64 (mod 2^64)
+            // The checkpoint can grow past 2^64 across many funding rounds (so we use wrapping_sub),
+            // but the delta is the pending reward still sitting in the vault
+            // A vault balance is a u64, so the delta never reaches 2^64 and wraps at most once
+            let checkpoint: u64 = mul_shr_256(
+                U256::from(DEAD_LIQUIDITY),
+                self.reward_per_token_stored(),
+                TOTAL_REWARD_SCALE,
+            )
+            .ok_or_else(|| PoolError::MathOverflow)? as u64;
             let dead_liquidity_reward =
                 checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
             self.dead_liquidity_reward_checkpoint = checkpoint;
@@ -1121,21 +1099,15 @@ impl Pool {
     }
 
     pub fn claim_ineligible_reward(&mut self, reward_index: usize) -> Result<u64> {
-        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
-
         // calculate ineligible reward
         let reward_info = &mut self.reward_infos[reward_index];
-        let empty_liquidity_reward: u64 = safe_mul_shr_cast(
+        let ineligible_reward: u64 = safe_mul_shr_cast(
             reward_info
                 .cumulative_seconds_with_empty_liquidity_reward
                 .into(),
             reward_info.reward_rate,
             REWARD_RATE_SCALE,
         )?;
-
-        let dead_liquidity_reward = reward_info.settle_dead_liquidity_reward(collect_fee_mode)?;
-
-        let ineligible_reward = empty_liquidity_reward.safe_add(dead_liquidity_reward)?;
 
         reward_info.cumulative_seconds_with_empty_liquidity_reward = 0;
 

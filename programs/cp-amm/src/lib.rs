@@ -153,6 +153,13 @@ pub mod cp_amm {
         instructions::handle_withdraw_ineligible_reward(ctx, reward_index)
     }
 
+    pub fn withdraw_dead_liquidity_reward(
+        ctx: Context<WithdrawDeadLiquidityRewardCtx>,
+        reward_index: u8,
+    ) -> Result<()> {
+        instructions::handle_withdraw_dead_liquidity_reward(ctx, reward_index)
+    }
+
     pub fn update_reward_funder<'info>(
         ctx: Context<'info, UpdateRewardFunderCtx<'info>>,
         reward_index: u8,

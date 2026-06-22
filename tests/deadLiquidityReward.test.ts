@@ -15,6 +15,7 @@ import {
   createOperator,
   createToken,
   DEAD_LIQUIDITY,
+  derivePoolAuthority,
   encodePermissions,
   expectThrowsErrorCode,
   fundReward,
@@ -25,6 +26,8 @@ import {
   InitializePoolParams,
   initializeReward,
   InitializeRewardParams,
+  MAX_SQRT_PRICE,
+  MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
   mintSplTokenTo,
   OperatorPermission,
@@ -34,13 +37,13 @@ import {
   U128_MAX,
   U64_MAX,
   warpToTimestamp,
-  withdrawIneligibleReward,
+  withdrawDeadLiquidityReward,
 } from "./helpers";
 import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 
-const mustWithdrawErrorCode = getCpAmmProgramErrorCode(
-  "MustWithdrawnIneligibleReward"
+const invalidCollectFeeModeErrorCode = getCpAmmProgramErrorCode(
+  "InvalidCollectFeeMode"
 );
 
 const assertCloseToU64Max = (amount: BN) => {
@@ -63,7 +66,6 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
   const REWARD_INDEX = 0;
   const REWARD_DURATION = 24 * 60 * 60; // 1 day
   const REWARD_AMOUNT = new BN(REWARD_DURATION * 1_000); // divisible by 4
-  const REWARD_RATE_SCALE = 64;
 
   const baseFeeData = () =>
     encodeFeeTimeSchedulerParams(
@@ -164,7 +166,7 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
     return { pool, position, rewardEnd, rewardMid };
   }
 
-  describe("Funder can withdrawIneligibleReward from DEAD_LIQUIDITY share", () => {
+  describe("Funder can withdrawDeadLiquidityReward from DEAD_LIQUIDITY share", () => {
     it("After the last LP exits", async () => {
       const { pool, position, rewardEnd, rewardMid } =
         await setupFundedCompoundingPool();
@@ -192,7 +194,7 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
 
       const rewardVault = afterExit.rewardInfos[REWARD_INDEX].vault;
       const funderBefore = new BN(getTokenBalance(svm, funderRewardAta()));
-      await withdrawIneligibleReward(svm, {
+      await withdrawDeadLiquidityReward(svm, {
         index: REWARD_INDEX,
         funder,
         pool,
@@ -203,8 +205,6 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
       const vaultResidual = new BN(getTokenBalance(svm, rewardVault));
 
       expect(vaultResidual.eqn(0)).eq(true);
-      // Without the fix withdrawIneligibleReward returns 0 here
-      // the empty-liquidity counter never increments since DEAD_LIQUIDITY keeps pool.liquidity > 0
       expect(recovered.gtn(0)).eq(true);
     });
 
@@ -226,7 +226,7 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
       const rewardVault = getPool(svm, pool).rewardInfos[REWARD_INDEX].vault;
 
       const funderBefore = new BN(getTokenBalance(svm, funderRewardAta()));
-      await withdrawIneligibleReward(svm, {
+      await withdrawDeadLiquidityReward(svm, {
         index: REWARD_INDEX,
         funder,
         pool,
@@ -237,54 +237,55 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
       const vaultResidual = new BN(getTokenBalance(svm, rewardVault));
 
       expect(vaultResidual.eqn(0)).eq(true);
-      // Without the fix withdrawIneligibleReward returns 0 here
-      // the empty-liquidity counter never increments since DEAD_LIQUIDITY keeps pool.liquidity > 0
       expect(recovered.gtn(0)).eq(true);
     });
   });
 
-  it("Funding with carryForward = true carries forward the dead liquidity reward", async () => {
-    const { pool, position, rewardEnd } = await setupFundedCompoundingPool();
+  it("Funder can re-fund mid-campaign with pending dead-liquidity reward", async () => {
+    const { pool, rewardMid, rewardEnd } = await setupFundedCompoundingPool();
 
-    warpToTimestamp(svm, rewardEnd);
-    await claimReward(svm, {
-      index: REWARD_INDEX,
-      user: creator,
-      pool,
-      position,
-      skipReward: 0,
-    });
+    warpToTimestamp(svm, rewardMid);
 
-    const rewardInfo = getPool(svm, pool).rewardInfos[REWARD_INDEX];
-    const deadInVault = new BN(getTokenBalance(svm, rewardInfo.vault));
-    expect(deadInVault.gtn(0)).eq(true);
-    // pool was never empty. this also ensures the carry forward only comes from dead liquidity reward
-    expect(rewardInfo.cumulativeSecondsWithEmptyLiquidityReward.eqn(0)).eq(
-      true
-    );
+    // fund again without withdrawing first
+    const rewardEndBefore = getPool(svm, pool).rewardInfos[REWARD_INDEX]
+      .rewardDurationEnd;
+    expect(rewardEndBefore.eq(rewardEnd)).eq(true);
 
-    // second reward campaign
     await fundReward(svm, {
       index: REWARD_INDEX,
       funder,
       pool,
-      carryForward: true,
+      carryForward: false,
       amount: REWARD_AMOUNT,
     });
 
-    const vaultAfter = new BN(getTokenBalance(svm, rewardInfo.vault));
-    const rateWithoutCarryOver =
-      REWARD_AMOUNT.shln(REWARD_RATE_SCALE).divn(REWARD_DURATION);
-    const actualRate = getPool(svm, pool).rewardInfos[REWARD_INDEX].rewardRate;
+    const rewardEndAfter = getPool(svm, pool).rewardInfos[REWARD_INDEX]
+      .rewardDurationEnd;
+    expect(rewardEndAfter.gt(rewardEndBefore)).eq(true);
+  });
 
-    expect(vaultAfter.gt(REWARD_AMOUNT)).eq(true);
-    expect(vaultAfter.eq(REWARD_AMOUNT.add(deadInVault))).eq(true);
-    expect(actualRate.gt(rateWithoutCarryOver)).eq(true);
+  it("Funder can withdraw dead-liquidity reward mid-campaign", async () => {
+    const { pool, rewardMid } = await setupFundedCompoundingPool();
+
+    warpToTimestamp(svm, rewardMid);
+
+    const funderBefore = new BN(getTokenBalance(svm, funderRewardAta()));
+    await withdrawDeadLiquidityReward(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+    });
+    const funderAfter = new BN(getTokenBalance(svm, funderRewardAta()));
+
+    expect(funderAfter.gt(funderBefore)).eq(true);
+    const checkpointAfterWithdraw = getPool(svm, pool).rewardInfos[REWARD_INDEX]
+      .deadLiquidityRewardCheckpoint;
+    expect(checkpointAfterWithdraw.gtn(0)).eq(true);
   });
 
   it("dead_liquidity_reward_checkpoint wraps correctly", async () => {
-    // 2 reward campaigns that each emit u64::MAX of reward as dead_liquidity_reward,
-    // so the cumulative checkpoint exceeds u64::MAX and must wrap
+    // 2 reward campaigns that each emit ~u64::MAX of reward as dead_liquidity_reward,
+    // so the cumulative checkpoint exceeds u64::MAX and must wrap.
     // if the wrapping happens correctly, the funder should recover ~u64::MAX in round 2
 
     // top the funder up to exactly u64::MAX reward tokens
@@ -316,8 +317,6 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
       funder: funder.publicKey,
     });
 
-    const rewardVault = getPool(svm, pool).rewardInfos[REWARD_INDEX].vault;
-
     // LP exits immediately so DEAD_LIQUIDITY is the only share for the whole campaign
     await fundReward(svm, {
       index: REWARD_INDEX,
@@ -339,25 +338,12 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
       .rewardDurationEnd;
     warpToTimestamp(svm, rewardEnd1.addn(1));
 
-    // funding again before withdrawing the pending dead_liquidity_reward fails
-    const failedFundTx = await createCpAmmProgram()
-      .methods.fundReward(REWARD_INDEX, U64_MAX, false)
-      .accountsPartial({
-        pool,
-        rewardVault,
-        rewardMint,
-        funderTokenAccount: funderRewardAta(),
-        funder: funder.publicKey,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .transaction();
-    expectThrowsErrorCode(
-      sendTransaction(svm, failedFundTx, [funder]),
-      mustWithdrawErrorCode
-    );
-
     const funderBefore1 = new BN(getTokenBalance(svm, funderRewardAta()));
-    await withdrawIneligibleReward(svm, { index: REWARD_INDEX, funder, pool });
+    await withdrawDeadLiquidityReward(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+    });
     const recovered1 = new BN(getTokenBalance(svm, funderRewardAta())).sub(
       funderBefore1
     );
@@ -365,7 +351,7 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
     assertCloseToU64Max(recovered1);
 
     // total supply is capped at u64::MAX, so fund the recovered balance (~u64::MAX);
-    // this still pushes the cumulative checkpoint past u64::MAX and forces a wrap
+    // this pushes the cumulative checkpoint past u64::MAX and forces a wrap
     await fundReward(svm, {
       index: REWARD_INDEX,
       funder,
@@ -379,12 +365,76 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
     warpToTimestamp(svm, rewardEnd2.addn(1));
 
     const funderBefore2 = new BN(getTokenBalance(svm, funderRewardAta()));
-    await withdrawIneligibleReward(svm, { index: REWARD_INDEX, funder, pool });
+    await withdrawDeadLiquidityReward(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+    });
     const recovered2 = new BN(getTokenBalance(svm, funderRewardAta())).sub(
       funderBefore2
     );
 
     // checkpoint has wrapped past u64::MAX; without wrapping this returns 0 or errors
     assertCloseToU64Max(recovered2);
+  });
+
+  it("withdrawDeadLiquidityReward fails on a non-compounding pool", async () => {
+    const nonCompoundingConfig = await createConfigIx(
+      svm,
+      whitelistedAccount,
+      new BN(Math.floor(Math.random() * 1_000_000)),
+      {
+        poolFees: {
+          baseFee: { data: Array.from(baseFeeData()) },
+          compoundingFeeBps: 0,
+          padding: 0,
+          dynamicFee: null,
+        },
+        sqrtMinPrice: MIN_SQRT_PRICE,
+        sqrtMaxPrice: MAX_SQRT_PRICE,
+        vaultConfigKey: PublicKey.default,
+        poolCreatorAuthority: PublicKey.default,
+        activationType: 0,
+        collectFeeMode: 0,
+      }
+    );
+
+    const { pool } = await initializePool(svm, {
+      payer: creator,
+      creator: creator.publicKey,
+      config: nonCompoundingConfig,
+      tokenAMint,
+      tokenBMint,
+      liquidity: MIN_LP_AMOUNT,
+      sqrtPrice: MIN_SQRT_PRICE,
+      activationPoint: null,
+    });
+
+    await initializeReward(svm, {
+      index: REWARD_INDEX,
+      payer: creator,
+      rewardDuration: new BN(REWARD_DURATION),
+      pool,
+      rewardMint,
+      funder: funder.publicKey,
+    });
+
+    const tx = await createCpAmmProgram()
+      .methods.withdrawDeadLiquidityReward(REWARD_INDEX)
+      .accountsPartial({
+        pool,
+        rewardVault: getPool(svm, pool).rewardInfos[REWARD_INDEX].vault,
+        rewardMint,
+        poolAuthority: derivePoolAuthority(),
+        funderTokenAccount: funderRewardAta(),
+        funder: funder.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .transaction();
+
+    expectThrowsErrorCode(
+      sendTransaction(svm, tx, [funder]),
+      invalidCollectFeeModeErrorCode
+    );
   });
 });

@@ -1433,6 +1433,46 @@ export async function withdrawIneligibleReward(
   expect(result).instanceOf(TransactionMetadata);
 }
 
+export type WithdrawDeadLiquidityRewardParams = {
+  index: number;
+  funder: Keypair;
+  pool: PublicKey;
+};
+
+export async function withdrawDeadLiquidityReward(
+  svm: LiteSVM,
+  params: WithdrawDeadLiquidityRewardParams
+): Promise<void> {
+  const { index, pool, funder } = params;
+  const program = createCpAmmProgram();
+
+  const poolState = getPool(svm, pool);
+  const poolAuthority = derivePoolAuthority();
+  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
+  const funderTokenAccount = getAssociatedTokenAddressSync(
+    poolState.rewardInfos[index].mint,
+    funder.publicKey,
+    true,
+    tokenProgram
+  );
+
+  const transaction = await program.methods
+    .withdrawDeadLiquidityReward(index)
+    .accountsPartial({
+      pool,
+      rewardVault: poolState.rewardInfos[index].vault,
+      rewardMint: poolState.rewardInfos[index].mint,
+      poolAuthority,
+      funderTokenAccount,
+      funder: funder.publicKey,
+      tokenProgram,
+    })
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [funder]);
+  expect(result).instanceOf(TransactionMetadata);
+}
+
 export async function refreshVestings(
   svm: LiteSVM,
   position: PublicKey,
