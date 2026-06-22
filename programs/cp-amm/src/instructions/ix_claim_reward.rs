@@ -80,7 +80,7 @@ pub fn handle_claim_reward(
 
     if ctx.accounts.reward_vault.is_frozen() && skip_reward == 1 {
         // this clears the pending reward without transferring it,
-        // so only the unrestricted `ClaimReward` permission allowed to perfomr it
+        // so only the unrestricted `ClaimReward` permission is allowed to perform it
         position.assert_authority(
             &ctx.accounts.position_nft_account,
             &ctx.accounts.signer.key(),
