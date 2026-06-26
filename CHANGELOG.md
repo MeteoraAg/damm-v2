@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.3][#PR 219](https://github.com/MeteoraAg/damm-v2/pull/219)
 
+### Removed
+
+- Removed deprecated endpoints `claim_protocol_fee` and `zap_protocol_fee`. Use `claim_protocol_fee2` through the protocol_fee program instead.
+
 ## cp_amm [0.2.2][#PR 210](https://github.com/MeteoraAg/damm-v2/pull/210)
 
 ### Added
