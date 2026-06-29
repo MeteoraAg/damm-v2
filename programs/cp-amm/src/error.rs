@@ -29,6 +29,7 @@ pub enum PoolError {
     #[msg("Type cast error")]
     TypeCastFailed,
 
+    /// deprecated
     #[msg("Unable to modify activation point")]
     UnableToModifyActivationPoint,
 
@@ -41,9 +42,11 @@ pub enum PoolError {
     #[msg("Invalid activation point")]
     InvalidActivationPoint,
 
+    /// deprecated
     #[msg("Quote token must be SOL,USDC")]
     InvalidQuoteMint,
 
+    /// deprecated
     #[msg("Invalid fee curve")]
     InvalidFeeCurve,
 
@@ -131,6 +134,7 @@ pub enum PoolError {
     #[msg("Invalid config type")]
     InvalidConfigType,
 
+    /// deprecated
     #[msg("Invalid pool creator")]
     InvalidPoolCreator,
 
@@ -188,21 +192,27 @@ pub enum PoolError {
     #[msg("Incorrect ATA")]
     IncorrectATA,
 
+    /// deprecated
     #[msg("Invalid zap out parameters")]
     InvalidZapOutParameters,
 
+    /// deprecated
     #[msg("Invalid withdraw protocol fee zap accounts")]
     InvalidWithdrawProtocolFeeZapAccounts,
 
+    /// deprecated
     #[msg("SOL,USDC protocol fee cannot be withdrawn via zap")]
     MintRestrictedFromZap,
 
+    /// deprecated
     #[msg("CPI disabled")]
     CpiDisabled,
 
+    /// deprecated
     #[msg("Missing zap out instruction")]
     MissingZapOutInstruction,
 
+    /// deprecated
     #[msg("Invalid zap accounts")]
     InvalidZapAccounts,
 
