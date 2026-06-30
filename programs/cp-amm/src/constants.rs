@@ -206,9 +206,3 @@ pub mod protocol_fee_program {
         pub const PROTOCOL_FEE_AUTHORITY_PREFIX: &[u8] = b"protocol_fee_authority";
     }
 }
-
-pub mod treasury {
-    use anchor_lang::{prelude::Pubkey, pubkey};
-    // https://app.squads.so/squads/6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm/treasury
-    pub const ID: Pubkey = pubkey!("6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm");
-}

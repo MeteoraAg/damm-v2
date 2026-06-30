@@ -25,7 +25,7 @@ MCPA is a brand new AMM program of Meteora that includes almost all features fro
 
 ### Keeper to claim protocol fee
 
-- claim_protocol_fee: claim protocol fee to Meteora's treasury address
+- claim_protocol_fee2: claim protocol fee through the protocol_fee program (signed by protocol_fee_authority)
 
 ### Token team (who run on-chain liquidity mining)
 
