@@ -1,6 +1,7 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import {
+  ANCHOR_CONSTRAINT_ACCOUNT_ERROR_CODE,
   claimProtocolFee2,
   createConfigIx,
   CreateConfigParams,
@@ -29,8 +30,6 @@ import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import { LiteSVM } from "litesvm";
 import { expect } from "chai";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-
-const ANCHOR_CONSTRAINT_ACCOUNT_ERROR_CODE = 2012;
 
 describe("Claim Protocol Fee 2", () => {
   let svm: LiteSVM;

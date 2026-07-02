@@ -6,7 +6,7 @@ use crate::{
     constants::NUM_REWARDS,
     error::PoolError,
     event::EvtClaimReward,
-    state::{pool::Pool, position::Position},
+    state::{pool::Pool, position::Position, PositionDelegatePermission},
     token::transfer_from_pool,
 };
 
@@ -27,7 +27,7 @@ pub struct ClaimRewardCtx<'info> {
     pub position: AccountLoader<'info, Position>,
 
     /// The vault token account for reward token
-    #[account(mut)]
+    #[account(mut, token::token_program = token_program, token::mint = reward_mint)]
     pub reward_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     // Reward mint
@@ -40,12 +40,11 @@ pub struct ClaimRewardCtx<'info> {
     #[account(
             constraint = position_nft_account.mint == position.load()?.nft_mint,
             constraint = position_nft_account.amount == 1,
-            token::authority = owner
     )]
     pub position_nft_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// owner of position
-    pub owner: Signer<'info>,
+    /// Signer
+    pub signer: Signer<'info>,
 
     pub token_program: Interface<'info, TokenInterface>,
 }
@@ -76,9 +75,31 @@ pub fn handle_claim_reward(
         .map_err(|_| PoolError::TypeCastFailed)?;
     ctx.accounts.validate(index)?;
 
+    let mut pool = ctx.accounts.pool.load_mut()?;
     let mut position = ctx.accounts.position.load_mut()?;
 
-    let mut pool = ctx.accounts.pool.load_mut()?;
+    if ctx.accounts.reward_vault.is_frozen() && skip_reward == 1 {
+        // this clears the pending reward without transferring it,
+        // so only the unrestricted `ClaimReward` permission is allowed to perform it
+        position.assert_authority(
+            &ctx.accounts.position_nft_account,
+            &ctx.accounts.signer.key(),
+            PositionDelegatePermission::ClaimReward,
+        )?;
+    } else {
+        position.assert_authority_with_owner_destinations(
+            &ctx.accounts.position_nft_account,
+            &ctx.accounts.signer.key(),
+            PositionDelegatePermission::ClaimReward,
+            PositionDelegatePermission::ClaimRewardToOwner,
+            &[(
+                &ctx.accounts.user_token_account.to_account_info(),
+                ctx.accounts.reward_mint.key(),
+                ctx.accounts.token_program.key(),
+            )],
+        )?;
+    }
+
     let current_time = Clock::get()?.unix_timestamp as u64;
 
     // update pool reward & position reward
@@ -107,7 +128,7 @@ pub fn handle_claim_reward(
         pool: ctx.accounts.pool.key(),
         position: ctx.accounts.position.key(),
         mint_reward: ctx.accounts.reward_mint.key(),
-        owner: ctx.accounts.owner.key(),
+        owner: ctx.accounts.position_nft_account.owner,
         reward_index,
         total_reward,
     });

@@ -1,6 +1,6 @@
 [package]
 name = "cp-amm"
-version = "0.2.1"
+version = "0.2.2"
 description = "Created with Anchor"
 edition = "2021"
 
@@ -38,6 +38,7 @@ pinocchio = { workspace = true }
 pinocchio-token = { workspace = true }
 pinocchio-token-2022 = { workspace = true }
 protocol-zap = { workspace = true }
+derive-variant-count = { workspace = true }
 
 [lints]
 workspace = true

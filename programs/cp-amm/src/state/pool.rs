@@ -13,20 +13,23 @@ use crate::constants::fee::{
 use crate::safe_math::SafeCast;
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
 use crate::{
-    constants::{LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE},
+    constants::{
+        LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, REWARD_RATE_SCALE,
+        TOTAL_REWARD_SCALE,
+    },
     params::swap::TradeDirection,
     safe_math::SafeMath,
     state::{
         fee::{DynamicFeeStruct, PoolFeesStruct},
         Position, SplitFeeAmount,
     },
-    u128x128_math::{shl_div_256, Rounding},
+    u128x128_math::{mul_shr_256, shl_div_256, Rounding},
     utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
     PoolError,
 };
 use crate::{
     BaseFeeUpdateMode, CompoundingFeeUpdateMode, CompoundingLiquidity, ConcentratedLiquidity,
-    DynamicFeeUpdateMode, LiquidityHandler, UpdatePoolFeesParameters,
+    DynamicFeeUpdateMode, LiquidityHandler, UpdatePoolFeesParameters, DEAD_LIQUIDITY,
 };
 
 use super::fee::FeeMode;
@@ -229,8 +232,8 @@ pub struct RewardInfo {
     pub reward_token_flag: u8,
     /// padding
     pub _padding_0: [u8; 6],
-    /// Padding to ensure `reward_rate: u128` is 16-byte aligned
-    pub _padding_1: [u8; 8], // 8 bytes
+    /// Cumulative dead-liquidity reward (Compounding Pool only)
+    pub dead_liquidity_reward_checkpoint: u64,
     /// Reward token mint.
     pub mint: Pubkey,
     /// Reward vault token account.
@@ -310,6 +313,29 @@ impl RewardInfo {
 
     pub fn update_last_update_time(&mut self, current_time: u64) {
         self.last_update_time = min(current_time, self.reward_duration_end);
+    }
+
+    /// get dead_liquidity_reward and update the checkpoint
+    pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> Result<u64> {
+        if collect_fee_mode == CollectFeeMode::Compounding {
+            // Cumulative dead-liquidity reward, wrapped to u64 (mod 2^64)
+            // The checkpoint can grow past 2^64 across many funding rounds (so we use wrapping_sub),
+            // but the delta is the pending reward still sitting in the vault
+            // A vault balance is a u64, so the delta never reaches 2^64 and wraps at most once
+            let checkpoint: u64 = mul_shr_256(
+                U256::from(DEAD_LIQUIDITY),
+                self.reward_per_token_stored(),
+                TOTAL_REWARD_SCALE,
+            )
+            .ok_or_else(|| PoolError::MathOverflow)? as u64;
+            let dead_liquidity_reward =
+                checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
+            self.dead_liquidity_reward_checkpoint = checkpoint;
+
+            Ok(dead_liquidity_reward)
+        } else {
+            Ok(0)
+        }
     }
 
     pub fn get_seconds_elapsed_since_last_update(&self, current_time: u64) -> Result<u64> {

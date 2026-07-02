@@ -19,6 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## cp_amm [0.2.2][#PR 210](https://github.com/MeteoraAg/damm-v2/pull/210)
+
+### Added
+
+- Added support for NFT delegates to manage positions. The following endpoints can now be signed by a delegate if the owner has granted them permission: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `remove_all_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`. Note: the `close_position`, `split_position`, and `split_position2` endpoints remain callable by the owner only.
+- Added new endpoint `update_delegate_permission` to set the permission bitmask on `Position.delegate_permission`. Pass `permission = 0` to clear all permissions. Callers are responsible for managing the SPL token delegate via SPL `Approve` / `Revoke` separately. The bitmask supports 8 permissions: `AddLiquidity`, `RemoveLiquidity`, `RemoveLiquidityToOwner`, `ClaimPositionFee`, `ClaimPositionFeeToOwner`, `ClaimReward`, `ClaimRewardToOwner`, `LockPosition`.
+- Added new endpoint `withdraw_dead_liquidity_reward` allowing the funder to recover the unowned `DEAD_LIQUIDITY` reward share of a `CollectFeeMode::Compounding` pool at any time, without waiting for the reward campaign to end. This share is tracked by the new `dead_liquidity_reward_checkpoint` field in the Pool `RewardInfo`.
+
+### Changed
+
+- Renamed the signer account from `owner` to `signer`, now that the signer may be a delegate, in the following endpoints: `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `remove_all_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`.
+
+### Breaking Changes
+
+- The following endpoints previously rejected unauthorized signers with Anchor's `ConstraintTokenOwner` (2015) and now reject with `PoolError::InvalidAuthority` (6053), `PoolError::InvalidPermission` (6054), or `PoolError::DelegatedAmountNonZero` (6070): `claim_position_fee`, `claim_reward`, `add_liquidity`, `remove_liquidity`, `remove_all_liquidity`, `lock_position`, `lock_inner_position`, `permanent_lock_position`.
+
 ## cp_amm [0.2.1][#PR 200](https://github.com/MeteoraAg/damm-v2/pull/200)
 
 ### Added

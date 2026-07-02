@@ -153,6 +153,13 @@ pub mod cp_amm {
         instructions::handle_withdraw_ineligible_reward(ctx, reward_index)
     }
 
+    pub fn withdraw_dead_liquidity_reward(
+        ctx: Context<WithdrawDeadLiquidityRewardCtx>,
+        reward_index: u8,
+    ) -> Result<()> {
+        instructions::handle_withdraw_dead_liquidity_reward(ctx, reward_index)
+    }
+
     pub fn update_reward_funder<'info>(
         ctx: Context<'info, UpdateRewardFunderCtx<'info>>,
         reward_index: u8,
@@ -343,6 +350,13 @@ pub mod cp_amm {
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::FixPool))]
     pub fn fix_pool_layout_version(ctx: Context<FixPoolLayoutVersionCtx>) -> Result<()> {
         instructions::handle_fix_pool_layout_version(ctx)
+    }
+
+    pub fn update_delegate_permission(
+        ctx: Context<UpdateDelegatePermissionCtx>,
+        permission: u32,
+    ) -> Result<()> {
+        instructions::handle_update_delegate_permission(ctx, permission)
     }
 
     #[cfg(feature = "idl-build")]

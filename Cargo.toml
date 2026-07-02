@@ -1,5 +1,5 @@
 [workspace]
-members = ["programs/*", "rust-sdk"]
+members = ["programs/*", "rust-sdk", "libs/*"]
 resolver = "2"
 
 [profile.release]
@@ -30,6 +30,7 @@ pinocchio = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862
 pinocchio-token = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
 pinocchio-token-2022 = { git = "https://github.com/anza-xyz/pinocchio.git", rev = "17b0e862c01a868ea07ef81a2f8a9b4a504bdfed" }
 protocol-zap = { git = "https://github.com/MeteoraAg/zap-program", rev = "064c58b317b9a85f212c0de72caea286fc72fdb4" }
+derive-variant-count = { path = "libs/derive-variant-count" }
 anyhow = "1.0.71"
 proptest = "1"
 

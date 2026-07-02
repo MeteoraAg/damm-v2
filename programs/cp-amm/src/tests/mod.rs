@@ -54,3 +54,6 @@ mod test_safe_math;
 
 #[cfg(test)]
 mod test_const_pda;
+
+#[cfg(test)]
+mod test_position_delegate_permission;

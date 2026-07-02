@@ -215,6 +215,9 @@ pub enum PoolError {
 
     #[msg("Transfer fee excluded amount is zero")]
     TransferFeeExcludedAmountIsZero,
+
+    #[msg("Delegated amount is not zero")]
+    DelegatedAmountNonZero,
 }
 
 impl From<ProtozolZapError> for PoolError {

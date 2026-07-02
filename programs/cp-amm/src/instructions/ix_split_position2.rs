@@ -149,7 +149,6 @@ pub fn handle_split_position2(
     } = params;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
-
     let mut first_position = ctx.accounts.first_position.load_mut()?;
     let mut second_position = ctx.accounts.second_position.load_mut()?;
 
