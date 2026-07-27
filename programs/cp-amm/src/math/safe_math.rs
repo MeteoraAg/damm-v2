@@ -1,6 +1,4 @@
-use anchor_lang::solana_program::msg;
 use ruint::aliases::{U256, U512};
-use std::panic::Location;
 
 use crate::{
     state::{CollectFeeMode, LayoutVersion},
@@ -25,11 +23,7 @@ macro_rules! checked_impl {
             fn safe_add(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_add(v) {
                     Some(result) => Ok(result),
-                    None => {
-                        let caller = Location::caller();
-                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
-                        Err(PoolError::MathOverflow)
-                    }
+                    None => Err(PoolError::MathOverflow),
                 }
             }
 
@@ -37,11 +31,7 @@ macro_rules! checked_impl {
             fn safe_sub(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_sub(v) {
                     Some(result) => Ok(result),
-                    None => {
-                        let caller = Location::caller();
-                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
-                        Err(PoolError::MathOverflow)
-                    }
+                    None => Err(PoolError::MathOverflow),
                 }
             }
 
@@ -49,11 +39,7 @@ macro_rules! checked_impl {
             fn safe_mul(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_mul(v) {
                     Some(result) => Ok(result),
-                    None => {
-                        let caller = Location::caller();
-                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
-                        Err(PoolError::MathOverflow)
-                    }
+                    None => Err(PoolError::MathOverflow),
                 }
             }
 
@@ -61,11 +47,7 @@ macro_rules! checked_impl {
             fn safe_div(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_div(v) {
                     Some(result) => Ok(result),
-                    None => {
-                        let caller = Location::caller();
-                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
-                        Err(PoolError::MathOverflow)
-                    }
+                    None => Err(PoolError::MathOverflow),
                 }
             }
 
@@ -73,11 +55,7 @@ macro_rules! checked_impl {
             fn safe_rem(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_rem(v) {
                     Some(result) => Ok(result),
-                    None => {
-                        let caller = Location::caller();
-                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
-                        Err(PoolError::MathOverflow)
-                    }
+                    None => Err(PoolError::MathOverflow),
                 }
             }
 
@@ -85,11 +63,7 @@ macro_rules! checked_impl {
             fn safe_shl(self, v: $offset) -> Result<$t, PoolError> {
                 match self.checked_shl(v) {
                     Some(result) => Ok(result),
-                    None => {
-                        let caller = Location::caller();
-                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
-                        Err(PoolError::MathOverflow)
-                    }
+                    None => Err(PoolError::MathOverflow),
                 }
             }
 
@@ -97,11 +71,7 @@ macro_rules! checked_impl {
             fn safe_shr(self, v: $offset) -> Result<$t, PoolError> {
                 match self.checked_shr(v) {
                     Some(result) => Ok(result),
-                    None => {
-                        let caller = Location::caller();
-                        msg!("Math error thrown at {}:{}", caller.file(), caller.line());
-                        Err(PoolError::MathOverflow)
-                    }
+                    None => Err(PoolError::MathOverflow),
                 }
             }
         }
@@ -130,11 +100,7 @@ macro_rules! try_into_impl {
             fn safe_cast(self) -> Result<$v, PoolError> {
                 match self.try_into() {
                     Ok(result) => Ok(result),
-                    Err(_) => {
-                        let caller = Location::caller();
-                        msg!("TypeCast is failed at {}:{}", caller.file(), caller.line());
-                        Err(PoolError::TypeCastFailed)
-                    }
+                    Err(_) => Err(PoolError::TypeCastFailed),
                 }
             }
         }
