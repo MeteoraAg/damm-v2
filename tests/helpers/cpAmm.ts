@@ -188,7 +188,8 @@ export async function createConfigIx(
   svm: LiteSVM,
   whitelistedAddress: Keypair,
   index: BN,
-  params: CreateConfigParams
+  params: CreateConfigParams,
+  errorCode?: number
 ): Promise<PublicKey> {
   const program = createCpAmmProgram();
 
@@ -206,6 +207,11 @@ export async function createConfigIx(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [whitelistedAddress]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+    return config;
+  }
 
   expect(result).instanceOf(TransactionMetadata);
 
@@ -681,7 +687,8 @@ export type InitializePoolWithCustomizeConfigParams = {
 
 export async function initializePoolWithCustomizeConfig(
   svm: LiteSVM,
-  params: InitializePoolWithCustomizeConfigParams
+  params: InitializePoolWithCustomizeConfigParams,
+  errorCode?: number
 ): Promise<{ pool: PublicKey; position: PublicKey }> {
   const {
     tokenAMint,
@@ -777,6 +784,12 @@ export async function initializePoolWithCustomizeConfig(
     positionNftKP,
     poolCreatorAuthority,
   ]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+    return { pool, position };
+  }
+
   expect(result).instanceOf(TransactionMetadata);
 
   // validate pool data
@@ -845,7 +858,8 @@ export type InitializeCustomizablePoolParams = {
 
 export async function initializeCustomizablePool(
   svm: LiteSVM,
-  params: InitializeCustomizablePoolParams
+  params: InitializeCustomizablePoolParams,
+  errorCode?: number
 ): Promise<{ pool: PublicKey; position: PublicKey }> {
   const {
     tokenAMint,
@@ -935,6 +949,12 @@ export async function initializeCustomizablePool(
   );
 
   const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+    return { pool, position };
+  }
+
   expect(result).instanceOf(TransactionMetadata);
 
   // validate pool data

@@ -28,9 +28,12 @@ import {
   BaseFeeMode,
   decodePodAlignedFeeRateLimiter,
   decodePodAlignedFeeTimeScheduler,
-  encodeFeeRateLimiterParams,
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
+import {
+  setDeprecatedRateLimiterPool,
+  RateLimiterParams,
+} from "./helpers/deprecatedRateLimiter";
 import { LiteSVM } from "litesvm";
 
 describe("Alpha vault with sniper tax", () => {
@@ -146,12 +149,13 @@ describe("Alpha vault with sniper tax", () => {
       const feeIncrementBps = 10;
       const cliffFeeNumerator = new BN(10_000_000);
 
-      const data = encodeFeeRateLimiterParams(
+      // placeholder only. the pool is later overriden as a rate limiter pool
+      const placeholder = encodeFeeTimeSchedulerParams(
         BigInt(cliffFeeNumerator.toString()),
-        feeIncrementBps,
-        maxRateLimiterDuration.toNumber(),
-        maxFeeBps.toNumber(),
-        BigInt(referenceAmount.toString())
+        0,
+        BigInt(0),
+        BigInt(0),
+        BaseFeeMode.FeeTimeSchedulerLinear
       );
 
       const { pool, alphaVault } = await alphaVaultWithSniperTaxFullFlow(
@@ -161,7 +165,14 @@ describe("Alpha vault with sniper tax", () => {
         tokenAMint,
         tokenBMint,
         {
-          data: Array.from(data),
+          data: Array.from(placeholder),
+        },
+        {
+          cliffFeeNumerator,
+          feeIncrementBps,
+          maxLimiterDuration: maxRateLimiterDuration.toNumber(),
+          maxFeeBps: maxFeeBps.toNumber(),
+          referenceAmount,
         }
       );
 
@@ -195,7 +206,8 @@ const alphaVaultWithSniperTaxFullFlow = async (
   creator: Keypair,
   tokenAMint: PublicKey,
   tokenBMint: PublicKey,
-  baseFee: BaseFee
+  baseFee: BaseFee,
+  deprecatedRateLimiter?: RateLimiterParams
 ): Promise<{ pool: PublicKey; alphaVault: PublicKey }> => {
   let activationPointDiff = 20;
   let startVestingPointDiff = 25;
@@ -227,6 +239,10 @@ const alphaVaultWithSniperTaxFullFlow = async (
     collectFeeMode: 1, // onlyB
   };
   const { pool } = await initializeCustomizablePool(svm, params);
+
+  if (deprecatedRateLimiter) {
+    setDeprecatedRateLimiterPool(svm, pool, deprecatedRateLimiter);
+  }
 
   console.log("setup prorata vault");
   let startVestingPoint = new BN(Number(currentSlot) + startVestingPointDiff);

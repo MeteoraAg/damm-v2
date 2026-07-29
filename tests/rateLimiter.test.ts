@@ -32,10 +32,36 @@ import {
   sendTransaction,
   expectThrowsErrorCode,
 } from "./helpers";
-import { encodeFeeRateLimiterParams } from "./helpers/feeCodec";
+import {
+  BaseFeeMode,
+  decodePodAlignedFeeRateLimiter,
+  encodeFeeTimeSchedulerParams,
+} from "./helpers/feeCodec";
+import {
+  setDeprecatedRateLimiterPool,
+  RateLimiterParams,
+} from "./helpers/deprecatedRateLimiter";
 import { LiteSVM } from "litesvm";
 
+// Creating a pool with BaseFeeMode::RateLimiter is rejected as of cp_amm 0.2.3.
+// Pools that predate the deprecation keep working, so every fixture here is
+// set onto a pool created with a non-deprecated base fee mode. The fee
+// assertions are unchanged from when these pools could be created directly.
 describe("Rate limiter", () => {
+  const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
+  const maxRateLimiterDuration = new BN(10);
+  const maxFeeBps = new BN(5000);
+  const cliffFeeNumerator = new BN(10_000_000);
+  const feeIncrementBps = 10;
+
+  const rateLimiter: RateLimiterParams = {
+    cliffFeeNumerator,
+    feeIncrementBps,
+    maxLimiterDuration: maxRateLimiterDuration.toNumber(),
+    maxFeeBps: maxFeeBps.toNumber(),
+    referenceAmount,
+  };
+
   let svm: LiteSVM;
   let admin: Keypair;
   let whitelistedAccount: Keypair;
@@ -63,31 +89,29 @@ describe("Rate limiter", () => {
     mintSplTokenTo(svm, tokenB, admin, creator.publicKey);
   });
 
-  it("Rate limiter", async () => {
-    const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
-    const maxRateLimiterDuration = new BN(10);
-    const maxFeeBps = new BN(5000);
-
-    const cliffFeeNumerator = new BN(10_000_000);
-    const feeIncrementBps = 10;
-
-    const data = encodeFeeRateLimiterParams(
+  // placeholder only. the pool is later overriden as a rate limiter pool
+  function placeholderBaseFee(): Buffer {
+    return encodeFeeTimeSchedulerParams(
       BigInt(cliffFeeNumerator.toString()),
-      feeIncrementBps,
-      maxRateLimiterDuration.toNumber(),
-      maxFeeBps.toNumber(),
-      BigInt(referenceAmount.toString())
+      0,
+      BigInt(0),
+      BigInt(0),
+      BaseFeeMode.FeeTimeSchedulerLinear
     );
+  }
 
+  function poolFees(data: Buffer) {
+    return {
+      baseFee: { data: Array.from(data) },
+      compoundingFeeBps: 0,
+      padding: 0,
+      dynamicFee: null,
+    };
+  }
+
+  async function deprecatedPoolFromConfig(): Promise<PublicKey> {
     const createConfigParams: CreateConfigParams = {
-      poolFees: {
-        baseFee: {
-          data: Array.from(data),
-        },
-        compoundingFeeBps: 0,
-        padding: 0,
-        dynamicFee: null,
-      },
+      poolFees: poolFees(placeholderBaseFee()),
       sqrtMinPrice: new BN(MIN_SQRT_PRICE),
       sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
       vaultConfigKey: PublicKey.default,
@@ -110,8 +134,6 @@ describe("Rate limiter", () => {
       new BN(randomID()),
       createConfigParams
     );
-    const liquidity = new BN(MIN_LP_AMOUNT);
-    const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
 
     const initPoolParams: InitializePoolParams = {
       payer: creator,
@@ -119,11 +141,64 @@ describe("Rate limiter", () => {
       config,
       tokenAMint: tokenA,
       tokenBMint: tokenB,
-      liquidity,
-      sqrtPrice,
+      liquidity: new BN(MIN_LP_AMOUNT),
+      sqrtPrice: new BN(MIN_SQRT_PRICE.muln(2)),
       activationPoint: null,
     };
     const { pool } = await initializePool(svm, initPoolParams);
+
+    setDeprecatedRateLimiterPool(svm, pool, rateLimiter);
+
+    return pool;
+  }
+
+  async function deprecatedCustomizablePool(): Promise<PublicKey> {
+    const initPoolParams: InitializeCustomizablePoolParams = {
+      payer: creator,
+      creator: creator.publicKey,
+      tokenAMint: tokenA,
+      tokenBMint: tokenB,
+      poolFees: poolFees(placeholderBaseFee()),
+      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+      liquidity: new BN(MIN_LP_AMOUNT),
+      sqrtPrice: new BN(MIN_SQRT_PRICE.muln(2)),
+      hasAlphaVault: false,
+      activationType: 0,
+      collectFeeMode: 1, // onlyB
+      activationPoint: null,
+    };
+    const { pool } = await initializeCustomizablePool(svm, initPoolParams);
+
+    setDeprecatedRateLimiterPool(svm, pool, rateLimiter);
+
+    return pool;
+  }
+
+  it("deprecated pool exposes its rate limiter parameters", async () => {
+    const pool = await deprecatedPoolFromConfig();
+
+    const poolState = getPool(svm, pool);
+    const rateLimiterState = decodePodAlignedFeeRateLimiter(
+      Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+    );
+
+    expect(rateLimiterState.baseFeeMode).eq(BaseFeeMode.RateLimiter);
+    expect(rateLimiterState.cliffFeeNumerator.toString()).eq(
+      cliffFeeNumerator.toString()
+    );
+    expect(rateLimiterState.feeIncrementBps).eq(feeIncrementBps);
+    expect(rateLimiterState.maxLimiterDuration).eq(
+      maxRateLimiterDuration.toNumber()
+    );
+    expect(rateLimiterState.maxFeeBps).eq(maxFeeBps.toNumber());
+    expect(rateLimiterState.referenceAmount.toString()).eq(
+      referenceAmount.toString()
+    );
+  });
+
+  it("Rate limiter", async () => {
+    const pool = await deprecatedPoolFromConfig();
     let poolState = await getPool(svm, pool);
 
     // swap with 1 SOL
@@ -196,48 +271,9 @@ describe("Rate limiter", () => {
       referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()
     );
   });
+
   it("Try to send multiple instructions", async () => {
-    const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
-    const maxRateLimiterDuration = new BN(10);
-    const maxFeeBps = new BN(5000);
-
-    const liquidity = new BN(MIN_LP_AMOUNT);
-    const sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
-
-    const cliffFeeNumerator = new BN(10_000_000);
-    const feeIncrementBps = 10;
-
-    const data = encodeFeeRateLimiterParams(
-      BigInt(cliffFeeNumerator.toString()),
-      feeIncrementBps,
-      maxRateLimiterDuration.toNumber(),
-      maxFeeBps.toNumber(),
-      BigInt(referenceAmount.toString())
-    );
-
-    const initPoolParams: InitializeCustomizablePoolParams = {
-      payer: creator,
-      creator: creator.publicKey,
-      tokenAMint: tokenA,
-      tokenBMint: tokenB,
-      poolFees: {
-        baseFee: {
-          data: Array.from(data),
-        },
-        compoundingFeeBps: 0,
-        padding: 0,
-        dynamicFee: null,
-      },
-      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-      liquidity,
-      sqrtPrice,
-      hasAlphaVault: false,
-      activationType: 0,
-      collectFeeMode: 1, // onlyB
-      activationPoint: null,
-    };
-    const { pool } = await initializeCustomizablePool(svm, initPoolParams);
+    const pool = await deprecatedCustomizablePool();
 
     // swap with 1 SOL
     const swapIx = await swapInstruction(svm, {
