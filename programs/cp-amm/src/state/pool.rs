@@ -910,7 +910,7 @@ impl Pool {
         // excludes DEAD_LIQUIDITY. The share of the fee belonging to DEAD_LIQUIDITY is already
         // collected as protocol_fee in get_dead_liquidity_fee.
         let owned_liquidity = self.get_owned_liquidity(collect_fee_mode)?;
-        let fee_per_token_stored = if owned_liquidity == 0 && claiming_fee == 0 {
+        let fee_per_token_stored = if owned_liquidity == 0 {
             // every position withdrew from a compounding pool, so the whole claiming_fee went to the
             // protocol and there is nothing left to distribute
             U256::ZERO
