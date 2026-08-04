@@ -1091,6 +1091,7 @@ impl Pool {
         // The checkpoint can grow past 2^64 over the pool's lifetime (so we use wrapping_sub),
         // but the pending delta is still sitting in the token b vault
         // A vault balance is a u64, so the delta never reaches 2^64 and wraps at most once
+        // CollectFeeMode::Compounding only collects fee in token b
         let checkpoint: u64 = mul_shr_256(
             U256::from(DEAD_LIQUIDITY),
             self.fee_b_per_liquidity(),
@@ -1102,15 +1103,13 @@ impl Pool {
 
         self.protocol_b_fee = self.protocol_b_fee.safe_add(dead_liquidity_fee)?;
 
-        // fix the metrics where the DEAD_LIQUIDITY fee was previously counted as LP fee at swap time
-        self.metrics.total_protocol_b_fee = self
-            .metrics
-            .total_protocol_b_fee
-            .safe_add(dead_liquidity_fee)?;
-        self.metrics.total_lp_b_fee = self
-            .metrics
-            .total_lp_b_fee
-            .safe_sub(dead_liquidity_fee.into())?;
+        // Metrics are intentionally left untouched here.
+        // total_protocol_b_fee is the protocol cut taken off the top at swap time, before the
+        // remainder is distributed per-liquidity. total_lp_b_fee is the fee credited to liquidity
+        // shares, which includes DEAD_LIQUIDITY's share since it is part of self.liquidity.
+        // The DEAD_LIQUIDITY share is unowned, so the protocol collects it here, but it was
+        // still accrued as LP fee and stays categorized that way.
+        // Note: actual protocol receipts = total_protocol_b_fee + settled dead-liquidity fee.
 
         Ok(())
     }
