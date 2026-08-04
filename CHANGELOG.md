@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.3][#PR 219](https://github.com/MeteoraAg/damm-v2/pull/219)
 
+### Deprecated
+
+- Deprecated `BaseFeeMode::RateLimiter`. New configs and new pools can no longer be created with `BaseFeeMode::RateLimiter`. Existing configs with `BaseFeeMode::RateLimiter` can no longer be used to create new pools.
+- Existing pools with `BaseFeeMode::RateLimiter` are unaffected. Operators can still call `fix_pool_fee_params`, `fix_config_fee_params` and `update_pool_fees` on existing pools and configs with `BaseFeeMode::RateLimiter`.
+
 ### Removed
 
 - Removed deprecated endpoints `claim_protocol_fee` and `zap_protocol_fee`.

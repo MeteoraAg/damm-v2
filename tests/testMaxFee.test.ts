@@ -24,9 +24,9 @@ import { generateKpAndFund, randomID } from "./helpers/common";
 import {
   BaseFeeMode,
   encodeFeeMarketCapSchedulerParams,
-  encodeFeeRateLimiterParams,
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
+import { setDeprecatedRateLimiterPool } from "./helpers/deprecatedRateLimiter";
 import { getRateLimiterFeeNumeratorFromIncludedFeeAmount } from "./helpers/rateLimiterUtils";
 import { LiteSVM } from "litesvm";
 
@@ -403,15 +403,16 @@ describe("Test max fee 99%", () => {
     const cliffFeeNumerator = new BN(100_000_000); // 10%
     const feeIncrementBps = 5000;
 
-    const data = encodeFeeRateLimiterParams(
+    // placeholder only. the pool is later overriden as a rate limiter pool
+    const placeholder = encodeFeeTimeSchedulerParams(
       BigInt(cliffFeeNumerator.toString()),
-      feeIncrementBps,
-      maxRateLimiterDuration.toNumber(),
-      maxFeeBps,
-      BigInt(referenceAmount.toString())
+      0,
+      BigInt(0),
+      BigInt(0),
+      BaseFeeMode.FeeTimeSchedulerLinear
     );
 
-    createConfigParams.poolFees.baseFee.data = Array.from(data);
+    createConfigParams.poolFees.baseFee.data = Array.from(placeholder);
 
     let config = await createConfigIx(
       svm,
@@ -433,6 +434,15 @@ describe("Test max fee 99%", () => {
       activationPoint: null,
     };
     const { pool } = await initializePool(svm, initPoolParams);
+
+    setDeprecatedRateLimiterPool(svm, pool, {
+      cliffFeeNumerator,
+      feeIncrementBps,
+      maxLimiterDuration: maxRateLimiterDuration.toNumber(),
+      maxFeeBps,
+      referenceAmount,
+    });
+
     let poolState = getPool(svm, pool);
 
     // swap with 3 SOL

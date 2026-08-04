@@ -227,4 +227,7 @@ pub enum PoolError {
 
     #[msg("Delegated amount is not zero")]
     DelegatedAmountNonZero,
+
+    #[msg("Deprecated base fee mode")]
+    DeprecatedBaseFeeMode,
 }
