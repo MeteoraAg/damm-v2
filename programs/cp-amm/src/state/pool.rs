@@ -24,7 +24,7 @@ use crate::{
         Position, SplitFeeAmount,
     },
     u128x128_math::{mul_shr_256, shl_div_256, Rounding},
-    utils_math::{safe_mul_div_cast_u128, safe_mul_shr_cast, safe_shl_div_cast},
+    utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
     PoolError,
 };
 use crate::{
@@ -130,13 +130,10 @@ pub struct Pool {
     pub protocol_a_fee: u64,
     /// protocol b fee
     pub protocol_b_fee: u64,
-    /// For Compounding Pool only: One-time backfill of the DEAD_LIQUIDITY fee share stranded in the token b vault before
-    /// the fix that credits that share to the protocol. For accounting record only, this value is not read by the program.
-    pub dead_liquidity_fee_b_backfill: u64,
-    /// flag to indicate that DEAD_LIQUIDITY fee has been backfilled: 0 false, 1 true
-    pub dead_liquidity_fee_backfilled: u8,
+    /// Cumulative dead-liquidity fee (Compounding Pool only)
+    pub dead_liquidity_fee_checkpoint: u64,
     // padding for future use
-    pub padding_2: [u8; 7],
+    pub padding_2: [u8; 8],
     /// min price
     pub sqrt_min_price: u128,
     /// max price
@@ -558,19 +555,15 @@ impl Pool {
             input_amount
         };
 
-        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
-        let dead_liquidity_fee =
-            self.get_dead_liquidity_fee(collect_fee_mode, actual_claiming_fee)?;
-
         Ok(SwapResult2 {
             amount_left: 0,
             included_fee_input_amount,
             excluded_fee_input_amount: input_amount,
             output_amount: amount_out,
             next_sqrt_price,
-            claiming_fee: actual_claiming_fee.safe_sub(dead_liquidity_fee)?,
+            claiming_fee: actual_claiming_fee,
             compounding_fee: actual_compounding_fee,
-            protocol_fee: actual_protocol_fee.safe_add(dead_liquidity_fee)?,
+            protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
         })
     }
@@ -701,19 +694,15 @@ impl Pool {
             amount
         };
 
-        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
-        let dead_liquidity_fee =
-            self.get_dead_liquidity_fee(collect_fee_mode, actual_claiming_fee)?;
-
         Ok(SwapResult2 {
             included_fee_input_amount,
             excluded_fee_input_amount: actual_amount_in,
             amount_left,
             output_amount: actual_amount_out,
             next_sqrt_price,
-            claiming_fee: actual_claiming_fee.safe_sub(dead_liquidity_fee)?,
+            claiming_fee: actual_claiming_fee,
             compounding_fee: actual_compounding_fee,
-            protocol_fee: actual_protocol_fee.safe_add(dead_liquidity_fee)?,
+            protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
         })
     }
@@ -808,78 +797,17 @@ impl Pool {
             amount
         };
 
-        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
-        let dead_liquidity_fee =
-            self.get_dead_liquidity_fee(collect_fee_mode, actual_claiming_fee)?;
-
         Ok(SwapResult2 {
             amount_left,
             included_fee_input_amount: amount_in,
             excluded_fee_input_amount: actual_amount_in,
             output_amount: actual_amount_out,
             next_sqrt_price,
-            claiming_fee: actual_claiming_fee.safe_sub(dead_liquidity_fee)?,
+            claiming_fee: actual_claiming_fee,
             compounding_fee: actual_compounding_fee,
-            protocol_fee: actual_protocol_fee.safe_add(dead_liquidity_fee)?,
+            protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
         })
-    }
-
-    pub fn get_owned_liquidity(&self, collect_fee_mode: CollectFeeMode) -> Result<u128> {
-        if collect_fee_mode == CollectFeeMode::Compounding {
-            Ok(self.liquidity.safe_sub(DEAD_LIQUIDITY)?) // DEAD_LIQUIDITY is unonwed
-        } else {
-            Ok(self.liquidity)
-        }
-    }
-
-    pub fn get_dead_liquidity_fee(
-        &self,
-        collect_fee_mode: CollectFeeMode,
-        claiming_fee: u64,
-    ) -> Result<u64> {
-        if collect_fee_mode != CollectFeeMode::Compounding || claiming_fee == 0 {
-            return Ok(0);
-        }
-
-        Ok(safe_mul_div_cast_u128(
-            claiming_fee.into(),
-            DEAD_LIQUIDITY,
-            self.liquidity,
-            Rounding::Down,
-        )?
-        .safe_cast()?)
-    }
-
-    // previously DEAD_LIQUIDITY was not credited to anyone, so the fee share was stranded in the token b vault
-    pub fn backfill_dead_liquidity_fee(&mut self, collect_fee_mode: CollectFeeMode) -> Result<()> {
-        if self.dead_liquidity_fee_backfilled != 0
-            || collect_fee_mode != CollectFeeMode::Compounding
-        {
-            return Ok(());
-        }
-
-        let backfill_fee: u64 = mul_shr_256(
-            U256::from(DEAD_LIQUIDITY),
-            self.fee_b_per_liquidity(),
-            LIQUIDITY_SCALE,
-        )
-        .ok_or_else(|| PoolError::MathOverflow)?
-        .safe_cast()?;
-
-        self.protocol_b_fee = self.protocol_b_fee.safe_add(backfill_fee)?;
-
-        self.metrics.total_protocol_b_fee =
-            self.metrics.total_protocol_b_fee.safe_add(backfill_fee)?;
-
-        // reverse the historical over-count: total_lp_b_fee has contained the stranded share
-        // since pool creation, so this cannot underflow
-        self.metrics.total_lp_b_fee = self.metrics.total_lp_b_fee.safe_sub(backfill_fee.into())?;
-
-        self.dead_liquidity_fee_b_backfill = backfill_fee;
-        self.dead_liquidity_fee_backfilled = 1;
-
-        Ok(())
     }
 
     pub fn apply_swap_result(
@@ -902,22 +830,9 @@ impl Pool {
 
         let old_sqrt_price = self.sqrt_price;
 
-        // credit the pending one-time backfill before this swap grows fee_b_per_liquidity
-        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
-        self.backfill_dead_liquidity_fee(collect_fee_mode)?;
-
-        // claiming_fee is distributed over the liquidity that positions own, so a compounding pool
-        // excludes DEAD_LIQUIDITY. The share of the fee belonging to DEAD_LIQUIDITY is already
-        // collected as protocol_fee in get_dead_liquidity_fee.
-        let owned_liquidity = self.get_owned_liquidity(collect_fee_mode)?;
-        let fee_per_token_stored = if owned_liquidity == 0 {
-            // every position withdrew from a compounding pool, so the whole claiming_fee went to the
-            // protocol and there is nothing left to distribute
-            U256::ZERO
-        } else {
-            shl_div_256(claiming_fee.into(), owned_liquidity, LIQUIDITY_SCALE)
-                .ok_or_else(|| PoolError::MathOverflow)?
-        };
+        let fee_per_token_stored =
+            shl_div_256(claiming_fee.into(), self.liquidity, LIQUIDITY_SCALE)
+                .ok_or_else(|| PoolError::MathOverflow)?;
 
         let trading_fee = claiming_fee.safe_add(compounding_fee)?;
 
@@ -1163,13 +1078,49 @@ impl Pool {
         Ok(())
     }
 
+    /// Claiming fee generated by DEAD_LIQUIDITY share was previously not attributed to anyone and was stranded in token_b_vault
+    /// This functions settles the fee generated by DEAD_LIQUIDITY share into protocol_fee
+    pub fn settle_dead_liquidity_fee(&mut self) -> Result<()> {
+        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
+
+        if collect_fee_mode != CollectFeeMode::Compounding {
+            return Ok(());
+        }
+
+        // Cumulative dead-liquidity fee, wrapped to u64 (mod 2^64)
+        // The checkpoint can grow past 2^64 over the pool's lifetime (so we use wrapping_sub),
+        // but the pending delta is still sitting in the token b vault
+        // A vault balance is a u64, so the delta never reaches 2^64 and wraps at most once
+        let checkpoint: u64 = mul_shr_256(
+            U256::from(DEAD_LIQUIDITY),
+            self.fee_b_per_liquidity(),
+            LIQUIDITY_SCALE,
+        )
+        .ok_or_else(|| PoolError::MathOverflow)? as u64;
+        let dead_liquidity_fee = checkpoint.wrapping_sub(self.dead_liquidity_fee_checkpoint);
+        self.dead_liquidity_fee_checkpoint = checkpoint;
+
+        self.protocol_b_fee = self.protocol_b_fee.safe_add(dead_liquidity_fee)?;
+
+        // fix the metrics where the DEAD_LIQUIDITY fee was previously counted as LP fee at swap time
+        self.metrics.total_protocol_b_fee = self
+            .metrics
+            .total_protocol_b_fee
+            .safe_add(dead_liquidity_fee)?;
+        self.metrics.total_lp_b_fee = self
+            .metrics
+            .total_lp_b_fee
+            .safe_sub(dead_liquidity_fee.into())?;
+
+        Ok(())
+    }
+
     pub fn claim_protocol_fee(
         &mut self,
         max_amount_a: u64,
         max_amount_b: u64,
     ) -> Result<(u64, u64)> {
-        let collect_fee_mode: CollectFeeMode = self.collect_fee_mode.safe_cast()?;
-        self.backfill_dead_liquidity_fee(collect_fee_mode)?;
+        self.settle_dead_liquidity_fee()?;
 
         let token_a_amount = self.protocol_a_fee.min(max_amount_a);
         let token_b_amount = self.protocol_b_fee.min(max_amount_b);
@@ -1346,10 +1297,7 @@ pub struct SwapResult2 {
     pub amount_left: u64,
     pub output_amount: u64,
     pub next_sqrt_price: u128,
-    /// fee claimable by positions, so in a compounding pool it excludes the share of the unowned
-    /// DEAD_LIQUIDITY, which is collected as protocol_fee instead
     pub claiming_fee: u64,
-    /// includes the DEAD_LIQUIDITY share of the claiming fee for a compounding pool
     pub protocol_fee: u64,
     pub compounding_fee: u64, // previous is partner_fee, now will be reused for compounding_fee
     pub referral_fee: u64,
