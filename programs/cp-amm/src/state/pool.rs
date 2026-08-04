@@ -131,7 +131,7 @@ pub struct Pool {
     /// protocol b fee
     pub protocol_b_fee: u64,
     /// For Compounding Pool only: One-time backfill of the DEAD_LIQUIDITY fee share stranded in the token b vault before
-    /// the fix that credits that share to the protocol
+    /// the fix that credits that share to the protocol. For accounting record only, this value is not read by the program.
     pub dead_liquidity_fee_b_backfill: u64,
     /// flag to indicate that DEAD_LIQUIDITY fee has been backfilled: 0 false, 1 true
     pub dead_liquidity_fee_backfilled: u8,
