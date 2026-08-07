@@ -1,6 +1,6 @@
 use crate::{
-    const_pda::EVENT_AUTHORITY_AND_BUMP, entry, p_handle_swap, SwapParameters, SwapParameters2,
-    SWAP_IX_ACCOUNTS,
+    const_pda::EVENT_AUTHORITY_AND_BUMP, entry, p_handle_swap, RemainingAccountsInfo,
+    SwapParameters, SwapParameters2, SWAP_IX_ACCOUNTS,
 };
 use anchor_lang::{
     prelude::{event::EVENT_IX_TAG_LE, *},
@@ -26,14 +26,12 @@ fn p_event_dispatch(
 
 #[inline(always)]
 unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
-    const UNINIT: core::mem::MaybeUninit<pinocchio::account_info::AccountInfo> =
-        core::mem::MaybeUninit::<pinocchio::account_info::AccountInfo>::uninit();
-    // Create an array of uninitialized account infos.
-    // In rate limiter we may need an additional account for sysvar program id
-    let mut accounts = [UNINIT; SWAP_IX_ACCOUNTS + 1];
+    let mut accounts: Box<
+        [core::mem::MaybeUninit<pinocchio::account_info::AccountInfo>; pinocchio::MAX_TX_ACCOUNTS],
+    > = Box::new_uninit().assume_init();
 
     let (program_id, count, instruction_data) =
-        pinocchio::entrypoint::deserialize(input, &mut accounts);
+        pinocchio::entrypoint::deserialize(input, &mut *accounts);
 
     if program_id != crate::ID.as_array() {
         // just fall back to anchor entrypoint
@@ -45,10 +43,11 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
     let instruction_bits = [
         instruction_data.starts_with(crate::instruction::Swap::DISCRIMINATOR),
         instruction_data.starts_with(crate::instruction::Swap2::DISCRIMINATOR),
+        instruction_data.starts_with(crate::instruction::Swap3::DISCRIMINATOR),
         instruction_data.starts_with(EVENT_IX_TAG_LE),
     ];
     let result = match instruction_bits {
-        [true, false, false] | [false, true, false] => {
+        [true, false, false, false] | [false, true, false, false] | [false, false, true, false] => {
             // https://doc.rust-lang.org/std/primitive.slice.html#method.split_at_unchecked
             // Calling split_at_unchecked method with an out-of-bounds index is undefined behavior even if the resulting reference is not used.
             // The caller has to ensure that 0 <= mid <= self.len().
@@ -62,7 +61,7 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
                 right.as_ptr() as _,
                 count.checked_sub(SWAP_IX_ACCOUNTS)?,
             );
-            let params = if instruction_bits[0] {
+            let (params, remaining_accounts_info) = if instruction_bits[0] {
                 let swap_parameters = unwrap_or_return!(
                     SwapParameters::deserialize(
                         &mut &instruction_data[crate::instruction::Swap::DISCRIMINATOR.len()..]
@@ -71,8 +70,8 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
                 );
 
                 msg!("Instruction: Swap");
-                swap_parameters.to_swap_parameters2()
-            } else {
+                (swap_parameters.to_swap_parameters2(), None)
+            } else if instruction_bits[1] {
                 let swap_parameters = unwrap_or_return!(
                     SwapParameters2::deserialize(
                         &mut &instruction_data[crate::instruction::Swap2::DISCRIMINATOR.len()..]
@@ -81,7 +80,21 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
                 );
 
                 msg!("Instruction: Swap2");
-                swap_parameters
+                (swap_parameters, None)
+            } else {
+                let mut ix_data =
+                    &instruction_data[crate::instruction::Swap3::DISCRIMINATOR.len()..];
+                let swap_parameters = unwrap_or_return!(
+                    SwapParameters2::deserialize(&mut ix_data),
+                    Some(ErrorCode::InstructionDidNotDeserialize as u64)
+                );
+                let remaining_accounts_info = unwrap_or_return!(
+                    RemainingAccountsInfo::deserialize(&mut ix_data),
+                    Some(ErrorCode::InstructionDidNotDeserialize as u64)
+                );
+
+                msg!("Instruction: Swap3");
+                (swap_parameters, Some(remaining_accounts_info))
             };
 
             Some(p_handle_swap(
@@ -89,9 +102,12 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
                 accounts,
                 remaining_accounts,
                 &params,
+                remaining_accounts_info,
             ))
         }
-        [false, false, true] => Some(p_event_dispatch(&program_id, accounts, &instruction_data)),
+        [false, false, false, true] => {
+            Some(p_event_dispatch(&program_id, accounts, &instruction_data))
+        }
         _ => None,
     };
 

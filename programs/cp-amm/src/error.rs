@@ -249,3 +249,11 @@ pub enum PoolError {
     #[msg("Invalid remaining accounts length")]
     InvalidRemainingAccountsLength,
 }
+
+impl From<PoolError> for pinocchio::program_error::ProgramError {
+    fn from(error: PoolError) -> Self {
+        pinocchio::program_error::ProgramError::Custom(
+            error as u32 + anchor_lang::error::ERROR_CODE_OFFSET,
+        )
+    }
+}

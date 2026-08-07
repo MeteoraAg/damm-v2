@@ -392,6 +392,14 @@ pub mod cp_amm {
         Ok(())
     }
 
+    pub fn swap3(
+        _ctx: Context<SwapCtx>,
+        _params: SwapParameters2,
+        _remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     pub fn claim_position_fee<'info>(
         ctx: Context<'info, ClaimPositionFeeCtx<'info>>,
     ) -> Result<()> {

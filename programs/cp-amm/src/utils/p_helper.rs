@@ -5,13 +5,94 @@ use anchor_lang::{
     prelude::{ProgramError, Pubkey},
     require, system_program, CheckOwner, Discriminator, Owner, Result,
 };
+use anchor_spl::token_2022::spl_token_2022::{
+    self,
+    extension::{self, StateWithExtensions},
+};
 use anchor_spl::token_interface::TokenAccount;
 use bytemuck::Pod;
 use pinocchio::{
     account_info::{AccountInfo, RefMut},
+    instruction::{AccountMeta, Instruction, Signer},
     sysvars::instructions::IntrospectedInstruction,
     ProgramResult,
 };
+
+use crate::PoolError;
+
+fn p_get_transfer_hook_program_id(
+    token_mint: &AccountInfo,
+) -> std::result::Result<Option<Pubkey>, pinocchio::program_error::ProgramError> {
+    if token_mint.owner() == anchor_spl::token::ID.as_array() {
+        return Ok(None);
+    }
+
+    let token_mint_data = token_mint.try_borrow_data()?;
+    let token_mint_unpacked =
+        StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)
+            .map_err(|_| pinocchio::program_error::ProgramError::InvalidAccountData)?;
+    Ok(extension::transfer_hook::get_program_id(
+        &token_mint_unpacked,
+    ))
+}
+
+/// TransferChecked with appended transfer hook accounts
+fn p_transfer_checked_with_hook_accounts(
+    from: &AccountInfo,
+    token_mint: &AccountInfo,
+    to: &AccountInfo,
+    authority: &AccountInfo,
+    token_program: &AccountInfo,
+    amount: u64,
+    decimals: u8,
+    transfer_hook_accounts: &[AccountInfo],
+    signers: &[Signer],
+) -> ProgramResult {
+    // mirror the anchor-side guard: passing hook accounts for a mint without a live hook is
+    // a malformed instruction
+    if p_get_transfer_hook_program_id(token_mint)?.is_none() {
+        return Err(PoolError::NoTransferHookProgram.into());
+    }
+
+    let mut account_metas = Vec::with_capacity(4 + transfer_hook_accounts.len());
+    account_metas.push(AccountMeta::writable(from.key()));
+    account_metas.push(AccountMeta::readonly(token_mint.key()));
+    account_metas.push(AccountMeta::writable(to.key()));
+    account_metas.push(AccountMeta::readonly_signer(authority.key()));
+
+    let mut account_infos: Vec<&AccountInfo> = Vec::with_capacity(4 + transfer_hook_accounts.len());
+    account_infos.push(from);
+    account_infos.push(token_mint);
+    account_infos.push(to);
+    account_infos.push(authority);
+
+    for account in transfer_hook_accounts {
+        account_metas.push(AccountMeta::new(
+            account.key(),
+            account.is_writable(),
+            account.is_signer(),
+        ));
+        account_infos.push(account);
+    }
+
+    // Reference: https://github.com/anza-xyz/pinocchio/blob/17b0e862c01a868ea07ef81a2f8a9b4a504bdfed/programs/token-2022/src/instructions/transfer_checked.rs#L53-L56
+    // Instruction data layout (matches pinocchio_token_2022 TransferChecked):
+    // -  [0]: instruction discriminator (1 byte, u8)
+    // -  [1..9]: amount (8 bytes, u64)
+    // -  [9]: decimals (1 byte, u8)
+    let mut instruction_data = [0u8; 10];
+    instruction_data[0] = 12;
+    instruction_data[1..9].copy_from_slice(&amount.to_le_bytes());
+    instruction_data[9] = decimals;
+
+    let instruction = Instruction {
+        program_id: token_program.key(),
+        accounts: &account_metas,
+        data: &instruction_data,
+    };
+
+    pinocchio::cpi::slice_invoke_signed(&instruction, &account_infos, signers)
+}
 
 pub fn p_transfer_from_user(
     authority: &AccountInfo,
@@ -20,8 +101,24 @@ pub fn p_transfer_from_user(
     destination_token_account: &AccountInfo,
     token_program: &AccountInfo,
     amount: u64,
+    transfer_hook_accounts: Option<&[AccountInfo]>,
 ) -> ProgramResult {
     let decimals = p_accessor_decimals(token_mint)?;
+
+    if let Some(transfer_hook_accounts) = transfer_hook_accounts {
+        return p_transfer_checked_with_hook_accounts(
+            token_owner_account,
+            token_mint,
+            destination_token_account,
+            authority,
+            token_program,
+            amount,
+            decimals,
+            transfer_hook_accounts,
+            &[],
+        );
+    }
+
     pinocchio_token_2022::instructions::TransferChecked {
         from: token_owner_account,
         mint: token_mint,
@@ -43,14 +140,30 @@ pub fn p_transfer_from_pool(
     token_owner_account: &AccountInfo,
     token_program: &AccountInfo,
     amount: u64,
+    transfer_hook_accounts: Option<&[AccountInfo]>,
 ) -> ProgramResult {
     let seeds = pinocchio::seeds!(
         crate::constants::seeds::POOL_AUTHORITY_PREFIX,
         &[crate::const_pda::pool_authority::BUMP]
     );
-    let signers = &[pinocchio::instruction::Signer::from(&seeds)];
+    let signers = &[Signer::from(&seeds)];
 
     let decimals = p_accessor_decimals(token_mint)?;
+
+    if let Some(transfer_hook_accounts) = transfer_hook_accounts {
+        return p_transfer_checked_with_hook_accounts(
+            token_vault,
+            token_mint,
+            token_owner_account,
+            pool_authority,
+            token_program,
+            amount,
+            decimals,
+            transfer_hook_accounts,
+            signers,
+        );
+    }
+
     pinocchio_token_2022::instructions::TransferChecked {
         from: token_vault,
         mint: token_mint,

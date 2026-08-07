@@ -5,7 +5,10 @@ use crate::p_helper::{
     p_transfer_from_pool, p_transfer_from_user,
 };
 use crate::state::CollectFeeMode;
-use crate::{instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction};
+use crate::{
+    instruction::Swap as SwapInstruction, instruction::Swap2 as Swap2Instruction,
+    instruction::Swap3 as Swap3Instruction,
+};
 use crate::{
     process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill, EvtSwap2,
     ProcessSwapParams, ProcessSwapResult, SwapCtx,
@@ -21,6 +24,7 @@ use crate::{
     activation_handler::ActivationHandler,
     get_pool_access_validator,
     params::swap::TradeDirection,
+    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
     state::{fee::FeeMode, Pool},
     PoolError, SwapMode, SwapParameters2,
 };
@@ -47,6 +51,7 @@ pub fn p_handle_swap(
     accounts: &[AccountInfo],
     remaining_accounts: &[AccountInfo],
     params: &SwapParameters2,
+    remaining_accounts_info: Option<RemainingAccountsInfo>,
 ) -> Result<()> {
     //validate accounts to match with anchor macro
     SwapCtx::validate_p_accounts(accounts)?;
@@ -129,6 +134,33 @@ pub fn p_handle_swap(
 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
+    // in swap/swap2/swap3 remaining_accounts may contain sysvar at index0.
+    // in swap3, remaining_accounts may contain transfer_hook_accounts after the sysvar
+    let (instruction_sysvar_account, hook_accounts_offset) = match &remaining_accounts_info {
+        Some(info) => {
+            let transfer_hook_account_count: usize = info
+                .slices
+                .iter()
+                .map(|slice| usize::from(slice.length))
+                .sum();
+            let extra_remaining_account_count = remaining_accounts
+                .len()
+                .safe_sub(transfer_hook_account_count)?;
+
+            require!(
+                extra_remaining_account_count <= 1,
+                PoolError::InvalidRemainingAccountsLength
+            );
+
+            if extra_remaining_account_count == 1 {
+                (Some(&remaining_accounts[0]), 1)
+            } else {
+                (None, 0)
+            }
+        }
+        None => (remaining_accounts.first(), 0),
+    };
+
     // another validation to prevent snipers to craft multiple swap instructions in 1 tx
     // (if we dont do this, they are able to concat 16 swap instructions in 1 tx)
     if let Ok(rate_limiter) = pool.pool_fees.base_fee.to_fee_rate_limiter() {
@@ -139,7 +171,7 @@ pub fn p_handle_swap(
         )? {
             validate_single_swap_instruction(
                 &Pubkey::new_from_array(*pool_key),
-                remaining_accounts,
+                instruction_sysvar_account,
             )?;
         }
     }
@@ -178,6 +210,29 @@ pub fn p_handle_swap(
     // re-update next_sqrt_price for compounding pool
     swap_result.next_sqrt_price = pool.sqrt_price;
 
+    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
+    let mut remaining_accounts = &remaining_accounts[hook_accounts_offset..];
+    let parsed_transfer_hook_accounts = parse_remaining_accounts(
+        &mut remaining_accounts,
+        &remaining_accounts_info.slices,
+        &[
+            AccountsType::TransferHookA,
+            AccountsType::TransferHookB,
+            AccountsType::TransferHookReferral,
+        ],
+    )?;
+
+    let (transfer_hook_in_accounts, transfer_hook_out_accounts) = match trade_direction {
+        TradeDirection::AtoB => (
+            parsed_transfer_hook_accounts.transfer_hook_a,
+            parsed_transfer_hook_accounts.transfer_hook_b,
+        ),
+        TradeDirection::BtoA => (
+            parsed_transfer_hook_accounts.transfer_hook_b,
+            parsed_transfer_hook_accounts.transfer_hook_a,
+        ),
+    };
+
     // send to reserve
     p_transfer_from_user(
         payer,
@@ -186,6 +241,7 @@ pub fn p_handle_swap(
         input_vault_account,
         input_program,
         included_transfer_fee_amount_in,
+        transfer_hook_in_accounts,
     )
     .map_err(|err| ProgramError::from(u64::from(err)))?;
     // send to user
@@ -196,6 +252,7 @@ pub fn p_handle_swap(
         &output_token_account,
         output_program,
         included_transfer_fee_amount_out,
+        transfer_hook_out_accounts,
     )
     .map_err(|err| ProgramError::from(u64::from(err)))?;
     // send to referral
@@ -208,6 +265,7 @@ pub fn p_handle_swap(
                 referral_token_account,
                 token_a_program,
                 swap_result.referral_fee,
+                parsed_transfer_hook_accounts.transfer_hook_referral,
             )
             .map_err(|err| ProgramError::from(u64::from(err)))?;
         } else {
@@ -218,6 +276,7 @@ pub fn p_handle_swap(
                 referral_token_account,
                 token_b_program,
                 swap_result.referral_fee,
+                parsed_transfer_hook_accounts.transfer_hook_referral,
             )
             .map_err(|err| ProgramError::from(u64::from(err)))?;
         }
@@ -272,13 +331,13 @@ fn p_emit_cpi(inner_data: Vec<u8>, authority_info: &AccountInfo) -> pinocchio::P
     )
 }
 
-pub fn validate_single_swap_instruction<'c, 'info>(
+pub fn validate_single_swap_instruction(
     pool: &Pubkey,
-    remaining_accounts: &'c [AccountInfo],
+    instruction_sysvar_account_info: Option<&AccountInfo>,
 ) -> Result<()> {
-    let instruction_sysvar_account_info = remaining_accounts
-        .get(0)
+    let instruction_sysvar_account_info = instruction_sysvar_account_info
         .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
+
     if &INSTRUCTIONS_ID != instruction_sysvar_account_info.key() {
         return Err(ProgramError::UnsupportedSysvar.into());
     }
@@ -352,6 +411,7 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
     let instruction_discriminator = &instruction.data[..8];
     if instruction_discriminator.eq(SwapInstruction::DISCRIMINATOR)
         || instruction_discriminator.eq(Swap2Instruction::DISCRIMINATOR)
+        || instruction_discriminator.eq(Swap3Instruction::DISCRIMINATOR)
     {
         return instruction.accounts[1].pubkey.eq(pool);
     }
@@ -366,6 +426,7 @@ fn is_p_instruction_include_pool_swap(
     let instruction_discriminator = &instruction_data[..8];
     if instruction_discriminator.eq(SwapInstruction::DISCRIMINATOR)
         || instruction_discriminator.eq(Swap2Instruction::DISCRIMINATOR)
+        || instruction_discriminator.eq(Swap3Instruction::DISCRIMINATOR)
     {
         let account_metadata = instruction
             .get_account_meta_at(1)
