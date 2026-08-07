@@ -11,11 +11,12 @@ use crate::{
         POOL_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX,
     },
     create_position_nft, get_initial_pool_information, get_whitelisted_alpha_vault,
+    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
     safe_math::SafeCast,
     state::{Config, ConfigType, Pool, PoolType, Position},
     token::{
-        calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
-        is_token_badge_initialized, transfer_from_user,
+        calculate_transfer_fee_included_amount, get_token_program_flags, transfer_from_user,
+        validate_token_badges,
     },
     EvtCreatePosition, EvtInitializePool, InitialPoolInformation,
     InitializeCustomizablePoolParameters, PoolError,
@@ -167,31 +168,31 @@ pub struct InitializePoolWithDynamicConfigCtx<'info> {
 pub fn handle_initialize_pool_with_dynamic_config<'info>(
     ctx: Context<'info, InitializePoolWithDynamicConfigCtx<'info>>,
     params: InitializeCustomizablePoolParameters,
+    remaining_accounts_info: Option<RemainingAccountsInfo>,
 ) -> Result<()> {
     params.validate()?;
-    if !is_supported_mint(&ctx.accounts.token_a_mint)? {
+
+    validate_token_badges(
+        &ctx.accounts.token_a_mint,
+        &ctx.accounts.token_b_mint,
+        ctx.remaining_accounts,
+    )?;
+
+    if remaining_accounts_info.is_some() {
+        // token_badge accounts are always provided since they can be sentinel values
         require!(
-            is_token_badge_initialized(
-                ctx.accounts.token_a_mint.key(),
-                ctx.remaining_accounts
-                    .get(0)
-                    .ok_or(PoolError::InvalidTokenBadge)?,
-            )?,
-            PoolError::InvalidTokenBadge
-        )
+            ctx.remaining_accounts.len() >= 2,
+            PoolError::InvalidRemainingAccountsLength
+        );
     }
 
-    if !is_supported_mint(&ctx.accounts.token_b_mint)? {
-        require!(
-            is_token_badge_initialized(
-                ctx.accounts.token_b_mint.key(),
-                ctx.remaining_accounts
-                    .get(1)
-                    .ok_or(PoolError::InvalidTokenBadge)?,
-            )?,
-            PoolError::InvalidTokenBadge
-        )
-    }
+    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
+    let mut remaining_accounts = ctx.remaining_accounts.get(2..).unwrap_or_else(|| &[]);
+    let parsed_transfer_hook_accounts = parse_remaining_accounts(
+        &mut remaining_accounts,
+        &remaining_accounts_info.slices,
+        &[AccountsType::TransferHookA, AccountsType::TransferHookB],
+    )?;
 
     let InitializeCustomizablePoolParameters {
         pool_fees,
@@ -321,6 +322,7 @@ pub fn handle_initialize_pool_with_dynamic_config<'info>(
         &ctx.accounts.token_a_vault,
         &ctx.accounts.token_a_program,
         total_amount_a,
+        parsed_transfer_hook_accounts.transfer_hook_a,
     )?;
     transfer_from_user(
         &ctx.accounts.payer,
@@ -329,6 +331,7 @@ pub fn handle_initialize_pool_with_dynamic_config<'info>(
         &ctx.accounts.token_b_vault,
         &ctx.accounts.token_b_program,
         total_amount_b,
+        parsed_transfer_hook_accounts.transfer_hook_b,
     )?;
 
     emit_cpi!(EvtInitializePool {

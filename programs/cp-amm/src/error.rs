@@ -230,4 +230,22 @@ pub enum PoolError {
 
     #[msg("Deprecated base fee mode")]
     DeprecatedBaseFeeMode,
+
+    #[msg("Invalid remaining account slice")]
+    InvalidRemainingAccountSlice,
+
+    #[msg("Insufficient remaining accounts")]
+    InsufficientRemainingAccounts,
+
+    #[msg("Duplicated remaining account types")]
+    DuplicatedRemainingAccountTypes,
+
+    #[msg("Missing remaining account for transfer hook")]
+    MissingRemainingAccountForTransferHook,
+
+    #[msg("No transfer hook program")]
+    NoTransferHookProgram,
+
+    #[msg("Invalid remaining accounts length")]
+    InvalidRemainingAccountsLength,
 }

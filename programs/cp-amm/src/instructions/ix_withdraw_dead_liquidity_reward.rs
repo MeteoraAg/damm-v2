@@ -2,8 +2,15 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
-    const_pda, constants::NUM_REWARDS, error::PoolError, event::EvtWithdrawDeadLiquidityReward,
-    math::safe_math::SafeCast, state::pool::Pool, state::CollectFeeMode, token::transfer_from_pool,
+    const_pda,
+    constants::NUM_REWARDS,
+    error::PoolError,
+    event::EvtWithdrawDeadLiquidityReward,
+    math::safe_math::SafeCast,
+    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
+    state::pool::Pool,
+    state::CollectFeeMode,
+    token::transfer_from_pool,
 };
 
 #[event_cpi]
@@ -58,9 +65,10 @@ impl<'info> WithdrawDeadLiquidityRewardCtx<'info> {
     }
 }
 
-pub fn handle_withdraw_dead_liquidity_reward(
-    ctx: Context<WithdrawDeadLiquidityRewardCtx>,
+pub fn handle_withdraw_dead_liquidity_reward<'info>(
+    ctx: Context<'info, WithdrawDeadLiquidityRewardCtx<'info>>,
     reward_index: u8,
+    remaining_accounts_info: Option<RemainingAccountsInfo>,
 ) -> Result<()> {
     let index: usize = reward_index
         .try_into()
@@ -78,6 +86,14 @@ pub fn handle_withdraw_dead_liquidity_reward(
     let dead_liquidity_reward =
         pool.reward_infos[index].claim_dead_liquidity_reward(collect_fee_mode)?;
 
+    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts = parse_remaining_accounts(
+        &mut remaining_accounts,
+        &remaining_accounts_info.slices,
+        &[AccountsType::TransferHookReward],
+    )?;
+
     // transfer rewards to funder
     if dead_liquidity_reward > 0 {
         transfer_from_pool(
@@ -87,6 +103,7 @@ pub fn handle_withdraw_dead_liquidity_reward(
             &ctx.accounts.funder_token_account.to_account_info(),
             &ctx.accounts.token_program,
             dead_liquidity_reward,
+            parsed_transfer_hook_accounts.transfer_hook_reward,
         )?;
 
         emit_cpi!(EvtWithdrawDeadLiquidityReward {

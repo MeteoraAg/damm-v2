@@ -6,6 +6,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::{
     activation_handler::ActivationHandler,
     const_pda, get_pool_access_validator,
+    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
     state::{Pool, Position, PositionDelegatePermission},
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     u128x128_math::Rounding,
@@ -77,11 +78,12 @@ pub struct RemoveLiquidityCtx<'info> {
     pub token_b_program: Interface<'info, TokenInterface>,
 }
 
-pub fn handle_remove_liquidity(
-    ctx: Context<RemoveLiquidityCtx>,
+pub fn handle_remove_liquidity<'info>(
+    ctx: Context<'info, RemoveLiquidityCtx<'info>>,
     liquidity_delta: Option<u128>,
     token_a_amount_threshold: u64,
     token_b_amount_threshold: u64,
+    remaining_accounts_info: Option<RemainingAccountsInfo>,
 ) -> Result<()> {
     {
         let pool = ctx.accounts.pool.load()?;
@@ -172,6 +174,14 @@ pub fn handle_remove_liquidity(
         token_b_amount,
     )?;
 
+    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts = parse_remaining_accounts(
+        &mut remaining_accounts,
+        &remaining_accounts_info.slices,
+        &[AccountsType::TransferHookA, AccountsType::TransferHookB],
+    )?;
+
     // send to user
     transfer_from_pool(
         ctx.accounts.pool_authority.to_account_info(),
@@ -180,6 +190,7 @@ pub fn handle_remove_liquidity(
         &ctx.accounts.token_a_account.to_account_info(),
         &ctx.accounts.token_a_program,
         token_a_amount,
+        parsed_transfer_hook_accounts.transfer_hook_a,
     )?;
     transfer_from_pool(
         ctx.accounts.pool_authority.to_account_info(),
@@ -188,6 +199,7 @@ pub fn handle_remove_liquidity(
         &ctx.accounts.token_b_account.to_account_info(),
         &ctx.accounts.token_b_program,
         token_b_amount,
+        parsed_transfer_hook_accounts.transfer_hook_b,
     )?;
 
     emit_cpi!(EvtLiquidityChange {

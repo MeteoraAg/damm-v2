@@ -3,6 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
+    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
     state::{Pool, Position, PositionDelegatePermission},
     token::transfer_from_pool,
     EvtClaimPositionFee,
@@ -69,7 +70,10 @@ pub struct ClaimPositionFeeCtx<'info> {
     pub token_b_program: Interface<'info, TokenInterface>,
 }
 
-pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
+pub fn handle_claim_position_fee<'info>(
+    ctx: Context<'info, ClaimPositionFeeCtx<'info>>,
+    remaining_accounts_info: Option<RemainingAccountsInfo>,
+) -> Result<()> {
     let mut position = ctx.accounts.position.load_mut()?;
 
     position.assert_authority_with_owner_destinations(
@@ -101,6 +105,14 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
         .metrics
         .accumulate_claimed_fee(fee_a_pending, fee_b_pending)?;
 
+    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts = parse_remaining_accounts(
+        &mut remaining_accounts,
+        &remaining_accounts_info.slices,
+        &[AccountsType::TransferHookA, AccountsType::TransferHookB],
+    )?;
+
     if fee_a_pending > 0 {
         // send to user
         transfer_from_pool(
@@ -110,6 +122,7 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
             &ctx.accounts.token_a_account.to_account_info(),
             &ctx.accounts.token_a_program,
             fee_a_pending,
+            parsed_transfer_hook_accounts.transfer_hook_a,
         )?;
     }
 
@@ -121,6 +134,7 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
             &ctx.accounts.token_b_account.to_account_info(),
             &ctx.accounts.token_b_program,
             fee_b_pending,
+            parsed_transfer_hook_accounts.transfer_hook_b,
         )?;
     }
 

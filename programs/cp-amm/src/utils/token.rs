@@ -154,6 +154,19 @@ fn get_epoch_transfer_fee(token_mint_data: &[u8]) -> Result<Option<TransferFee>>
     Ok(None)
 }
 
+pub fn get_transfer_hook_program_id(token_mint: &AccountInfo) -> Result<Option<Pubkey>> {
+    if token_mint.owner.eq(&Token::id()) {
+        return Ok(None);
+    }
+
+    let token_mint_data = token_mint.try_borrow_data()?;
+    let token_mint_unpacked =
+        StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
+    Ok(extension::transfer_hook::get_program_id(
+        &token_mint_unpacked,
+    ))
+}
+
 pub fn transfer_from_user<'a, 'info>(
     authority: &'a Signer<'info>,
     token_mint: &'a InterfaceAccount<'info, Mint>,
@@ -161,10 +174,11 @@ pub fn transfer_from_user<'a, 'info>(
     destination_token_account: &'a InterfaceAccount<'info, TokenAccount>,
     token_program: &'a Interface<'info, TokenInterface>,
     amount: u64,
+    transfer_hook_accounts: Option<&[AccountInfo<'info>]>,
 ) -> Result<()> {
     let destination_account = destination_token_account.to_account_info();
 
-    let instruction = spl_token_2022::instruction::transfer_checked(
+    let mut instruction = spl_token_2022::instruction::transfer_checked(
         token_program.key,
         &token_owner_account.key(),
         &token_mint.key(),
@@ -175,12 +189,35 @@ pub fn transfer_from_user<'a, 'info>(
         token_mint.decimals,
     )?;
 
-    let account_infos = vec![
+    let mut account_infos = vec![
         token_owner_account.to_account_info(),
         token_mint.to_account_info(),
         destination_account.to_account_info(),
         authority.to_account_info(),
     ];
+
+    if let Some(hook_program_id) = get_transfer_hook_program_id(&token_mint.to_account_info())? {
+        let Some(transfer_hook_accounts) = transfer_hook_accounts else {
+            return Err(PoolError::MissingRemainingAccountForTransferHook.into());
+        };
+
+        spl_transfer_hook_interface::onchain::add_extra_accounts_for_execute_cpi(
+            &mut instruction,
+            &mut account_infos,
+            &hook_program_id,
+            token_owner_account.to_account_info(),
+            token_mint.to_account_info(),
+            destination_account,
+            authority.to_account_info(),
+            amount,
+            transfer_hook_accounts,
+        )?;
+    } else {
+        require!(
+            transfer_hook_accounts.is_none(),
+            PoolError::NoTransferHookProgram
+        );
+    }
 
     invoke_signed(&instruction, &account_infos, &[])?;
 
@@ -194,10 +231,11 @@ pub fn transfer_from_pool<'info>(
     token_owner_account: &AccountInfo<'info>,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
+    transfer_hook_accounts: Option<&[AccountInfo<'info>]>,
 ) -> Result<()> {
     let signer_seeds = pool_authority_seeds!();
 
-    let instruction = spl_token_2022::instruction::transfer_checked(
+    let mut instruction = spl_token_2022::instruction::transfer_checked(
         token_program.key,
         &token_vault.key(),
         &token_mint.key(),
@@ -208,12 +246,35 @@ pub fn transfer_from_pool<'info>(
         token_mint.decimals,
     )?;
 
-    let account_infos = vec![
+    let mut account_infos = vec![
         token_vault.to_account_info(),
         token_mint.to_account_info(),
         token_owner_account.to_account_info(),
         pool_authority.to_account_info(),
     ];
+
+    if let Some(hook_program_id) = get_transfer_hook_program_id(&token_mint.to_account_info())? {
+        let Some(transfer_hook_accounts) = transfer_hook_accounts else {
+            return Err(PoolError::MissingRemainingAccountForTransferHook.into());
+        };
+
+        spl_transfer_hook_interface::onchain::add_extra_accounts_for_execute_cpi(
+            &mut instruction,
+            &mut account_infos,
+            &hook_program_id,
+            token_vault.to_account_info(),
+            token_mint.to_account_info(),
+            token_owner_account.to_account_info(),
+            pool_authority.to_account_info(),
+            amount,
+            transfer_hook_accounts,
+        )?;
+    } else {
+        require!(
+            transfer_hook_accounts.is_none(),
+            PoolError::NoTransferHookProgram
+        );
+    }
 
     invoke_signed(&instruction, &account_infos, &[&signer_seeds[..]])?;
 
@@ -268,6 +329,40 @@ pub fn is_token_badge_initialized<'info>(
     let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
     let token_badge = token_badge.load()?;
     Ok(token_badge.token_mint == mint)
+}
+
+/// Validates token_badge slots
+/// token_a_badge is always at slot 0 and token_b_badge is always at slot 1
+pub fn validate_token_badges<'info>(
+    token_a_mint: &InterfaceAccount<'info, Mint>,
+    token_b_mint: &InterfaceAccount<'info, Mint>,
+    remaining_accounts: &'info [AccountInfo<'info>],
+) -> Result<()> {
+    if !is_supported_mint(token_a_mint)? {
+        require!(
+            is_token_badge_initialized(
+                token_a_mint.key(),
+                remaining_accounts
+                    .get(0)
+                    .ok_or(PoolError::InvalidTokenBadge)?,
+            )?,
+            PoolError::InvalidTokenBadge
+        );
+    }
+
+    if !is_supported_mint(token_b_mint)? {
+        require!(
+            is_token_badge_initialized(
+                token_b_mint.key(),
+                remaining_accounts
+                    .get(1)
+                    .ok_or(PoolError::InvalidTokenBadge)?,
+            )?,
+            PoolError::InvalidTokenBadge
+        );
+    }
+
+    Ok(())
 }
 
 pub fn update_account_lamports_to_minimum_balance<'info>(

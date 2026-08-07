@@ -5,6 +5,7 @@ use crate::{
     constants::{NUM_REWARDS, REWARD_RATE_SCALE},
     event::EvtFundReward,
     math::safe_math::SafeMath,
+    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
     state::Pool,
     token::{calculate_transfer_fee_excluded_amount, transfer_from_user},
     utils_math::safe_mul_shr_cast,
@@ -51,11 +52,12 @@ impl<'info> FundRewardCtx<'info> {
     }
 }
 
-pub fn handle_fund_reward(
-    ctx: Context<FundRewardCtx>,
+pub fn handle_fund_reward<'info>(
+    ctx: Context<'info, FundRewardCtx<'info>>,
     reward_index: u8,
     amount: u64,
     carry_forward: bool,
+    remaining_accounts_info: Option<RemainingAccountsInfo>,
 ) -> Result<()> {
     let index: usize = reward_index
         .try_into()
@@ -112,6 +114,14 @@ pub fn handle_fund_reward(
     // Reward rate might include ineligible reward based on whether to brought forward
     reward_info.update_rate_after_funding(current_time as u64, total_amount)?;
 
+    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts = parse_remaining_accounts(
+        &mut remaining_accounts,
+        &remaining_accounts_info.slices,
+        &[AccountsType::TransferHookReward],
+    )?;
+
     // Transfer without ineligible reward because it's already in the vault
     transfer_from_user(
         &ctx.accounts.funder,
@@ -120,6 +130,7 @@ pub fn handle_fund_reward(
         &ctx.accounts.reward_vault,
         &ctx.accounts.token_program,
         amount,
+        parsed_transfer_hook_accounts.transfer_hook_reward,
     )?;
 
     emit_cpi!(EvtFundReward {

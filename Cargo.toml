@@ -23,6 +23,9 @@ num-traits = "0.2.19"
 num_enum = "0.7.0"
 num = "0.4.3"
 spl-token-metadata-interface = "0.8.0"
+spl-transfer-hook-interface = "2.1.0"
+# explicitly pin transitive dep (spl-tlv-account-resolution) to min version with proper de_escalate_account_meta
+spl-tlv-account-resolution = "^0.11.1"
 solana-instruction = { version = "3.3.0", features = ["syscalls"] }
 borsh = "1"
 const-crypto = "0.3.0"

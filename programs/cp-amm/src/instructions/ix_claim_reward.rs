@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
+use crate::remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo};
 use crate::{
     const_pda,
     constants::NUM_REWARDS,
@@ -65,10 +66,11 @@ impl<'info> ClaimRewardCtx<'info> {
     }
 }
 
-pub fn handle_claim_reward(
-    ctx: Context<ClaimRewardCtx>,
+pub fn handle_claim_reward<'info>(
+    ctx: Context<'info, ClaimRewardCtx<'info>>,
     reward_index: u8,
     skip_reward: u8,
+    remaining_accounts_info: Option<RemainingAccountsInfo>,
 ) -> Result<()> {
     let index: usize = reward_index
         .try_into()
@@ -108,6 +110,14 @@ pub fn handle_claim_reward(
     // get all pending reward
     let total_reward = position.claim_reward(index)?;
 
+    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts = parse_remaining_accounts(
+        &mut remaining_accounts,
+        &remaining_accounts_info.slices,
+        &[AccountsType::TransferHookReward],
+    )?;
+
     // transfer rewards to user
     if total_reward > 0 {
         if ctx.accounts.reward_vault.is_frozen() {
@@ -120,6 +130,7 @@ pub fn handle_claim_reward(
                 &ctx.accounts.user_token_account.to_account_info(),
                 &ctx.accounts.token_program,
                 total_reward,
+                parsed_transfer_hook_accounts.transfer_hook_reward,
             )?;
         }
     }

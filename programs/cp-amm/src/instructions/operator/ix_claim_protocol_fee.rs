@@ -1,5 +1,6 @@
 use crate::{
     const_pda,
+    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
     state::Pool,
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     EvtClaimProtocolFee2, PoolError,
@@ -9,7 +10,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 /// Accounts for claiming protocol fees
 #[derive(Accounts)]
-pub struct ClaimProtocolFee2Ctx<'info> {
+pub struct ClaimProtocolFeeCtx<'info> {
     /// receiver token account for the claimed token. validated through the protocol_fee program
     #[account(mut)]
     pub receiver_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
@@ -72,9 +73,10 @@ fn get_claim_direction_and_validate_accounts(
 }
 
 /// claim protocol fees. called through the protocol_fee program
-pub fn handle_claim_protocol_fee2(
-    ctx: Context<ClaimProtocolFee2Ctx>,
+pub fn handle_claim_protocol_fee<'info>(
+    ctx: Context<'info, ClaimProtocolFeeCtx<'info>>,
     max_amount: u64,
+    remaining_accounts_info: Option<RemainingAccountsInfo>,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
 
@@ -97,17 +99,27 @@ pub fn handle_claim_protocol_fee2(
         return Ok(());
     }
 
-    let (token_vault, token_mint, token_program) = if is_claiming_token_a {
+    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
+    let mut remaining_accounts = ctx.remaining_accounts;
+    let parsed_transfer_hook_accounts = parse_remaining_accounts(
+        &mut remaining_accounts,
+        &remaining_accounts_info.slices,
+        &[AccountsType::TransferHookA, AccountsType::TransferHookB],
+    )?;
+
+    let (token_vault, token_mint, token_program, transfer_hook_accounts) = if is_claiming_token_a {
         (
             &ctx.accounts.token_a_vault,
             &ctx.accounts.token_a_mint,
             &ctx.accounts.token_a_program,
+            parsed_transfer_hook_accounts.transfer_hook_a,
         )
     } else {
         (
             &ctx.accounts.token_b_vault,
             &ctx.accounts.token_b_mint,
             &ctx.accounts.token_b_program,
+            parsed_transfer_hook_accounts.transfer_hook_b,
         )
     };
 
@@ -127,6 +139,7 @@ pub fn handle_claim_protocol_fee2(
         &ctx.accounts.receiver_token_account.to_account_info(),
         token_program,
         amount,
+        transfer_hook_accounts,
     )?;
 
     // emit! log could be truncated. should not rely on this

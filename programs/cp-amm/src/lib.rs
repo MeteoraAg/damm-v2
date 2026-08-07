@@ -16,6 +16,7 @@ pub mod event;
 
 pub use event::*;
 pub mod utils;
+pub use utils::remaining_accounts::RemainingAccountsInfo;
 pub use utils::*;
 pub mod base_fee;
 pub mod math;
@@ -137,27 +138,67 @@ pub mod cp_amm {
         instructions::handle_initialize_reward(ctx, reward_index, reward_duration, funder)
     }
 
-    pub fn fund_reward(
-        ctx: Context<FundRewardCtx>,
+    pub fn fund_reward<'info>(
+        ctx: Context<'info, FundRewardCtx<'info>>,
         reward_index: u8,
         amount: u64,
         carry_forward: bool,
     ) -> Result<()> {
-        instructions::handle_fund_reward(ctx, reward_index, amount, carry_forward)
+        instructions::handle_fund_reward(ctx, reward_index, amount, carry_forward, None)
     }
 
-    pub fn withdraw_ineligible_reward(
-        ctx: Context<WithdrawIneligibleRewardCtx>,
+    pub fn fund_reward2<'info>(
+        ctx: Context<'info, FundRewardCtx<'info>>,
         reward_index: u8,
+        amount: u64,
+        carry_forward: bool,
+        remaining_accounts_info: RemainingAccountsInfo,
     ) -> Result<()> {
-        instructions::handle_withdraw_ineligible_reward(ctx, reward_index)
+        instructions::handle_fund_reward(
+            ctx,
+            reward_index,
+            amount,
+            carry_forward,
+            Some(remaining_accounts_info),
+        )
     }
 
-    pub fn withdraw_dead_liquidity_reward(
-        ctx: Context<WithdrawDeadLiquidityRewardCtx>,
+    pub fn withdraw_ineligible_reward<'info>(
+        ctx: Context<'info, WithdrawIneligibleRewardCtx<'info>>,
         reward_index: u8,
     ) -> Result<()> {
-        instructions::handle_withdraw_dead_liquidity_reward(ctx, reward_index)
+        instructions::handle_withdraw_ineligible_reward(ctx, reward_index, None)
+    }
+
+    pub fn withdraw_ineligible_reward2<'info>(
+        ctx: Context<'info, WithdrawIneligibleRewardCtx<'info>>,
+        reward_index: u8,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_withdraw_ineligible_reward(
+            ctx,
+            reward_index,
+            Some(remaining_accounts_info),
+        )
+    }
+
+    pub fn withdraw_dead_liquidity_reward<'info>(
+        ctx: Context<'info, WithdrawDeadLiquidityRewardCtx<'info>>,
+        reward_index: u8,
+    ) -> Result<()> {
+        instructions::handle_withdraw_dead_liquidity_reward(ctx, reward_index, None)
+    }
+
+    pub fn withdraw_dead_liquidity_reward2<'info>(
+        ctx: Context<'info, WithdrawDeadLiquidityRewardCtx<'info>>,
+        reward_index: u8,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_withdraw_dead_liquidity_reward(
+            ctx,
+            reward_index,
+            Some(remaining_accounts_info),
+        )
     }
 
     pub fn update_reward_funder<'info>(
@@ -181,8 +222,19 @@ pub mod cp_amm {
         instructions::handle_set_pool_status(ctx, status)
     }
 
-    pub fn claim_protocol_fee2(ctx: Context<ClaimProtocolFee2Ctx>, max_amount: u64) -> Result<()> {
-        instructions::handle_claim_protocol_fee2(ctx, max_amount)
+    pub fn claim_protocol_fee2<'info>(
+        ctx: Context<'info, ClaimProtocolFeeCtx<'info>>,
+        max_amount: u64,
+    ) -> Result<()> {
+        instructions::handle_claim_protocol_fee(ctx, max_amount, None)
+    }
+
+    pub fn claim_protocol_fee3<'info>(
+        ctx: Context<'info, ClaimProtocolFeeCtx<'info>>,
+        max_amount: u64,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_claim_protocol_fee(ctx, max_amount, Some(remaining_accounts_info))
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CloseTokenBadge))]
@@ -204,36 +256,76 @@ pub mod cp_amm {
         ctx: Context<'info, InitializePoolCtx<'info>>,
         params: InitializePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_pool(ctx, params)
+        instructions::handle_initialize_pool(ctx, params, None)
+    }
+
+    pub fn initialize_pool2<'info>(
+        ctx: Context<'info, InitializePoolCtx<'info>>,
+        params: InitializePoolParameters,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_initialize_pool(ctx, params, Some(remaining_accounts_info))
     }
 
     pub fn initialize_pool_with_dynamic_config<'info>(
         ctx: Context<'info, InitializePoolWithDynamicConfigCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_pool_with_dynamic_config(ctx, params)
+        instructions::handle_initialize_pool_with_dynamic_config(ctx, params, None)
+    }
+
+    pub fn initialize_pool_with_dynamic_config2<'info>(
+        ctx: Context<'info, InitializePoolWithDynamicConfigCtx<'info>>,
+        params: InitializeCustomizablePoolParameters,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_initialize_pool_with_dynamic_config(
+            ctx,
+            params,
+            Some(remaining_accounts_info),
+        )
     }
 
     pub fn initialize_customizable_pool<'info>(
         ctx: Context<'info, InitializeCustomizablePoolCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_customizable_pool(ctx, params)
+        instructions::handle_initialize_customizable_pool(ctx, params, None)
+    }
+
+    pub fn initialize_customizable_pool2<'info>(
+        ctx: Context<'info, InitializeCustomizablePoolCtx<'info>>,
+        params: InitializeCustomizablePoolParameters,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_initialize_customizable_pool(
+            ctx,
+            params,
+            Some(remaining_accounts_info),
+        )
     }
 
     pub fn create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
         instructions::handle_create_position(ctx)
     }
 
-    pub fn add_liquidity(
-        ctx: Context<AddLiquidityCtx>,
+    pub fn add_liquidity<'info>(
+        ctx: Context<'info, AddLiquidityCtx<'info>>,
         params: AddLiquidityParameters,
     ) -> Result<()> {
-        instructions::handle_add_liquidity(ctx, params)
+        instructions::handle_add_liquidity(ctx, params, None)
     }
 
-    pub fn remove_liquidity(
-        ctx: Context<RemoveLiquidityCtx>,
+    pub fn add_liquidity2<'info>(
+        ctx: Context<'info, AddLiquidityCtx<'info>>,
+        params: AddLiquidityParameters,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_add_liquidity(ctx, params, Some(remaining_accounts_info))
+    }
+
+    pub fn remove_liquidity<'info>(
+        ctx: Context<'info, RemoveLiquidityCtx<'info>>,
         params: RemoveLiquidityParameters,
     ) -> Result<()> {
         instructions::handle_remove_liquidity(
@@ -241,11 +333,26 @@ pub mod cp_amm {
             Some(params.liquidity_delta),
             params.token_a_amount_threshold,
             params.token_b_amount_threshold,
+            None,
         )
     }
 
-    pub fn remove_all_liquidity(
-        ctx: Context<RemoveLiquidityCtx>,
+    pub fn remove_liquidity2<'info>(
+        ctx: Context<'info, RemoveLiquidityCtx<'info>>,
+        params: RemoveLiquidityParameters,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_remove_liquidity(
+            ctx,
+            Some(params.liquidity_delta),
+            params.token_a_amount_threshold,
+            params.token_b_amount_threshold,
+            Some(remaining_accounts_info),
+        )
+    }
+
+    pub fn remove_all_liquidity<'info>(
+        ctx: Context<'info, RemoveLiquidityCtx<'info>>,
         token_a_amount_threshold: u64,
         token_b_amount_threshold: u64,
     ) -> Result<()> {
@@ -254,6 +361,22 @@ pub mod cp_amm {
             None,
             token_a_amount_threshold,
             token_b_amount_threshold,
+            None,
+        )
+    }
+
+    pub fn remove_all_liquidity2<'info>(
+        ctx: Context<'info, RemoveLiquidityCtx<'info>>,
+        token_a_amount_threshold: u64,
+        token_b_amount_threshold: u64,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_remove_liquidity(
+            ctx,
+            None,
+            token_a_amount_threshold,
+            token_b_amount_threshold,
+            Some(remaining_accounts_info),
         )
     }
 
@@ -269,8 +392,17 @@ pub mod cp_amm {
         Ok(())
     }
 
-    pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
-        instructions::handle_claim_position_fee(ctx)
+    pub fn claim_position_fee<'info>(
+        ctx: Context<'info, ClaimPositionFeeCtx<'info>>,
+    ) -> Result<()> {
+        instructions::handle_claim_position_fee(ctx, None)
+    }
+
+    pub fn claim_position_fee2<'info>(
+        ctx: Context<'info, ClaimPositionFeeCtx<'info>>,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_claim_position_fee(ctx, Some(remaining_accounts_info))
     }
 
     pub fn lock_position(ctx: Context<LockPositionCtx>, params: VestingParameters) -> Result<()> {
@@ -295,12 +427,26 @@ pub mod cp_amm {
         instructions::handle_permanent_lock_position(ctx, permanent_lock_liquidity)
     }
 
-    pub fn claim_reward(
-        ctx: Context<ClaimRewardCtx>,
+    pub fn claim_reward<'info>(
+        ctx: Context<'info, ClaimRewardCtx<'info>>,
         reward_index: u8,
         skip_reward: u8,
     ) -> Result<()> {
-        instructions::handle_claim_reward(ctx, reward_index, skip_reward)
+        instructions::handle_claim_reward(ctx, reward_index, skip_reward, None)
+    }
+
+    pub fn claim_reward2<'info>(
+        ctx: Context<'info, ClaimRewardCtx<'info>>,
+        reward_index: u8,
+        skip_reward: u8,
+        remaining_accounts_info: RemainingAccountsInfo,
+    ) -> Result<()> {
+        instructions::handle_claim_reward(
+            ctx,
+            reward_index,
+            skip_reward,
+            Some(remaining_accounts_info),
+        )
     }
 
     pub fn split_position(
