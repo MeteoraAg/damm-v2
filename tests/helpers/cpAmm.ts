@@ -877,15 +877,10 @@ export async function initializePool2(
     tokenBProgram
   );
 
-  const { slices, remainingAccounts: hookRemainingAccounts } =
-    buildHookRemainingAccounts({
-      tokenAHookAccounts,
-      tokenBHookAccounts,
-    });
-  const remainingAccounts = [
-    ...tokenBadgeRemainingAccounts(svm, tokenAMint, tokenBMint),
-    ...hookRemainingAccounts,
-  ];
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  });
   if (params.extraRemainingAccounts) {
     remainingAccounts.push(...params.extraRemainingAccounts);
   }
@@ -914,6 +909,8 @@ export async function initializePool2(
       tokenBVault,
       payerTokenA,
       payerTokenB,
+      tokenBadgeA: optionalTokenBadge(svm, tokenAMint),
+      tokenBadgeB: optionalTokenBadge(svm, tokenBMint),
       token2022Program: TOKEN_2022_PROGRAM_ID,
       tokenAProgram,
       tokenBProgram,
@@ -1147,15 +1144,10 @@ export async function initializePoolWithCustomizeConfig2(
     tokenBProgram
   );
 
-  const { slices, remainingAccounts: hookRemainingAccounts } =
-    buildHookRemainingAccounts({
-      tokenAHookAccounts,
-      tokenBHookAccounts,
-    });
-  const remainingAccounts = [
-    ...tokenBadgeRemainingAccounts(svm, tokenAMint, tokenBMint),
-    ...hookRemainingAccounts,
-  ];
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  });
 
   const transaction = await program.methods
     .initializePoolWithDynamicConfig2(
@@ -1188,6 +1180,8 @@ export async function initializePoolWithCustomizeConfig2(
       tokenBVault,
       payerTokenA,
       payerTokenB,
+      tokenBadgeA: optionalTokenBadge(svm, tokenAMint),
+      tokenBadgeB: optionalTokenBadge(svm, tokenBMint),
       tokenAProgram,
       tokenBProgram,
       token2022Program: TOKEN_2022_PROGRAM_ID,
@@ -1278,15 +1272,10 @@ export async function initializeCustomizablePool2(
     wrapSOL(svm, payer, new BN(LAMPORTS_PER_SOL));
   }
 
-  const { slices, remainingAccounts: hookRemainingAccounts } =
-    buildHookRemainingAccounts({
-      tokenAHookAccounts,
-      tokenBHookAccounts,
-    });
-  const remainingAccounts = [
-    ...tokenBadgeRemainingAccounts(svm, tokenAMint, tokenBMint),
-    ...hookRemainingAccounts,
-  ];
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  });
 
   const transaction = await program.methods
     .initializeCustomizablePool2(
@@ -1317,6 +1306,8 @@ export async function initializeCustomizablePool2(
       tokenBVault,
       payerTokenA,
       payerTokenB,
+      tokenBadgeA: optionalTokenBadge(svm, tokenAMint),
+      tokenBadgeB: optionalTokenBadge(svm, tokenBMint),
       token2022Program: TOKEN_2022_PROGRAM_ID,
       tokenAProgram,
       tokenBProgram,
@@ -1664,6 +1655,50 @@ export async function initializeReward(
       systemProgram: SystemProgram.programId,
     })
     .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [payer]);
+  if (result instanceof TransactionMetadata) {
+    // validate reward data
+    const poolState = getPool(svm, pool);
+    expect(poolState.rewardInfos[index].initialized).eq(1);
+    expect(poolState.rewardInfos[index].vault.toString()).eq(
+      rewardVault.toString()
+    );
+    expect(poolState.rewardInfos[index].mint.toString()).eq(
+      rewardMint.toString()
+    );
+  }
+  return result;
+}
+
+export async function initializeReward2(
+  svm: LiteSVM,
+  params: InitializeRewardParams
+): Promise<TransactionMetadata | FailedTransactionMetadata> {
+  const { index, rewardDuration, pool, rewardMint, payer, funder, operator } =
+    params;
+  const program = createCpAmmProgram();
+
+  const poolAuthority = derivePoolAuthority();
+  const rewardVault = deriveRewardVaultAddress(pool, index);
+
+  const tokenProgram = svm.getAccount(rewardMint)!.owner;
+
+  const transaction = await program.methods
+    .initializeReward2(index, rewardDuration, funder)
+    .accountsPartial({
+      pool,
+      poolAuthority,
+      rewardVault,
+      rewardMint,
+      payer: payer.publicKey,
+      signer: payer.publicKey,
+      tokenBadge: optionalTokenBadge(svm, rewardMint),
+      operator: operator ?? null,
+      tokenProgram,
+      systemProgram: SystemProgram.programId,
+    })
     .transaction();
 
   const result = sendTransaction(svm, transaction, [payer]);

@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added endpoints `swap3`, `initialize_pool2`, `initialize_customizable_pool2`, `initialize_pool_with_dynamic_config2`, `add_liquidity2`, `remove_liquidity2`, `remove_all_liquidity2`, `claim_position_fee2`, `claim_reward2`, `fund_reward2`, `withdraw_ineligible_reward2`, `withdraw_dead_liquidity_reward2` and `claim_protocol_fee3` which support transfer hook, with the hook accounts passed via remaining accounts as declared in `remaining_accounts_info`.
+- Added endpoints `swap3`, `initialize_pool2`, `initialize_customizable_pool2`, `initialize_pool_with_dynamic_config2`, `add_liquidity2`, `remove_liquidity2`, `remove_all_liquidity2`, `claim_position_fee2`, `initialize_reward2`, `claim_reward2`, `fund_reward2`, `withdraw_ineligible_reward2`, `withdraw_dead_liquidity_reward2` and `claim_protocol_fee3` which support transfer hook, with the hook accounts passed via remaining accounts as declared in `remaining_accounts_info`.
+- Note that the endpoints `initialize_pool2`, `initialize_customizable_pool2`, `initialize_pool_with_dynamic_config2` and `initialize_reward2` take `token_badge_a` and `token_badge_b` as optional named accounts rather than as remaining accounts.
 
 ### Deprecated
 

@@ -1,7 +1,4 @@
-import {
-  ANCHOR_ERROR_ACCOUNT_OWNED_BY_WRONG_PROGRAM,
-  generateKpAndFund,
-} from "./helpers/common";
+import { generateKpAndFund } from "./helpers/common";
 import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
 import {
   MIN_LP_AMOUNT,
@@ -11,6 +8,7 @@ import {
   createToken,
   createTokenBadge,
   expectThrowsErrorCode,
+  getCpAmmProgramErrorCode,
   mintSplTokenTo,
   createDynamicConfigIx,
   CreateDynamicConfigParams,
@@ -452,6 +450,9 @@ describe("Dynamic config test with token 2022 transfer hook", () => {
       tokenBHookAccounts,
     });
 
-    expectThrowsErrorCode(result, ANCHOR_ERROR_ACCOUNT_OWNED_BY_WRONG_PROGRAM);
+    expectThrowsErrorCode(
+      result,
+      getCpAmmProgramErrorCode("InvalidTokenBadge")
+    );
   });
 });

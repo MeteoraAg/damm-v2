@@ -24,6 +24,7 @@ import {
   initializePool,
   InitializePoolParams,
   initializeReward,
+  initializeReward2,
   InitializeRewardParams,
   MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
@@ -1018,7 +1019,7 @@ describe("Reward by creator", () => {
         rewardMint,
         funder: funder.publicKey,
       };
-      const res = await initializeReward(svm, initRewardParams);
+      const res = await initializeReward2(svm, initRewardParams);
       expect(res).instanceOf(TransactionMetadata);
 
       // funding a hook reward mint goes through fund_reward2 with the hook accounts

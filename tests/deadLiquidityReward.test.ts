@@ -28,6 +28,7 @@ import {
   initializePool,
   InitializePoolParams,
   initializeReward,
+  initializeReward2,
   InitializeRewardParams,
   MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
@@ -620,7 +621,7 @@ describe("Dead liquidity reward with token 2022 transfer hook", () => {
     );
     pool = newPool;
 
-    await initializeReward(svm, {
+    await initializeReward2(svm, {
       index: REWARD_INDEX,
       payer: creator,
       rewardDuration: new BN(REWARD_DURATION),

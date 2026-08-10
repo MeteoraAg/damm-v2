@@ -10,6 +10,7 @@ import {
   createTokenBadge,
   encodePermissions,
   expectThrowsErrorCode,
+  getCpAmmProgramErrorCode,
   getPool,
   initializePool,
   InitializePoolParams,
@@ -23,10 +24,7 @@ import {
   setPoolStatus,
   startSvm,
 } from "./helpers";
-import {
-  ANCHOR_ERROR_ACCOUNT_OWNED_BY_WRONG_PROGRAM,
-  generateKpAndFund,
-} from "./helpers/common";
+import { generateKpAndFund } from "./helpers/common";
 import {
   createPermenantDelegateExtensionWithInstruction,
   createToken2022,
@@ -639,7 +637,7 @@ describe("Initialize pool", () => {
 
       expectThrowsErrorCode(
         result,
-        ANCHOR_ERROR_ACCOUNT_OWNED_BY_WRONG_PROGRAM
+        getCpAmmProgramErrorCode("InvalidTokenBadge")
       );
     });
   });

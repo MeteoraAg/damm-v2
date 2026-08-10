@@ -331,8 +331,42 @@ pub fn is_token_badge_initialized<'info>(
     Ok(token_badge.token_mint == mint)
 }
 
-/// Validates token_badge slots
-/// token_a_badge is always at slot 0 and token_b_badge is always at slot 1
+pub fn is_optional_token_badge_initialized<'info>(
+    mint: Pubkey,
+    token_badge: &Option<AccountLoader<'info, TokenBadge>>,
+) -> Result<bool> {
+    if let Some(token_badge) = token_badge {
+        let token_badge = token_badge.load()?;
+        Ok(token_badge.token_mint == mint)
+    } else {
+        Ok(false)
+    }
+}
+
+pub fn validate_optional_token_badges<'info>(
+    token_a_mint: &InterfaceAccount<'info, Mint>,
+    token_badge_a: &Option<AccountLoader<'info, TokenBadge>>,
+    token_b_mint: &InterfaceAccount<'info, Mint>,
+    token_badge_b: &Option<AccountLoader<'info, TokenBadge>>,
+) -> Result<()> {
+    if !is_supported_mint(token_a_mint)? {
+        require!(
+            is_optional_token_badge_initialized(token_a_mint.key(), token_badge_a)?,
+            PoolError::InvalidTokenBadge
+        );
+    }
+
+    if !is_supported_mint(token_b_mint)? {
+        require!(
+            is_optional_token_badge_initialized(token_b_mint.key(), token_badge_b)?,
+            PoolError::InvalidTokenBadge
+        );
+    }
+
+    Ok(())
+}
+
+/// token_badge_a at remaining account 0, token_badge_b at 1,
 pub fn validate_token_badges<'info>(
     token_a_mint: &InterfaceAccount<'info, Mint>,
     token_b_mint: &InterfaceAccount<'info, Mint>,

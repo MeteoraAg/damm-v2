@@ -135,7 +135,16 @@ pub mod cp_amm {
         reward_duration: u64,
         funder: Pubkey,
     ) -> Result<()> {
-        instructions::handle_initialize_reward(ctx, reward_index, reward_duration, funder)
+        instructions::process_initialize_reward(ctx, reward_index, reward_duration, funder)
+    }
+
+    pub fn initialize_reward2<'info>(
+        ctx: Context<'info, InitializeRewardCtx2<'info>>,
+        reward_index: u8,
+        reward_duration: u64,
+        funder: Pubkey,
+    ) -> Result<()> {
+        instructions::process_initialize_reward2(ctx, reward_index, reward_duration, funder)
     }
 
     pub fn fund_reward<'info>(
@@ -256,33 +265,33 @@ pub mod cp_amm {
         ctx: Context<'info, InitializePoolCtx<'info>>,
         params: InitializePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_pool(ctx, params, None)
+        instructions::process_initialize_pool(ctx, params)
     }
 
     pub fn initialize_pool2<'info>(
-        ctx: Context<'info, InitializePoolCtx<'info>>,
+        ctx: Context<'info, InitializePoolCtx2<'info>>,
         params: InitializePoolParameters,
         remaining_accounts_info: RemainingAccountsInfo,
     ) -> Result<()> {
-        instructions::handle_initialize_pool(ctx, params, Some(remaining_accounts_info))
+        instructions::process_initialize_pool2(ctx, params, remaining_accounts_info)
     }
 
     pub fn initialize_pool_with_dynamic_config<'info>(
         ctx: Context<'info, InitializePoolWithDynamicConfigCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_pool_with_dynamic_config(ctx, params, None)
+        instructions::process_initialize_pool_with_dynamic_config(ctx, params)
     }
 
     pub fn initialize_pool_with_dynamic_config2<'info>(
-        ctx: Context<'info, InitializePoolWithDynamicConfigCtx<'info>>,
+        ctx: Context<'info, InitializePoolWithDynamicConfigCtx2<'info>>,
         params: InitializeCustomizablePoolParameters,
         remaining_accounts_info: RemainingAccountsInfo,
     ) -> Result<()> {
-        instructions::handle_initialize_pool_with_dynamic_config(
+        instructions::process_initialize_pool_with_dynamic_config2(
             ctx,
             params,
-            Some(remaining_accounts_info),
+            remaining_accounts_info,
         )
     }
 
@@ -290,19 +299,15 @@ pub mod cp_amm {
         ctx: Context<'info, InitializeCustomizablePoolCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
     ) -> Result<()> {
-        instructions::handle_initialize_customizable_pool(ctx, params, None)
+        instructions::process_initialize_customizable_pool(ctx, params)
     }
 
     pub fn initialize_customizable_pool2<'info>(
-        ctx: Context<'info, InitializeCustomizablePoolCtx<'info>>,
+        ctx: Context<'info, InitializeCustomizablePoolCtx2<'info>>,
         params: InitializeCustomizablePoolParameters,
         remaining_accounts_info: RemainingAccountsInfo,
     ) -> Result<()> {
-        instructions::handle_initialize_customizable_pool(
-            ctx,
-            params,
-            Some(remaining_accounts_info),
-        )
+        instructions::process_initialize_customizable_pool2(ctx, params, remaining_accounts_info)
     }
 
     pub fn create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
