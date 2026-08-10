@@ -48,12 +48,6 @@ fn p_transfer_checked_with_hook_accounts(
     transfer_hook_accounts: &[AccountInfo],
     signers: &[Signer],
 ) -> ProgramResult {
-    // mirror the anchor-side guard: passing hook accounts for a mint without a live hook is
-    // a malformed instruction
-    if p_get_transfer_hook_program_id(token_mint)?.is_none() {
-        return Err(PoolError::NoTransferHookProgram.into());
-    }
-
     let mut account_metas = Vec::with_capacity(4 + transfer_hook_accounts.len());
     account_metas.push(AccountMeta::writable(from.key()));
     account_metas.push(AccountMeta::readonly(token_mint.key()));
@@ -70,7 +64,9 @@ fn p_transfer_checked_with_hook_accounts(
         account_metas.push(AccountMeta::new(
             account.key(),
             account.is_writable(),
-            account.is_signer(),
+            // Reference: https://github.com/solana-program/libraries/blob/e05bf3a438d9bcc4b71a8f3c53897543b62f6fb9/tlv-account-resolution/src/state.rs#L35-L55
+            // Always mark an account as a non-signer
+            false,
         ));
         account_infos.push(account);
     }
@@ -105,7 +101,11 @@ pub fn p_transfer_from_user(
 ) -> ProgramResult {
     let decimals = p_accessor_decimals(token_mint)?;
 
-    if let Some(transfer_hook_accounts) = transfer_hook_accounts {
+    if p_get_transfer_hook_program_id(token_mint)?.is_some() {
+        let Some(transfer_hook_accounts) = transfer_hook_accounts else {
+            return Err(PoolError::MissingRemainingAccountForTransferHook.into());
+        };
+
         return p_transfer_checked_with_hook_accounts(
             token_owner_account,
             token_mint,
@@ -117,6 +117,8 @@ pub fn p_transfer_from_user(
             transfer_hook_accounts,
             &[],
         );
+    } else if transfer_hook_accounts.is_some() {
+        return Err(PoolError::NoTransferHookProgram.into());
     }
 
     pinocchio_token_2022::instructions::TransferChecked {
@@ -149,8 +151,11 @@ pub fn p_transfer_from_pool(
     let signers = &[Signer::from(&seeds)];
 
     let decimals = p_accessor_decimals(token_mint)?;
+    if p_get_transfer_hook_program_id(token_mint)?.is_some() {
+        let Some(transfer_hook_accounts) = transfer_hook_accounts else {
+            return Err(PoolError::MissingRemainingAccountForTransferHook.into());
+        };
 
-    if let Some(transfer_hook_accounts) = transfer_hook_accounts {
         return p_transfer_checked_with_hook_accounts(
             token_vault,
             token_mint,
@@ -162,6 +167,8 @@ pub fn p_transfer_from_pool(
             transfer_hook_accounts,
             signers,
         );
+    } else if transfer_hook_accounts.is_some() {
+        return Err(PoolError::NoTransferHookProgram.into());
     }
 
     pinocchio_token_2022::instructions::TransferChecked {

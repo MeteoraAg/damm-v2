@@ -24,11 +24,14 @@ fn p_event_dispatch(
     Ok(())
 }
 
+// Capacity of the pinocchio entrypoint account array must be below pinocchio::MAX_TX_ACCOUNT
+const P_ENTRYPOINT_ACCOUNTS: usize = pinocchio::MAX_TX_ACCOUNTS - 1;
+
 #[inline(always)]
 unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
     const UNINIT: core::mem::MaybeUninit<pinocchio::account_info::AccountInfo> =
         core::mem::MaybeUninit::<pinocchio::account_info::AccountInfo>::uninit();
-    let mut accounts = [UNINIT; pinocchio::MAX_TX_ACCOUNTS];
+    let mut accounts = [UNINIT; P_ENTRYPOINT_ACCOUNTS];
 
     let (program_id, count, instruction_data) =
         pinocchio::entrypoint::deserialize(input, &mut accounts);

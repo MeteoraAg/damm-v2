@@ -643,6 +643,7 @@ dependencies = [
  "proptest",
  "ruint",
  "solana-instruction",
+ "spl-tlv-account-resolution",
  "spl-token-metadata-interface",
  "spl-transfer-hook-interface",
  "static_assertions",

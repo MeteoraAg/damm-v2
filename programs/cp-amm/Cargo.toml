@@ -32,6 +32,7 @@ num_enum = { workspace = true }
 num = { workspace = true }
 spl-token-metadata-interface = { workspace = true }
 spl-transfer-hook-interface = { workspace = true }
+spl-tlv-account-resolution = { workspace = true}
 solana-instruction = { workspace = true }
 borsh = { workspace = true }
 const-crypto = { workspace = true }

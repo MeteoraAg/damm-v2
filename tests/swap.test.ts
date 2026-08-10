@@ -31,6 +31,7 @@ import {
   OperatorPermission,
   createOperator,
   startSvm,
+  getOrCreateAssociatedTokenAccount,
 } from "./helpers";
 import BN from "bn.js";
 import {
@@ -863,6 +864,111 @@ describe("Swap token", () => {
           beforeOutputCounter + 1
         );
       }
+    });
+
+    // CollectFeeMode::BothToken takes the fee on the output token, so the referral fee is
+    // always paid in the output mint
+    const createReferralTokenAccounts = () => {
+      const referrer = generateKpAndFund(svm);
+      const accounts: Record<string, PublicKey> = {
+        [tokenAMint.toBase58()]: getOrCreateAssociatedTokenAccount(
+          svm,
+          referrer,
+          tokenAMint,
+          referrer.publicKey,
+          TOKEN_2022_PROGRAM_ID
+        ),
+        [tokenBMint.toBase58()]: getOrCreateAssociatedTokenAccount(
+          svm,
+          referrer,
+          tokenBMint,
+          referrer.publicKey,
+          TOKEN_2022_PROGRAM_ID
+        ),
+      };
+      return { referrer, accounts };
+    };
+
+    it("Swap3 invokes the hook on the referral transfer", async () => {
+      await addLiquidityWithHooks(new BN("10000000000").shln(OFFSET), U64_MAX);
+
+      const referralTokenAccounts = createReferralTokenAccounts();
+      const referrer = referralTokenAccounts.referrer;
+
+      const tokenPermutation = [
+        [tokenAMint, tokenBMint],
+        [tokenBMint, tokenAMint],
+      ];
+
+      for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
+        const amountIn = new BN(1_000_000);
+
+        const beforeReferralBalance = getTokenBalance(
+          svm,
+          outputTokenMint,
+          referrer.publicKey
+        );
+        const beforeInputCounter = readHookCounter(svm, inputTokenMint);
+        const beforeOutputCounter = readHookCounter(svm, outputTokenMint);
+
+        await swap3(svm, {
+          payer: user,
+          pool,
+          inputTokenMint,
+          outputTokenMint,
+          amount0: amountIn,
+          amount1: new BN(0),
+          swapMode: SwapMode.ExactIn,
+          referralTokenAccount:
+            referralTokenAccounts.accounts[outputTokenMint.toBase58()],
+          tokenAHookAccounts,
+          tokenBHookAccounts,
+          referralHookAccounts: outputTokenMint.equals(tokenAMint)
+            ? tokenAHookAccounts
+            : tokenBHookAccounts,
+        });
+
+        const afterReferralBalance = getTokenBalance(
+          svm,
+          outputTokenMint,
+          referrer.publicKey
+        );
+        expect(
+          Number(afterReferralBalance - beforeReferralBalance)
+        ).to.be.greaterThan(0);
+
+        // one user->vault transfer of the input mint, one vault->user transfer and one
+        // vault->referral transfer of the output mint
+        expect(readHookCounter(svm, inputTokenMint)).to.be.equal(
+          beforeInputCounter + 1
+        );
+        expect(readHookCounter(svm, outputTokenMint)).to.be.equal(
+          beforeOutputCounter + 2
+        );
+      }
+    });
+
+    it("Swap3 with a referral fails when the referral hook accounts are missing", async () => {
+      await addLiquidityWithHooks(new BN("10000000000").shln(OFFSET), U64_MAX);
+
+      const referralTokenAccounts = createReferralTokenAccounts();
+
+      const transaction = await swap3Instruction(svm, {
+        payer: user,
+        pool,
+        inputTokenMint: tokenAMint,
+        outputTokenMint: tokenBMint,
+        amount0: new BN(1_000_000),
+        amount1: new BN(0),
+        swapMode: SwapMode.ExactIn,
+        referralTokenAccount:
+          referralTokenAccounts.accounts[tokenBMint.toBase58()],
+        tokenAHookAccounts,
+        tokenBHookAccounts,
+      });
+
+      const result = sendTransaction(svm, transaction, [user]);
+      expect(result).instanceOf(FailedTransactionMetadata);
     });
 
     it("Swap3 fails when transfer hook accounts are missing", async () => {
