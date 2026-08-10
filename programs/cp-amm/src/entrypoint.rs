@@ -26,12 +26,12 @@ fn p_event_dispatch(
 
 #[inline(always)]
 unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
-    let mut accounts: Box<
-        [core::mem::MaybeUninit<pinocchio::account_info::AccountInfo>; pinocchio::MAX_TX_ACCOUNTS],
-    > = Box::new_uninit().assume_init();
+    const UNINIT: core::mem::MaybeUninit<pinocchio::account_info::AccountInfo> =
+        core::mem::MaybeUninit::<pinocchio::account_info::AccountInfo>::uninit();
+    let mut accounts = [UNINIT; pinocchio::MAX_TX_ACCOUNTS];
 
     let (program_id, count, instruction_data) =
-        pinocchio::entrypoint::deserialize(input, &mut *accounts);
+        pinocchio::entrypoint::deserialize(input, &mut accounts);
 
     if program_id != crate::ID.as_array() {
         // just fall back to anchor entrypoint
