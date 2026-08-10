@@ -81,3 +81,38 @@ export function deriveCounter(mint: web3.PublicKey, programId: web3.PublicKey) {
 
   return counter;
 }
+
+/// Accounts the transfer hook counter program needs on every transfer, in the shape the
+/// program's remaining-accounts slices expect: extra account metas resolved offchain plus the
+/// hook program itself.
+export function getHookRemainingAccounts(
+  mint: web3.PublicKey
+): web3.AccountMeta[] {
+  return [
+    {
+      pubkey: deriveExtraAccountMetaList(mint),
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: deriveCounter(mint, TRANSFER_HOOK_COUNTER_PROGRAM_ID),
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: TRANSFER_HOOK_COUNTER_PROGRAM_ID,
+      isSigner: false,
+      isWritable: false,
+    },
+  ];
+}
+
+export function readHookCounter(svm: LiteSVM, mint: web3.PublicKey): number {
+  const counter = deriveCounter(mint, TRANSFER_HOOK_COUNTER_PROGRAM_ID);
+  const account = svm.getAccount(counter);
+  if (!account) {
+    return 0;
+  }
+  // 8-byte anchor discriminator, then counter: u32 LE
+  return Buffer.from(account.data).readUInt32LE(8);
+}

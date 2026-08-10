@@ -1,13 +1,16 @@
 import { generateKpAndFund, randomID } from "./helpers/common";
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
 import {
   addLiquidity,
   AddLiquidityParams,
+  addLiquidity2,
   createConfigIx,
   CreateConfigParams,
   createPosition,
+  createTokenBadge,
   initializePool,
   InitializePoolParams,
+  initializePool2,
   MIN_LP_AMOUNT,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -19,6 +22,10 @@ import {
   U64_MAX,
   swap2PartialFillIn,
   swap2ExactOut,
+  swap3,
+  swap3Instruction,
+  SwapMode,
+  sendTransaction,
   OFFSET,
   encodePermissions,
   OperatorPermission,
@@ -34,11 +41,21 @@ import {
 import {
   createToken2022,
   createTransferFeeExtensionWithInstruction,
+  createTransferHookExtensionWithInstruction,
   mintToToken2022,
 } from "./helpers/token2022";
+import {
+  createExtraAccountMetaListAndCounter,
+  getHookRemainingAccounts,
+  readHookCounter,
+} from "./helpers/transferHook";
 import { expect } from "chai";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import {
+  FailedTransactionMetadata,
+  LiteSVM,
+  TransactionMetadata,
+} from "litesvm";
 
 describe("Swap token", () => {
   describe("SPL Token", () => {
@@ -161,6 +178,29 @@ describe("Swap token", () => {
       };
 
       await swapExactIn(svm, swapParams);
+    });
+
+    it("User swap A->B with swap3", async () => {
+      const addLiquidityParams: AddLiquidityParams = {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta: new BN(MIN_SQRT_PRICE.muln(30)),
+        tokenAAmountThreshold: new BN(200),
+        tokenBAmountThreshold: new BN(200),
+      };
+      await addLiquidity(svm, addLiquidityParams);
+
+      await swap3(svm, {
+        payer: user,
+        pool,
+        inputTokenMint,
+        outputTokenMint,
+        amount0: new BN(10),
+        amount1: new BN(0),
+        swapMode: SwapMode.ExactIn,
+        referralTokenAccount: null,
+      });
     });
   });
 
@@ -504,6 +544,343 @@ describe("Swap token", () => {
           }
         });
       });
+    });
+  });
+
+  describe("Token 2022 with transfer hook", () => {
+    let svm: LiteSVM;
+    let admin: Keypair;
+    let user: Keypair;
+    let creator: Keypair;
+    let whitelistedAccount: Keypair;
+    let config: PublicKey;
+    let pool: PublicKey;
+    let position: PublicKey;
+
+    let tokenAMint: PublicKey;
+    let tokenBMint: PublicKey;
+    let tokenAHookAccounts: AccountMeta[];
+    let tokenBHookAccounts: AccountMeta[];
+
+    const getTokenBalance = (
+      svm: LiteSVM,
+      mint: PublicKey,
+      owner: PublicKey
+    ) => {
+      const ata = getAssociatedTokenAddressSync(
+        mint,
+        owner,
+        true,
+        TOKEN_2022_PROGRAM_ID
+      );
+      const rawAccount = svm.getAccount(ata);
+      // @ts-ignore
+      return unpackAccount(ata, rawAccount, TOKEN_2022_PROGRAM_ID).amount;
+    };
+
+    beforeEach(async () => {
+      svm = startSvm();
+
+      const tokenAMintKeypair = Keypair.generate();
+      const tokenBMintKeypair = Keypair.generate();
+      tokenAMint = tokenAMintKeypair.publicKey;
+      tokenBMint = tokenBMintKeypair.publicKey;
+
+      user = generateKpAndFund(svm);
+      admin = generateKpAndFund(svm);
+      creator = generateKpAndFund(svm);
+      whitelistedAccount = generateKpAndFund(svm);
+
+      await createToken2022(
+        svm,
+        [
+          createTransferHookExtensionWithInstruction(
+            tokenAMint,
+            admin.publicKey
+          ),
+        ],
+        tokenAMintKeypair,
+        admin.publicKey
+      );
+      await createToken2022(
+        svm,
+        [
+          createTransferHookExtensionWithInstruction(
+            tokenBMint,
+            admin.publicKey
+          ),
+        ],
+        tokenBMintKeypair,
+        admin.publicKey
+      );
+
+      await createExtraAccountMetaListAndCounter(svm, admin, tokenAMint);
+      await createExtraAccountMetaListAndCounter(svm, admin, tokenBMint);
+
+      tokenAHookAccounts = getHookRemainingAccounts(tokenAMint);
+      tokenBHookAccounts = getHookRemainingAccounts(tokenBMint);
+
+      await mintToToken2022(svm, tokenAMint, admin, user.publicKey);
+
+      await mintToToken2022(svm, tokenBMint, admin, user.publicKey);
+
+      await mintToToken2022(svm, tokenAMint, admin, creator.publicKey);
+
+      await mintToToken2022(svm, tokenBMint, admin, creator.publicKey);
+
+      const cliffFeeNumerator = new BN(2_500_000);
+      const numberOfPeriod = new BN(0);
+      const periodFrequency = new BN(0);
+      const reductionFactor = new BN(0);
+
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(cliffFeeNumerator.toString()),
+        numberOfPeriod.toNumber(),
+        BigInt(periodFrequency.toString()),
+        BigInt(reductionFactor.toString()),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
+      // create config
+      const createConfigParams: CreateConfigParams = {
+        poolFees: {
+          baseFee: {
+            data: Array.from(data),
+          },
+          compoundingFeeBps: 0,
+          padding: 0,
+          dynamicFee: null,
+        },
+        sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+        sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+        vaultConfigKey: PublicKey.default,
+        poolCreatorAuthority: PublicKey.default,
+        activationType: 0,
+        collectFeeMode: 0,
+      };
+
+      let permission = encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.CreateTokenBadge,
+      ]);
+
+      await createOperator(svm, {
+        admin,
+        whitelistAddress: whitelistedAccount.publicKey,
+        permission,
+      });
+
+      config = await createConfigIx(
+        svm,
+        whitelistedAccount,
+        new BN(randomID()),
+        createConfigParams
+      );
+
+      // active hook mints require a token badge for pool creation
+      await createTokenBadge(svm, {
+        tokenMint: tokenAMint,
+        whitelistedAddress: whitelistedAccount,
+      });
+      await createTokenBadge(svm, {
+        tokenMint: tokenBMint,
+        whitelistedAddress: whitelistedAccount,
+      });
+
+      const { pool: newPool, result } = await initializePool2(svm, {
+        payer: creator,
+        creator: creator.publicKey,
+        config,
+        tokenAMint,
+        tokenBMint,
+        liquidity: new BN(MIN_LP_AMOUNT),
+        sqrtPrice: new BN(1).shln(OFFSET),
+        activationPoint: null,
+        tokenAHookAccounts,
+        tokenBHookAccounts,
+      });
+      expect(result).instanceOf(TransactionMetadata);
+      pool = newPool;
+      position = await createPosition(svm, user, user.publicKey, pool);
+    });
+
+    const addLiquidityWithHooks = async (liquidityDelta: BN, threshold: BN) => {
+      await addLiquidity2(svm, {
+        owner: user,
+        pool,
+        position,
+        liquidityDelta,
+        tokenAAmountThreshold: threshold,
+        tokenBAmountThreshold: threshold,
+        tokenAHookAccounts,
+        tokenBHookAccounts,
+      });
+    };
+
+    it("Swap3 ExactIn invokes the hook on both transfers", async () => {
+      await addLiquidityWithHooks(new BN(MIN_SQRT_PRICE.muln(30)), new BN(200));
+
+      const tokenPermutation = [
+        [tokenAMint, tokenBMint],
+        [tokenBMint, tokenAMint],
+      ];
+
+      for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
+        const amountIn = new BN(10);
+
+        const beforeBalance = getTokenBalance(
+          svm,
+          inputTokenMint,
+          user.publicKey
+        );
+        const beforeInputCounter = readHookCounter(svm, inputTokenMint);
+        const beforeOutputCounter = readHookCounter(svm, outputTokenMint);
+
+        await swap3(svm, {
+          payer: user,
+          pool,
+          inputTokenMint,
+          outputTokenMint,
+          amount0: amountIn,
+          amount1: new BN(0),
+          swapMode: SwapMode.ExactIn,
+          referralTokenAccount: null,
+          tokenAHookAccounts,
+          tokenBHookAccounts,
+        });
+
+        const afterBalance = getTokenBalance(
+          svm,
+          inputTokenMint,
+          user.publicKey
+        );
+        const exactInputAmount = beforeBalance - afterBalance;
+        expect(Number(exactInputAmount)).to.be.equal(amountIn.toNumber());
+
+        // one user->vault transfer of the input mint, one vault->user transfer of the output mint
+        expect(readHookCounter(svm, inputTokenMint)).to.be.equal(
+          beforeInputCounter + 1
+        );
+        expect(readHookCounter(svm, outputTokenMint)).to.be.equal(
+          beforeOutputCounter + 1
+        );
+      }
+    });
+
+    it("Swap3 PartialFillIn invokes the hook on both transfers", async () => {
+      await addLiquidityWithHooks(new BN(MIN_SQRT_PRICE.muln(30)), new BN(200));
+
+      const tokenPermutation = [
+        [tokenAMint, tokenBMint],
+        [tokenBMint, tokenAMint],
+      ];
+
+      for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
+        const amountIn = new BN("10000000000000");
+
+        const beforeBalance = getTokenBalance(
+          svm,
+          inputTokenMint,
+          user.publicKey
+        );
+        const beforeInputCounter = readHookCounter(svm, inputTokenMint);
+        const beforeOutputCounter = readHookCounter(svm, outputTokenMint);
+
+        await swap3(svm, {
+          payer: user,
+          pool,
+          inputTokenMint,
+          outputTokenMint,
+          amount0: amountIn,
+          amount1: new BN(0),
+          swapMode: SwapMode.PartialFillIn,
+          referralTokenAccount: null,
+          tokenAHookAccounts,
+          tokenBHookAccounts,
+        });
+
+        const afterBalance = getTokenBalance(
+          svm,
+          inputTokenMint,
+          user.publicKey
+        );
+        const exactInputAmount = beforeBalance - afterBalance;
+        expect(new BN(exactInputAmount.toString()).lt(amountIn)).to.be.true;
+
+        expect(readHookCounter(svm, inputTokenMint)).to.be.equal(
+          beforeInputCounter + 1
+        );
+        expect(readHookCounter(svm, outputTokenMint)).to.be.equal(
+          beforeOutputCounter + 1
+        );
+      }
+    });
+
+    it("Swap3 ExactOut invokes the hook on both transfers", async () => {
+      await addLiquidityWithHooks(new BN("10000000000").shln(OFFSET), U64_MAX);
+
+      const tokenPermutation = [
+        [tokenAMint, tokenBMint],
+        [tokenBMint, tokenAMint],
+      ];
+
+      for (const [inputTokenMint, outputTokenMint] of tokenPermutation) {
+        const amountOut = new BN(1000);
+
+        const beforeBalance = getTokenBalance(
+          svm,
+          outputTokenMint,
+          user.publicKey
+        );
+        const beforeInputCounter = readHookCounter(svm, inputTokenMint);
+        const beforeOutputCounter = readHookCounter(svm, outputTokenMint);
+
+        await swap3(svm, {
+          payer: user,
+          pool,
+          inputTokenMint,
+          outputTokenMint,
+          amount0: amountOut,
+          amount1: new BN("100000000"),
+          swapMode: SwapMode.ExactOut,
+          referralTokenAccount: null,
+          tokenAHookAccounts,
+          tokenBHookAccounts,
+        });
+
+        const afterBalance = getTokenBalance(
+          svm,
+          outputTokenMint,
+          user.publicKey
+        );
+        const exactOutputAmount = afterBalance - beforeBalance;
+        expect(new BN(exactOutputAmount.toString()).eq(amountOut)).to.be.true;
+
+        expect(readHookCounter(svm, inputTokenMint)).to.be.equal(
+          beforeInputCounter + 1
+        );
+        expect(readHookCounter(svm, outputTokenMint)).to.be.equal(
+          beforeOutputCounter + 1
+        );
+      }
+    });
+
+    it("Swap3 fails when transfer hook accounts are missing", async () => {
+      await addLiquidityWithHooks(new BN(MIN_SQRT_PRICE.muln(30)), new BN(200));
+
+      const transaction = await swap3Instruction(svm, {
+        payer: user,
+        pool,
+        inputTokenMint: tokenAMint,
+        outputTokenMint: tokenBMint,
+        amount0: new BN(10),
+        amount1: new BN(0),
+        swapMode: SwapMode.ExactIn,
+        referralTokenAccount: null,
+      });
+
+      const result = sendTransaction(svm, transaction, [user]);
+      expect(result).instanceOf(FailedTransactionMetadata);
     });
   });
 });

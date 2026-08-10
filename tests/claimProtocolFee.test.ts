@@ -3,6 +3,7 @@ import BN from "bn.js";
 import {
   ANCHOR_CONSTRAINT_ACCOUNT_ERROR_CODE,
   claimProtocolFee2,
+  claimProtocolFee3,
   createConfigIx,
   CreateConfigParams,
   createOperator,
@@ -199,6 +200,42 @@ describe("Claim Protocol Fee 2", () => {
       );
 
       const result = await claimProtocolFee2(svm, {
+        signerKP: admin,
+        pool,
+        isTokenA: true,
+        receiverTokenAccount,
+      });
+      expectThrowsErrorCode(result, ANCHOR_CONSTRAINT_ACCOUNT_ERROR_CODE);
+    });
+
+    it("claim_protocol_fee3 rejects when signed by full permission operator", async () => {
+      const receiverTokenAccount = getOrCreateAssociatedTokenAccount(
+        svm,
+        whitelistedAccount,
+        inputTokenMint,
+        admin.publicKey,
+        TOKEN_PROGRAM_ID
+      );
+
+      const result = await claimProtocolFee3(svm, {
+        signerKP: whitelistedAccount,
+        pool,
+        isTokenA: true,
+        receiverTokenAccount,
+      });
+      expectThrowsErrorCode(result, ANCHOR_CONSTRAINT_ACCOUNT_ERROR_CODE);
+    });
+
+    it("claim_protocol_fee3 rejects when signed by admin", async () => {
+      const receiverTokenAccount = getOrCreateAssociatedTokenAccount(
+        svm,
+        admin,
+        inputTokenMint,
+        admin.publicKey,
+        TOKEN_PROGRAM_ID
+      );
+
+      const result = await claimProtocolFee3(svm, {
         signerKP: admin,
         pool,
         isTokenA: true,

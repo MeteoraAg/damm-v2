@@ -89,7 +89,6 @@ export function deriveTokenBadgeAddress(tokenMint: PublicKey): PublicKey {
   )[0];
 }
 
-
 export function deriveOperatorAddress(
   whitelistedAddress: PublicKey
 ): PublicKey {

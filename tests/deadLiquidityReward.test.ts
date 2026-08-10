@@ -1,6 +1,7 @@
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { AccountMeta, Keypair, PublicKey } from "@solana/web3.js";
 import {
   getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import BN from "bn.js";
@@ -14,11 +15,13 @@ import {
   createCpAmmProgram,
   createOperator,
   createToken,
+  createTokenBadge,
   DEAD_LIQUIDITY,
   derivePoolAuthority,
   encodePermissions,
   expectThrowsErrorCode,
   fundReward,
+  fundReward2,
   getCpAmmProgramErrorCode,
   getPool,
   getTokenBalance,
@@ -38,8 +41,19 @@ import {
   U64_MAX,
   warpToTimestamp,
   withdrawDeadLiquidityReward,
+  withdrawDeadLiquidityReward2,
 } from "./helpers";
 import { generateKpAndFund } from "./helpers/common";
+import {
+  createToken2022,
+  createTransferHookExtensionWithInstruction,
+  mintToToken2022,
+} from "./helpers/token2022";
+import {
+  createExtraAccountMetaListAndCounter,
+  getHookRemainingAccounts,
+  readHookCounter,
+} from "./helpers/transferHook";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 
 const invalidCollectFeeModeErrorCode = getCpAmmProgramErrorCode(
@@ -195,6 +209,47 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
       const rewardVault = afterExit.rewardInfos[REWARD_INDEX].vault;
       const funderBefore = new BN(getTokenBalance(svm, funderRewardAta()));
       await withdrawDeadLiquidityReward(svm, {
+        index: REWARD_INDEX,
+        funder,
+        pool,
+      });
+      const recovered = new BN(getTokenBalance(svm, funderRewardAta())).sub(
+        funderBefore
+      );
+      const vaultResidual = new BN(getTokenBalance(svm, rewardVault));
+
+      expect(vaultResidual.eqn(0)).eq(true);
+      expect(recovered.gtn(0)).eq(true);
+    });
+
+    it("After the last LP exits with withdraw_dead_liquidity_reward2", async () => {
+      const { pool, position, rewardEnd, rewardMid } =
+        await setupFundedCompoundingPool();
+
+      warpToTimestamp(svm, rewardMid);
+      await claimReward(svm, {
+        index: REWARD_INDEX,
+        user: creator,
+        pool,
+        position,
+        skipReward: 0,
+      });
+      await removeAllLiquidity(svm, {
+        owner: creator,
+        pool,
+        position,
+        tokenAAmountThreshold: new BN(0),
+        tokenBAmountThreshold: new BN(0),
+      });
+
+      const afterExit = getPool(svm, pool);
+      expect(afterExit.liquidity.toString()).eq(DEAD_LIQUIDITY.toString());
+
+      warpToTimestamp(svm, rewardEnd.addn(1));
+
+      const rewardVault = afterExit.rewardInfos[REWARD_INDEX].vault;
+      const funderBefore = new BN(getTokenBalance(svm, funderRewardAta()));
+      await withdrawDeadLiquidityReward2(svm, {
         index: REWARD_INDEX,
         funder,
         pool,
@@ -435,6 +490,203 @@ describe("Dead liquidity reward (Compounding fee mode only)", () => {
     expectThrowsErrorCode(
       sendTransaction(svm, tx, [funder]),
       invalidCollectFeeModeErrorCode
+    );
+
+    await withdrawDeadLiquidityReward2(
+      svm,
+      {
+        index: REWARD_INDEX,
+        funder,
+        pool,
+      },
+      invalidCollectFeeModeErrorCode
+    );
+  });
+});
+
+describe("Dead liquidity reward with token 2022 transfer hook", () => {
+  let svm: LiteSVM;
+  let admin: Keypair;
+  let creator: Keypair;
+  let funder: Keypair;
+  let whitelistedAccount: Keypair;
+  let tokenAMint: PublicKey;
+  let tokenBMint: PublicKey;
+  let rewardMint: PublicKey;
+  let rewardHookAccounts: AccountMeta[];
+  let pool: PublicKey;
+  let rewardVault: PublicKey;
+
+  const REWARD_INDEX = 0;
+  const REWARD_DURATION = 24 * 60 * 60; // 1 day
+  const REWARD_AMOUNT = new BN(REWARD_DURATION * 1_000);
+
+  const funderRewardAta = () =>
+    getAssociatedTokenAddressSync(
+      rewardMint,
+      funder.publicKey,
+      true,
+      TOKEN_2022_PROGRAM_ID
+    );
+
+  beforeEach(async () => {
+    svm = startSvm();
+
+    admin = generateKpAndFund(svm);
+    creator = generateKpAndFund(svm);
+    funder = generateKpAndFund(svm);
+    whitelistedAccount = generateKpAndFund(svm);
+
+    tokenAMint = createToken(svm, admin.publicKey);
+    tokenBMint = createToken(svm, admin.publicKey);
+
+    mintSplTokenTo(svm, tokenAMint, admin, creator.publicKey);
+    mintSplTokenTo(svm, tokenBMint, admin, creator.publicKey);
+
+    const rewardMintKeypair = Keypair.generate();
+    rewardMint = rewardMintKeypair.publicKey;
+
+    await createToken2022(
+      svm,
+      [createTransferHookExtensionWithInstruction(rewardMint, admin.publicKey)],
+      rewardMintKeypair,
+      admin.publicKey
+    );
+    await createExtraAccountMetaListAndCounter(svm, admin, rewardMint);
+    rewardHookAccounts = getHookRemainingAccounts(rewardMint);
+
+    await mintToToken2022(svm, rewardMint, admin, funder.publicKey);
+
+    await createOperator(svm, {
+      admin,
+      whitelistAddress: whitelistedAccount.publicKey,
+      permission: encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.CreateTokenBadge,
+      ]),
+    });
+
+    // compounding config (collectFeeMode = 2)
+    const createConfigParams: CreateConfigParams = {
+      poolFees: {
+        baseFee: {
+          data: Array.from(
+            encodeFeeTimeSchedulerParams(
+              BigInt(new BN(2_500_000).toString()),
+              0,
+              BigInt(0),
+              BigInt(0),
+              BaseFeeMode.FeeTimeSchedulerLinear
+            )
+          ),
+        },
+        compoundingFeeBps: 5000,
+        padding: 0,
+        dynamicFee: null,
+      },
+      sqrtMinPrice: new BN(0),
+      sqrtMaxPrice: U128_MAX,
+      vaultConfigKey: PublicKey.default,
+      poolCreatorAuthority: PublicKey.default,
+      activationType: 0,
+      collectFeeMode: 2,
+    };
+    const compoundingConfig = await createConfigIx(
+      svm,
+      whitelistedAccount,
+      new BN(Math.floor(Math.random() * 1_000_000)),
+      createConfigParams
+    );
+
+    // active hook mints require a token badge for reward initialization
+    await createTokenBadge(svm, {
+      tokenMint: rewardMint,
+      whitelistedAddress: whitelistedAccount,
+    });
+
+    const initPoolParams: InitializePoolParams = {
+      payer: creator,
+      creator: creator.publicKey,
+      config: compoundingConfig,
+      tokenAMint,
+      tokenBMint,
+      liquidity: DEAD_LIQUIDITY.muln(2),
+      sqrtPrice: MIN_SQRT_PRICE.muln(2),
+      activationPoint: null,
+    };
+    const { pool: newPool, position } = await initializePool(
+      svm,
+      initPoolParams
+    );
+    pool = newPool;
+
+    await initializeReward(svm, {
+      index: REWARD_INDEX,
+      payer: creator,
+      rewardDuration: new BN(REWARD_DURATION),
+      pool,
+      rewardMint,
+      funder: funder.publicKey,
+    });
+
+    // funding a hook reward mint goes through fund_reward2 with the hook accounts
+    await fundReward2(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+      carryForward: true,
+      amount: REWARD_AMOUNT,
+      rewardHookAccounts,
+    });
+
+    // LP exits immediately so DEAD_LIQUIDITY is the only share for the whole campaign
+    await removeAllLiquidity(svm, {
+      owner: creator,
+      pool,
+      position,
+      tokenAAmountThreshold: new BN(0),
+      tokenBAmountThreshold: new BN(0),
+    });
+    expect(getPool(svm, pool).liquidity.eq(DEAD_LIQUIDITY)).eq(true);
+
+    const rewardEnd = getPool(svm, pool).rewardInfos[REWARD_INDEX]
+      .rewardDurationEnd;
+    rewardVault = getPool(svm, pool).rewardInfos[REWARD_INDEX].vault;
+    warpToTimestamp(svm, rewardEnd.addn(1));
+  });
+
+  it("withdraw_dead_liquidity_reward2 invokes the hook on the reward transfer", async () => {
+    const beforeCounter = readHookCounter(svm, rewardMint);
+    const funderBefore = new BN(getTokenBalance(svm, funderRewardAta()));
+
+    await withdrawDeadLiquidityReward2(svm, {
+      index: REWARD_INDEX,
+      funder,
+      pool,
+      rewardHookAccounts,
+    });
+
+    const recovered = new BN(getTokenBalance(svm, funderRewardAta())).sub(
+      funderBefore
+    );
+    const vaultResidual = new BN(getTokenBalance(svm, rewardVault));
+
+    expect(vaultResidual.eqn(0)).eq(true);
+    expect(recovered.gtn(0)).eq(true);
+
+    // one vault->funder reward transfer
+    expect(readHookCounter(svm, rewardMint)).eq(beforeCounter + 1);
+  });
+
+  it("withdraw_dead_liquidity_reward2 fails when transfer hook accounts are missing", async () => {
+    await withdrawDeadLiquidityReward2(
+      svm,
+      {
+        index: REWARD_INDEX,
+        funder,
+        pool,
+      },
+      getCpAmmProgramErrorCode("MissingRemainingAccountForTransferHook")
     );
   });
 });

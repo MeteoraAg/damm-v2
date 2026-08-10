@@ -546,6 +546,60 @@ export async function claimProtocolFee2(
   return sendTransaction(svm, transaction, [signerKP]);
 }
 
+export async function claimProtocolFee3(
+  svm: LiteSVM,
+  params: {
+    signerKP: Keypair;
+    pool: PublicKey;
+    isTokenA: boolean;
+    receiverTokenAccount: PublicKey;
+    maxAmount?: BN;
+  } & TransferHookAccountsParams
+) {
+  const program = createCpAmmProgram();
+  const {
+    signerKP,
+    pool,
+    isTokenA,
+    receiverTokenAccount,
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  } = params;
+  const poolAuthority = derivePoolAuthority();
+  const poolState = getPool(svm, pool);
+
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
+
+  const maxAmount =
+    params.maxAmount ??
+    (isTokenA ? poolState.protocolAFee : poolState.protocolBFee);
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  });
+
+  const transaction = await program.methods
+    .claimProtocolFee3(maxAmount, { slices })
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      receiverTokenAccount,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+      signer: signerKP.publicKey,
+      tokenAProgram,
+      tokenBProgram,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  return sendTransaction(svm, transaction, [signerKP]);
+}
+
 export type InitializePoolParams = {
   payer: Keypair;
   creator: PublicKey;
@@ -603,6 +657,12 @@ export async function initializePool(
     tokenBProgram
   );
 
+  const remainingAccounts = tokenBadgeRemainingAccounts(
+    svm,
+    tokenAMint,
+    tokenBMint
+  );
+
   let transaction = await program.methods
     .initializePool({
       liquidity: liquidity,
@@ -629,6 +689,7 @@ export async function initializePool(
       tokenBProgram,
       systemProgram: SystemProgram.programId,
     })
+    .remainingAccounts(remainingAccounts)
     .transaction();
   // requires more compute budget than usual
   transaction.add(
@@ -662,6 +723,220 @@ export async function initializePool(
 
     expect(poolState.rewardInfos[0].initialized).eq(0);
     expect(poolState.rewardInfos[1].initialized).eq(0);
+  }
+
+  return { pool, position: position, result };
+}
+
+// the derived badge PDA when it exists, otherwise null
+export function optionalTokenBadge(
+  svm: LiteSVM,
+  mint: PublicKey
+): PublicKey | null {
+  const tokenBadge = deriveTokenBadgeAddress(mint);
+  return svm.getAccount(tokenBadge) ? tokenBadge : null;
+}
+
+// Positional token badge accounts: token a at slot 0, token b at slot 1.
+// Both slots are always sent. unused slots carry a sentinel value
+export function tokenBadgeRemainingAccounts(
+  svm: LiteSVM,
+  tokenAMint: PublicKey,
+  tokenBMint: PublicKey
+): AccountMeta[] {
+  return [
+    {
+      pubkey: optionalTokenBadge(svm, tokenAMint) ?? CP_AMM_PROGRAM_ID,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: optionalTokenBadge(svm, tokenBMint) ?? CP_AMM_PROGRAM_ID,
+      isSigner: false,
+      isWritable: false,
+    },
+  ];
+}
+
+export type TransferHookAccountsParams = {
+  tokenAHookAccounts?: AccountMeta[];
+  tokenBHookAccounts?: AccountMeta[];
+  rewardHookAccounts?: AccountMeta[];
+  referralHookAccounts?: AccountMeta[];
+};
+
+export type RemainingAccountsSliceArg =
+  | { accountsType: { transferHookA: Record<string, never> }; length: number }
+  | { accountsType: { transferHookB: Record<string, never> }; length: number }
+  | {
+      accountsType: { transferHookReward: Record<string, never> };
+      length: number;
+    }
+  | {
+      accountsType: { transferHookReferral: Record<string, never> };
+      length: number;
+    };
+
+// builds the RemainingAccountsInfo slices plus the matching remaining accounts prefix the
+// program's parse_remaining_accounts expects
+export function buildHookRemainingAccounts(
+  params: TransferHookAccountsParams
+): {
+  slices: RemainingAccountsSliceArg[];
+  remainingAccounts: AccountMeta[];
+} {
+  const {
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+    rewardHookAccounts,
+    referralHookAccounts,
+  } = params;
+  const slices: RemainingAccountsSliceArg[] = [];
+  const remainingAccounts: AccountMeta[] = [];
+  if (tokenAHookAccounts?.length) {
+    slices.push({
+      accountsType: { transferHookA: {} },
+      length: tokenAHookAccounts.length,
+    });
+    remainingAccounts.push(...tokenAHookAccounts);
+  }
+  if (tokenBHookAccounts?.length) {
+    slices.push({
+      accountsType: { transferHookB: {} },
+      length: tokenBHookAccounts.length,
+    });
+    remainingAccounts.push(...tokenBHookAccounts);
+  }
+  if (rewardHookAccounts?.length) {
+    slices.push({
+      accountsType: { transferHookReward: {} },
+      length: rewardHookAccounts.length,
+    });
+    remainingAccounts.push(...rewardHookAccounts);
+  }
+  if (referralHookAccounts?.length) {
+    slices.push({
+      accountsType: { transferHookReferral: {} },
+      length: referralHookAccounts.length,
+    });
+    remainingAccounts.push(...referralHookAccounts);
+  }
+  return { slices, remainingAccounts };
+}
+
+export type InitializePool2Params = InitializePoolParams &
+  TransferHookAccountsParams & {
+    extraRemainingAccounts?: AccountMeta[];
+  };
+
+export async function initializePool2(
+  svm: LiteSVM,
+  params: InitializePool2Params
+): Promise<{
+  pool: PublicKey;
+  position: PublicKey;
+  result: TransactionMetadata | FailedTransactionMetadata;
+}> {
+  const {
+    config,
+    tokenAMint,
+    tokenBMint,
+    payer,
+    creator,
+    liquidity,
+    sqrtPrice,
+    activationPoint,
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  } = params;
+  const program = createCpAmmProgram();
+
+  const poolAuthority = derivePoolAuthority();
+  const pool = derivePoolAddress(config, tokenAMint, tokenBMint);
+
+  const positionNftKP = Keypair.generate();
+  const position = derivePositionAddress(positionNftKP.publicKey);
+  const positionNftAccount = derivePositionNftAccount(positionNftKP.publicKey);
+
+  const tokenAVault = deriveTokenVaultAddress(tokenAMint, pool);
+  const tokenBVault = deriveTokenVaultAddress(tokenBMint, pool);
+
+  const tokenAProgram = svm.getAccount(tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(tokenBMint)!.owner;
+
+  const payerTokenA = getAssociatedTokenAddressSync(
+    tokenAMint,
+    payer.publicKey,
+    true,
+    tokenAProgram
+  );
+  const payerTokenB = getAssociatedTokenAddressSync(
+    tokenBMint,
+    payer.publicKey,
+    true,
+    tokenBProgram
+  );
+
+  const { slices, remainingAccounts: hookRemainingAccounts } =
+    buildHookRemainingAccounts({
+      tokenAHookAccounts,
+      tokenBHookAccounts,
+    });
+  const remainingAccounts = [
+    ...tokenBadgeRemainingAccounts(svm, tokenAMint, tokenBMint),
+    ...hookRemainingAccounts,
+  ];
+  if (params.extraRemainingAccounts) {
+    remainingAccounts.push(...params.extraRemainingAccounts);
+  }
+
+  let transaction = await program.methods
+    .initializePool2(
+      {
+        liquidity: liquidity,
+        sqrtPrice: sqrtPrice,
+        activationPoint: activationPoint,
+      },
+      { slices }
+    )
+    .accountsPartial({
+      creator,
+      positionNftAccount,
+      positionNftMint: positionNftKP.publicKey,
+      payer: payer.publicKey,
+      config,
+      poolAuthority,
+      pool,
+      position,
+      tokenAMint,
+      tokenBMint,
+      tokenAVault,
+      tokenBVault,
+      payerTokenA,
+      payerTokenB,
+      token2022Program: TOKEN_2022_PROGRAM_ID,
+      tokenAProgram,
+      tokenBProgram,
+      systemProgram: SystemProgram.programId,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+  // requires more compute budget than usual
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: 400_000,
+    })
+  );
+
+  const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
+
+  if (result instanceof TransactionMetadata) {
+    const poolState = getPool(svm, pool);
+    expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
+    expect(poolState.tokenBMint.toString()).eq(tokenBMint.toString());
+    expect(poolState.tokenAVault.toString()).eq(tokenAVault.toString());
+    expect(poolState.tokenBVault.toString()).eq(tokenBVault.toString());
+    expect(poolState.liquidity.toString()).eq(liquidity.toString());
   }
 
   return { pool, position: position, result };
@@ -808,6 +1083,264 @@ export async function initializePoolWithCustomizeConfig(
   expect(poolState.poolFees.initSqrtPrice.toString()).eq(sqrtPrice.toString());
 
   return { pool, position: position };
+}
+
+export type InitializePoolWithCustomizeConfig2Params =
+  InitializePoolWithCustomizeConfigParams & TransferHookAccountsParams;
+
+export async function initializePoolWithCustomizeConfig2(
+  svm: LiteSVM,
+  params: InitializePoolWithCustomizeConfig2Params
+): Promise<{
+  pool: PublicKey;
+  position: PublicKey;
+  result: TransactionMetadata | FailedTransactionMetadata;
+}> {
+  const {
+    tokenAMint,
+    tokenBMint,
+    payer,
+    creator,
+    poolCreatorAuthority,
+    customizeConfigAddress,
+    poolFees,
+    hasAlphaVault,
+    liquidity,
+    sqrtMaxPrice,
+    sqrtMinPrice,
+    sqrtPrice,
+    collectFeeMode,
+    activationPoint,
+    activationType,
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  } = params;
+  const program = createCpAmmProgram();
+
+  const poolAuthority = derivePoolAuthority();
+  const pool = derivePoolAddress(
+    customizeConfigAddress,
+    tokenAMint,
+    tokenBMint
+  );
+
+  const positionNftKP = Keypair.generate();
+  const position = derivePositionAddress(positionNftKP.publicKey);
+  const positionNftAccount = derivePositionNftAccount(positionNftKP.publicKey);
+
+  const tokenAProgram = svm.getAccount(tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(tokenBMint)!.owner;
+
+  const tokenAVault = deriveTokenVaultAddress(tokenAMint, pool);
+  const tokenBVault = deriveTokenVaultAddress(tokenBMint, pool);
+
+  const payerTokenA = getAssociatedTokenAddressSync(
+    tokenAMint,
+    payer.publicKey,
+    true,
+    tokenAProgram
+  );
+  const payerTokenB = getAssociatedTokenAddressSync(
+    tokenBMint,
+    payer.publicKey,
+    true,
+    tokenBProgram
+  );
+
+  const { slices, remainingAccounts: hookRemainingAccounts } =
+    buildHookRemainingAccounts({
+      tokenAHookAccounts,
+      tokenBHookAccounts,
+    });
+  const remainingAccounts = [
+    ...tokenBadgeRemainingAccounts(svm, tokenAMint, tokenBMint),
+    ...hookRemainingAccounts,
+  ];
+
+  const transaction = await program.methods
+    .initializePoolWithDynamicConfig2(
+      {
+        poolFees,
+        sqrtMinPrice,
+        sqrtMaxPrice,
+        hasAlphaVault,
+        liquidity,
+        sqrtPrice,
+        activationType,
+        collectFeeMode,
+        activationPoint,
+      },
+      { slices }
+    )
+    .accountsPartial({
+      creator,
+      positionNftAccount,
+      positionNftMint: positionNftKP.publicKey,
+      payer: payer.publicKey,
+      poolCreatorAuthority: poolCreatorAuthority.publicKey,
+      config: customizeConfigAddress,
+      poolAuthority,
+      pool,
+      position,
+      tokenAMint,
+      tokenBMint,
+      tokenAVault,
+      tokenBVault,
+      payerTokenA,
+      payerTokenB,
+      tokenAProgram,
+      tokenBProgram,
+      token2022Program: TOKEN_2022_PROGRAM_ID,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+  // requires more compute budget than usual
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: 400_000,
+    })
+  );
+
+  const result = sendTransaction(svm, transaction, [
+    payer,
+    positionNftKP,
+    poolCreatorAuthority,
+  ]);
+
+  if (result instanceof TransactionMetadata) {
+    const poolState = getPool(svm, pool);
+    expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
+    expect(poolState.tokenBMint.toString()).eq(tokenBMint.toString());
+    expect(poolState.liquidity.toString()).eq(liquidity.toString());
+  }
+
+  return { pool, position, result };
+}
+
+export type InitializeCustomizablePool2Params =
+  InitializeCustomizablePoolParams & TransferHookAccountsParams;
+
+export async function initializeCustomizablePool2(
+  svm: LiteSVM,
+  params: InitializeCustomizablePool2Params
+): Promise<{
+  pool: PublicKey;
+  position: PublicKey;
+  result: TransactionMetadata | FailedTransactionMetadata;
+}> {
+  const {
+    tokenAMint,
+    tokenBMint,
+    payer,
+    creator,
+    poolFees,
+    hasAlphaVault,
+    liquidity,
+    sqrtMaxPrice,
+    sqrtMinPrice,
+    sqrtPrice,
+    collectFeeMode,
+    activationPoint,
+    activationType,
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  } = params;
+  const program = createCpAmmProgram();
+
+  const poolAuthority = derivePoolAuthority();
+  const pool = deriveCustomizablePoolAddress(tokenAMint, tokenBMint);
+
+  const positionNftKP = Keypair.generate();
+  const position = derivePositionAddress(positionNftKP.publicKey);
+  const positionNftAccount = derivePositionNftAccount(positionNftKP.publicKey);
+
+  const tokenAProgram = svm.getAccount(tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(tokenBMint)!.owner;
+
+  const tokenAVault = deriveTokenVaultAddress(tokenAMint, pool);
+  const tokenBVault = deriveTokenVaultAddress(tokenBMint, pool);
+
+  const payerTokenA = getAssociatedTokenAddressSync(
+    tokenAMint,
+    payer.publicKey,
+    true,
+    tokenAProgram
+  );
+  const payerTokenB = getOrCreateAssociatedTokenAccount(
+    svm,
+    payer,
+    tokenBMint,
+    payer.publicKey,
+    tokenBProgram
+  );
+
+  if (tokenBMint.equals(NATIVE_MINT)) {
+    wrapSOL(svm, payer, new BN(LAMPORTS_PER_SOL));
+  }
+
+  const { slices, remainingAccounts: hookRemainingAccounts } =
+    buildHookRemainingAccounts({
+      tokenAHookAccounts,
+      tokenBHookAccounts,
+    });
+  const remainingAccounts = [
+    ...tokenBadgeRemainingAccounts(svm, tokenAMint, tokenBMint),
+    ...hookRemainingAccounts,
+  ];
+
+  const transaction = await program.methods
+    .initializeCustomizablePool2(
+      {
+        poolFees,
+        sqrtMinPrice,
+        sqrtMaxPrice,
+        hasAlphaVault,
+        liquidity,
+        sqrtPrice,
+        activationType,
+        collectFeeMode,
+        activationPoint,
+      },
+      { slices }
+    )
+    .accountsPartial({
+      creator,
+      positionNftAccount,
+      positionNftMint: positionNftKP.publicKey,
+      payer: payer.publicKey,
+      poolAuthority,
+      pool,
+      position,
+      tokenAMint,
+      tokenBMint,
+      tokenAVault,
+      tokenBVault,
+      payerTokenA,
+      payerTokenB,
+      token2022Program: TOKEN_2022_PROGRAM_ID,
+      tokenAProgram,
+      tokenBProgram,
+      systemProgram: SystemProgram.programId,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+  // requires more compute budget than usual
+  transaction.add(
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: 400_000,
+    })
+  );
+
+  const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
+
+  if (result instanceof TransactionMetadata) {
+    const poolState = getPool(svm, pool);
+    expect(poolState.tokenAMint.toString()).eq(tokenAMint.toString());
+    expect(poolState.tokenBMint.toString()).eq(tokenBMint.toString());
+    expect(poolState.liquidity.toString()).eq(liquidity.toString());
+  }
+
+  return { pool, position, result };
 }
 
 export type SetPoolStatusParams = {
@@ -1406,6 +1939,185 @@ export async function withdrawDeadLiquidityReward(
   expect(result).instanceOf(TransactionMetadata);
 }
 
+export type RewardHookParams = { rewardHookAccounts?: AccountMeta[] };
+
+export async function fundReward2(
+  svm: LiteSVM,
+  params: FundRewardParams & RewardHookParams
+): Promise<void> {
+  const { index, carryForward, pool, funder, amount, rewardHookAccounts } =
+    params;
+  const program = createCpAmmProgram();
+
+  const poolState = getPool(svm, pool);
+  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
+  const funderTokenAccount = getAssociatedTokenAddressSync(
+    poolState.rewardInfos[index].mint,
+    funder.publicKey,
+    true,
+    tokenProgram
+  );
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    rewardHookAccounts,
+  });
+
+  const transaction = await program.methods
+    .fundReward2(index, amount, carryForward, { slices })
+    .accountsPartial({
+      pool,
+      rewardVault: poolState.rewardInfos[index].vault,
+      rewardMint: poolState.rewardInfos[index].mint,
+      funderTokenAccount,
+      funder: funder.publicKey,
+      tokenProgram,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [funder]);
+  expect(result).instanceOf(TransactionMetadata);
+}
+
+export async function claimReward2(
+  svm: LiteSVM,
+  params: ClaimRewardParams & RewardHookParams
+): Promise<TransactionMetadata | FailedTransactionMetadata> {
+  const { index, pool, user, position, skipReward, rewardHookAccounts } =
+    params;
+  const program = createCpAmmProgram();
+
+  const poolState = getPool(svm, pool);
+  const positionState = getPosition(svm, position);
+  const poolAuthority = derivePoolAuthority();
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
+
+  const userTokenAccount =
+    params.userTokenAccount ??
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      user,
+      poolState.rewardInfos[index].mint,
+      user.publicKey,
+      tokenProgram
+    );
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    rewardHookAccounts,
+  });
+
+  const transaction = await program.methods
+    .claimReward2(index, skipReward, { slices })
+    .accountsPartial({
+      pool,
+      positionNftAccount,
+      rewardVault: poolState.rewardInfos[index].vault,
+      rewardMint: poolState.rewardInfos[index].mint,
+      poolAuthority,
+      position,
+      userTokenAccount,
+      signer: user.publicKey,
+      tokenProgram,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [user]);
+  return result;
+}
+
+export async function withdrawIneligibleReward2(
+  svm: LiteSVM,
+  params: WithdrawIneligibleRewardParams & RewardHookParams,
+  errorCode?: number
+): Promise<void> {
+  const { index, pool, funder, rewardHookAccounts } = params;
+  const program = createCpAmmProgram();
+
+  const poolState = getPool(svm, pool);
+  const poolAuthority = derivePoolAuthority();
+  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
+  const funderTokenAccount = getAssociatedTokenAddressSync(
+    poolState.rewardInfos[index].mint,
+    funder.publicKey,
+    true,
+    tokenProgram
+  );
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    rewardHookAccounts,
+  });
+
+  const transaction = await program.methods
+    .withdrawIneligibleReward2(index, { slices })
+    .accountsPartial({
+      pool,
+      rewardVault: poolState.rewardInfos[index].vault,
+      rewardMint: poolState.rewardInfos[index].mint,
+      poolAuthority,
+      funderTokenAccount,
+      funder: funder.publicKey,
+      tokenProgram,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [funder]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
+}
+
+export async function withdrawDeadLiquidityReward2(
+  svm: LiteSVM,
+  params: WithdrawDeadLiquidityRewardParams & RewardHookParams,
+  errorCode?: number
+): Promise<void> {
+  const { index, pool, funder, rewardHookAccounts } = params;
+  const program = createCpAmmProgram();
+
+  const poolState = getPool(svm, pool);
+  const poolAuthority = derivePoolAuthority();
+  const tokenProgram = svm.getAccount(poolState.rewardInfos[index].mint)!.owner;
+  const funderTokenAccount = getAssociatedTokenAddressSync(
+    poolState.rewardInfos[index].mint,
+    funder.publicKey,
+    true,
+    tokenProgram
+  );
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    rewardHookAccounts,
+  });
+
+  const transaction = await program.methods
+    .withdrawDeadLiquidityReward2(index, { slices })
+    .accountsPartial({
+      pool,
+      rewardVault: poolState.rewardInfos[index].vault,
+      rewardMint: poolState.rewardInfos[index].mint,
+      poolAuthority,
+      funderTokenAccount,
+      funder: funder.publicKey,
+      tokenProgram,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [funder]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
+}
+
 export async function refreshVestings(
   svm: LiteSVM,
   position: PublicKey,
@@ -1676,6 +2388,86 @@ export async function addLiquidity(
   }
 }
 
+export type AddLiquidity2Params = AddLiquidityParams &
+  TransferHookAccountsParams;
+
+export async function addLiquidity2(
+  svm: LiteSVM,
+  params: AddLiquidity2Params,
+  errorCode?: number
+) {
+  const {
+    owner,
+    pool,
+    position,
+    liquidityDelta,
+    tokenAAmountThreshold,
+    tokenBAmountThreshold,
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  } = params;
+
+  const program = createCpAmmProgram();
+  const poolState = getPool(svm, pool);
+  const positionState = getPosition(svm, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
+
+  const tokenAAccount = getAssociatedTokenAddressSync(
+    poolState.tokenAMint,
+    owner.publicKey,
+    true,
+    tokenAProgram
+  );
+  const tokenBAccount = getAssociatedTokenAddressSync(
+    poolState.tokenBMint,
+    owner.publicKey,
+    true,
+    tokenBProgram
+  );
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  });
+
+  const transaction = await program.methods
+    .addLiquidity2(
+      {
+        liquidityDelta,
+        tokenAAmountThreshold,
+        tokenBAmountThreshold,
+      },
+      { slices }
+    )
+    .accountsPartial({
+      pool,
+      position,
+      positionNftAccount,
+      signer: owner.publicKey,
+      tokenAAccount,
+      tokenBAccount,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [owner]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
+}
+
 export type RemoveLiquidityParams = AddLiquidityParams & {
   tokenAAccount?: PublicKey;
   tokenBAccount?: PublicKey;
@@ -1756,6 +2548,92 @@ export async function removeLiquidity(
   }
 }
 
+export type RemoveLiquidity2Params = RemoveLiquidityParams &
+  TransferHookAccountsParams;
+
+export async function removeLiquidity2(
+  svm: LiteSVM,
+  params: RemoveLiquidity2Params,
+  errorCode?: number
+) {
+  const {
+    owner,
+    pool,
+    position,
+    liquidityDelta,
+    tokenAAmountThreshold,
+    tokenBAmountThreshold,
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  } = params;
+
+  const program = createCpAmmProgram();
+  const poolState = getPool(svm, pool);
+  const positionState = getPosition(svm, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  const poolAuthority = derivePoolAuthority();
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
+
+  const tokenAAccount =
+    params.tokenAAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenAMint,
+      owner.publicKey,
+      true,
+      tokenAProgram
+    );
+  const tokenBAccount =
+    params.tokenBAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenBMint,
+      owner.publicKey,
+      true,
+      tokenBProgram
+    );
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  });
+
+  const transaction = await program.methods
+    .removeLiquidity2(
+      {
+        liquidityDelta,
+        tokenAAmountThreshold,
+        tokenBAmountThreshold,
+      },
+      { slices }
+    )
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      position,
+      positionNftAccount,
+      signer: owner.publicKey,
+      tokenAAccount,
+      tokenBAccount,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [owner]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
+}
+
 export type RemoveAllLiquidityParams = {
   owner: Keypair;
   pool: PublicKey;
@@ -1823,6 +2701,82 @@ export async function removeAllLiquidity(
 
   const result = sendTransaction(svm, transaction, [owner]);
   expect(result).instanceOf(TransactionMetadata);
+}
+
+export type RemoveAllLiquidity2Params = RemoveAllLiquidityParams &
+  TransferHookAccountsParams;
+
+export async function removeAllLiquidity2(
+  svm: LiteSVM,
+  params: RemoveAllLiquidity2Params,
+  errorCode?: number
+) {
+  const {
+    owner,
+    pool,
+    position,
+    tokenAAmountThreshold,
+    tokenBAmountThreshold,
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  } = params;
+
+  const program = createCpAmmProgram();
+  const poolState = getPool(svm, pool);
+  const positionState = getPosition(svm, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  const poolAuthority = derivePoolAuthority();
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
+
+  const tokenAAccount = getAssociatedTokenAddressSync(
+    poolState.tokenAMint,
+    owner.publicKey,
+    true,
+    tokenAProgram
+  );
+  const tokenBAccount = getAssociatedTokenAddressSync(
+    poolState.tokenBMint,
+    owner.publicKey,
+    true,
+    tokenBProgram
+  );
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  });
+
+  const transaction = await program.methods
+    .removeAllLiquidity2(tokenAAmountThreshold, tokenBAmountThreshold, {
+      slices,
+    })
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      position,
+      positionNftAccount,
+      signer: owner.publicKey,
+      tokenAAccount,
+      tokenBAccount,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [owner]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
 }
 
 export async function closePosition(
@@ -2026,6 +2980,98 @@ export async function swap2Instruction(svm: LiteSVM, params: Swap2Params) {
   return transaction;
 }
 
+export type Swap3Params = Swap2Params &
+  TransferHookAccountsParams & {
+    // prepends the instructions sysvar as the extra remaining account before the hook
+    // slices, required when the pool's rate limiter is applied
+    includeInstructionsSysvar?: boolean;
+  };
+
+export async function swap3Instruction(svm: LiteSVM, params: Swap3Params) {
+  const {
+    payer,
+    pool,
+    inputTokenMint,
+    outputTokenMint,
+    amount0,
+    amount1,
+    swapMode,
+    referralTokenAccount,
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+    referralHookAccounts,
+    includeInstructionsSysvar,
+  } = params;
+
+  const program = createCpAmmProgram();
+  const poolState = getPool(svm, pool);
+
+  const poolAuthority = derivePoolAuthority();
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
+  // derive user token accounts with each mint's own token program, so mixed-program pools
+  // work in both trade directions
+  const inputTokenAccount = getAssociatedTokenAddressSync(
+    inputTokenMint,
+    payer.publicKey,
+    true,
+    svm.getAccount(inputTokenMint)!.owner
+  );
+  const outputTokenAccount = getAssociatedTokenAddressSync(
+    outputTokenMint,
+    payer.publicKey,
+    true,
+    svm.getAccount(outputTokenMint)!.owner
+  );
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+    referralHookAccounts,
+  });
+  if (includeInstructionsSysvar) {
+    remainingAccounts.unshift({
+      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+      isSigner: false,
+      isWritable: false,
+    });
+  }
+
+  const transaction = await program.methods
+    .swap3(
+      {
+        amount0,
+        amount1,
+        swapMode,
+      },
+      { slices }
+    )
+    .accountsPartial({
+      poolAuthority,
+      pool,
+      payer: payer.publicKey,
+      inputTokenAccount,
+      outputTokenAccount,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+      referralTokenAccount,
+    })
+    .remainingAccounts(remainingAccounts)
+    .transaction();
+
+  return transaction;
+}
+
+export async function swap3(svm: LiteSVM, params: Swap3Params) {
+  const swapIx = await swap3Instruction(svm, params);
+  const result = sendTransaction(svm, swapIx, [params.payer]);
+  expect(result).instanceOf(TransactionMetadata);
+}
+
 export async function swap2ExactIn(
   svm: LiteSVM,
   params: Omit<Swap2Params, "swapMode">
@@ -2136,6 +3182,77 @@ export async function claimPositionFee(
       tokenAMint,
       tokenBMint,
     })
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [owner]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+  } else {
+    expect(result).instanceOf(TransactionMetadata);
+  }
+}
+
+export type ClaimPositionFee2Params = ClaimPositionFeeParams &
+  TransferHookAccountsParams;
+
+export async function claimPositionFee2(
+  svm: LiteSVM,
+  params: ClaimPositionFee2Params,
+  errorCode?: number
+) {
+  const { owner, pool, position, tokenAHookAccounts, tokenBHookAccounts } =
+    params;
+
+  const program = createCpAmmProgram();
+  const poolState = getPool(svm, pool);
+  const positionState = getPosition(svm, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+
+  const poolAuthority = derivePoolAuthority();
+  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
+  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
+
+  const tokenAAccount =
+    params.tokenAAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenAMint,
+      owner.publicKey,
+      true,
+      tokenAProgram
+    );
+  const tokenBAccount =
+    params.tokenBAccount ??
+    getAssociatedTokenAddressSync(
+      poolState.tokenBMint,
+      owner.publicKey,
+      true,
+      tokenBProgram
+    );
+
+  const { slices, remainingAccounts } = buildHookRemainingAccounts({
+    tokenAHookAccounts,
+    tokenBHookAccounts,
+  });
+
+  const transaction = await program.methods
+    .claimPositionFee2({ slices })
+    .accountsPartial({
+      poolAuthority,
+      signer: owner.publicKey,
+      pool,
+      position,
+      positionNftAccount,
+      tokenAAccount,
+      tokenBAccount,
+      tokenAVault: poolState.tokenAVault,
+      tokenBVault: poolState.tokenBVault,
+      tokenAProgram,
+      tokenBProgram,
+      tokenAMint: poolState.tokenAMint,
+      tokenBMint: poolState.tokenBMint,
+    })
+    .remainingAccounts(remainingAccounts)
     .transaction();
 
   const result = sendTransaction(svm, transaction, [owner]);

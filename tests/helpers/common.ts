@@ -29,6 +29,8 @@ export async function transferSol(
   expect(result).instanceOf(TransactionMetadata);
 }
 
+export const ANCHOR_ERROR_ACCOUNT_OWNED_BY_WRONG_PROGRAM = 3007;
+
 export function getCpAmmProgramErrorCode(errorMessage: String) {
   const error = CpAmmIDL.errors.find(
     (e) =>

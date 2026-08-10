@@ -13,7 +13,7 @@ import {
   setPoolStatus,
   createToken,
   mintSplTokenTo,
-  getCpAmmProgramErrorCode,
+  ANCHOR_ERROR_ACCOUNT_OWNED_BY_WRONG_PROGRAM,
   OperatorPermission,
   createOperator,
   encodePermissions,
@@ -142,9 +142,10 @@ describe("Permissionless transfer hook", () => {
       activationPoint: null,
     };
 
-    const errorCode = getCpAmmProgramErrorCode("InvalidTokenBadge");
+    // the badge slot carries a sentinel when no badge exists, so the missing badge is
+    // rejected by anchor's owner check on that account rather than by InvalidTokenBadge
     const { result } = await initializePool(svm, initPoolParams);
-    expectThrowsErrorCode(result, errorCode);
+    expectThrowsErrorCode(result, ANCHOR_ERROR_ACCOUNT_OWNED_BY_WRONG_PROGRAM);
 
     // revoke program id
 
