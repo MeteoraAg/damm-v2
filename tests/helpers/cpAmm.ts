@@ -3085,6 +3085,16 @@ export async function swap3Instruction(svm: LiteSVM, params: Swap3Params) {
     .remainingAccounts(remainingAccounts)
     .transaction();
 
+  if (referralTokenAccount) {
+    // a referral swap pays the referral fee with a third transfer, so it invokes the transfer
+    // hook once more than a plain swap and needs more than the default compute budget
+    transaction.add(
+      ComputeBudgetProgram.setComputeUnitLimit({
+        units: 400_000,
+      })
+    );
+  }
+
   return transaction;
 }
 

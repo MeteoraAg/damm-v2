@@ -353,7 +353,6 @@ pub fn process_initialize_pool<'info>(
     ctx: Context<'info, InitializePoolCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    // deployed v1 convention: token badge a at remaining account 0, badge b at 1
     validate_token_badges(
         &ctx.accounts.token_a_mint,
         &ctx.accounts.token_b_mint,

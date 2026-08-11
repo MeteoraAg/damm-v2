@@ -93,7 +93,6 @@ pub fn process_initialize_reward<'info>(
     reward_duration: u64,
     funder: Pubkey,
 ) -> Result<()> {
-    // deployed v1 convention: token badge at remaining account 0, operator at 1
     if !is_supported_mint(&ctx.accounts.reward_mint)? {
         require!(
             is_token_badge_initialized(
@@ -114,8 +113,8 @@ pub fn process_initialize_reward<'info>(
         reward_index,
         reward_duration,
         funder,
-        ctx.remaining_accounts.get(1),
         None,
+        ctx.remaining_accounts.get(1),
     )?;
 
     emit_cpi!(EvtInitializeReward {
@@ -159,8 +158,8 @@ pub fn process_initialize_reward2<'info>(
         reward_index,
         reward_duration,
         funder,
-        None,
         ctx.accounts.operator.as_ref(),
+        None,
     )?;
 
     emit_cpi!(EvtInitializeReward {
@@ -196,8 +195,8 @@ fn handle_initialize_reward<'info>(
     reward_index: u8,
     reward_duration: u64,
     funder: Pubkey,
-    legacy_operator: Option<&'info AccountInfo<'info>>,
     operator: Option<&AccountLoader<'info, Operator>>,
+    legacy_operator: Option<&'info AccountInfo<'info>>,
 ) -> Result<()> {
     let index: usize = reward_index
         .try_into()
