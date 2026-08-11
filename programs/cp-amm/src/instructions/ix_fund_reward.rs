@@ -5,7 +5,7 @@ use crate::{
     constants::{NUM_REWARDS, REWARD_RATE_SCALE},
     event::EvtFundReward,
     math::safe_math::SafeMath,
-    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
+    remaining_accounts::{parse_transfer_hook_accounts, AccountsType, RemainingAccountsInfo},
     state::Pool,
     token::{calculate_transfer_fee_excluded_amount, transfer_from_user},
     utils_math::safe_mul_shr_cast,
@@ -114,11 +114,9 @@ pub fn handle_fund_reward<'info>(
     // Reward rate might include ineligible reward based on whether to brought forward
     reward_info.update_rate_after_funding(current_time as u64, total_amount)?;
 
-    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts = parse_remaining_accounts(
-        &mut remaining_accounts,
-        &remaining_accounts_info.slices,
+    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+        ctx.remaining_accounts,
+        remaining_accounts_info,
         &[AccountsType::TransferHookReward],
     )?;
 

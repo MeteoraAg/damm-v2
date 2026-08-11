@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     const_pda,
-    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
+    remaining_accounts::{parse_transfer_hook_accounts, AccountsType, RemainingAccountsInfo},
     state::{Pool, Position, PositionDelegatePermission},
     token::transfer_from_pool,
     EvtClaimPositionFee,
@@ -105,11 +105,9 @@ pub fn handle_claim_position_fee<'info>(
         .metrics
         .accumulate_claimed_fee(fee_a_pending, fee_b_pending)?;
 
-    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts = parse_remaining_accounts(
-        &mut remaining_accounts,
-        &remaining_accounts_info.slices,
+    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+        ctx.remaining_accounts,
+        remaining_accounts_info,
         &[AccountsType::TransferHookA, AccountsType::TransferHookB],
     )?;
 

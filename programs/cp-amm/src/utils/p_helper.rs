@@ -101,10 +101,11 @@ pub fn p_transfer_from_user(
 ) -> ProgramResult {
     let decimals = p_accessor_decimals(token_mint)?;
 
-    if p_get_transfer_hook_program_id(token_mint)?.is_some() {
-        let Some(transfer_hook_accounts) = transfer_hook_accounts else {
-            return Err(PoolError::MissingRemainingAccountForTransferHook.into());
-        };
+    if let Some(transfer_hook_accounts) = transfer_hook_accounts {
+        // unpacking the mint cost CU, so only do it if transfer_hook_accounts is supplied
+        if p_get_transfer_hook_program_id(token_mint)?.is_none() {
+            return Err(PoolError::NoTransferHookProgram.into());
+        }
 
         return p_transfer_checked_with_hook_accounts(
             token_owner_account,
@@ -117,8 +118,6 @@ pub fn p_transfer_from_user(
             transfer_hook_accounts,
             &[],
         );
-    } else if transfer_hook_accounts.is_some() {
-        return Err(PoolError::NoTransferHookProgram.into());
     }
 
     pinocchio_token_2022::instructions::TransferChecked {
@@ -151,10 +150,12 @@ pub fn p_transfer_from_pool(
     let signers = &[Signer::from(&seeds)];
 
     let decimals = p_accessor_decimals(token_mint)?;
-    if p_get_transfer_hook_program_id(token_mint)?.is_some() {
-        let Some(transfer_hook_accounts) = transfer_hook_accounts else {
-            return Err(PoolError::MissingRemainingAccountForTransferHook.into());
-        };
+
+    if let Some(transfer_hook_accounts) = transfer_hook_accounts {
+        // unpacking the mint cost CU, so only do it if transfer_hook_accounts is supplied
+        if p_get_transfer_hook_program_id(token_mint)?.is_none() {
+            return Err(PoolError::NoTransferHookProgram.into());
+        }
 
         return p_transfer_checked_with_hook_accounts(
             token_vault,
@@ -167,8 +168,6 @@ pub fn p_transfer_from_pool(
             transfer_hook_accounts,
             signers,
         );
-    } else if transfer_hook_accounts.is_some() {
-        return Err(PoolError::NoTransferHookProgram.into());
     }
 
     pinocchio_token_2022::instructions::TransferChecked {

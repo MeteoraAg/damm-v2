@@ -3,7 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     get_pool_access_validator,
-    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
+    remaining_accounts::{parse_transfer_hook_accounts, AccountsType, RemainingAccountsInfo},
     state::{Pool, Position, PositionDelegatePermission},
     token::{calculate_transfer_fee_included_amount, transfer_from_user},
     u128x128_math::Rounding,
@@ -150,11 +150,9 @@ pub fn handle_add_liquidity<'info>(
         PoolError::ExceededSlippage
     );
 
-    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts = parse_remaining_accounts(
-        &mut remaining_accounts,
-        &remaining_accounts_info.slices,
+    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+        ctx.remaining_accounts,
+        remaining_accounts_info,
         &[AccountsType::TransferHookA, AccountsType::TransferHookB],
     )?;
 

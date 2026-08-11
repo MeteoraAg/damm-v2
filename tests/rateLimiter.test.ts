@@ -314,88 +314,7 @@ describe("Rate limiter", () => {
     expectThrowsErrorCode(result, errorCode);
   });
 
-  it("Rate limiter with swap3", async () => {
-    const pool = await deprecatedRateLimiterPoolFromConfig();
-    let poolState = await getPool(svm, pool);
-
-    // swap with 1 SOL
-
-    await swap3(svm, {
-      payer: creator,
-      pool,
-      inputTokenMint: tokenB,
-      outputTokenMint: tokenA,
-      amount0: referenceAmount,
-      amount1: new BN(0),
-      swapMode: SwapMode.ExactIn,
-      referralTokenAccount: null,
-      includeInstructionsSysvar: true,
-    });
-
-    poolState = getPool(svm, pool);
-
-    let totalTradingFee = poolState.metrics.totalLpBFee.add(
-      poolState.metrics.totalProtocolBFee
-    );
-
-    expect(totalTradingFee.toNumber()).eq(
-      referenceAmount.div(new BN(100)).toNumber()
-    );
-
-    // swap with 2 SOL
-
-    await swap3(svm, {
-      payer: creator,
-      pool,
-      inputTokenMint: tokenB,
-      outputTokenMint: tokenA,
-      amount0: referenceAmount.mul(new BN(2)),
-      amount1: new BN(0),
-      swapMode: SwapMode.ExactIn,
-      referralTokenAccount: null,
-      includeInstructionsSysvar: true,
-    });
-
-    poolState = await getPool(svm, pool);
-
-    let totalTradingFee1 = poolState.metrics.totalLpBFee.add(
-      poolState.metrics.totalProtocolBFee
-    );
-    let deltaTradingFee = totalTradingFee1.sub(totalTradingFee);
-
-    expect(deltaTradingFee.toNumber()).gt(
-      referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()
-    );
-
-    // wait until time pass the 10 slot
-    warpSlotBy(svm, maxRateLimiterDuration.add(new BN(1)));
-
-    // swap with 2 SOL
-
-    await swap3(svm, {
-      payer: creator,
-      pool,
-      inputTokenMint: tokenB,
-      outputTokenMint: tokenA,
-      amount0: referenceAmount.mul(new BN(2)),
-      amount1: new BN(0),
-      swapMode: SwapMode.ExactIn,
-      referralTokenAccount: null,
-      includeInstructionsSysvar: true,
-    });
-
-    poolState = await getPool(svm, pool);
-
-    let totalTradingFee2 = poolState.metrics.totalLpBFee.add(
-      poolState.metrics.totalProtocolBFee
-    );
-    let deltaTradingFee1 = totalTradingFee2.sub(totalTradingFee1);
-    expect(deltaTradingFee1.toNumber()).eq(
-      referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()
-    );
-  });
-
-  it("swap3 fails without the instructions sysvar while the rate limiter is active", async () => {
+  it("swap3 is rejected while the rate limiter is applied", async () => {
     const pool = await deprecatedRateLimiterPoolFromConfig();
 
     const transaction = await swap3Instruction(svm, {
@@ -409,43 +328,59 @@ describe("Rate limiter", () => {
       referralTokenAccount: null,
     });
 
-    const errorCode = getCpAmmProgramErrorCode(
-      "FailToValidateSingleSwapInstruction"
-    );
+    const errorCode = getCpAmmProgramErrorCode("DeprecatedBaseFeeMode");
     const result = sendTransaction(svm, transaction, [creator]);
     expectThrowsErrorCode(result, errorCode);
   });
 
-  it("Try to send multiple swap3 instructions", async () => {
-    const pool = await deprecatedRateLimiterCustomizablePool();
+  it("swap3 works on a rate limiter pool once the limiter no longer applies", async () => {
+    const pool = await deprecatedRateLimiterPoolFromConfig();
 
-    // swap with 1 SOL
-    const swapIx = await swap3Instruction(svm, {
+    // the rate limiter never applies to A to B swaps
+    await swap3(svm, {
       payer: creator,
       pool,
-      inputTokenMint: tokenB,
-      outputTokenMint: tokenA,
+      inputTokenMint: tokenA,
+      outputTokenMint: tokenB,
       amount0: referenceAmount,
       amount1: new BN(0),
       swapMode: SwapMode.ExactIn,
       referralTokenAccount: null,
-      includeInstructionsSysvar: true,
     });
 
-    let transaction = new Transaction();
-    for (let i = 0; i < 2; i++) {
-      transaction.add(swapIx);
-    }
+    // wait until time pass the 10 slot
+    warpSlotBy(svm, maxRateLimiterDuration.add(new BN(1)));
 
-    const errorCode = getCpAmmProgramErrorCode(
-      "FailToValidateSingleSwapInstruction"
+    let poolState = getPool(svm, pool);
+    const totalTradingFee = poolState.metrics.totalLpBFee.add(
+      poolState.metrics.totalProtocolBFee
     );
-    const result = sendTransaction(svm, transaction, [creator]);
-    expectThrowsErrorCode(result, errorCode);
+
+    // swap with 2 SOL
+
+    await swap3(svm, {
+      payer: creator,
+      pool,
+      inputTokenMint: tokenB,
+      outputTokenMint: tokenA,
+      amount0: referenceAmount.mul(new BN(2)),
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+      referralTokenAccount: null,
+    });
+
+    poolState = getPool(svm, pool);
+    const totalTradingFee1 = poolState.metrics.totalLpBFee.add(
+      poolState.metrics.totalProtocolBFee
+    );
+
+    // only the cliff fee is charged
+    expect(totalTradingFee1.sub(totalTradingFee).toNumber()).eq(
+      referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()
+    );
   });
 
   it("Rate limiter with swap3 on a transfer hook pool", async () => {
-    // the instructions sysvar goes at remaining accounts index 0, followed by the transfer hook slices
     const tokenAMintKeypair = Keypair.generate();
     const tokenBMintKeypair = Keypair.generate();
     const hookTokenA = tokenAMintKeypair.publicKey;
@@ -528,6 +463,28 @@ describe("Rate limiter", () => {
 
     setDeprecatedRateLimiterPool(svm, pool, rateLimiter);
 
+    // swap with 1 SOL, while the rate limiter is still applied
+
+    const transaction = await swap3Instruction(svm, {
+      payer: creator,
+      pool,
+      inputTokenMint: hookTokenB,
+      outputTokenMint: hookTokenA,
+      amount0: referenceAmount,
+      amount1: new BN(0),
+      swapMode: SwapMode.ExactIn,
+      referralTokenAccount: null,
+      tokenAHookAccounts,
+      tokenBHookAccounts,
+    });
+
+    const errorCode = getCpAmmProgramErrorCode("DeprecatedBaseFeeMode");
+    const result = sendTransaction(svm, transaction, [creator]);
+    expectThrowsErrorCode(result, errorCode);
+
+    // wait until time pass the 10 slot
+    warpSlotBy(svm, maxRateLimiterDuration.add(new BN(1)));
+
     const beforeCounterA = readHookCounter(svm, hookTokenA);
     const beforeCounterB = readHookCounter(svm, hookTokenB);
 
@@ -544,15 +501,15 @@ describe("Rate limiter", () => {
       referralTokenAccount: null,
       tokenAHookAccounts,
       tokenBHookAccounts,
-      includeInstructionsSysvar: true,
     });
 
-    let poolState = getPool(svm, pool);
+    const poolState = getPool(svm, pool);
 
-    let totalTradingFee = poolState.metrics.totalLpBFee.add(
+    const totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
     );
 
+    // only the cliff fee is charged
     expect(totalTradingFee.toNumber()).eq(
       referenceAmount.div(new BN(100)).toNumber()
     );
@@ -560,35 +517,5 @@ describe("Rate limiter", () => {
     // one user->vault transfer of B, one vault->user transfer of A
     expect(readHookCounter(svm, hookTokenA)).eq(beforeCounterA + 1);
     expect(readHookCounter(svm, hookTokenB)).eq(beforeCounterB + 1);
-
-    // swap with 2 SOL
-
-    await swap3(svm, {
-      payer: creator,
-      pool,
-      inputTokenMint: hookTokenB,
-      outputTokenMint: hookTokenA,
-      amount0: referenceAmount.mul(new BN(2)),
-      amount1: new BN(0),
-      swapMode: SwapMode.ExactIn,
-      referralTokenAccount: null,
-      tokenAHookAccounts,
-      tokenBHookAccounts,
-      includeInstructionsSysvar: true,
-    });
-
-    poolState = getPool(svm, pool);
-
-    let totalTradingFee1 = poolState.metrics.totalLpBFee.add(
-      poolState.metrics.totalProtocolBFee
-    );
-    let deltaTradingFee = totalTradingFee1.sub(totalTradingFee);
-
-    expect(deltaTradingFee.toNumber()).gt(
-      referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()
-    );
-
-    expect(readHookCounter(svm, hookTokenA)).eq(beforeCounterA + 2);
-    expect(readHookCounter(svm, hookTokenB)).eq(beforeCounterB + 2);
   });
 });

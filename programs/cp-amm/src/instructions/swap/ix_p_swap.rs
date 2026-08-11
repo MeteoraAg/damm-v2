@@ -134,44 +134,34 @@ pub fn p_handle_swap(
 
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
 
-    // in swap/swap2/swap3 remaining_accounts may contain sysvar at index0.
-    // in swap3, remaining_accounts may contain transfer_hook_accounts after the sysvar
-    let (instruction_sysvar_account, hook_accounts_offset) = match &remaining_accounts_info {
-        Some(info) => {
-            let transfer_hook_account_count: usize = info
-                .slices
-                .iter()
-                .map(|slice| usize::from(slice.length))
-                .sum();
-            let extra_remaining_account_count = remaining_accounts
-                .len()
-                .safe_sub(transfer_hook_account_count)?;
+    if let Some(info) = &remaining_accounts_info {
+        let transfer_hook_account_count: usize = info
+            .slices
+            .iter()
+            .map(|slice| usize::from(slice.length))
+            .sum();
 
-            require!(
-                extra_remaining_account_count <= 1,
-                PoolError::InvalidRemainingAccountsLength
-            );
+        require!(
+            remaining_accounts.len() == transfer_hook_account_count,
+            PoolError::InvalidRemainingAccountsLength
+        );
+    }
 
-            if extra_remaining_account_count == 1 {
-                (Some(&remaining_accounts[0]), 1)
-            } else {
-                (None, 0)
-            }
-        }
-        None => (remaining_accounts.first(), 0),
-    };
-
-    // another validation to prevent snipers to craft multiple swap instructions in 1 tx
-    // (if we dont do this, they are able to concat 16 swap instructions in 1 tx)
     if let Ok(rate_limiter) = pool.pool_fees.base_fee.to_fee_rate_limiter() {
         if rate_limiter.is_rate_limiter_applied(
             current_point,
             pool.activation_point,
             trade_direction,
         )? {
+            // swap3 does not support rate limiter
+            require!(
+                remaining_accounts_info.is_none(),
+                PoolError::DeprecatedBaseFeeMode
+            );
+
             validate_single_swap_instruction(
                 &Pubkey::new_from_array(*pool_key),
-                instruction_sysvar_account,
+                remaining_accounts.first(),
             )?;
         }
     }
@@ -211,9 +201,9 @@ pub fn p_handle_swap(
     swap_result.next_sqrt_price = pool.sqrt_price;
 
     let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
-    let mut remaining_accounts = &remaining_accounts[hook_accounts_offset..];
+    let mut transfer_hook_accounts = remaining_accounts;
     let parsed_transfer_hook_accounts = parse_remaining_accounts(
-        &mut remaining_accounts,
+        &mut transfer_hook_accounts,
         &remaining_accounts_info.slices,
         &[
             AccountsType::TransferHookA,

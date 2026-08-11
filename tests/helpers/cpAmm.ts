@@ -3015,12 +3015,7 @@ export async function swap2Instruction(svm: LiteSVM, params: Swap2Params) {
   return transaction;
 }
 
-export type Swap3Params = Swap2Params &
-  TransferHookAccountsParams & {
-    // prepends the instructions sysvar as the extra remaining account before the hook
-    // slices, required when the pool's rate limiter is applied
-    includeInstructionsSysvar?: boolean;
-  };
+export type Swap3Params = Swap2Params & TransferHookAccountsParams;
 
 export async function swap3Instruction(svm: LiteSVM, params: Swap3Params) {
   const {
@@ -3035,7 +3030,6 @@ export async function swap3Instruction(svm: LiteSVM, params: Swap3Params) {
     tokenAHookAccounts,
     tokenBHookAccounts,
     referralHookAccounts,
-    includeInstructionsSysvar,
   } = params;
 
   const program = createCpAmmProgram();
@@ -3064,13 +3058,6 @@ export async function swap3Instruction(svm: LiteSVM, params: Swap3Params) {
     tokenBHookAccounts,
     referralHookAccounts,
   });
-  if (includeInstructionsSysvar) {
-    remainingAccounts.unshift({
-      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-      isSigner: false,
-      isWritable: false,
-    });
-  }
 
   const transaction = await program.methods
     .swap3(

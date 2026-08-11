@@ -11,7 +11,7 @@ use crate::{
         POOL_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX,
     },
     create_position_nft, get_initial_pool_information, get_whitelisted_alpha_vault,
-    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
+    remaining_accounts::{parse_transfer_hook_accounts, AccountsType, RemainingAccountsInfo},
     safe_math::SafeCast,
     state::{Config, ConfigType, Pool, PoolType, Position, TokenBadge},
     token::{
@@ -416,16 +416,11 @@ pub fn process_initialize_pool_with_dynamic_config2<'info>(
         &ctx.accounts.token_badge_b,
     )?;
 
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts = parse_remaining_accounts(
-        &mut remaining_accounts,
-        &remaining_accounts_info.slices,
+    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+        ctx.remaining_accounts,
+        Some(remaining_accounts_info),
         &[AccountsType::TransferHookA, AccountsType::TransferHookB],
     )?;
-    require!(
-        remaining_accounts.is_empty(),
-        PoolError::InvalidRemainingAccountsLength
-    );
 
     let result = handle_initialize_pool_with_dynamic_config(
         &ctx.accounts.creator,

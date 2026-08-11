@@ -1,7 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
-use crate::remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo};
+use crate::remaining_accounts::{
+    parse_transfer_hook_accounts, AccountsType, RemainingAccountsInfo,
+};
 use crate::{
     const_pda, constants::NUM_REWARDS, error::PoolError, event::EvtWithdrawIneligibleReward,
     state::pool::Pool, token::transfer_from_pool,
@@ -78,11 +80,9 @@ pub fn handle_withdraw_ineligible_reward<'info>(
 
     let ineligible_reward = pool.claim_ineligible_reward(index)?;
 
-    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts = parse_remaining_accounts(
-        &mut remaining_accounts,
-        &remaining_accounts_info.slices,
+    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+        ctx.remaining_accounts,
+        remaining_accounts_info,
         &[AccountsType::TransferHookReward],
     )?;
 

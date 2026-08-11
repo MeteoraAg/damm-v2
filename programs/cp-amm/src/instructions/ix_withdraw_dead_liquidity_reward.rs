@@ -7,7 +7,7 @@ use crate::{
     error::PoolError,
     event::EvtWithdrawDeadLiquidityReward,
     math::safe_math::SafeCast,
-    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
+    remaining_accounts::{parse_transfer_hook_accounts, AccountsType, RemainingAccountsInfo},
     state::pool::Pool,
     state::CollectFeeMode,
     token::transfer_from_pool,
@@ -86,11 +86,9 @@ pub fn handle_withdraw_dead_liquidity_reward<'info>(
     let dead_liquidity_reward =
         pool.reward_infos[index].claim_dead_liquidity_reward(collect_fee_mode)?;
 
-    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts = parse_remaining_accounts(
-        &mut remaining_accounts,
-        &remaining_accounts_info.slices,
+    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+        ctx.remaining_accounts,
+        remaining_accounts_info,
         &[AccountsType::TransferHookReward],
     )?;
 

@@ -84,3 +84,23 @@ pub fn parse_remaining_accounts<'a, T>(
 
     Ok(parsed_remaining_accounts)
 }
+
+pub fn parse_transfer_hook_accounts<'a, T>(
+    remaining_accounts: &'a [T],
+    remaining_accounts_info: Option<RemainingAccountsInfo>,
+    valid_accounts_type_list: &[AccountsType],
+) -> Result<ParsedRemainingAccounts<'a, T>> {
+    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
+    let mut remaining_accounts = remaining_accounts;
+    let parsed_transfer_hook_accounts = parse_remaining_accounts(
+        &mut remaining_accounts,
+        &remaining_accounts_info.slices,
+        valid_accounts_type_list,
+    )?;
+    require!(
+        remaining_accounts.is_empty(),
+        PoolError::InvalidRemainingAccountsLength
+    );
+
+    Ok(parsed_transfer_hook_accounts)
+}

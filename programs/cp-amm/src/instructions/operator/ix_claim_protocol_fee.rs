@@ -1,6 +1,6 @@
 use crate::{
     const_pda,
-    remaining_accounts::{parse_remaining_accounts, AccountsType, RemainingAccountsInfo},
+    remaining_accounts::{parse_transfer_hook_accounts, AccountsType, RemainingAccountsInfo},
     state::Pool,
     token::{calculate_transfer_fee_excluded_amount, transfer_from_pool},
     EvtClaimProtocolFee2, PoolError,
@@ -99,11 +99,9 @@ pub fn handle_claim_protocol_fee<'info>(
         return Ok(());
     }
 
-    let remaining_accounts_info = remaining_accounts_info.unwrap_or_default();
-    let mut remaining_accounts = ctx.remaining_accounts;
-    let parsed_transfer_hook_accounts = parse_remaining_accounts(
-        &mut remaining_accounts,
-        &remaining_accounts_info.slices,
+    let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
+        ctx.remaining_accounts,
+        remaining_accounts_info,
         &[AccountsType::TransferHookA, AccountsType::TransferHookB],
     )?;
 
