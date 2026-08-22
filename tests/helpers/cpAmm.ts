@@ -16,11 +16,9 @@ import {
   getExtensionData,
   MetadataPointerLayout,
   TOKEN_2022_PROGRAM_ID,
-  unpackAccount,
 } from "@solana/spl-token";
 import { unpack } from "@solana/spl-token-metadata";
 import {
-  AccountInfo,
   AccountMeta,
   clusterApiUrl,
   ComputeBudgetProgram,
@@ -31,7 +29,6 @@ import {
   SystemProgram,
   SYSVAR_INSTRUCTIONS_PUBKEY,
   Transaction,
-  TransactionInstruction,
 } from "@solana/web3.js";
 import { expect } from "chai";
 import Decimal from "decimal.js";
@@ -191,7 +188,8 @@ export async function createConfigIx(
   svm: LiteSVM,
   whitelistedAddress: Keypair,
   index: BN,
-  params: CreateConfigParams
+  params: CreateConfigParams,
+  errorCode?: number
 ): Promise<PublicKey> {
   const program = createCpAmmProgram();
 
@@ -209,6 +207,11 @@ export async function createConfigIx(
     .transaction();
 
   const result = sendTransaction(svm, transaction, [whitelistedAddress]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+    return config;
+  }
 
   expect(result).instanceOf(TransactionMetadata);
 
@@ -497,90 +500,6 @@ export async function updatePoolFeesParameters(
   return result;
 }
 
-export type ClaimProtocolFeeParams = {
-  whitelistedKP: Keypair;
-  pool: PublicKey;
-  treasury: PublicKey;
-};
-
-export async function claimProtocolFee(
-  svm: LiteSVM,
-  params: ClaimProtocolFeeParams
-) {
-  const program = createCpAmmProgram();
-  const { whitelistedKP, pool, treasury } = params;
-  const poolAuthority = derivePoolAuthority();
-  const operator = deriveOperatorAddress(whitelistedKP.publicKey);
-  const poolState = getPool(svm, pool);
-
-  const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
-  const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
-
-  const tokenAVaultAccount = svm.getAccount(
-    poolState.tokenAVault
-  ) as AccountInfo<Buffer>;
-
-  const tokenBVaultAccount = svm.getAccount(
-    poolState.tokenBVault
-  ) as AccountInfo<Buffer>;
-
-  const tokenAVaultState = unpackAccount(
-    poolState.tokenAVault,
-    tokenAVaultAccount,
-    tokenAProgram
-  );
-
-  const tokenBVaultState = unpackAccount(
-    poolState.tokenBVault,
-    tokenBVaultAccount,
-    tokenBProgram
-  );
-
-  const protocolFeeA = tokenAVaultState.isFrozen
-    ? new BN(0)
-    : poolState.protocolAFee;
-
-  const protocolFeeB = tokenBVaultState.isFrozen
-    ? new BN(0)
-    : poolState.protocolBFee;
-
-  const tokenAAccount = getOrCreateAssociatedTokenAccount(
-    svm,
-    whitelistedKP,
-    poolState.tokenAMint,
-    treasury,
-    tokenAProgram
-  );
-
-  const tokenBAccount = getOrCreateAssociatedTokenAccount(
-    svm,
-    whitelistedKP,
-    poolState.tokenBMint,
-    treasury,
-    tokenBProgram
-  );
-
-  const transaction = await program.methods
-    .claimProtocolFee(protocolFeeA, protocolFeeB)
-    .accountsPartial({
-      poolAuthority,
-      pool,
-      tokenAVault: poolState.tokenAVault,
-      tokenBVault: poolState.tokenBVault,
-      tokenAMint: poolState.tokenAMint,
-      tokenBMint: poolState.tokenBMint,
-      tokenAAccount,
-      tokenBAccount,
-      operator,
-      signer: whitelistedKP.publicKey,
-      tokenAProgram,
-      tokenBProgram,
-    })
-    .transaction();
-
-  return sendTransaction(svm, transaction, [whitelistedKP]);
-}
-
 export async function claimProtocolFee2(
   svm: LiteSVM,
   params: {
@@ -768,7 +687,8 @@ export type InitializePoolWithCustomizeConfigParams = {
 
 export async function initializePoolWithCustomizeConfig(
   svm: LiteSVM,
-  params: InitializePoolWithCustomizeConfigParams
+  params: InitializePoolWithCustomizeConfigParams,
+  errorCode?: number
 ): Promise<{ pool: PublicKey; position: PublicKey }> {
   const {
     tokenAMint,
@@ -864,6 +784,12 @@ export async function initializePoolWithCustomizeConfig(
     positionNftKP,
     poolCreatorAuthority,
   ]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+    return { pool, position };
+  }
+
   expect(result).instanceOf(TransactionMetadata);
 
   // validate pool data
@@ -932,7 +858,8 @@ export type InitializeCustomizablePoolParams = {
 
 export async function initializeCustomizablePool(
   svm: LiteSVM,
-  params: InitializeCustomizablePoolParams
+  params: InitializeCustomizablePoolParams,
+  errorCode?: number
 ): Promise<{ pool: PublicKey; position: PublicKey }> {
   const {
     tokenAMint,
@@ -1022,6 +949,12 @@ export async function initializeCustomizablePool(
   );
 
   const result = sendTransaction(svm, transaction, [payer, positionNftKP]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+    return { pool, position };
+  }
+
   expect(result).instanceOf(TransactionMetadata);
 
   // validate pool data
@@ -2322,52 +2255,6 @@ export async function splitPosition2(
   ]);
 
   return result;
-}
-
-export async function zapProtocolFee(params: {
-  svm: LiteSVM;
-  pool: PublicKey;
-  tokenVault: PublicKey;
-  tokenMint: PublicKey;
-  receiverToken: PublicKey;
-  operator: PublicKey;
-  signer: Keypair;
-  tokenProgram: PublicKey;
-  maxAmount: BN;
-  postInstruction?: TransactionInstruction;
-}) {
-  const {
-    svm,
-    pool,
-    tokenVault,
-    tokenMint,
-    receiverToken,
-    operator,
-    signer,
-    tokenProgram,
-    maxAmount,
-    postInstruction,
-  } = params;
-
-  const program = createCpAmmProgram();
-
-  const tx = await program.methods
-    .zapProtocolFee(maxAmount)
-    .accountsPartial({
-      poolAuthority: derivePoolAuthority(),
-      pool,
-      tokenVault,
-      tokenMint,
-      operator,
-      receiverToken,
-      signer: signer.publicKey,
-      tokenProgram,
-      sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
-    })
-    .postInstructions(postInstruction ? [postInstruction] : [])
-    .transaction();
-
-  return sendTransaction(svm, tx, [signer]);
 }
 
 export function getPool(svm: LiteSVM, pool: PublicKey): Pool {

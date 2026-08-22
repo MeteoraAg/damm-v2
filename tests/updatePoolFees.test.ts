@@ -34,9 +34,9 @@ import {
   decodeFeeRateLimiterParams,
   decodeFeeTimeSchedulerParams,
   encodeFeeMarketCapSchedulerParams,
-  encodeFeeRateLimiterParams,
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
+import { setDeprecatedRateLimiterPool } from "./helpers/deprecatedRateLimiter";
 import { expect } from "chai";
 import { LiteSVM } from "litesvm";
 
@@ -435,12 +435,13 @@ describe("Admin update pool fees parameters", () => {
     let maxRateLimiterDuration = new BN(10);
     let maxFeeBps = new BN(5000);
 
-    const baseFeeData = encodeFeeRateLimiterParams(
+    // placeholder only. the pool is later overriden as a rate limiter pool
+    const placeholder = encodeFeeTimeSchedulerParams(
       BigInt(10_000_000),
-      10, // feeIncrementBps,
-      maxRateLimiterDuration.toNumber(),
-      maxFeeBps.toNumber(),
-      BigInt(referenceAmount.toString())
+      0,
+      BigInt(0),
+      BigInt(0),
+      BaseFeeMode.FeeTimeSchedulerLinear
     );
 
     const poolAddress = await createPool(
@@ -448,9 +449,17 @@ describe("Admin update pool fees parameters", () => {
       creator,
       tokenAMint,
       tokenBMint,
-      baseFeeData,
+      placeholder,
       null
     );
+
+    setDeprecatedRateLimiterPool(svm, poolAddress, {
+      cliffFeeNumerator: new BN(10_000_000),
+      feeIncrementBps: 10,
+      maxLimiterDuration: maxRateLimiterDuration.toNumber(),
+      maxFeeBps: maxFeeBps.toNumber(),
+      referenceAmount,
+    });
 
     // update new cliff fee numerator
     const cliffFeeNumerator = new BN(5_000_000);

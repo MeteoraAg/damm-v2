@@ -1,11 +1,13 @@
 //! Fees module includes information about fee charges
 use crate::activation_handler::ActivationType;
-use crate::base_fee::{base_fee_parameters_to_base_fee_info, BaseFeeHandlerBuilder};
+use crate::base_fee::{
+    base_fee_parameters_to_base_fee_info, BaseFeeEnumReader, BaseFeeHandlerBuilder,
+};
 use crate::constants::fee::{HOST_FEE_PERCENT, MAX_BASIS_POINT, PROTOCOL_FEE_PERCENT};
 use crate::constants::{BIN_STEP_BPS_DEFAULT, BIN_STEP_BPS_U128_DEFAULT, U24_MAX};
 use crate::error::PoolError;
 use crate::safe_math::SafeMath;
-use crate::state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
+use crate::state::fee::{BaseFeeMode, BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct};
 use crate::state::{BaseFeeInfo, CollectFeeMode, DynamicFeeConfig, PoolFeesConfig};
 use anchor_lang::prelude::*;
 
@@ -33,6 +35,10 @@ impl BaseFeeParameters {
         collect_fee_mode: CollectFeeMode,
         activation_type: ActivationType,
     ) -> Result<()> {
+        require!(
+            self.get_base_fee_mode()? != BaseFeeMode::RateLimiter,
+            PoolError::DeprecatedBaseFeeMode
+        );
         let base_fee_handler = self.get_base_fee_handler()?;
         base_fee_handler.validate(collect_fee_mode, activation_type)?;
         Ok(())

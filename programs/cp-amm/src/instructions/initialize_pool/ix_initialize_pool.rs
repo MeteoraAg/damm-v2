@@ -10,6 +10,7 @@ use std::{
 
 use crate::{
     activation_handler::ActivationHandler,
+    base_fee::BaseFeeEnumReader,
     const_pda,
     constants::seeds::{
         POOL_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX, TOKEN_VAULT_PREFIX,
@@ -17,7 +18,7 @@ use crate::{
     create_position_nft, get_initial_pool_information,
     params::activation::ActivationParams,
     safe_math::SafeCast,
-    state::{Config, ConfigType, Pool, PoolType, Position},
+    state::{fee::BaseFeeMode, Config, ConfigType, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
@@ -225,6 +226,11 @@ pub fn handle_initialize_pool<'info>(
     require!(
         config.get_config_type()? == ConfigType::Static,
         PoolError::InvalidConfigType
+    );
+
+    require!(
+        config.pool_fees.base_fee.get_base_fee_mode()? != BaseFeeMode::RateLimiter,
+        PoolError::DeprecatedBaseFeeMode
     );
 
     require!(
