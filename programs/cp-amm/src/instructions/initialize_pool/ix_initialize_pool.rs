@@ -18,7 +18,7 @@ use crate::{
     create_position_nft, get_initial_pool_information,
     params::activation::ActivationParams,
     safe_math::SafeCast,
-    state::{fee::BaseFeeMode, Config, ConfigType, Pool, PoolType, Position},
+    state::{fee::BaseFeeMode, Config, ConfigPermission, ConfigType, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
         is_token_badge_initialized, transfer_from_user,
@@ -188,28 +188,32 @@ pub fn handle_initialize_pool<'info>(
     ctx: Context<'info, InitializePoolCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
-    if !is_supported_mint(&ctx.accounts.token_a_mint)? {
-        require!(
-            is_token_badge_initialized(
-                ctx.accounts.token_a_mint.key(),
-                ctx.remaining_accounts
-                    .get(0)
-                    .ok_or(PoolError::InvalidTokenBadge)?,
-            )?,
-            PoolError::InvalidTokenBadge
-        )
-    }
+    let config = ctx.accounts.config.load()?;
 
-    if !is_supported_mint(&ctx.accounts.token_b_mint)? {
-        require!(
-            is_token_badge_initialized(
-                ctx.accounts.token_b_mint.key(),
-                ctx.remaining_accounts
-                    .get(1)
-                    .ok_or(PoolError::InvalidTokenBadge)?,
-            )?,
-            PoolError::InvalidTokenBadge
-        )
+    if !config.is_permission_allow(ConfigPermission::CreatePoolWithoutMintValidation) {
+        if !is_supported_mint(&ctx.accounts.token_a_mint)? {
+            require!(
+                is_token_badge_initialized(
+                    ctx.accounts.token_a_mint.key(),
+                    ctx.remaining_accounts
+                        .get(0)
+                        .ok_or_else(|| PoolError::InvalidTokenBadge)?,
+                )?,
+                PoolError::InvalidTokenBadge
+            )
+        }
+
+        if !is_supported_mint(&ctx.accounts.token_b_mint)? {
+            require!(
+                is_token_badge_initialized(
+                    ctx.accounts.token_b_mint.key(),
+                    ctx.remaining_accounts
+                        .get(1)
+                        .ok_or_else(|| PoolError::InvalidTokenBadge)?,
+                )?,
+                PoolError::InvalidTokenBadge
+            )
+        }
     }
 
     let InitializePoolParameters {
@@ -221,8 +225,6 @@ pub fn handle_initialize_pool<'info>(
     require!(liquidity > 0, PoolError::InvalidMinimumLiquidity);
 
     // init pool
-    let config = ctx.accounts.config.load()?;
-
     require!(
         config.get_config_type()? == ConfigType::Static,
         PoolError::InvalidConfigType

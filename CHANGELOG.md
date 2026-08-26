@@ -21,7 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.4][#PR 2225](https://github.com/MeteoraAg/damm-v2/pull/225)
 
-- TODO
+### Added
+
+- Added `Config.permission`. Only private configs, meaning those with a `pool_creator_authority`, can hold permissions. The only permission so far is `CreatePoolWithoutMintValidation`, which lets `initialize_pool` and `initialize_pool_with_dynamic_config` skip mint validation for trusted configs.
+- Added new endpoint `update_config_permission` to set `Config.permission` on an existing config. Pass `permission = 0` to clear all permissions. Requires the new operator permission `OperatorPermission::UpdateConfigPermission`.
+
+### Changed
+
+- `create_config` and `create_dynamic_config` take a new trailing `permission: u128` field.
+
+### Breaking Changes
+
+- `EvtCreateConfig` and `EvtCreateDynamicConfig` include the new `permission` field.
 
 ## cp_amm [0.2.3][#PR 219](https://github.com/MeteoraAg/damm-v2/pull/219)
 

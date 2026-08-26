@@ -112,6 +112,14 @@ pub mod cp_amm {
         instructions::handle_close_config(ctx)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdateConfigPermission))]
+    pub fn update_config_permission(
+        ctx: Context<UpdateConfigPermissionCtx>,
+        permission: u128,
+    ) -> Result<()> {
+        instructions::handle_update_config_permission(ctx, permission)
+    }
+
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
     pub fn fix_pool_fee_params(
         ctx: Context<FixPoolFeeParamsCtx>,

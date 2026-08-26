@@ -144,22 +144,36 @@ export type CreateConfigParams = {
   poolCreatorAuthority: PublicKey;
   activationType: number; // 0: slot, 1: timestamp
   collectFeeMode: number; // 0: BothToken, 1: OnlyTokenB
+  permission?: BN; // ConfigPermission bitmask, defaults to 0
 };
 
 export type CreateDynamicConfigParams = {
   poolCreatorAuthority: PublicKey;
+  permission?: BN; // ConfigPermission bitmask, defaults to 0
 };
+
+export enum ConfigPermission {
+  CreatePoolWithoutMintValidation, // 0
+}
+
+export function encodeConfigPermissions(permissions: ConfigPermission[]): BN {
+  return permissions.reduce((acc, perm) => {
+    return acc.or(new BN(1).shln(perm));
+  }, new BN(0));
+}
 
 export async function createDynamicConfigIx(
   svm: LiteSVM,
   whitelistedAddress: Keypair,
   index: BN,
-  params: CreateDynamicConfigParams
+  params: CreateDynamicConfigParams,
+  errorCode?: number
 ): Promise<PublicKey> {
   const program = createCpAmmProgram();
   const config = deriveConfigAddress(index);
+  const permission = params.permission ?? new BN(0);
   const transaction = await program.methods
-    .createDynamicConfig(index, params)
+    .createDynamicConfig(index, { ...params, permission })
     .accountsPartial({
       config,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
@@ -171,6 +185,11 @@ export async function createDynamicConfigIx(
 
   const result = sendTransaction(svm, transaction, [whitelistedAddress]);
 
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+    return config;
+  }
+
   expect(result).instanceOf(TransactionMetadata);
 
   // Check data
@@ -178,6 +197,7 @@ export async function createDynamicConfigIx(
   expect(configState.poolCreatorAuthority.toString()).eq(
     params.poolCreatorAuthority.toString()
   );
+  expect(configState.permission.toString()).eq(permission.toString());
 
   expect(configState.configType).eq(1); // ConfigType: Dynamic
 
@@ -194,9 +214,10 @@ export async function createConfigIx(
   const program = createCpAmmProgram();
 
   const config = deriveConfigAddress(index);
+  const permission = params.permission ?? new BN(0);
 
   const transaction = await program.methods
-    .createConfig(index, params)
+    .createConfig(index, { ...params, permission })
     .accountsPartial({
       config,
       operator: deriveOperatorAddress(whitelistedAddress.publicKey),
@@ -231,6 +252,7 @@ export async function createConfigIx(
   expect(configState.sqrtMaxPrice.toString()).eq(
     params.sqrtMaxPrice.toString()
   );
+  expect(configState.permission.toString()).eq(permission.toString());
 
   // Check the offset at base_fee_serde.rs
   const baseFeeModeInParams = params.poolFees.baseFee.data[26];
@@ -427,6 +449,7 @@ export enum OperatorPermission {
   ClaimProtocolFee, // 9
   ZapProtocolFee, // 10
   FixPool, // 11
+  UpdateConfigPermission, // 12
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -461,6 +484,41 @@ export async function createOperator(
   const result = sendTransaction(svm, transaction, [admin]);
 
   expect(result).instanceOf(TransactionMetadata);
+}
+
+export type UpdateConfigPermissionParams = {
+  whitelistedAddress: Keypair;
+  config: PublicKey;
+  permission: BN;
+};
+
+export async function updateConfigPermission(
+  svm: LiteSVM,
+  params: UpdateConfigPermissionParams,
+  errorCode?: number
+) {
+  const { whitelistedAddress, config, permission } = params;
+  const program = createCpAmmProgram();
+  const transaction = await program.methods
+    .updateConfigPermission(permission)
+    .accountsPartial({
+      config,
+      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
+      signer: whitelistedAddress.publicKey,
+    })
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
+
+  if (errorCode !== undefined) {
+    expectThrowsErrorCode(result, errorCode);
+    return;
+  }
+
+  expect(result).instanceOf(TransactionMetadata);
+
+  const configState = getConfig(svm, config);
+  expect(configState.permission.toString()).eq(permission.toString());
 }
 
 export type UpdatePoolFeesParams = {

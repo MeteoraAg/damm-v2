@@ -1,12 +1,13 @@
 use anchor_lang::prelude::*;
 
-use crate::{event, PoolError};
+use crate::{event, state::Config, PoolError};
 
 use super::CreateConfigCtx;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug)]
 pub struct DynamicConfigParameters {
     pub pool_creator_authority: Pubkey,
+    pub permission: u128,
 }
 
 pub fn handle_create_dynamic_config(
@@ -16,6 +17,7 @@ pub fn handle_create_dynamic_config(
 ) -> Result<()> {
     let DynamicConfigParameters {
         pool_creator_authority,
+        permission,
     } = config_parameters;
 
     require!(
@@ -23,13 +25,16 @@ pub fn handle_create_dynamic_config(
         PoolError::InvalidPoolCreatorAuthority
     );
 
+    Config::validate(permission, &pool_creator_authority)?;
+
     let mut config = ctx.accounts.config.load_init()?;
-    config.init_dynamic_config(index, pool_creator_authority);
+    config.init_dynamic_config(index, pool_creator_authority, permission);
 
     emit_cpi!(event::EvtCreateDynamicConfig {
         config: ctx.accounts.config.key(),
         pool_creator_authority,
         index,
+        permission,
     });
 
     Ok(())
