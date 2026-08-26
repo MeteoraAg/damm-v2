@@ -20,8 +20,8 @@ use crate::{
     safe_math::SafeCast,
     state::{fee::BaseFeeMode, Config, ConfigPermission, ConfigType, Pool, PoolType, Position},
     token::{
-        calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
-        is_token_badge_initialized, transfer_from_user,
+        calculate_transfer_fee_included_amount, get_token_program_flags, transfer_from_user,
+        validate_mints_with_token_badge,
     },
     validate_initial_sqrt_price, EvtCreatePosition, EvtInitializePool, InitialPoolInformation,
     PoolError,
@@ -191,29 +191,11 @@ pub fn handle_initialize_pool<'info>(
     let config = ctx.accounts.config.load()?;
 
     if !config.is_permission_allow(ConfigPermission::CreatePoolWithoutMintValidation) {
-        if !is_supported_mint(&ctx.accounts.token_a_mint)? {
-            require!(
-                is_token_badge_initialized(
-                    ctx.accounts.token_a_mint.key(),
-                    ctx.remaining_accounts
-                        .get(0)
-                        .ok_or_else(|| PoolError::InvalidTokenBadge)?,
-                )?,
-                PoolError::InvalidTokenBadge
-            )
-        }
-
-        if !is_supported_mint(&ctx.accounts.token_b_mint)? {
-            require!(
-                is_token_badge_initialized(
-                    ctx.accounts.token_b_mint.key(),
-                    ctx.remaining_accounts
-                        .get(1)
-                        .ok_or_else(|| PoolError::InvalidTokenBadge)?,
-                )?,
-                PoolError::InvalidTokenBadge
-            )
-        }
+        validate_mints_with_token_badge(
+            &ctx.accounts.token_a_mint,
+            &ctx.accounts.token_b_mint,
+            ctx.remaining_accounts,
+        )?;
     }
 
     let InitializePoolParameters {

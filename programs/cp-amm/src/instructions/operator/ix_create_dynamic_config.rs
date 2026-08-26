@@ -25,7 +25,7 @@ pub fn handle_create_dynamic_config(
         PoolError::InvalidPoolCreatorAuthority
     );
 
-    Config::validate(permission, &pool_creator_authority)?;
+    Config::validate_permission(permission, &pool_creator_authority)?;
 
     let mut config = ctx.accounts.config.load_init()?;
     config.init_dynamic_config(index, pool_creator_authority, permission);

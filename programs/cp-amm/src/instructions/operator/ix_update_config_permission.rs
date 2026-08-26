@@ -22,7 +22,7 @@ pub fn handle_update_config_permission(
 ) -> Result<()> {
     let mut config = ctx.accounts.config.load_mut()?;
 
-    Config::validate(permission, &config.pool_creator_authority)?;
+    Config::validate_permission(permission, &config.pool_creator_authority)?;
 
     config.permission = permission;
 

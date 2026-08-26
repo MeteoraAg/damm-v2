@@ -60,7 +60,7 @@ pub fn handle_create_static_config(
         permission,
     } = config_parameters;
 
-    Config::validate(permission, &pool_creator_authority)?;
+    Config::validate_permission(permission, &pool_creator_authority)?;
 
     let pool_collect_fee_mode =
         CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::InvalidCollectFeeMode)?;

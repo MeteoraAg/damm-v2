@@ -271,7 +271,7 @@ pub fn get_timing_constraint_by_activation_type(
 }
 
 impl Config {
-    pub fn validate(permission: u128, pool_creator_authority: &Pubkey) -> Result<()> {
+    pub fn validate_permission(permission: u128, pool_creator_authority: &Pubkey) -> Result<()> {
         if permission != 0 {
             // only private config is allowed to have permissions
             require!(
