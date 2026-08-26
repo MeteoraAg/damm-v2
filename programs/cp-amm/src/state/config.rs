@@ -332,7 +332,8 @@ impl Config {
     }
 
     pub fn is_permission_allow(&self, permission: ConfigPermission) -> bool {
-        self.permission & (1u128 << Into::<u8>::into(permission)) != 0
+        let result = self.permission & (1u128 << Into::<u8>::into(permission));
+        result != 0
     }
 
     pub fn has_alpha_vault(&self) -> bool {

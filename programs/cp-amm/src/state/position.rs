@@ -4,7 +4,6 @@ use derive_variant_count::VariantCount;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
-use std::ops::BitAnd;
 use std::{cell::RefMut, u64};
 
 use crate::{
@@ -540,9 +539,7 @@ impl Position {
     }
 
     pub fn is_delegate_permission_allowed(&self, permission: PositionDelegatePermission) -> bool {
-        let result = self
-            .delegate_permission
-            .bitand(1u32 << Into::<u8>::into(permission));
+        let result = self.delegate_permission & (1u32 << Into::<u8>::into(permission));
         result != 0
     }
 

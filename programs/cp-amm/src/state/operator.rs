@@ -1,5 +1,3 @@
-use std::ops::BitAnd;
-
 use anchor_lang::prelude::*;
 use derive_variant_count::VariantCount;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -50,9 +48,7 @@ impl Operator {
     }
 
     pub fn is_permission_allow(&self, permission: OperatorPermission) -> bool {
-        let result: u128 = self
-            .permission
-            .bitand(1u128 << Into::<u8>::into(permission));
+        let result = self.permission & (1u128 << Into::<u8>::into(permission));
         result != 0
     }
 }
