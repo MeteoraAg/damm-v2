@@ -298,6 +298,24 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
     expect(getConfig(svm, config).permission.toString()).eq("0");
   });
 
+  it("update_config_permission removing bypass requires a token badge again", async () => {
+    const config = await createConfigIx(
+      svm,
+      configOperator,
+      nextIndex(),
+      staticConfigParams(creator.publicKey, bypass)
+    );
+
+    await updateConfigPermission(svm, {
+      whitelistedAddress: permissionOperator,
+      config,
+      permission: new BN(0),
+    });
+
+    const { result } = await initializePool(svm, initPoolParams(config));
+    expectThrowsErrorCode(result, invalidTokenBadge);
+  });
+
   it("update_config_permission rejects bypass on a public config", async () => {
     const config = await createConfigIx(
       svm,
@@ -320,6 +338,26 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
       },
       invalidConfigPermission
     );
+  });
+
+  it("update_config_permission rejects out-of-range permission on a private config", async () => {
+    const config = await createConfigIx(
+      svm,
+      configOperator,
+      nextIndex(),
+      staticConfigParams(creator.publicKey)
+    );
+
+    await updateConfigPermission(
+      svm,
+      {
+        whitelistedAddress: permissionOperator,
+        config,
+        permission: new BN(0b10),
+      },
+      invalidConfigPermission
+    );
+    expect(getConfig(svm, config).permission.toString()).eq("0");
   });
 
   it("initialize_customizable_pool still requires a token badge", async () => {
