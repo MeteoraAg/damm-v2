@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## cp_amm [0.2.4][#PR 2225](https://github.com/MeteoraAg/damm-v2/pull/225)
+
+- TODO
+
 ## cp_amm [0.2.3][#PR 219](https://github.com/MeteoraAg/damm-v2/pull/219)
 
 ### Deprecated
