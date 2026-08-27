@@ -30,6 +30,7 @@ pub struct EvtCreateConfig {
     pub collect_fee_mode: u8,
     pub index: u64,
     pub config: Pubkey,
+    pub permission: u128,
 }
 
 /// Create dynamic config
@@ -38,6 +39,7 @@ pub struct EvtCreateDynamicConfig {
     pub config: Pubkey,
     pub pool_creator_authority: Pubkey,
     pub index: u64,
+    pub permission: u128,
 }
 
 /// Create token badge

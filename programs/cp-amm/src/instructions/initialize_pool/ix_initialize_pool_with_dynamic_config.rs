@@ -12,10 +12,10 @@ use crate::{
     },
     create_position_nft, get_initial_pool_information, get_whitelisted_alpha_vault,
     safe_math::SafeCast,
-    state::{Config, ConfigType, Pool, PoolType, Position},
+    state::{Config, ConfigPermission, ConfigType, Pool, PoolType, Position},
     token::{
-        calculate_transfer_fee_included_amount, get_token_program_flags, is_supported_mint,
-        is_token_badge_initialized, transfer_from_user,
+        calculate_transfer_fee_included_amount, get_token_program_flags, transfer_from_user,
+        validate_mints_with_token_badge,
     },
     EvtCreatePosition, EvtInitializePool, InitialPoolInformation,
     InitializeCustomizablePoolParameters, PoolError,
@@ -169,28 +169,14 @@ pub fn handle_initialize_pool_with_dynamic_config<'info>(
     params: InitializeCustomizablePoolParameters,
 ) -> Result<()> {
     params.validate()?;
-    if !is_supported_mint(&ctx.accounts.token_a_mint)? {
-        require!(
-            is_token_badge_initialized(
-                ctx.accounts.token_a_mint.key(),
-                ctx.remaining_accounts
-                    .get(0)
-                    .ok_or(PoolError::InvalidTokenBadge)?,
-            )?,
-            PoolError::InvalidTokenBadge
-        )
-    }
+    let config = ctx.accounts.config.load()?;
 
-    if !is_supported_mint(&ctx.accounts.token_b_mint)? {
-        require!(
-            is_token_badge_initialized(
-                ctx.accounts.token_b_mint.key(),
-                ctx.remaining_accounts
-                    .get(1)
-                    .ok_or(PoolError::InvalidTokenBadge)?,
-            )?,
-            PoolError::InvalidTokenBadge
-        )
+    if !config.is_permission_allow(ConfigPermission::CreatePoolWithoutMintValidation) {
+        validate_mints_with_token_badge(
+            &ctx.accounts.token_a_mint,
+            &ctx.accounts.token_b_mint,
+            ctx.remaining_accounts,
+        )?;
     }
 
     let InitializeCustomizablePoolParameters {
@@ -207,8 +193,6 @@ pub fn handle_initialize_pool_with_dynamic_config<'info>(
     } = params;
 
     // init pool
-    let config = ctx.accounts.config.load()?;
-
     require!(
         config.get_config_type()? == ConfigType::Dynamic,
         PoolError::InvalidConfigType

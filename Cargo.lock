@@ -626,7 +626,7 @@ dependencies = [
 
 [[package]]
 name = "cp-amm"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -1620,7 +1620,7 @@ checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 
 [[package]]
 name = "rust-sdk"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "bytemuck",

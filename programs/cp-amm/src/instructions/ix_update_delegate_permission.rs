@@ -3,6 +3,7 @@ use anchor_spl::token_interface::TokenAccount;
 
 use crate::{
     state::{Position, PositionDelegatePermission},
+    utils::bits::bitmask_max,
     EvtUpdateDelegatePermission, PoolError,
 };
 
@@ -35,7 +36,7 @@ pub fn handle_update_delegate_permission(
     permission: u32,
 ) -> Result<()> {
     require!(
-        permission < 1u32 << PositionDelegatePermission::VARIANT_COUNT,
+        u128::from(permission) <= bitmask_max(PositionDelegatePermission::VARIANT_COUNT),
         PoolError::InvalidPermission
     );
 
