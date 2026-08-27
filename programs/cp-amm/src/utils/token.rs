@@ -270,6 +270,38 @@ pub fn is_token_badge_initialized<'info>(
     Ok(token_badge.token_mint == mint)
 }
 
+pub fn validate_mints_with_token_badge<'info>(
+    token_a_mint: &InterfaceAccount<'info, Mint>,
+    token_b_mint: &InterfaceAccount<'info, Mint>,
+    remaining_accounts: &'info [AccountInfo<'info>],
+) -> Result<()> {
+    if !is_supported_mint(token_a_mint)? {
+        require!(
+            is_token_badge_initialized(
+                token_a_mint.key(),
+                remaining_accounts
+                    .get(0)
+                    .ok_or_else(|| PoolError::InvalidTokenBadge)?,
+            )?,
+            PoolError::InvalidTokenBadge
+        )
+    }
+
+    if !is_supported_mint(token_b_mint)? {
+        require!(
+            is_token_badge_initialized(
+                token_b_mint.key(),
+                remaining_accounts
+                    .get(1)
+                    .ok_or_else(|| PoolError::InvalidTokenBadge)?,
+            )?,
+            PoolError::InvalidTokenBadge
+        )
+    }
+
+    Ok(())
+}
+
 pub fn update_account_lamports_to_minimum_balance<'info>(
     account: AccountInfo<'info>,
     payer: AccountInfo<'info>,

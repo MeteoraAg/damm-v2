@@ -230,4 +230,7 @@ pub enum PoolError {
 
     #[msg("Deprecated base fee mode")]
     DeprecatedBaseFeeMode,
+
+    #[msg("Invalid config permission")]
+    InvalidConfigPermission,
 }

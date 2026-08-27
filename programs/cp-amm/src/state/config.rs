@@ -7,8 +7,10 @@ use crate::{
     params::fee_parameters::{BaseFeeParameters, DynamicFeeParameters, PoolFeeParameters},
     safe_math::SafeMath,
     state::fee::{BaseFeeStruct, DynamicFeeStruct, PoolFeesStruct},
+    utils::bits::bitmask_max,
 };
 use anchor_lang::prelude::*;
+use derive_variant_count::VariantCount;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::{assert_eq_align, const_assert_eq};
 
@@ -195,12 +197,30 @@ pub struct Config {
     pub sqrt_min_price: u128,
     /// sqrt max price
     pub sqrt_max_price: u128,
-    /// Fee curve point
+    /// config permission bitmask
+    pub permission: u128,
     /// Padding for further use
-    pub _padding_1: [u64; 10],
+    pub _padding_1: [u64; 8],
 }
 
 const_assert_eq!(Config::INIT_SPACE, 320);
+
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
+    VariantCount,
+)]
+pub enum ConfigPermission {
+    /// Skip `is_supported_mint` and token badge checks when initializing a pool with this config
+    CreatePoolWithoutMintValidation, // 0
+}
 
 pub struct BootstrappingConfig {
     pub activation_point: u64,
@@ -251,6 +271,23 @@ pub fn get_timing_constraint_by_activation_type(
 }
 
 impl Config {
+    pub fn validate_permission(permission: u128, pool_creator_authority: &Pubkey) -> Result<()> {
+        if permission != 0 {
+            // only private config is allowed to have permissions
+            require!(
+                pool_creator_authority.ne(&Pubkey::default()),
+                PoolError::InvalidConfigPermission
+            );
+        }
+
+        require!(
+            permission <= bitmask_max(ConfigPermission::VARIANT_COUNT),
+            PoolError::InvalidConfigPermission
+        );
+
+        Ok(())
+    }
+
     pub fn init_static_config(
         &mut self,
         index: u64,
@@ -261,8 +298,10 @@ impl Config {
         sqrt_min_price: u128,
         sqrt_max_price: u128,
         collect_fee_mode: u8,
+        permission: u128,
     ) -> Result<()> {
         self.index = index;
+        self.permission = permission;
         self.pool_fees = pool_fees.to_pool_fees_config()?;
         self.vault_config_key = vault_config_key;
         self.pool_creator_authority = pool_creator_authority;
@@ -280,10 +319,21 @@ impl Config {
         Ok(config_type)
     }
 
-    pub fn init_dynamic_config(&mut self, index: u64, pool_creator_authority: Pubkey) {
+    pub fn init_dynamic_config(
+        &mut self,
+        index: u64,
+        pool_creator_authority: Pubkey,
+        permission: u128,
+    ) {
         self.index = index;
+        self.permission = permission;
         self.pool_creator_authority = pool_creator_authority;
         self.config_type = ConfigType::Dynamic.into();
+    }
+
+    pub fn is_permission_allow(&self, permission: ConfigPermission) -> bool {
+        let result = self.permission & (1u128 << Into::<u8>::into(permission));
+        result != 0
     }
 
     pub fn has_alpha_vault(&self) -> bool {
