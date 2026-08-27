@@ -42,13 +42,6 @@ pub struct EvtCreateDynamicConfig {
     pub permission: u128,
 }
 
-#[event]
-pub struct EvtUpdateConfigPermission {
-    pub config: Pubkey,
-    pub signer: Pubkey,
-    pub permission: u128,
-}
-
 /// Create token badge
 #[event]
 pub struct EvtCreateTokenBadge {

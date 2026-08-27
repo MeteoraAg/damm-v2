@@ -16,19 +16,18 @@ use static_assertions::const_assert_eq;
     VariantCount,
 )]
 pub enum OperatorPermission {
-    CreateConfigKey,        // 0
-    RemoveConfigKey,        // 1
-    CreateTokenBadge,       // 2
-    CloseTokenBadge,        // 3
-    SetPoolStatus,          // 4
-    InitializeReward,       // 5
-    UpdateRewardDuration,   // 6
-    UpdateRewardFunder,     // 7
-    UpdatePoolFees,         // 8
-    ClaimProtocolFee,       // 9 - Deprecated. Kept for enum ordering
-    ZapProtocolFee,         // 10 - Deprecated. Kept for enum ordering
-    FixPool,                // 11
-    UpdateConfigPermission, // 12
+    CreateConfigKey,      // 0
+    RemoveConfigKey,      // 1
+    CreateTokenBadge,     // 2
+    CloseTokenBadge,      // 3
+    SetPoolStatus,        // 4
+    InitializeReward,     // 5
+    UpdateRewardDuration, // 6
+    UpdateRewardFunder,   // 7
+    UpdatePoolFees,       // 8
+    ClaimProtocolFee,     // 9 - Deprecated. Kept for enum ordering
+    ZapProtocolFee,       // 10 - Deprecated. Kept for enum ordering
+    FixPool,              // 11
 }
 
 #[account(zero_copy)]

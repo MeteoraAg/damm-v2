@@ -24,7 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `Config.permission`. Only private configs, meaning those with a `pool_creator_authority`, can hold permissions. The only permission so far is `CreatePoolWithoutMintValidation`, which lets `initialize_pool` and `initialize_pool_with_dynamic_config` skip mint validation for trusted configs.
-- Added new endpoint `update_config_permission` to set `Config.permission` on an existing config. Pass `permission = 0` to clear all permissions. Requires the new operator permission `OperatorPermission::UpdateConfigPermission`.
 
 ### Changed
 

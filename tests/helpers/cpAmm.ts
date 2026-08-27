@@ -449,7 +449,6 @@ export enum OperatorPermission {
   ClaimProtocolFee, // 9
   ZapProtocolFee, // 10
   FixPool, // 11
-  UpdateConfigPermission, // 12
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -484,41 +483,6 @@ export async function createOperator(
   const result = sendTransaction(svm, transaction, [admin]);
 
   expect(result).instanceOf(TransactionMetadata);
-}
-
-export type UpdateConfigPermissionParams = {
-  whitelistedAddress: Keypair;
-  config: PublicKey;
-  permission: BN;
-};
-
-export async function updateConfigPermission(
-  svm: LiteSVM,
-  params: UpdateConfigPermissionParams,
-  errorCode?: number
-) {
-  const { whitelistedAddress, config, permission } = params;
-  const program = createCpAmmProgram();
-  const transaction = await program.methods
-    .updateConfigPermission(permission)
-    .accountsPartial({
-      config,
-      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      signer: whitelistedAddress.publicKey,
-    })
-    .transaction();
-
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-
-  if (errorCode !== undefined) {
-    expectThrowsErrorCode(result, errorCode);
-    return;
-  }
-
-  expect(result).instanceOf(TransactionMetadata);
-
-  const configState = getConfig(svm, config);
-  expect(configState.permission.toString()).eq(permission.toString());
 }
 
 export type UpdatePoolFeesParams = {

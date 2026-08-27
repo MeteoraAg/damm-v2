@@ -27,7 +27,6 @@ import {
   encodePermissions,
   startSvm,
   expectThrowsErrorCode,
-  updateConfigPermission,
 } from "./helpers";
 import BN from "bn.js";
 import {
@@ -42,14 +41,12 @@ const invalidConfigPermission = getCpAmmProgramErrorCode(
   "InvalidConfigPermission"
 );
 const invalidTokenBadge = getCpAmmProgramErrorCode("InvalidTokenBadge");
-const invalidPermission = getCpAmmProgramErrorCode("InvalidPermission");
 
 describe("Config permission: CreatePoolWithoutMintValidation", () => {
   let svm: LiteSVM;
   let creator: Keypair;
   let admin: Keypair;
   let configOperator: Keypair;
-  let permissionOperator: Keypair;
 
   // Token-2022 mint with PermanentDelegate: never permissionless, always needs a badge
   let tokenAMint: PublicKey;
@@ -108,7 +105,6 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
     creator = generateKpAndFund(svm);
     admin = generateKpAndFund(svm);
     configOperator = generateKpAndFund(svm);
-    permissionOperator = generateKpAndFund(svm);
 
     const tokenAMintKeypair = Keypair.generate();
     tokenAMint = tokenAMintKeypair.publicKey;
@@ -132,13 +128,6 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
       admin,
       whitelistAddress: configOperator.publicKey,
       permission: encodePermissions([OperatorPermission.CreateConfigKey]),
-    });
-    await createOperator(svm, {
-      admin,
-      whitelistAddress: permissionOperator.publicKey,
-      permission: encodePermissions([
-        OperatorPermission.UpdateConfigPermission,
-      ]),
     });
   });
 
@@ -257,107 +246,6 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
     );
 
     await initializePoolWithCustomizeConfig(svm, params);
-  });
-
-  it("update_config_permission enables bypass on an existing config", async () => {
-    const config = await createConfigIx(
-      svm,
-      configOperator,
-      nextIndex(),
-      staticConfigParams(creator.publicKey)
-    );
-
-    const { result: before } = await initializePool(
-      svm,
-      initPoolParams(config)
-    );
-    expectThrowsErrorCode(before, invalidTokenBadge);
-
-    // operator without UpdateConfigPermission is rejected
-    await updateConfigPermission(
-      svm,
-      { whitelistedAddress: configOperator, config, permission: bypass },
-      invalidPermission
-    );
-
-    await updateConfigPermission(svm, {
-      whitelistedAddress: permissionOperator,
-      config,
-      permission: bypass,
-    });
-
-    const { pool } = await initializePool(svm, initPoolParams(config));
-    expect(getPool(svm, pool).tokenAMint.toString()).eq(tokenAMint.toString());
-
-    // and back off again
-    await updateConfigPermission(svm, {
-      whitelistedAddress: permissionOperator,
-      config,
-      permission: new BN(0),
-    });
-    expect(getConfig(svm, config).permission.toString()).eq("0");
-  });
-
-  it("update_config_permission removing bypass requires a token badge again", async () => {
-    const config = await createConfigIx(
-      svm,
-      configOperator,
-      nextIndex(),
-      staticConfigParams(creator.publicKey, bypass)
-    );
-
-    await updateConfigPermission(svm, {
-      whitelistedAddress: permissionOperator,
-      config,
-      permission: new BN(0),
-    });
-
-    const { result } = await initializePool(svm, initPoolParams(config));
-    expectThrowsErrorCode(result, invalidTokenBadge);
-  });
-
-  it("update_config_permission rejects bypass on a public config", async () => {
-    const config = await createConfigIx(
-      svm,
-      configOperator,
-      nextIndex(),
-      staticConfigParams(PublicKey.default)
-    );
-
-    await updateConfigPermission(
-      svm,
-      { whitelistedAddress: permissionOperator, config, permission: bypass },
-      invalidConfigPermission
-    );
-    await updateConfigPermission(
-      svm,
-      {
-        whitelistedAddress: permissionOperator,
-        config,
-        permission: new BN(0b10),
-      },
-      invalidConfigPermission
-    );
-  });
-
-  it("update_config_permission rejects out-of-range permission on a private config", async () => {
-    const config = await createConfigIx(
-      svm,
-      configOperator,
-      nextIndex(),
-      staticConfigParams(creator.publicKey)
-    );
-
-    await updateConfigPermission(
-      svm,
-      {
-        whitelistedAddress: permissionOperator,
-        config,
-        permission: new BN(0b10),
-      },
-      invalidConfigPermission
-    );
-    expect(getConfig(svm, config).permission.toString()).eq("0");
   });
 
   it("initialize_customizable_pool still requires a token badge", async () => {
