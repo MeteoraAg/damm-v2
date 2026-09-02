@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    token_2022::Token2022,
+    token_2022::{spl_token_2022, Token2022},
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use std::{
@@ -190,7 +190,13 @@ pub fn handle_initialize_pool<'info>(
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
 
-    if !config.is_permission_allow(ConfigPermission::CreatePoolWithoutMintValidation) {
+    if config.is_permission_allow(ConfigPermission::CreatePoolWithoutMintValidation) {
+        require!(
+            !spl_token_2022::native_mint::check_id(&ctx.accounts.token_a_mint.key())
+                && !spl_token_2022::native_mint::check_id(&ctx.accounts.token_b_mint.key()),
+            PoolError::UnsupportNativeMintToken2022
+        );
+    } else {
         validate_mints_with_token_badge(
             &ctx.accounts.token_a_mint,
             &ctx.accounts.token_b_mint,
