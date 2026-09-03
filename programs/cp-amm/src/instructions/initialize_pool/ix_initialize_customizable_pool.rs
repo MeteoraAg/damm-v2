@@ -21,7 +21,7 @@ use crate::{
     state::{CollectFeeMode, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, transfer_from_user,
-        validate_mints_with_token_badge,
+        validate_mint,
     },
     EvtCreatePosition, EvtInitializePool, InitialPoolInformation, PoolError,
 };
@@ -253,10 +253,15 @@ pub fn handle_initialize_customizable_pool<'info>(
     params: InitializeCustomizablePoolParameters,
 ) -> Result<()> {
     params.validate()?;
-    validate_mints_with_token_badge(
+    validate_mint(
         &ctx.accounts.token_a_mint,
+        false,
+        ctx.remaining_accounts.get(0),
+    )?;
+    validate_mint(
         &ctx.accounts.token_b_mint,
-        ctx.remaining_accounts,
+        false,
+        ctx.remaining_accounts.get(1),
     )?;
 
     let InitializeCustomizablePoolParameters {

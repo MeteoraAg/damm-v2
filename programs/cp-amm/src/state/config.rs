@@ -218,7 +218,7 @@ const_assert_eq!(Config::INIT_SPACE, 320);
     VariantCount,
 )]
 pub enum ConfigPermission {
-    /// Skip `is_supported_mint` and token badge checks when initializing a pool with this config
+    /// Skip `is_permissionless_supported_mint` and token badge checks when initializing a pool with this config.
     CreatePoolWithoutMintValidation, // 0
 }
 

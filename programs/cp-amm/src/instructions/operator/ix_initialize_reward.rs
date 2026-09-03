@@ -9,7 +9,7 @@ use crate::{
     error::PoolError,
     event::EvtInitializeReward,
     state::{Operator, OperatorPermission, Pool},
-    token::{get_token_program_flags, is_supported_mint, is_token_badge_initialized},
+    token::{get_token_program_flags, validate_mint},
 };
 
 #[event_cpi]
@@ -69,17 +69,11 @@ pub fn handle_initialize_reward<'info>(
     reward_duration: u64,
     funder: Pubkey,
 ) -> Result<()> {
-    if !is_supported_mint(&ctx.accounts.reward_mint)? {
-        require!(
-            is_token_badge_initialized(
-                ctx.accounts.reward_mint.key(),
-                ctx.remaining_accounts
-                    .get(0)
-                    .ok_or(PoolError::InvalidTokenBadge)?
-            )?,
-            PoolError::InvalidTokenBadge
-        );
-    }
+    validate_mint(
+        &ctx.accounts.reward_mint,
+        false,
+        ctx.remaining_accounts.get(0),
+    )?;
     let index: usize = reward_index
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;

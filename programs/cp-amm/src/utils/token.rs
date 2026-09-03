@@ -220,7 +220,7 @@ pub fn transfer_from_pool<'info>(
     Ok(())
 }
 
-pub fn is_supported_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
+pub fn is_permissionless_supported_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> {
     let mint_info = mint_account.to_account_info();
     if *mint_info.owner == Token::id() {
         return Ok(true);
@@ -261,43 +261,38 @@ pub fn is_supported_mint(mint_account: &InterfaceAccount<Mint>) -> Result<bool> 
     Ok(true)
 }
 
-pub fn is_token_badge_initialized<'info>(
-    mint: Pubkey,
-    token_badge: &'info AccountInfo<'info>,
-) -> Result<bool> {
-    let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
-    let token_badge = token_badge.load()?;
-    Ok(token_badge.token_mint == mint)
-}
-
-pub fn validate_mints_with_token_badge<'info>(
-    token_a_mint: &InterfaceAccount<'info, Mint>,
-    token_b_mint: &InterfaceAccount<'info, Mint>,
-    remaining_accounts: &'info [AccountInfo<'info>],
+pub fn validate_mint<'info>(
+    mint_account: &InterfaceAccount<'info, Mint>,
+    skip_mint_validation: bool,
+    token_badge: Option<&'info AccountInfo<'info>>,
 ) -> Result<()> {
-    if !is_supported_mint(token_a_mint)? {
-        require!(
-            is_token_badge_initialized(
-                token_a_mint.key(),
-                remaining_accounts
-                    .get(0)
-                    .ok_or_else(|| PoolError::InvalidTokenBadge)?,
-            )?,
-            PoolError::InvalidTokenBadge
-        )
+    let token_mint_key = mint_account.key();
+
+    // retain duplicated validation with is_permissionless_supported_mint
+    require!(
+        token_mint_key.ne(&spl_token_2022::native_mint::ID),
+        PoolError::UnsupportNativeMintToken2022
+    );
+
+    if skip_mint_validation {
+        return Ok(());
     }
 
-    if !is_supported_mint(token_b_mint)? {
+    // token badge slot can be sentinel values
+    if let Some(account) = token_badge.filter(|account| account.key.ne(&crate::ID)) {
+        let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(account)?;
+        let token_badge = token_badge.load()?;
         require!(
-            is_token_badge_initialized(
-                token_b_mint.key(),
-                remaining_accounts
-                    .get(1)
-                    .ok_or_else(|| PoolError::InvalidTokenBadge)?,
-            )?,
+            token_badge.token_mint.eq(&token_mint_key),
             PoolError::InvalidTokenBadge
-        )
+        );
+        return Ok(());
     }
+
+    require!(
+        is_permissionless_supported_mint(mint_account)?,
+        PoolError::UnsupportedMint
+    );
 
     Ok(())
 }
