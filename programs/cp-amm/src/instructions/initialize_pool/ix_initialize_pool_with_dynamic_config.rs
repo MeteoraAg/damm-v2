@@ -15,7 +15,7 @@ use crate::{
     state::{Config, ConfigPermission, ConfigType, Pool, PoolType, Position},
     token::{
         calculate_transfer_fee_included_amount, get_token_program_flags, transfer_from_user,
-        validate_mints_with_token_badge,
+        validate_mint,
     },
     EvtCreatePosition, EvtInitializePool, InitialPoolInformation,
     InitializeCustomizablePoolParameters, PoolError,
@@ -171,13 +171,19 @@ pub fn handle_initialize_pool_with_dynamic_config<'info>(
     params.validate()?;
     let config = ctx.accounts.config.load()?;
 
-    if !config.is_permission_allow(ConfigPermission::CreatePoolWithoutMintValidation) {
-        validate_mints_with_token_badge(
-            &ctx.accounts.token_a_mint,
-            &ctx.accounts.token_b_mint,
-            ctx.remaining_accounts,
-        )?;
-    }
+    let skip_mint_validation =
+        config.is_permission_allow(ConfigPermission::CreatePoolWithoutMintValidation);
+
+    validate_mint(
+        &ctx.accounts.token_a_mint,
+        skip_mint_validation,
+        ctx.remaining_accounts.get(0),
+    )?;
+    validate_mint(
+        &ctx.accounts.token_b_mint,
+        skip_mint_validation,
+        ctx.remaining_accounts.get(1),
+    )?;
 
     let InitializeCustomizablePoolParameters {
         pool_fees,
