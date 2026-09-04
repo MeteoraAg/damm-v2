@@ -142,7 +142,7 @@ describe("Permissionless transfer hook", () => {
       activationPoint: null,
     };
 
-    const errorCode = getCpAmmProgramErrorCode("UnsupportedMint");
+    const errorCode = getCpAmmProgramErrorCode("InvalidTokenBadge");
     const { result } = await initializePool(svm, initPoolParams);
     expectThrowsErrorCode(result, errorCode);
 

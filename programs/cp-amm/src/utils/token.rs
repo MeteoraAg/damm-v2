@@ -274,24 +274,16 @@ pub fn validate_mint<'info>(
         PoolError::UnsupportNativeMintToken2022
     );
 
-    if skip_mint_validation {
+    if skip_mint_validation || is_permissionless_supported_mint(mint_account)? {
         return Ok(());
     }
 
-    // token badge slot can be sentinel values
-    if let Some(account) = token_badge.filter(|account| account.key.ne(&crate::ID)) {
-        let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(account)?;
-        let token_badge = token_badge.load()?;
-        require!(
-            token_badge.token_mint.eq(&token_mint_key),
-            PoolError::InvalidTokenBadge
-        );
-        return Ok(());
-    }
-
+    let token_badge = token_badge.ok_or_else(|| PoolError::InvalidTokenBadge)?;
+    let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
+    let token_badge = token_badge.load()?;
     require!(
-        is_permissionless_supported_mint(mint_account)?,
-        PoolError::UnsupportedMint
+        token_badge.token_mint.eq(&token_mint_key),
+        PoolError::InvalidTokenBadge
     );
 
     Ok(())

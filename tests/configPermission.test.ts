@@ -43,7 +43,7 @@ import { LiteSVM } from "litesvm";
 const invalidConfigPermission = getCpAmmProgramErrorCode(
   "InvalidConfigPermission"
 );
-const unsupportedMint = getCpAmmProgramErrorCode("UnsupportedMint");
+const invalidTokenBadge = getCpAmmProgramErrorCode("InvalidTokenBadge");
 const unsupportNativeMintToken2022 = getCpAmmProgramErrorCode(
   "UnsupportNativeMintToken2022"
 );
@@ -227,7 +227,7 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
     expect(getConfig(svm, config).permission.toString()).eq("0");
 
     const { result } = await initializePool(svm, initPoolParams(config));
-    expectThrowsErrorCode(result, unsupportedMint);
+    expectThrowsErrorCode(result, invalidTokenBadge);
   });
 
   it("static private config with bypass creates pool without token badge", async () => {
@@ -268,7 +268,7 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
     await initializePoolWithCustomizeConfig(
       svm,
       { ...params, customizeConfigAddress: noBypassConfig },
-      unsupportedMint
+      invalidTokenBadge
     );
 
     await initializePoolWithCustomizeConfig(svm, params);
@@ -366,6 +366,6 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
       collectFeeMode: 0,
       activationPoint: null,
     };
-    await initializeCustomizablePool(svm, params, unsupportedMint);
+    await initializeCustomizablePool(svm, params, invalidTokenBadge);
   });
 });

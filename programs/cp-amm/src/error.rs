@@ -233,7 +233,4 @@ pub enum PoolError {
 
     #[msg("Invalid config permission")]
     InvalidConfigPermission,
-
-    #[msg("Unsupported mint")]
-    UnsupportedMint,
 }
