@@ -16,6 +16,7 @@ use static_assertions::const_assert_eq;
     VariantCount,
 )]
 pub enum OperatorPermission {
+    // CreateConfigKey can grant CreatePoolWithoutMintValidation on a private config. This is similar to CreateTokenBadge but on a config level
     CreateConfigKey,      // 0
     RemoveConfigKey,      // 1
     CreateTokenBadge,     // 2
