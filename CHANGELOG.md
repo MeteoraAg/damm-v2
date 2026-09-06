@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `Config.permission`. Only private configs, meaning those with a `pool_creator_authority`, can hold permissions. The only permission so far is `CreatePoolWithoutMintValidation`, which lets `initialize_pool` and `initialize_pool_with_dynamic_config` skip mint validation for trusted configs.
+- Added `Config.permission`. Only private configs, meaning those with a `pool_creator_authority`, can hold permissions. The only permission so far is `CreatePoolWithoutMintValidation`, which lets `initialize_pool` and `initialize_pool_with_dynamic_config` skip the standard mint validation for trusted configs. The Token-2022 wrapped SOL is still rejected under this permission, use the SPL wrapped SOL instead.
 
 ### Changed
 

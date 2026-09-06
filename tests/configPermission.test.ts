@@ -30,10 +30,13 @@ import {
 } from "./helpers";
 import BN from "bn.js";
 import {
+  createNativeMintToken2022,
   createToken2022,
   createPermenantDelegateExtensionWithInstruction,
   mintToToken2022,
 } from "./helpers/token2022";
+import { getOrCreateAssociatedTokenAccount } from "./helpers/token";
+import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import { LiteSVM } from "litesvm";
 
@@ -41,6 +44,9 @@ const invalidConfigPermission = getCpAmmProgramErrorCode(
   "InvalidConfigPermission"
 );
 const invalidTokenBadge = getCpAmmProgramErrorCode("InvalidTokenBadge");
+const unsupportNativeMintToken2022 = getCpAmmProgramErrorCode(
+  "UnsupportNativeMintToken2022"
+);
 
 describe("Config permission: CreatePoolWithoutMintValidation", () => {
   let svm: LiteSVM;
@@ -98,6 +104,54 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
       sqrtPrice: new BN(MIN_SQRT_PRICE),
       activationPoint: null,
     };
+  }
+
+  function dynamicPoolParams(
+    config: PublicKey
+  ): InitializePoolWithCustomizeConfigParams {
+    const data = encodeFeeTimeSchedulerParams(
+      BigInt(2_500_000),
+      0,
+      BigInt(0),
+      BigInt(0),
+      BaseFeeMode.FeeTimeSchedulerLinear
+    );
+    return {
+      payer: creator,
+      creator: creator.publicKey,
+      poolCreatorAuthority: creator,
+      customizeConfigAddress: config,
+      tokenAMint,
+      tokenBMint,
+      liquidity: new BN(MIN_LP_AMOUNT),
+      sqrtPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+      hasAlphaVault: false,
+      activationPoint: null,
+      poolFees: {
+        baseFee: { data: Array.from(data) },
+        compoundingFeeBps: 0,
+        padding: 0,
+        dynamicFee: null,
+      },
+      activationType: 0,
+      collectFeeMode: 0,
+    };
+  }
+
+  // Token-2022 native mint (wrapped SOL) with a funded payer ATA, so the
+  // instruction reaches the handler and fails on the mint check itself.
+  function setupNativeMintToken2022(): PublicKey {
+    const nativeMint = createNativeMintToken2022(svm);
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      creator,
+      nativeMint,
+      creator.publicKey,
+      TOKEN_2022_PROGRAM_ID
+    );
+    return nativeMint;
   }
 
   beforeEach(async () => {
@@ -202,35 +256,7 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
       dynamicParams
     );
 
-    const data = encodeFeeTimeSchedulerParams(
-      BigInt(2_500_000),
-      0,
-      BigInt(0),
-      BigInt(0),
-      BaseFeeMode.FeeTimeSchedulerLinear
-    );
-    const params: InitializePoolWithCustomizeConfigParams = {
-      payer: creator,
-      creator: creator.publicKey,
-      poolCreatorAuthority: creator,
-      customizeConfigAddress: config,
-      tokenAMint,
-      tokenBMint,
-      liquidity: new BN(MIN_LP_AMOUNT),
-      sqrtPrice: new BN(MIN_SQRT_PRICE),
-      sqrtMinPrice: new BN(MIN_SQRT_PRICE),
-      sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
-      hasAlphaVault: false,
-      activationPoint: null,
-      poolFees: {
-        baseFee: { data: Array.from(data) },
-        compoundingFeeBps: 0,
-        padding: 0,
-        dynamicFee: null,
-      },
-      activationType: 0,
-      collectFeeMode: 0,
-    };
+    const params = dynamicPoolParams(config);
 
     // without bypass the same call fails
     const noBypassConfig = await createDynamicConfigIx(
@@ -246,6 +272,70 @@ describe("Config permission: CreatePoolWithoutMintValidation", () => {
     );
 
     await initializePoolWithCustomizeConfig(svm, params);
+  });
+
+  it("static config with bypass still rejects Token-2022 native mint as token A", async () => {
+    const config = await createConfigIx(
+      svm,
+      configOperator,
+      nextIndex(),
+      staticConfigParams(creator.publicKey, bypass)
+    );
+
+    const nativeMint = setupNativeMintToken2022();
+    const { result } = await initializePool(svm, {
+      ...initPoolParams(config),
+      tokenAMint: nativeMint,
+    });
+    expectThrowsErrorCode(result, unsupportNativeMintToken2022);
+  });
+
+  it("static config with bypass still rejects Token-2022 native mint as token B", async () => {
+    const config = await createConfigIx(
+      svm,
+      configOperator,
+      nextIndex(),
+      staticConfigParams(creator.publicKey, bypass)
+    );
+
+    const nativeMint = setupNativeMintToken2022();
+    const { result } = await initializePool(svm, {
+      ...initPoolParams(config),
+      tokenBMint: nativeMint,
+    });
+    expectThrowsErrorCode(result, unsupportNativeMintToken2022);
+  });
+
+  it("dynamic config with bypass still rejects Token-2022 native mint as token A", async () => {
+    const config = await createDynamicConfigIx(
+      svm,
+      configOperator,
+      nextIndex(),
+      { poolCreatorAuthority: creator.publicKey, permission: bypass }
+    );
+
+    const nativeMint = setupNativeMintToken2022();
+    await initializePoolWithCustomizeConfig(
+      svm,
+      { ...dynamicPoolParams(config), tokenAMint: nativeMint },
+      unsupportNativeMintToken2022
+    );
+  });
+
+  it("dynamic config with bypass still rejects Token-2022 native mint as token B", async () => {
+    const config = await createDynamicConfigIx(
+      svm,
+      configOperator,
+      nextIndex(),
+      { poolCreatorAuthority: creator.publicKey, permission: bypass }
+    );
+
+    const nativeMint = setupNativeMintToken2022();
+    await initializePoolWithCustomizeConfig(
+      svm,
+      { ...dynamicPoolParams(config), tokenBMint: nativeMint },
+      unsupportNativeMintToken2022
+    );
   });
 
   it("initialize_customizable_pool still requires a token badge", async () => {
