@@ -18,6 +18,7 @@ pub struct StaticConfigParameters {
     pub pool_creator_authority: Pubkey,
     pub activation_type: u8,
     pub collect_fee_mode: u8,
+    pub permission: u128,
 }
 
 #[event_cpi]
@@ -56,7 +57,10 @@ pub fn handle_create_static_config(
         sqrt_min_price,
         sqrt_max_price,
         collect_fee_mode,
+        permission,
     } = config_parameters;
+
+    Config::validate_permission(permission, &pool_creator_authority)?;
 
     let pool_collect_fee_mode =
         CollectFeeMode::try_from(collect_fee_mode).map_err(|_| PoolError::InvalidCollectFeeMode)?;
@@ -106,6 +110,7 @@ pub fn handle_create_static_config(
         sqrt_min_price,
         sqrt_max_price,
         collect_fee_mode,
+        permission,
     )?;
 
     emit_cpi!(event::EvtCreateConfig {
@@ -118,6 +123,7 @@ pub fn handle_create_static_config(
         sqrt_min_price,
         sqrt_max_price,
         index,
+        permission,
     });
 
     Ok(())

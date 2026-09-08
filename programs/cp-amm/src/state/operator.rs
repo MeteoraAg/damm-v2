@@ -1,5 +1,3 @@
-use std::ops::BitAnd;
-
 use anchor_lang::prelude::*;
 use derive_variant_count::VariantCount;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -18,6 +16,7 @@ use static_assertions::const_assert_eq;
     VariantCount,
 )]
 pub enum OperatorPermission {
+    // CreateConfigKey can grant CreatePoolWithoutMintValidation on a private config. This is similar to CreateTokenBadge but on a config level
     CreateConfigKey,      // 0
     RemoveConfigKey,      // 1
     CreateTokenBadge,     // 2
@@ -49,9 +48,7 @@ impl Operator {
     }
 
     pub fn is_permission_allow(&self, permission: OperatorPermission) -> bool {
-        let result: u128 = self
-            .permission
-            .bitand(1u128 << Into::<u8>::into(permission));
+        let result = self.permission & (1u128 << Into::<u8>::into(permission));
         result != 0
     }
 }

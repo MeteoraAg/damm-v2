@@ -1,6 +1,7 @@
 use crate::{
     constants::seeds::OPERATOR_PREFIX,
     state::{Operator, OperatorPermission},
+    utils::bits::bitmask_max,
     PoolError,
 };
 use anchor_lang::prelude::*;
@@ -36,7 +37,7 @@ pub fn handle_create_operator(
     permission: u128,
 ) -> Result<()> {
     require!(
-        permission > 0 && permission < 1u128 << OperatorPermission::VARIANT_COUNT,
+        permission > 0 && permission <= bitmask_max(OperatorPermission::VARIANT_COUNT),
         PoolError::InvalidPermission
     );
 

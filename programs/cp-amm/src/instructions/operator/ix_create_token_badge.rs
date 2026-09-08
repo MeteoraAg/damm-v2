@@ -4,7 +4,7 @@ use anchor_spl::token_interface::Mint;
 use crate::{
     constants::seeds::TOKEN_BADGE_PREFIX,
     state::{Operator, TokenBadge},
-    token::is_supported_mint,
+    token::is_permissionless_supported_mint,
     EvtCreateTokenBadge, PoolError,
 };
 
@@ -37,7 +37,7 @@ pub struct CreateTokenBadgeCtx<'info> {
 
 pub fn handle_create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
     require!(
-        !is_supported_mint(&ctx.accounts.token_mint)?,
+        !is_permissionless_supported_mint(&ctx.accounts.token_mint)?,
         PoolError::CannotCreateTokenBadgeOnSupportedMint
     );
     let mut token_badge = ctx.accounts.token_badge.load_init()?;

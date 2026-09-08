@@ -27,11 +27,13 @@ fn config_account_layout_backward_compatible() {
     let number_of_period = 120;
     let period_frequency = 60u64;
     let reduction_factor = 417;
+    let permission = 0; // `permission` was carved out of `_padding_1`, so pre-existing config decodes as 0
     assert_eq!(cliff_fee_numerator, fee_scheduler.cliff_fee_numerator);
     assert_eq!(base_fee_mode, fee_scheduler.base_fee_mode);
     assert_eq!(number_of_period, fee_scheduler.number_of_period);
     assert_eq!(period_frequency, fee_scheduler.period_frequency);
     assert_eq!(reduction_factor, fee_scheduler.reduction_factor);
+    assert_eq!(config_state.permission, permission);
 }
 
 #[test]
