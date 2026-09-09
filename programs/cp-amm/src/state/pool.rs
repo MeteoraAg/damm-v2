@@ -56,6 +56,12 @@ pub enum CollectFeeMode {
     Compounding,
 }
 
+impl CollectFeeMode {
+    pub fn is_fee_only_in_token_b(&self) -> bool {
+        matches!(self, CollectFeeMode::OnlyB | CollectFeeMode::Compounding)
+    }
+}
+
 /// pool status
 #[repr(u8)]
 #[derive(

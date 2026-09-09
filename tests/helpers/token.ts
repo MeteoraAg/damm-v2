@@ -90,6 +90,38 @@ export function createToken(
   return mintKeypair.publicKey;
 }
 
+/**
+ * Plant an SPL mint at a fixed address, for mints such as USDC whose mainnet
+ * address is hardcoded in the program.
+ */
+export function createTokenAt(
+  svm: LiteSVM,
+  mint: PublicKey,
+  mintAuthority: PublicKey
+) {
+  const data = Buffer.alloc(MINT_SIZE);
+  MintLayout.encode(
+    {
+      mintAuthorityOption: 1,
+      mintAuthority,
+      supply: BigInt(0),
+      decimals: DECIMALS,
+      isInitialized: true,
+      freezeAuthorityOption: 0,
+      freezeAuthority: PublicKey.default,
+    },
+    data
+  );
+
+  const rent = svm.getRent();
+  svm.setAccount(mint, {
+    lamports: Number(rent.minimumBalance(BigInt(MINT_SIZE)).toString()),
+    data,
+    owner: TOKEN_PROGRAM_ID,
+    executable: false,
+  });
+}
+
 export function freezeTokenAccount(
   svm: LiteSVM,
   freezeAuthority: Keypair,

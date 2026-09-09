@@ -17,6 +17,10 @@ export const NATIVE_MINT = new PublicKey(
   "So11111111111111111111111111111111111111112"
 );
 
+export const USDC_MINT = new PublicKey(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+);
+
 export const MIN_SQRT_PRICE = new BN("4295048016");
 export const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
 

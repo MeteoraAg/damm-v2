@@ -13,7 +13,7 @@ use crate::{
             CUSTOMIZABLE_POOL_PREFIX, POSITION_NFT_ACCOUNT_PREFIX, POSITION_PREFIX,
             TOKEN_VAULT_PREFIX,
         },
-        MAX_SQRT_PRICE, MIN_SQRT_PRICE,
+        MAX_SQRT_PRICE, MIN_SQRT_PRICE, STABLE_MINTS,
     },
     create_position_nft, get_initial_pool_information,
     params::{activation::ActivationParams, fee_parameters::PoolFeeParameters},
@@ -67,6 +67,30 @@ pub fn validate_initial_sqrt_price(
             sqrt_price >= sqrt_min_price && sqrt_price <= sqrt_max_price,
             PoolError::InvalidPriceRange
         );
+    }
+    Ok(())
+}
+
+/// Reject the pool when:
+/// - collect_fee_mode only in the quote token (token_b),
+/// - the base token (token_a) is stable, and the quote token is meme
+pub fn validate_token_order_for_collect_fee_mode(
+    collect_fee_mode: CollectFeeMode,
+    token_a_mint: &Pubkey,
+    token_b_mint: &Pubkey,
+) -> Result<()> {
+    if collect_fee_mode.is_fee_only_in_token_b() {
+        let is_base_token_stable = STABLE_MINTS.iter().any(|mint| mint.eq(token_a_mint));
+
+        if is_base_token_stable {
+            // when base is STABLE, the only valid pairing is STABLE <> STABLE
+            let is_stable_quote_token = STABLE_MINTS.iter().any(|mint| mint.eq(token_b_mint));
+
+            require!(
+                is_stable_quote_token,
+                PoolError::UnsupportedTokenOrderForCollectFeeMode
+            );
+        }
     }
     Ok(())
 }
@@ -262,6 +286,12 @@ pub fn handle_initialize_customizable_pool<'info>(
         &ctx.accounts.token_b_mint,
         false,
         ctx.remaining_accounts.get(1),
+    )?;
+
+    validate_token_order_for_collect_fee_mode(
+        params.collect_fee_mode.safe_cast()?,
+        &ctx.accounts.token_a_mint.key(),
+        &ctx.accounts.token_b_mint.key(),
     )?;
 
     let InitializeCustomizablePoolParameters {
