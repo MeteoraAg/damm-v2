@@ -17,8 +17,8 @@ use crate::{
         calculate_transfer_fee_included_amount, get_token_program_flags, transfer_from_user,
         validate_mint,
     },
-    EvtCreatePosition, EvtInitializePool, InitialPoolInformation,
-    InitializeCustomizablePoolParameters, PoolError,
+    validate_token_order_for_collect_fee_mode, EvtCreatePosition, EvtInitializePool,
+    InitialPoolInformation, InitializeCustomizablePoolParameters, PoolError,
 };
 
 use super::{max_key, min_key};
@@ -183,6 +183,12 @@ pub fn handle_initialize_pool_with_dynamic_config<'info>(
         &ctx.accounts.token_b_mint,
         skip_mint_validation,
         ctx.remaining_accounts.get(1),
+    )?;
+
+    validate_token_order_for_collect_fee_mode(
+        params.collect_fee_mode.safe_cast()?,
+        &ctx.accounts.token_a_mint.key(),
+        &ctx.accounts.token_b_mint.key(),
     )?;
 
     let InitializeCustomizablePoolParameters {

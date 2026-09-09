@@ -233,4 +233,7 @@ pub enum PoolError {
 
     #[msg("Invalid config permission")]
     InvalidConfigPermission,
+
+    #[msg("Unsupported token order for collect fee mode")]
+    UnsupportedTokenOrderForCollectFeeMode,
 }

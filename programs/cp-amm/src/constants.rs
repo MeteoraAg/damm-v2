@@ -64,6 +64,12 @@ const OKX_SMART_WALLET: Pubkey =
 
 pub const RATE_LIMITER_STACK_WHITELIST_PROGRAMS: [[u8; 32]; 1] = [OKX_SMART_WALLET.to_bytes()];
 
+pub const STABLE_MINTS: [Pubkey; 3] = [
+    Pubkey::from_str_const("So11111111111111111111111111111111111111112"), // WSOL
+    Pubkey::from_str_const("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+    Pubkey::from_str_const("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"), // USDT
+];
+
 pub mod activation {
     #[cfg(not(feature = "local"))]
     pub const SLOT_BUFFER: u64 = 9000; // 1 slot = 400 mls => 1 hour

@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 
-- TODO
+### Changed
+
+- `initialize_pool`, `initialize_customizable_pool` and `initialize_pool_with_dynamic_config` reject a pool when the following conditions are met: `collect_fee_mode` collects fees only in the quote token (`CollectFeeMode::OnlyB` or `CollectFeeMode::Compounding`), the base token is WSOL, USDC or USDT, and the quote token is a meme token (not WSOL, USDC or USDT). Such a pool would accrue all trading fees in the meme token. Creators must place WSOL, USDC or USDT as the quote token for these fee modes. Existing pools are unaffected.
 
 ## cp_amm [0.2.4][#PR 225](https://github.com/MeteoraAg/damm-v2/pull/225)
 
