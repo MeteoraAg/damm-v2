@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 
-- TODO
+### Changed
+
+- `CollectFeeMode::Compounding` configs and pools now accept `compounding_fee_bps = 0`.
 
 ## cp_amm [0.2.4][#PR 225](https://github.com/MeteoraAg/damm-v2/pull/225)
 
