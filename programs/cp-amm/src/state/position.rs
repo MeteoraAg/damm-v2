@@ -13,7 +13,7 @@ use crate::{
     },
     safe_math::SafeMath,
     state::{InnerVesting, Pool},
-    u128x128_math::Rounding,
+    u128x128_math::{mul_shr_256, Rounding},
     utils::token::validate_ata_token,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
     PoolError,
@@ -60,22 +60,21 @@ pub struct UserRewardInfo {
 const_assert_eq!(UserRewardInfo::INIT_SPACE, 48);
 
 impl UserRewardInfo {
-    pub fn update_rewards(
-        &mut self,
-        position_liquidity: u128,
-        reward_per_token_stored: U256,
-    ) -> Result<()> {
-        let new_reward: u64 = safe_mul_shr_256_cast(
-            U256::from(position_liquidity),
-            reward_per_token_stored.safe_sub(self.reward_per_token_checkpoint())?,
-            TOTAL_REWARD_SCALE,
-        )?;
+    pub fn update_rewards(&mut self, position_liquidity: u128, reward_per_token_stored: U256) {
+        let reward_per_token_delta =
+            reward_per_token_stored.wrapping_sub(self.reward_per_token_checkpoint());
 
-        self.reward_pendings = new_reward.safe_add(self.reward_pendings)?;
+        let new_reward = mul_shr_256(
+            U256::from(position_liquidity),
+            reward_per_token_delta,
+            TOTAL_REWARD_SCALE,
+        )
+        .and_then(|reward| u64::try_from(reward).ok())
+        .unwrap_or(u64::MAX);
+
+        self.reward_pendings = new_reward.saturating_add(self.reward_pendings);
 
         self.reward_per_token_checkpoint = reward_per_token_stored.to_le_bytes();
-
-        Ok(())
     }
 
     pub fn reward_per_token_checkpoint(&self) -> U256 {
@@ -315,7 +314,7 @@ impl Position {
                 let reward_per_token_stored =
                     U256::from_le_bytes(pool_reward_info.reward_per_token_stored);
                 position_reward_infos[reward_idx]
-                    .update_rewards(position_liquidity, reward_per_token_stored)?;
+                    .update_rewards(position_liquidity, reward_per_token_stored);
             }
         }
 

@@ -296,7 +296,7 @@ impl RewardInfo {
                         liquidity_supply,
                     )?;
 
-                self.accumulate_reward_per_token_stored(reward_per_token_stored_delta)?;
+                self.accumulate_reward_per_token_stored(reward_per_token_stored_delta);
             } else {
                 // Time period which the reward was distributed to empty
                 let time_period = self.get_seconds_elapsed_since_last_update(current_time)?;
@@ -363,12 +363,18 @@ impl RewardInfo {
         Ok(reward_per_token_stored)
     }
 
-    pub fn accumulate_reward_per_token_stored(&mut self, delta: U256) -> Result<()> {
+    /// The accumulator is monotonic and nothing resets it, so a checked add would make the
+    /// first overflowing step permanent: `last_update_time` is only stamped after this call,
+    /// so the same step would be recomputed and rejected on every later call, and every
+    /// instruction that touches liquidity would revert forever. We wrap instead. A position
+    /// reads the delta with a matching `wrapping_sub`, so the accounting stays correct as long
+    /// as the growth between two checkpoints stays under 2^256, which is 2^64 raw tokens per
+    /// unit of liquidity — more than a u64 vault can ever pay out.
+    pub fn accumulate_reward_per_token_stored(&mut self, delta: U256) {
         self.reward_per_token_stored = self
             .reward_per_token_stored()
-            .safe_add(delta)?
+            .wrapping_add(delta)
             .to_le_bytes();
-        Ok(())
     }
 
     pub fn reward_per_token_stored(&self) -> U256 {
