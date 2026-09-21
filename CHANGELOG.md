@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 
-- TODO
+### Fixed
+
+- Funding a reward while pool liquidity is very small can push `RewardInfo.reward_per_token_stored` past its upper limit. The overflow caused the following endpoints to fail permanently on the pool: `add_liquidity`, `remove_liquidity`, `remove_all_liquidity`, `claim_reward`, `split_position`, `split_position2`, `fund_reward`, `withdraw_ineligible_reward` and `withdraw_dead_liquidity_reward`. The accumulator now wraps, and a pending reward larger than `u64::MAX` is clamped instead of failing.
 
 ## cp_amm [0.2.4][#PR 225](https://github.com/MeteoraAg/damm-v2/pull/225)
 
