@@ -76,7 +76,7 @@ pub fn handle_withdraw_dead_liquidity_reward(
 
     let collect_fee_mode: CollectFeeMode = pool.collect_fee_mode.safe_cast()?;
     let dead_liquidity_reward =
-        pool.reward_infos[index].claim_dead_liquidity_reward(collect_fee_mode)?;
+        pool.reward_infos[index].claim_dead_liquidity_reward(collect_fee_mode);
 
     // transfer rewards to funder
     if dead_liquidity_reward > 0 {

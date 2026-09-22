@@ -23,7 +23,7 @@ use crate::{
         fee::{DynamicFeeStruct, PoolFeesStruct},
         Position, SplitFeeAmount,
     },
-    u128x128_math::{mul_shr_256, shl_div_256, Rounding},
+    u128x128_math::{mul_shr_256_wrapping_u64, shl_div_256, Rounding},
     utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
     PoolError,
 };
@@ -318,25 +318,24 @@ impl RewardInfo {
     }
 
     /// get dead_liquidity_reward and update the checkpoint
-    pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> Result<u64> {
+    pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> u64 {
         if collect_fee_mode == CollectFeeMode::Compounding {
             // Cumulative dead-liquidity reward, wrapped to u64 (mod 2^64)
             // The checkpoint can grow past 2^64 across many funding rounds (so we use wrapping_sub),
             // but the delta is the pending reward still sitting in the vault
             // A vault balance is a u64, so the delta never reaches 2^64 and wraps at most once
-            let checkpoint: u64 = mul_shr_256(
+            let checkpoint = mul_shr_256_wrapping_u64(
                 U256::from(DEAD_LIQUIDITY),
                 self.reward_per_token_stored(),
                 TOTAL_REWARD_SCALE,
-            )
-            .ok_or_else(|| PoolError::MathOverflow)? as u64;
+            );
             let dead_liquidity_reward =
                 checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
             self.dead_liquidity_reward_checkpoint = checkpoint;
 
-            Ok(dead_liquidity_reward)
+            dead_liquidity_reward
         } else {
-            Ok(0)
+            0
         }
     }
 
@@ -1099,12 +1098,11 @@ impl Pool {
         // but the pending delta is still sitting in the token b vault
         // A vault balance is a u64, so the delta never reaches 2^64 and wraps at most once
         // CollectFeeMode::Compounding only collects fee in token b
-        let checkpoint: u64 = mul_shr_256(
+        let checkpoint = mul_shr_256_wrapping_u64(
             U256::from(DEAD_LIQUIDITY),
             self.fee_b_per_liquidity(),
             LIQUIDITY_SCALE,
-        )
-        .ok_or_else(|| PoolError::MathOverflow)? as u64;
+        );
         let dead_liquidity_fee = checkpoint.wrapping_sub(self.dead_liquidity_fee_checkpoint);
         self.dead_liquidity_fee_checkpoint = checkpoint;
 
