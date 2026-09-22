@@ -126,14 +126,9 @@ pub struct PositionMetrics {
 const_assert_eq!(PositionMetrics::INIT_SPACE, 16);
 
 impl PositionMetrics {
-    pub fn accumulate_claimed_fee(
-        &mut self,
-        token_a_amount: u64,
-        token_b_amount: u64,
-    ) -> Result<()> {
-        self.total_claimed_a_fee = self.total_claimed_a_fee.safe_add(token_a_amount)?;
-        self.total_claimed_b_fee = self.total_claimed_b_fee.safe_add(token_b_amount)?;
-        Ok(())
+    pub fn accumulate_claimed_fee(&mut self, token_a_amount: u64, token_b_amount: u64) {
+        self.total_claimed_a_fee = self.total_claimed_a_fee.wrapping_add(token_a_amount);
+        self.total_claimed_b_fee = self.total_claimed_b_fee.wrapping_add(token_b_amount);
     }
 }
 

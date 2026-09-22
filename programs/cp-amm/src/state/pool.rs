@@ -206,21 +206,14 @@ impl PoolMetrics {
         self.total_position = self.total_position.wrapping_sub(1);
     }
 
-    pub fn accumulate_fee(
-        &mut self,
-        lp_fee: u64,
-        protocol_fee: u64,
-        is_token_a: bool,
-    ) -> Result<()> {
+    pub fn accumulate_fee(&mut self, lp_fee: u64, protocol_fee: u64, is_token_a: bool) {
         if is_token_a {
-            self.total_lp_a_fee = self.total_lp_a_fee.safe_add(lp_fee.into())?;
-            self.total_protocol_a_fee = self.total_protocol_a_fee.safe_add(protocol_fee)?;
+            self.total_lp_a_fee = self.total_lp_a_fee.wrapping_add(lp_fee.into());
+            self.total_protocol_a_fee = self.total_protocol_a_fee.wrapping_add(protocol_fee);
         } else {
-            self.total_lp_b_fee = self.total_lp_b_fee.safe_add(lp_fee.into())?;
-            self.total_protocol_b_fee = self.total_protocol_b_fee.safe_add(protocol_fee)?;
+            self.total_lp_b_fee = self.total_lp_b_fee.wrapping_add(lp_fee.into());
+            self.total_protocol_b_fee = self.total_protocol_b_fee.wrapping_add(protocol_fee);
         }
-
-        Ok(())
     }
 }
 
@@ -845,14 +838,13 @@ impl Pool {
             self.protocol_a_fee = self.protocol_a_fee.safe_add(protocol_fee)?;
             self.accumulate_fee_a_per_liquidity(fee_per_token_stored);
             // TODO should metrics store trading fee or claiming fee?
-            self.metrics
-                .accumulate_fee(trading_fee, protocol_fee, true)?;
+            self.metrics.accumulate_fee(trading_fee, protocol_fee, true);
         } else {
             self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
             self.accumulate_fee_b_per_liquidity(fee_per_token_stored);
             // TODO should metrics store trading fee or claiming fee?
             self.metrics
-                .accumulate_fee(trading_fee, protocol_fee, false)?;
+                .accumulate_fee(trading_fee, protocol_fee, false);
         }
 
         let included_fee_output_amount = if fee_mode.fees_on_input {
