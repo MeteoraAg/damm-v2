@@ -843,19 +843,13 @@ impl Pool {
 
         if fee_mode.fees_on_token_a {
             self.protocol_a_fee = self.protocol_a_fee.safe_add(protocol_fee)?;
-            self.fee_a_per_liquidity = self
-                .fee_a_per_liquidity()
-                .safe_add(fee_per_token_stored)?
-                .to_le_bytes();
+            self.accumulate_fee_a_per_liquidity(fee_per_token_stored);
             // TODO should metrics store trading fee or claiming fee?
             self.metrics
                 .accumulate_fee(trading_fee, protocol_fee, true)?;
         } else {
             self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
-            self.fee_b_per_liquidity = self
-                .fee_b_per_liquidity()
-                .safe_add(fee_per_token_stored)?
-                .to_le_bytes();
+            self.accumulate_fee_b_per_liquidity(fee_per_token_stored);
             // TODO should metrics store trading fee or claiming fee?
             self.metrics
                 .accumulate_fee(trading_fee, protocol_fee, false)?;
@@ -1165,6 +1159,14 @@ impl Pool {
 
     pub fn fee_b_per_liquidity(&self) -> U256 {
         U256::from_le_bytes(self.fee_b_per_liquidity)
+    }
+
+    pub fn accumulate_fee_a_per_liquidity(&mut self, delta: U256) {
+        self.fee_a_per_liquidity = self.fee_a_per_liquidity().wrapping_add(delta).to_le_bytes();
+    }
+
+    pub fn accumulate_fee_b_per_liquidity(&mut self, delta: U256) {
+        self.fee_b_per_liquidity = self.fee_b_per_liquidity().wrapping_add(delta).to_le_bytes();
     }
 
     pub fn check_pool_creator_to_edit_reward(&self, reward_index: usize, signer: Pubkey) -> bool {

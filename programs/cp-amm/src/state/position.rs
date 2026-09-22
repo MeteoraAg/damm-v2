@@ -15,7 +15,7 @@ use crate::{
     state::{InnerVesting, Pool},
     u128x128_math::{mul_shr_256, Rounding},
     utils::token::validate_ata_token,
-    utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
+    utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
     PoolError,
 };
 
@@ -250,21 +250,25 @@ impl Position {
     ) -> Result<()> {
         let liquidity = self.get_total_liquidity()?;
         if liquidity > 0 {
-            let new_fee_a: u64 = safe_mul_shr_256_cast(
+            let new_fee_a = mul_shr_256(
                 U256::from(liquidity),
-                fee_a_per_token_stored.safe_sub(self.fee_a_per_token_checkpoint())?,
+                fee_a_per_token_stored.wrapping_sub(self.fee_a_per_token_checkpoint()),
                 LIQUIDITY_SCALE,
-            )?;
+            )
+            .and_then(|fee| u64::try_from(fee).ok())
+            .unwrap_or(u64::MAX);
 
-            self.fee_a_pending = new_fee_a.safe_add(self.fee_a_pending)?;
+            self.fee_a_pending = new_fee_a.saturating_add(self.fee_a_pending);
 
-            let new_fee_b: u64 = safe_mul_shr_256_cast(
+            let new_fee_b = mul_shr_256(
                 U256::from(liquidity),
-                fee_b_per_token_stored.safe_sub(self.fee_b_per_token_checkpoint())?,
+                fee_b_per_token_stored.wrapping_sub(self.fee_b_per_token_checkpoint()),
                 LIQUIDITY_SCALE,
-            )?;
+            )
+            .and_then(|fee| u64::try_from(fee).ok())
+            .unwrap_or(u64::MAX);
 
-            self.fee_b_pending = new_fee_b.safe_add(self.fee_b_pending)?;
+            self.fee_b_pending = new_fee_b.saturating_add(self.fee_b_pending);
         }
         self.fee_a_per_token_checkpoint = fee_a_per_token_stored.to_le_bytes();
         self.fee_b_per_token_checkpoint = fee_b_per_token_stored.to_le_bytes();
