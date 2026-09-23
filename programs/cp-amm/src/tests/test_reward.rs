@@ -76,28 +76,41 @@ fn test_reward_accumulator_wraps_instead_of_freezing_the_pool() -> Result<()> {
 }
 
 #[test]
-fn test_position_reward_delta_survives_a_wrap() {
+fn test_position_reward_delta_survives_a_wrap() -> Result<()> {
     let liquidity = 1u128;
     let growth = U256::from(1u128) << TOTAL_REWARD_SCALE; // one raw token per unit of liquidity
 
     let start: U256 = U256::MAX - (growth >> 1);
     let mut wrapped = UserRewardInfo::default();
     wrapped.reward_per_token_checkpoint = start.to_le_bytes();
-    wrapped.update_rewards(liquidity, start.wrapping_add(growth));
+    wrapped.update_rewards(liquidity, start.wrapping_add(growth))?;
 
     let mut unwrapped = UserRewardInfo::default();
-    unwrapped.update_rewards(liquidity, growth);
+    unwrapped.update_rewards(liquidity, growth)?;
 
     assert_eq!(wrapped.reward_pendings, unwrapped.reward_pendings);
     assert_eq!(wrapped.reward_pendings, 1);
+
+    Ok(())
 }
 
 #[test]
-fn test_position_reward_clamps_instead_of_reverting() {
+fn test_position_reward_clamps_instead_of_reverting() -> Result<()> {
+    // 2^64 raw tokens, above u64::MAX but still within u128
+    let liquidity = 1u128 << 64;
     let mut user_reward = UserRewardInfo::default();
-    user_reward.update_rewards(u128::MAX, U256::MAX);
+    user_reward.update_rewards(liquidity, U256::from(1u128) << TOTAL_REWARD_SCALE)?;
     assert_eq!(user_reward.reward_pendings, u64::MAX);
 
-    user_reward.update_rewards(u128::MAX, U256::ZERO);
+    user_reward.update_rewards(liquidity, U256::ZERO)?;
     assert_eq!(user_reward.reward_pendings, u64::MAX);
+
+    Ok(())
+}
+
+#[test]
+fn test_position_reward_reverts_on_math_overflow() {
+    let mut user_reward = UserRewardInfo::default();
+    // The reward does not fit into u128, so it is not a clamp but a broken accumulator
+    assert!(user_reward.update_rewards(u128::MAX, U256::MAX).is_err());
 }

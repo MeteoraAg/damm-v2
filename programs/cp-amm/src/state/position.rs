@@ -13,9 +13,9 @@ use crate::{
     },
     safe_math::SafeMath,
     state::{InnerVesting, Pool},
-    u128x128_math::{mul_shr_256, Rounding},
+    u128x128_math::Rounding,
     utils::token::validate_ata_token,
-    utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
+    utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_clamped_u64},
     PoolError,
 };
 
@@ -60,21 +60,25 @@ pub struct UserRewardInfo {
 const_assert_eq!(UserRewardInfo::INIT_SPACE, 48);
 
 impl UserRewardInfo {
-    pub fn update_rewards(&mut self, position_liquidity: u128, reward_per_token_stored: U256) {
+    pub fn update_rewards(
+        &mut self,
+        position_liquidity: u128,
+        reward_per_token_stored: U256,
+    ) -> Result<()> {
         let reward_per_token_delta =
             reward_per_token_stored.wrapping_sub(self.reward_per_token_checkpoint());
 
-        let new_reward = mul_shr_256(
+        let new_reward: u64 = safe_mul_shr_256_clamped_u64(
             U256::from(position_liquidity),
             reward_per_token_delta,
             TOTAL_REWARD_SCALE,
-        )
-        .and_then(|reward| u64::try_from(reward).ok())
-        .unwrap_or(u64::MAX);
+        )?;
 
         self.reward_pendings = new_reward.saturating_add(self.reward_pendings);
 
         self.reward_per_token_checkpoint = reward_per_token_stored.to_le_bytes();
+
+        Ok(())
     }
 
     pub fn reward_per_token_checkpoint(&self) -> U256 {
@@ -245,23 +249,19 @@ impl Position {
     ) -> Result<()> {
         let liquidity = self.get_total_liquidity()?;
         if liquidity > 0 {
-            let new_fee_a = mul_shr_256(
+            let new_fee_a: u64 = safe_mul_shr_256_clamped_u64(
                 U256::from(liquidity),
                 fee_a_per_token_stored.wrapping_sub(self.fee_a_per_token_checkpoint()),
                 LIQUIDITY_SCALE,
-            )
-            .and_then(|fee| u64::try_from(fee).ok())
-            .unwrap_or(u64::MAX);
+            )?;
 
             self.fee_a_pending = new_fee_a.saturating_add(self.fee_a_pending);
 
-            let new_fee_b = mul_shr_256(
+            let new_fee_b: u64 = safe_mul_shr_256_clamped_u64(
                 U256::from(liquidity),
                 fee_b_per_token_stored.wrapping_sub(self.fee_b_per_token_checkpoint()),
                 LIQUIDITY_SCALE,
-            )
-            .and_then(|fee| u64::try_from(fee).ok())
-            .unwrap_or(u64::MAX);
+            )?;
 
             self.fee_b_pending = new_fee_b.saturating_add(self.fee_b_pending);
         }
@@ -313,7 +313,7 @@ impl Position {
                 let reward_per_token_stored =
                     U256::from_le_bytes(pool_reward_info.reward_per_token_stored);
                 position_reward_infos[reward_idx]
-                    .update_rewards(position_liquidity, reward_per_token_stored);
+                    .update_rewards(position_liquidity, reward_per_token_stored)?;
             }
         }
 
