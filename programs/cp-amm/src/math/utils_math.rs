@@ -8,23 +8,11 @@ use crate::{
     PoolError,
 };
 
-use super::u128x128_math::mul_shr_256;
-
 /// safe_mul_shr_cast
 #[inline]
 pub fn safe_mul_shr_cast<T: FromPrimitive>(x: u128, y: u128, offset: u8) -> Result<T> {
     T::from_u128(mul_shr(x, y, offset).ok_or_else(|| PoolError::MathOverflow)?)
         .ok_or_else(|| PoolError::TypeCastFailed.into())
-}
-
-/// (x * y) >> offset, erroring on overflow and clamping the result to u64::MAX
-/// < 2^64         exact
-/// 2^64 .. 2^128  u64::MAX
-/// >= 2^128       MathOverflow
-#[inline]
-pub fn safe_mul_shr_256_clamped_u64(x: U256, y: U256, offset: u8) -> Result<u64> {
-    let result = mul_shr_256(x, y, offset).ok_or_else(|| PoolError::MathOverflow)?;
-    Ok(u64::try_from(result).unwrap_or_else(|_| u64::MAX))
 }
 
 #[inline]

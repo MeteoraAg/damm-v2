@@ -6,8 +6,8 @@ use anchor_lang::prelude::{Pubkey, Result};
 use ruint::aliases::U256;
 
 use crate::{
-    constants::{MIN_REWARD_DURATION, REWARD_RATE_SCALE, TOTAL_REWARD_SCALE},
-    state::{Pool, UserRewardInfo},
+    constants::{LIQUIDITY_SCALE, MIN_REWARD_DURATION, REWARD_RATE_SCALE, TOTAL_REWARD_SCALE},
+    state::{calculate_position_fee_or_reward, Pool, UserRewardInfo},
     u128x128_math::Rounding,
     utils_math::safe_shl_div_cast,
 };
@@ -109,8 +109,49 @@ fn test_position_reward_clamps_instead_of_reverting() -> Result<()> {
 }
 
 #[test]
-fn test_position_reward_reverts_on_math_overflow() {
+fn test_position_reward_clamps_at_the_upper_extreme() -> Result<()> {
+    // U384 holds the product exactly (128 + 256 bits), so no intermediate overflow is
+    // left to fail on: even the largest possible inputs clamp rather than revert.
+    // This matters because `update_rewards` sits on the `remove_liquidity` path, where
+    // an error would lock an LP out of their principal.
     let mut user_reward = UserRewardInfo::default();
-    // The reward does not fit into u128, so it is not a clamp but a broken accumulator
-    assert!(user_reward.update_rewards(u128::MAX, U256::MAX).is_err());
+    user_reward.update_rewards(u128::MAX, U256::MAX)?;
+    assert_eq!(user_reward.reward_pendings, u64::MAX);
+
+    Ok(())
+}
+
+#[test]
+fn test_calculate_position_fee_or_reward_shifts_right() -> Result<()> {
+    // Pins the shift direction: a delta of one raw token per unit of liquidity must
+    // come back as exactly `liquidity`, for both the fee and the reward scale.
+    for offset in [LIQUIDITY_SCALE, TOTAL_REWARD_SCALE] {
+        let one_per_liquidity = U256::from(1u128) << offset;
+
+        assert_eq!(
+            calculate_position_fee_or_reward(0, one_per_liquidity, offset)?,
+            0
+        );
+        assert_eq!(
+            calculate_position_fee_or_reward(1, one_per_liquidity, offset)?,
+            1
+        );
+        assert_eq!(
+            calculate_position_fee_or_reward(1_000_000, one_per_liquidity, offset)?,
+            1_000_000
+        );
+
+        // rounds down: one wei short of a whole token per unit of liquidity yields nothing
+        let just_under = one_per_liquidity - U256::from(1u128);
+        assert_eq!(calculate_position_fee_or_reward(1, just_under, offset)?, 0);
+
+        // and clamps once the product no longer fits u64
+        let over = U256::from(1u128) << (offset + 1);
+        assert_eq!(
+            calculate_position_fee_or_reward(u128::MAX, over, offset)?,
+            u64::MAX
+        );
+    }
+
+    Ok(())
 }
