@@ -23,7 +23,7 @@ use crate::{
         fee::{DynamicFeeStruct, PoolFeesStruct},
         Position, SplitFeeAmount,
     },
-    u128x128_math::{mul_shr_256, shl_div_256, Rounding},
+    u128x128_math::{mul_shr_256_wrapping_u64, shl_div_256, Rounding},
     utils_math::{safe_mul_shr_cast, safe_shl_div_cast},
     PoolError,
 };
@@ -206,21 +206,14 @@ impl PoolMetrics {
         self.total_position = self.total_position.wrapping_sub(1);
     }
 
-    pub fn accumulate_fee(
-        &mut self,
-        lp_fee: u64,
-        protocol_fee: u64,
-        is_token_a: bool,
-    ) -> Result<()> {
+    pub fn accumulate_fee(&mut self, lp_fee: u64, protocol_fee: u64, is_token_a: bool) {
         if is_token_a {
-            self.total_lp_a_fee = self.total_lp_a_fee.safe_add(lp_fee.into())?;
-            self.total_protocol_a_fee = self.total_protocol_a_fee.safe_add(protocol_fee)?;
+            self.total_lp_a_fee = self.total_lp_a_fee.wrapping_add(lp_fee.into());
+            self.total_protocol_a_fee = self.total_protocol_a_fee.wrapping_add(protocol_fee);
         } else {
-            self.total_lp_b_fee = self.total_lp_b_fee.safe_add(lp_fee.into())?;
-            self.total_protocol_b_fee = self.total_protocol_b_fee.safe_add(protocol_fee)?;
+            self.total_lp_b_fee = self.total_lp_b_fee.wrapping_add(lp_fee.into());
+            self.total_protocol_b_fee = self.total_protocol_b_fee.wrapping_add(protocol_fee);
         }
-
-        Ok(())
     }
 }
 
@@ -296,7 +289,7 @@ impl RewardInfo {
                         liquidity_supply,
                     )?;
 
-                self.accumulate_reward_per_token_stored(reward_per_token_stored_delta)?;
+                self.accumulate_reward_per_token_stored(reward_per_token_stored_delta);
             } else {
                 // Time period which the reward was distributed to empty
                 let time_period = self.get_seconds_elapsed_since_last_update(current_time)?;
@@ -318,25 +311,24 @@ impl RewardInfo {
     }
 
     /// get dead_liquidity_reward and update the checkpoint
-    pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> Result<u64> {
+    pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> u64 {
         if collect_fee_mode == CollectFeeMode::Compounding {
             // Cumulative dead-liquidity reward, wrapped to u64 (mod 2^64)
             // The checkpoint can grow past 2^64 across many funding rounds (so we use wrapping_sub),
             // but the delta is the pending reward still sitting in the vault
             // A vault balance is a u64, so the delta never reaches 2^64 and wraps at most once
-            let checkpoint: u64 = mul_shr_256(
+            let checkpoint = mul_shr_256_wrapping_u64(
                 U256::from(DEAD_LIQUIDITY),
                 self.reward_per_token_stored(),
                 TOTAL_REWARD_SCALE,
-            )
-            .ok_or_else(|| PoolError::MathOverflow)? as u64;
+            );
             let dead_liquidity_reward =
                 checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
             self.dead_liquidity_reward_checkpoint = checkpoint;
 
-            Ok(dead_liquidity_reward)
+            dead_liquidity_reward
         } else {
-            Ok(0)
+            0
         }
     }
 
@@ -363,12 +355,18 @@ impl RewardInfo {
         Ok(reward_per_token_stored)
     }
 
-    pub fn accumulate_reward_per_token_stored(&mut self, delta: U256) -> Result<()> {
+    /// The accumulator is monotonic and nothing resets it, so a checked add would make the
+    /// first overflowing step permanent: `last_update_time` is only stamped after this call,
+    /// so the same step would be recomputed and rejected on every later call, and every
+    /// instruction that touches liquidity would revert forever. We wrap instead. A position
+    /// reads the delta with a matching `wrapping_sub`, so the accounting stays correct as long
+    /// as the growth between two checkpoints stays under 2^256, which is 2^64 raw tokens per
+    /// unit of liquidity — more than a u64 vault can ever pay out.
+    pub fn accumulate_reward_per_token_stored(&mut self, delta: U256) {
         self.reward_per_token_stored = self
             .reward_per_token_stored()
-            .safe_add(delta)?
+            .wrapping_add(delta)
             .to_le_bytes();
-        Ok(())
     }
 
     pub fn reward_per_token_stored(&self) -> U256 {
@@ -838,22 +836,15 @@ impl Pool {
 
         if fee_mode.fees_on_token_a {
             self.protocol_a_fee = self.protocol_a_fee.safe_add(protocol_fee)?;
-            self.fee_a_per_liquidity = self
-                .fee_a_per_liquidity()
-                .safe_add(fee_per_token_stored)?
-                .to_le_bytes();
+            self.accumulate_fee_a_per_liquidity(fee_per_token_stored);
             // TODO should metrics store trading fee or claiming fee?
-            self.metrics
-                .accumulate_fee(trading_fee, protocol_fee, true)?;
+            self.metrics.accumulate_fee(trading_fee, protocol_fee, true);
         } else {
             self.protocol_b_fee = self.protocol_b_fee.safe_add(protocol_fee)?;
-            self.fee_b_per_liquidity = self
-                .fee_b_per_liquidity()
-                .safe_add(fee_per_token_stored)?
-                .to_le_bytes();
+            self.accumulate_fee_b_per_liquidity(fee_per_token_stored);
             // TODO should metrics store trading fee or claiming fee?
             self.metrics
-                .accumulate_fee(trading_fee, protocol_fee, false)?;
+                .accumulate_fee(trading_fee, protocol_fee, false);
         }
 
         let included_fee_output_amount = if fee_mode.fees_on_input {
@@ -1093,12 +1084,11 @@ impl Pool {
         // but the pending delta is still sitting in the token b vault
         // A vault balance is a u64, so the delta never reaches 2^64 and wraps at most once
         // CollectFeeMode::Compounding only collects fee in token b
-        let checkpoint: u64 = mul_shr_256(
+        let checkpoint = mul_shr_256_wrapping_u64(
             U256::from(DEAD_LIQUIDITY),
             self.fee_b_per_liquidity(),
             LIQUIDITY_SCALE,
-        )
-        .ok_or_else(|| PoolError::MathOverflow)? as u64;
+        );
         let dead_liquidity_fee = checkpoint.wrapping_sub(self.dead_liquidity_fee_checkpoint);
         self.dead_liquidity_fee_checkpoint = checkpoint;
 
@@ -1161,6 +1151,14 @@ impl Pool {
 
     pub fn fee_b_per_liquidity(&self) -> U256 {
         U256::from_le_bytes(self.fee_b_per_liquidity)
+    }
+
+    pub fn accumulate_fee_a_per_liquidity(&mut self, delta: U256) {
+        self.fee_a_per_liquidity = self.fee_a_per_liquidity().wrapping_add(delta).to_le_bytes();
+    }
+
+    pub fn accumulate_fee_b_per_liquidity(&mut self, delta: U256) {
+        self.fee_b_per_liquidity = self.fee_b_per_liquidity().wrapping_add(delta).to_le_bytes();
     }
 
     pub fn check_pool_creator_to_edit_reward(&self, reward_index: usize, signer: Pubkey) -> bool {
