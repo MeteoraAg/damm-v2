@@ -19,6 +19,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
+## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
+
+### Changed
+
+- `CollectFeeMode::Compounding` configs and pools now accept `compounding_fee_bps = 0`.
+
+### Fixed
+
+- Funding a reward while pool liquidity is very small can push `RewardInfo.reward_per_token_stored` past its upper limit. The overflow caused the following endpoints to fail permanently on the pool: `add_liquidity`, `remove_liquidity`, `remove_all_liquidity`, `claim_reward`, `split_position`, `split_position2`, `fund_reward`, `withdraw_ineligible_reward` and `withdraw_dead_liquidity_reward`. The accumulator now wraps, and a pending reward larger than `u64::MAX` is clamped instead of failing.
+- The `RewardInfo.dead_liquidity_reward_checkpoint` used in the `withdraw_dead_liquidity_reward` endpoint, and the `Pool.dead_liquidity_fee_checkpoint` used in the `claim_protocol_fee2` endpoint, previously rejected a quotient above `u128::MAX` and failed the instruction. This would have frozen the dead liquidity of the pool. The quotient is now reduced instead of rejected.
+- `Pool.fee_a_per_liquidity` and `Pool.fee_b_per_liquidity` previously rejected growth past their upper limit and failed the swap. Every later swap would have recomputed and rejected the same step, so the pool would have been frozen. Both accumulators now wrap, matching `RewardInfo.reward_per_token_stored`, and a pending fee larger than `u64::MAX` is clamped instead of failing.
+- `PoolMetrics` and `PositionMetrics` totals previously rejected growth past their upper limit, which would have failed every swap on the pool and every fee claim on the position. These counters now wraps like `PoolMetrics.total_position` and `UserRewardInfo.total_claimed_rewards`.
+
 ## cp_amm [0.2.4][#PR 225](https://github.com/MeteoraAg/damm-v2/pull/225)
 
 ### Added

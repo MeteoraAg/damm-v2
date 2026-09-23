@@ -256,9 +256,9 @@ fn validate_compounding_fee(
     compounding_fee_bps: u16,
 ) -> Result<()> {
     if collect_fee_mode == CollectFeeMode::Compounding {
-        // not make sense to have zero compounding_fee_bps in compounding collect fee mode
+        // allows compounding_fee_bps = 0, which acts the same as CollectFeeMode::OnlyB (quote only fee)
         require!(
-            compounding_fee_bps > 0 && compounding_fee_bps <= MAX_BASIS_POINT,
+            compounding_fee_bps <= MAX_BASIS_POINT,
             PoolError::InvalidCompoundingFeeBps
         );
     } else {
