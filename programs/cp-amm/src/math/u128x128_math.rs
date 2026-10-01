@@ -37,24 +37,29 @@ pub fn mul_shr(x: u128, y: u128, offset: u8) -> Option<u128> {
     let x = U256::from(x);
     let y = U256::from(y);
     let prod = x.checked_mul(y)?;
-    let (quotient, _is_overflow) = prod.overflowing_shr(offset.into());
-    quotient.try_into().ok()
+    prod.wrapping_shr(offset.into()).try_into().ok()
 }
 
 #[inline]
-pub fn mul_shr_256(x: U256, y: U256, offset: u8) -> Option<u128> {
+pub fn mul_shr_256(x: U256, y: U256, offset: u16) -> Option<u128> {
+    let offset: usize = offset.into();
+    if offset >= U512::BITS {
+        return None;
+    }
     let x = U512::from(x);
     let y = U512::from(y);
     let prod = x.checked_mul(y)?;
-    let (quotient, _is_overflow) = prod.overflowing_shr(offset.into());
-    quotient.try_into().ok()
+    prod.wrapping_shr(offset).try_into().ok()
 }
 
 #[inline]
-pub fn mul_shr_256_wrapping_u64(x: U256, y: U256, offset: u8) -> u64 {
+pub fn mul_shr_256_wrapping_u64(x: U256, y: U256, offset: u16) -> Option<u64> {
+    let offset: usize = offset.into();
+    if offset >= U512::BITS {
+        return None;
+    }
     let prod = U512::from(x).wrapping_mul(U512::from(y));
-    let (quotient, _is_overflow) = prod.overflowing_shr(offset.into());
-    quotient.wrapping_to::<u64>()
+    Some(prod.wrapping_shr(offset).wrapping_to::<u64>())
 }
 
 /// (x << offset) / y
