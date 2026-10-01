@@ -127,6 +127,7 @@ fn test_calculate_position_fee_or_reward_shifts_right() -> Result<()> {
     // come back as exactly `liquidity`, for both the fee and the reward scale.
     for offset in [LIQUIDITY_SCALE, TOTAL_REWARD_SCALE] {
         let one_per_liquidity = U256::from(1u128) << offset;
+        let offset: u16 = offset.into();
 
         assert_eq!(
             calculate_position_fee_or_reward(0, one_per_liquidity, offset)?,

@@ -311,7 +311,7 @@ impl RewardInfo {
     }
 
     /// get dead_liquidity_reward and update the checkpoint
-    pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> u64 {
+    pub fn claim_dead_liquidity_reward(&mut self, collect_fee_mode: CollectFeeMode) -> Result<u64> {
         if collect_fee_mode == CollectFeeMode::Compounding {
             // Cumulative dead-liquidity reward, wrapped to u64 (mod 2^64)
             // The checkpoint can grow past 2^64 across many funding rounds (so we use wrapping_sub),
@@ -320,15 +320,16 @@ impl RewardInfo {
             let checkpoint = mul_shr_256_wrapping_u64(
                 U256::from(DEAD_LIQUIDITY),
                 self.reward_per_token_stored(),
-                TOTAL_REWARD_SCALE,
-            );
+                TOTAL_REWARD_SCALE.into(),
+            )
+            .ok_or_else(|| PoolError::MathOverflow)?;
             let dead_liquidity_reward =
                 checkpoint.wrapping_sub(self.dead_liquidity_reward_checkpoint);
             self.dead_liquidity_reward_checkpoint = checkpoint;
 
-            dead_liquidity_reward
+            Ok(dead_liquidity_reward)
         } else {
-            0
+            Ok(0)
         }
     }
 
@@ -1087,8 +1088,9 @@ impl Pool {
         let checkpoint = mul_shr_256_wrapping_u64(
             U256::from(DEAD_LIQUIDITY),
             self.fee_b_per_liquidity(),
-            LIQUIDITY_SCALE,
-        );
+            LIQUIDITY_SCALE.into(),
+        )
+        .ok_or_else(|| PoolError::MathOverflow)?;
         let dead_liquidity_fee = checkpoint.wrapping_sub(self.dead_liquidity_fee_checkpoint);
         self.dead_liquidity_fee_checkpoint = checkpoint;
 

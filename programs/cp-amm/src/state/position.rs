@@ -71,7 +71,7 @@ impl UserRewardInfo {
         let new_reward: u64 = calculate_position_fee_or_reward(
             position_liquidity,
             reward_per_token_delta,
-            TOTAL_REWARD_SCALE,
+            TOTAL_REWARD_SCALE.into(),
         )?;
 
         self.reward_pendings = new_reward.saturating_add(self.reward_pendings);
@@ -252,7 +252,7 @@ impl Position {
             let new_fee_a: u64 = calculate_position_fee_or_reward(
                 liquidity,
                 fee_a_per_token_stored.wrapping_sub(self.fee_a_per_token_checkpoint()),
-                LIQUIDITY_SCALE,
+                LIQUIDITY_SCALE.into(),
             )?;
 
             self.fee_a_pending = new_fee_a.saturating_add(self.fee_a_pending);
@@ -260,7 +260,7 @@ impl Position {
             let new_fee_b: u64 = calculate_position_fee_or_reward(
                 liquidity,
                 fee_b_per_token_stored.wrapping_sub(self.fee_b_per_token_checkpoint()),
-                LIQUIDITY_SCALE,
+                LIQUIDITY_SCALE.into(),
             )?;
 
             self.fee_b_pending = new_fee_b.saturating_add(self.fee_b_pending);
@@ -651,8 +651,10 @@ pub struct SplitPositionInfo2 {
 pub fn calculate_position_fee_or_reward(
     position_liquidity: u128,
     token_per_liquidity_delta: U256,
-    offset: u8,
+    offset: u16,
 ) -> Result<u64> {
+    let offset: usize = offset.into();
+    require!(offset < U384::BITS, PoolError::MathOverflow);
     // 128 + 256 == 384
     let position_liquidity = U384::from(position_liquidity);
     let token_per_liquidity_delta = U384::from(token_per_liquidity_delta);
