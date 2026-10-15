@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::TokenAccount;
 use derive_variant_count::VariantCount;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use ruint::aliases::U256;
+use ruint::aliases::{U256, U384};
 use static_assertions::const_assert_eq;
 use std::{cell::RefMut, u64};
 
@@ -11,11 +11,11 @@ use crate::{
         LIQUIDITY_SCALE, NUM_REWARDS, REWARD_INDEX_0, REWARD_INDEX_1, SPLIT_POSITION_DENOMINATOR,
         TOTAL_REWARD_SCALE,
     },
-    safe_math::SafeMath,
+    safe_math::{SafeCast, SafeMath},
     state::{InnerVesting, Pool},
     u128x128_math::Rounding,
     utils::token::validate_ata_token,
-    utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64, safe_mul_shr_256_cast},
+    utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
     PoolError,
 };
 
@@ -65,13 +65,16 @@ impl UserRewardInfo {
         position_liquidity: u128,
         reward_per_token_stored: U256,
     ) -> Result<()> {
-        let new_reward: u64 = safe_mul_shr_256_cast(
-            U256::from(position_liquidity),
-            reward_per_token_stored.safe_sub(self.reward_per_token_checkpoint())?,
+        let reward_per_token_delta =
+            reward_per_token_stored.wrapping_sub(self.reward_per_token_checkpoint());
+
+        let new_reward: u64 = calculate_position_fee_or_reward(
+            position_liquidity,
+            reward_per_token_delta,
             TOTAL_REWARD_SCALE,
         )?;
 
-        self.reward_pendings = new_reward.safe_add(self.reward_pendings)?;
+        self.reward_pendings = new_reward.saturating_add(self.reward_pendings);
 
         self.reward_per_token_checkpoint = reward_per_token_stored.to_le_bytes();
 
@@ -127,14 +130,9 @@ pub struct PositionMetrics {
 const_assert_eq!(PositionMetrics::INIT_SPACE, 16);
 
 impl PositionMetrics {
-    pub fn accumulate_claimed_fee(
-        &mut self,
-        token_a_amount: u64,
-        token_b_amount: u64,
-    ) -> Result<()> {
-        self.total_claimed_a_fee = self.total_claimed_a_fee.safe_add(token_a_amount)?;
-        self.total_claimed_b_fee = self.total_claimed_b_fee.safe_add(token_b_amount)?;
-        Ok(())
+    pub fn accumulate_claimed_fee(&mut self, token_a_amount: u64, token_b_amount: u64) {
+        self.total_claimed_a_fee = self.total_claimed_a_fee.wrapping_add(token_a_amount);
+        self.total_claimed_b_fee = self.total_claimed_b_fee.wrapping_add(token_b_amount);
     }
 }
 
@@ -251,21 +249,21 @@ impl Position {
     ) -> Result<()> {
         let liquidity = self.get_total_liquidity()?;
         if liquidity > 0 {
-            let new_fee_a: u64 = safe_mul_shr_256_cast(
-                U256::from(liquidity),
-                fee_a_per_token_stored.safe_sub(self.fee_a_per_token_checkpoint())?,
+            let new_fee_a: u64 = calculate_position_fee_or_reward(
+                liquidity,
+                fee_a_per_token_stored.wrapping_sub(self.fee_a_per_token_checkpoint()),
                 LIQUIDITY_SCALE,
             )?;
 
-            self.fee_a_pending = new_fee_a.safe_add(self.fee_a_pending)?;
+            self.fee_a_pending = new_fee_a.saturating_add(self.fee_a_pending);
 
-            let new_fee_b: u64 = safe_mul_shr_256_cast(
-                U256::from(liquidity),
-                fee_b_per_token_stored.safe_sub(self.fee_b_per_token_checkpoint())?,
+            let new_fee_b: u64 = calculate_position_fee_or_reward(
+                liquidity,
+                fee_b_per_token_stored.wrapping_sub(self.fee_b_per_token_checkpoint()),
                 LIQUIDITY_SCALE,
             )?;
 
-            self.fee_b_pending = new_fee_b.safe_add(self.fee_b_pending)?;
+            self.fee_b_pending = new_fee_b.saturating_add(self.fee_b_pending);
         }
         self.fee_a_per_token_checkpoint = fee_a_per_token_stored.to_le_bytes();
         self.fee_b_per_token_checkpoint = fee_b_per_token_stored.to_le_bytes();
@@ -648,4 +646,21 @@ pub struct SplitPositionInfo2 {
     pub fee_b: u64,
     pub reward_0: u64,
     pub reward_1: u64,
+}
+
+pub fn calculate_position_fee_or_reward(
+    position_liquidity: u128,
+    token_per_liquidity_delta: U256,
+    offset: u8,
+) -> Result<u64> {
+    // 128 + 256 == 384
+    let position_liquidity = U384::from(position_liquidity);
+    let token_per_liquidity_delta = U384::from(token_per_liquidity_delta);
+    let prod = position_liquidity.safe_mul(token_per_liquidity_delta)?;
+    let result: U384 = prod >> offset;
+    if result > U384::from(u64::MAX) {
+        Ok(u64::MAX)
+    } else {
+        Ok(result.safe_cast()?)
+    }
 }

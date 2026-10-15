@@ -6,9 +6,13 @@ import {
     createConfigIx,
     CreateConfigParams,
     createPosition,
+    deriveTokenVaultAddress,
+    getPool,
+    getTokenBalance,
     initializePool,
     InitializePoolParams,
     MIN_SQRT_PRICE,
+    ONE,
     swapExactIn,
     SwapParams,
     createToken,
@@ -22,6 +26,7 @@ import {
     LIQUIDITY_MAX,
 } from "./helpers";
 import BN from "bn.js";
+import { expect } from "chai";
 
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import { LiteSVM } from "litesvm";
@@ -39,6 +44,48 @@ describe("Compounding liquidity", () => {
     let position: PublicKey;
     let inputTokenMint: PublicKey;
     let outputTokenMint: PublicKey;
+    let nextConfigId: number;
+
+    async function createCompoundingConfig(
+        compoundingFeeBps: number
+    ): Promise<PublicKey> {
+        const cliffFeeNumerator = new BN(2_500_000);
+        const numberOfPeriod = new BN(0);
+        const periodFrequency = new BN(0);
+        const reductionFactor = new BN(0);
+
+        const data = encodeFeeTimeSchedulerParams(
+            BigInt(cliffFeeNumerator.toString()),
+            numberOfPeriod.toNumber(),
+            BigInt(periodFrequency.toString()),
+            BigInt(reductionFactor.toString()),
+            BaseFeeMode.FeeTimeSchedulerLinear
+        );
+
+        const createConfigParams: CreateConfigParams = {
+            poolFees: {
+                baseFee: {
+                    data: Array.from(data),
+                },
+                compoundingFeeBps,
+                padding: 0,
+                dynamicFee: null,
+            },
+            sqrtMinPrice: new BN(0),
+            sqrtMaxPrice: U128_MAX,
+            vaultConfigKey: PublicKey.default,
+            poolCreatorAuthority: PublicKey.default,
+            activationType: 0,
+            collectFeeMode: 2,
+        };
+
+        return createConfigIx(
+            svm,
+            whitelistedAccount,
+            new BN(nextConfigId++),
+            createConfigParams
+        );
+    }
 
     beforeEach(async () => {
         svm = startSvm();
@@ -59,37 +106,6 @@ describe("Compounding liquidity", () => {
 
         mintSplTokenTo(svm, outputTokenMint, admin, creator.publicKey);
 
-        const cliffFeeNumerator = new BN(2_500_000);
-        const numberOfPeriod = new BN(0);
-        const periodFrequency = new BN(0);
-        const reductionFactor = new BN(0);
-
-        const data = encodeFeeTimeSchedulerParams(
-            BigInt(cliffFeeNumerator.toString()),
-            numberOfPeriod.toNumber(),
-            BigInt(periodFrequency.toString()),
-            BigInt(reductionFactor.toString()),
-            BaseFeeMode.FeeTimeSchedulerLinear
-        );
-
-        // create compounding config
-        const createConfigParams: CreateConfigParams = {
-            poolFees: {
-                baseFee: {
-                    data: Array.from(data),
-                },
-                compoundingFeeBps: 5000,
-                padding: 0,
-                dynamicFee: null,
-            },
-            sqrtMinPrice: new BN(0),
-            sqrtMaxPrice: U128_MAX,
-            vaultConfigKey: PublicKey.default,
-            poolCreatorAuthority: PublicKey.default,
-            activationType: 0,
-            collectFeeMode: 2,
-        };
-
         let permission = encodePermissions([OperatorPermission.CreateConfigKey]);
 
         await createOperator(svm, {
@@ -98,12 +114,10 @@ describe("Compounding liquidity", () => {
             permission,
         });
 
-        config = await createConfigIx(
-            svm,
-            whitelistedAccount,
-            new BN(randomID()),
-            createConfigParams
-        );
+        nextConfigId = randomID();
+
+        // create compounding config
+        config = await createCompoundingConfig(5000);
 
         liquidity = new BN(LIQUIDITY_MAX);
         sqrtPrice = new BN(MIN_SQRT_PRICE.muln(2));
@@ -162,5 +176,58 @@ describe("Compounding liquidity", () => {
         };
         await removeAllLiquidity(svm, removeAllLiquidityParams);
 
+    });
+
+    it("Zero compounding fee bps", async () => {
+        const zeroFeeConfig = await createCompoundingConfig(0);
+
+        // balanced reserves, so the swap below charges a fee of more than one token
+        const initPoolParams: InitializePoolParams = {
+            payer: creator,
+            creator: creator.publicKey,
+            config: zeroFeeConfig,
+            tokenAMint: inputTokenMint,
+            tokenBMint: outputTokenMint,
+            liquidity,
+            sqrtPrice: ONE,
+            activationPoint: null,
+        };
+        const { pool } = await initializePool(svm, initPoolParams);
+
+        const tokenBVault = deriveTokenVaultAddress(outputTokenMint, pool);
+        const stateBefore = getPool(svm, pool);
+        const vaultBefore = new BN(getTokenBalance(svm, tokenBVault));
+
+        const swapParams: SwapParams = {
+            payer: user,
+            pool,
+            inputTokenMint,
+            outputTokenMint,
+            amountIn: new BN(1_000_000),
+            minimumAmountOut: new BN(0),
+            referralTokenAccount: null,
+        };
+        await swapExactIn(svm, swapParams);
+
+        const stateAfter = getPool(svm, pool);
+        const vaultAfter = new BN(getTokenBalance(svm, tokenBVault));
+
+        expect(stateAfter.poolFees.compoundingFeeBps).eq(0);
+
+        const feeCharged = stateAfter.metrics.totalLpBFee
+            .sub(stateBefore.metrics.totalLpBFee)
+            .add(
+                stateAfter.metrics.totalProtocolBFee.sub(
+                    stateBefore.metrics.totalProtocolBFee
+                )
+            );
+        expect(feeCharged.gtn(0)).eq(true);
+
+        // the token b the vault keeps but the reserve does not own is the fee sitting outside the reserve
+        // it accounts for the whole fee, so nothing compounded into the reserve
+        const heldOutsideReserve = vaultAfter
+            .sub(vaultBefore)
+            .sub(stateAfter.tokenBAmount.sub(stateBefore.tokenBAmount));
+        expect(heldOutsideReserve.toString()).eq(feeCharged.toString());
     });
 });
