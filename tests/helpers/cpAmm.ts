@@ -620,12 +620,27 @@ export async function initializePool(
     tokenBProgram
   );
 
+  // token badges are read from remaining accounts: index 0 for token A, index 1 for token B
+  const tokenABadge = deriveTokenBadgeAddress(tokenAMint);
+  const tokenBBadge = deriveTokenBadgeAddress(tokenBMint);
+  const remainingAccounts: AccountMeta[] = [];
+  if (svm.getAccount(tokenABadge) || svm.getAccount(tokenBBadge)) {
+    for (const tokenBadge of [tokenABadge, tokenBBadge]) {
+      remainingAccounts.push({
+        pubkey: svm.getAccount(tokenBadge) ? tokenBadge : CP_AMM_PROGRAM_ID,
+        isSigner: false,
+        isWritable: false,
+      });
+    }
+  }
+
   let transaction = await program.methods
     .initializePool({
       liquidity: liquidity,
       sqrtPrice: sqrtPrice,
       activationPoint: activationPoint,
     })
+    .remainingAccounts(remainingAccounts)
     .accountsPartial({
       creator,
       positionNftAccount,
@@ -1995,13 +2010,13 @@ export async function swap2Instruction(svm: LiteSVM, params: Swap2Params) {
     inputTokenMint,
     payer.publicKey,
     true,
-    tokenAProgram
+    inputTokenMint.equals(poolState.tokenAMint) ? tokenAProgram : tokenBProgram
   );
   const outputTokenAccount = getAssociatedTokenAddressSync(
     outputTokenMint,
     payer.publicKey,
     true,
-    tokenBProgram
+    outputTokenMint.equals(poolState.tokenAMint) ? tokenAProgram : tokenBProgram
   );
   const tokenAVault = poolState.tokenAVault;
   const tokenBVault = poolState.tokenBVault;

@@ -3,6 +3,7 @@ import {
   createCreateNativeMintInstruction,
   createInitializeMint2Instruction,
   createInitializePermanentDelegateInstruction,
+  createInitializePermissionedBurnInstruction,
   createInitializeTransferFeeConfigInstruction,
   createInitializeTransferHookInstruction,
   createMintToInstruction,
@@ -44,6 +45,20 @@ export function createPermenantDelegateExtensionWithInstruction(
     instruction: createInitializePermanentDelegateInstruction(
       mint,
       permenantDelegate,
+      TOKEN_2022_PROGRAM_ID
+    ),
+  };
+}
+
+export function createPermissionedBurnExtensionWithInstruction(
+  mint: PublicKey,
+  permissionedBurnAuthority: PublicKey
+): ExtensionWithInstruction {
+  return {
+    extension: ExtensionType.PermissionedBurn,
+    instruction: createInitializePermissionedBurnInstruction(
+      mint,
+      permissionedBurnAuthority,
       TOKEN_2022_PROGRAM_ID
     ),
   };
