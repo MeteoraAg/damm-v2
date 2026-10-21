@@ -12,7 +12,9 @@ import {
   createOperator,
   createPosition,
   createToken,
-  createTokenBadge,
+  AccessRegistryOperatorPermission,
+  createAccessRegistryOperator,
+  createAccessRegistryTokenBadge,
   deriveOperatorAddress,
   encodePermissions,
   fundReward,
@@ -427,7 +429,6 @@ describe("Reward by admin", () => {
         OperatorPermission.InitializeReward,
         OperatorPermission.UpdateRewardDuration,
         OperatorPermission.UpdateRewardFunder,
-        OperatorPermission.CreateTokenBadge,
       ]);
 
       await createOperator(svm, {
@@ -443,10 +444,17 @@ describe("Reward by admin", () => {
         createConfigParams
       );
 
-      await createTokenBadge(svm, {
-        tokenMint: rewardMintNonSupportExtension,
-        whitelistedAddress: whitelistedAccount,
-      });
+      await createAccessRegistryOperator(
+        svm,
+        admin,
+        whitelistedAccount.publicKey,
+        [AccessRegistryOperatorPermission.CreateTokenBadge]
+      );
+      await createAccessRegistryTokenBadge(
+        svm,
+        whitelistedAccount,
+        rewardMintNonSupportExtension
+      );
     });
 
     it("operator create reward with non-support extension", async () => {

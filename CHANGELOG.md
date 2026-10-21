@@ -21,7 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.6] [#PR 236](https://github.com/MeteoraAg/damm-v2/pull/236)
 
-- TODO
+- Remove rate limiter entirely 
+- Pump to latest anchor version 
+- Access registry for token badge 
+- Transfer hook support (in discussion)
+- Update operator related endpoints to follow ops-program-test
 
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 

@@ -4,3 +4,4 @@ export * from "./cpAmm";
 export * from "./token";
 export * from "./constants";
 export * from "./svm";
+export * from "./accessRegistry";
