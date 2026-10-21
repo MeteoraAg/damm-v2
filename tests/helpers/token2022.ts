@@ -22,7 +22,8 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { expect } from "chai";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import { TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import { sendTransaction } from ".";
 import { DECIMALS } from "./constants";
 import { getOrCreateAssociatedTokenAccount } from "./token";

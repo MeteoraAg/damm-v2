@@ -1,6 +1,6 @@
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 import { describe } from "mocha";
 import {
   addLiquidity,

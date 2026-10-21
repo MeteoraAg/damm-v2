@@ -32,11 +32,8 @@ import {
 } from "@solana/web3.js";
 import { expect } from "chai";
 import Decimal from "decimal.js";
-import {
-  FailedTransactionMetadata,
-  LiteSVM,
-  TransactionMetadata,
-} from "litesvm";
+import { FailedTransactionMetadata, TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { CpAmm } from "../../target/types/cp_amm";
 import {
@@ -372,8 +369,7 @@ export async function closeConfigIx(
   const result = sendTransaction(svm, transaction, [whitelistedAddress]);
   expect(result).instanceOf(TransactionMetadata);
 
-  const configState = svm.getAccount(config)!;
-  expect(configState.data.length).eq(0);
+  expect(svm.getAccount(config)).to.be.null;
 }
 
 export type CreateTokenBadgeParams = {
@@ -432,8 +428,7 @@ export async function closeTokenBadge(
 
   const result = sendTransaction(svm, transaction, [whitelistedAddress]);
   expect(result).instanceOf(TransactionMetadata);
-  const tokenBadgeAccount = svm.getAccount(tokenBadge)!;
-  expect(tokenBadgeAccount.data.length).eq(0);
+  expect(svm.getAccount(tokenBadge)).to.be.null;
 }
 
 export enum OperatorPermission {

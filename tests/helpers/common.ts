@@ -7,7 +7,8 @@ import {
 } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import { TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
 import { getPool } from "./cpAmm";
 import { sendTransaction, warpToTimestamp } from "./svm";

@@ -23,7 +23,7 @@ import {
 } from "./helpers";
 import { generateKpAndFund } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Claim position fee", () => {
   let svm: LiteSVM;

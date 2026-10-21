@@ -30,12 +30,10 @@ ruint = { workspace = true }
 num-traits = { workspace = true }
 num_enum = { workspace = true }
 num = { workspace = true }
-spl-token-metadata-interface = { workspace = true }
 solana-instruction = { workspace = true }
 borsh = { workspace = true }
 const-crypto = { workspace = true }
 pinocchio = { workspace = true }
-pinocchio-token = { workspace = true }
 pinocchio-token-2022 = { workspace = true }
 derive-variant-count = { workspace = true }
 
