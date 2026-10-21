@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added operator endpoint `zero_pool_rate_limiter` for operators with the `FixPool` permission. It sets `reference_amount`, `max_limiter_duration`, `max_fee_bps` and `fee_increment_bps` to zero on a pool with `BaseFeeMode::RateLimiter` and leaves `cliff_fee_numerator` unchanged.
 
 ### Changed
-
+ d
 - Update to anchor 1.2.1 and solana 4.1.2
 - Enabled Anchor's `legacy_idl` option so the legacy on-chain IDL can be kept up to date.
 - Removed the rate limiter logic from pools with `BaseFeeMode::RateLimiter`. Endpoints `swap` and `swap2` charge `cliff_fee_numerator` as a flat base fee, allow several swaps to the same pool in one transaction, and no longer require the instruction sysvar account. Swaps on existing pools behave the same as before, because every rate limiter window had already ended. No pool can be created with `BaseFeeMode::RateLimiter` since 0.2.3, a pool's `activation_point` is at most 31 days / 6,696,000 slots after its creation, and `max_limiter_duration` is at most 12 hours / 108,000 slots.
