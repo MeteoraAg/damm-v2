@@ -3,6 +3,14 @@
 version = 4
 
 [[package]]
+name = "access-registry"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "bytemuck",
+]
+
+[[package]]
 name = "aead"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -628,6 +636,7 @@ dependencies = [
 name = "cp-amm"
 version = "0.2.6"
 dependencies = [
+ "access-registry",
  "anchor-lang",
  "anchor-spl",
  "borsh",

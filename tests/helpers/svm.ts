@@ -17,6 +17,7 @@ import {
   NATIVE_MINT,
 } from ".";
 import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
+import { ACCESS_REGISTRY_PROGRAM_ID } from "./accessRegistry";
 
 export function startSvm() {
   const svm = new LiteSVM();
@@ -35,6 +36,10 @@ export function startSvm() {
   svm.addProgramFromFile(
     new PublicKey(TRANSFER_HOOK_COUNTER_PROGRAM_ID),
     sourceFileTransferhookPath
+  );
+  svm.addProgramFromFile(
+    ACCESS_REGISTRY_PROGRAM_ID,
+    path.resolve("./tests/fixtures/access_registry.so")
   );
 
   const accountInfo: AccountInfoBytes = {

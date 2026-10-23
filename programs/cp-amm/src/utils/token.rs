@@ -23,6 +23,8 @@ use anchor_spl::{
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use access_registry::accounts::TokenBadge as AccessRegistryTokenBadge;
+
 use crate::{state::TokenBadge, PoolError};
 
 #[derive(
@@ -279,10 +281,21 @@ pub fn validate_mint<'info>(
     }
 
     let token_badge = token_badge.ok_or_else(|| PoolError::InvalidTokenBadge)?;
-    let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
-    let token_badge = token_badge.load()?;
+    // Both badges share the "account:TokenBadge" discriminator and keep token_mint at the same offset,
+    // so the owner is what tells them apart. AccountLoader::try_from checks owner and discriminator.
+    let badge_token_mint = if token_badge.owner.eq(&access_registry::ID) {
+        let token_badge: AccountLoader<'_, AccessRegistryTokenBadge> =
+            AccountLoader::try_from(token_badge)?;
+        let token_mint = token_badge.load()?.token_mint;
+        token_mint
+    } else {
+        // TODO: remove once every legacy cp-amm token badge is recreated in access-registry
+        let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
+        let token_mint = token_badge.load()?.token_mint;
+        token_mint
+    };
     require!(
-        token_badge.token_mint.eq(&token_mint_key),
+        badge_token_mint.eq(&token_mint_key),
         PoolError::InvalidTokenBadge
     );
 

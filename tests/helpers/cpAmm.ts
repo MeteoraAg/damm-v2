@@ -74,6 +74,7 @@ import {
   decodePodAlignedFeeTimeScheduler,
 } from "./feeCodec";
 import { expectThrowsErrorCode, sendTransaction } from "./svm";
+import { deriveAccessRegistryTokenBadge } from "./accessRegistry";
 import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
@@ -400,12 +401,8 @@ export async function createTokenBadge(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-  expect(result).instanceOf(TransactionMetadata);
-
-  const tokenBadgeState = getTokenBadge(svm, tokenBadge);
-
-  expect(tokenBadgeState.tokenMint.toString()).eq(tokenMint.toString());
+  // create_token_badge is deprecated, badges are created in access-registry instead
+  return sendTransaction(svm, transaction, [whitelistedAddress]);
 }
 
 export type CloseTokenBadgeParams = {
@@ -876,6 +873,8 @@ export type InitializeCustomizablePoolParams = {
   activationType: number;
   collectFeeMode: number;
   activationPoint: BN | null;
+  // token badges of token A and token B, passed as remaining accounts
+  tokenBadges?: PublicKey[];
 };
 
 export async function initializeCustomizablePool(
@@ -897,6 +896,7 @@ export async function initializeCustomizablePool(
     collectFeeMode,
     activationPoint,
     activationType,
+    tokenBadges = [],
   } = params;
   const program = createCpAmmProgram();
 
@@ -962,6 +962,13 @@ export async function initializeCustomizablePool(
       tokenBProgram,
       systemProgram: SystemProgram.programId,
     })
+    .remainingAccounts(
+      tokenBadges.map((pubkey) => ({
+        pubkey,
+        isSigner: false,
+        isWritable: false,
+      }))
+    )
     .transaction();
   // requires more compute budget than usual
   transaction.add(
@@ -1116,10 +1123,14 @@ export async function initializeReward(
   const rewardVault = deriveRewardVaultAddress(pool, index);
 
   const tokenProgram = svm.getAccount(rewardMint)!.owner;
-  const tokenBadge = deriveTokenBadgeAddress(rewardMint);
+  // prefer the access-registry badge, fall back to a legacy cp-amm one
+  const tokenBadge = [
+    deriveAccessRegistryTokenBadge(rewardMint),
+    deriveTokenBadgeAddress(rewardMint),
+  ].find((badge) => svm.getAccount(badge));
   const remainingAccounts: AccountMeta[] = [];
 
-  if (svm.getAccount(tokenBadge)) {
+  if (tokenBadge) {
     remainingAccounts.push({
       pubkey: tokenBadge,
       isSigner: false,

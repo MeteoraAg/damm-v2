@@ -1,0 +1,18 @@
+[package]
+name = "access-registry"
+version = "0.1.0"
+authors = ["Meteora"]
+edition = "2021"
+
+[lib]
+doctest = false
+
+[features]
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true }
+bytemuck = { workspace = true, features = ["min_const_generics"] }
+
+[lints]
+workspace = true
