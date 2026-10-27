@@ -34,7 +34,7 @@ import {
   setDeprecatedRateLimiterPool,
   RateLimiterParams,
 } from "./helpers/deprecatedRateLimiter";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Alpha vault with sniper tax", () => {
   describe("Fee Scheduler", () => {

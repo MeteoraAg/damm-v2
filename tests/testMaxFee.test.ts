@@ -28,7 +28,7 @@ import {
 } from "./helpers/feeCodec";
 import { setDeprecatedRateLimiterPool } from "./helpers/deprecatedRateLimiter";
 import { getRateLimiterFeeNumeratorFromIncludedFeeAmount } from "./helpers/rateLimiterUtils";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 const sqrtPrice = new BN("4880549731789001291");
 const numberOfPeriod = 100;

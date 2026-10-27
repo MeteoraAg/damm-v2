@@ -1,0 +1,11 @@
+name: "Setup Versions"
+description: "Read version configs from repo files and export as env vars"
+runs:
+  using: "composite"
+  steps:
+    - name: Extract versions from config files
+      run: |
+        echo "TOOLCHAIN=$(grep 'channel' rust-toolchain.toml | sed 's/.*"\(.*\)"/\1/')" >> $GITHUB_ENV
+        echo "SOLANA_CLI_VERSION=$(grep 'solana_version' Anchor.toml | sed 's/.*"\(.*\)"/\1/')" >> $GITHUB_ENV
+        echo "ANCHOR_CLI_VERSION=$(grep 'anchor_version' Anchor.toml | sed 's/.*"\(.*\)"/\1/')" >> $GITHUB_ENV
+      shell: bash

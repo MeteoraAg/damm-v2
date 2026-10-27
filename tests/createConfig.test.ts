@@ -19,7 +19,7 @@ import {
   encodeFeeMarketCapSchedulerParams,
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 import BN from "bn.js";
 
 describe("Admin function: Create config", () => {

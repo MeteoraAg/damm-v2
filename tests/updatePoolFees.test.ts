@@ -38,7 +38,7 @@ import {
 } from "./helpers/feeCodec";
 import { setDeprecatedRateLimiterPool } from "./helpers/deprecatedRateLimiter";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Admin update pool fees parameters", () => {
   let svm: LiteSVM;

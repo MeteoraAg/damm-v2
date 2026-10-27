@@ -21,7 +21,7 @@ import {
   Signer,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "../litesvmCompat";
 
 export async function getExtraAccountMetasForTransferHook(
   svm: LiteSVM,

@@ -38,7 +38,7 @@ import {
 import { getOrCreateAssociatedTokenAccount } from "./helpers/token";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 const invalidConfigPermission = getCpAmmProgramErrorCode(
   "InvalidConfigPermission"
