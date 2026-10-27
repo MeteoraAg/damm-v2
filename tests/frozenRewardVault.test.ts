@@ -34,7 +34,7 @@ import BN from "bn.js";
 import { describe } from "mocha";
 import { expect } from "chai";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Frozen reward vault", () => {
   let svm: LiteSVM;

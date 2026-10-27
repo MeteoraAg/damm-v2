@@ -3,6 +3,7 @@ import {
   createCreateNativeMintInstruction,
   createInitializeMint2Instruction,
   createInitializePermanentDelegateInstruction,
+  createInitializePermissionedBurnInstruction,
   createInitializeTransferFeeConfigInstruction,
   createInitializeTransferHookInstruction,
   createMintToInstruction,
@@ -22,7 +23,8 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { expect } from "chai";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import { TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import { sendTransaction } from ".";
 import { DECIMALS } from "./constants";
 import { getOrCreateAssociatedTokenAccount } from "./token";
@@ -43,6 +45,20 @@ export function createPermenantDelegateExtensionWithInstruction(
     instruction: createInitializePermanentDelegateInstruction(
       mint,
       permenantDelegate,
+      TOKEN_2022_PROGRAM_ID
+    ),
+  };
+}
+
+export function createPermissionedBurnExtensionWithInstruction(
+  mint: PublicKey,
+  permissionedBurnAuthority: PublicKey
+): ExtensionWithInstruction {
+  return {
+    extension: ExtensionType.PermissionedBurn,
+    instruction: createInitializePermissionedBurnInstruction(
+      mint,
+      permissionedBurnAuthority,
       TOKEN_2022_PROGRAM_ID
     ),
   };

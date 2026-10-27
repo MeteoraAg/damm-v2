@@ -29,7 +29,7 @@ import BN from "bn.js";
 import { expect } from "chai";
 
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Compounding liquidity", () => {
     let svm: LiteSVM;
