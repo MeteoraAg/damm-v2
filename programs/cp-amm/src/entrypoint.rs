@@ -29,8 +29,7 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
     const UNINIT: core::mem::MaybeUninit<pinocchio::account_info::AccountInfo> =
         core::mem::MaybeUninit::<pinocchio::account_info::AccountInfo>::uninit();
     // Create an array of uninitialized account infos.
-    // In rate limiter we may need an additional account for sysvar program id
-    let mut accounts = [UNINIT; SWAP_IX_ACCOUNTS + 1];
+    let mut accounts = [UNINIT; SWAP_IX_ACCOUNTS];
 
     let (program_id, count, instruction_data) =
         pinocchio::entrypoint::deserialize(input, &mut accounts);

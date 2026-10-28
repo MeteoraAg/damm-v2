@@ -517,6 +517,50 @@ export async function updatePoolFeesParameters(
   return result;
 }
 
+export async function fixPoolFeeParams(
+  svm: LiteSVM,
+  params: {
+    whitelistedOperator: Keypair;
+    pool: PublicKey;
+    baseFeeData: Buffer;
+  }
+): Promise<TransactionMetadata | FailedTransactionMetadata> {
+  const { whitelistedOperator, pool, baseFeeData } = params;
+  const program = createCpAmmProgram();
+  const transaction = await program.methods
+    .fixPoolFeeParams({ data: Array.from(baseFeeData) })
+    .accountsPartial({
+      pool,
+      operator: deriveOperatorAddress(whitelistedOperator.publicKey),
+      signer: whitelistedOperator.publicKey,
+    })
+    .transaction();
+
+  return sendTransaction(svm, transaction, [whitelistedOperator]);
+}
+
+export async function fixConfigFeeParams(
+  svm: LiteSVM,
+  params: {
+    whitelistedOperator: Keypair;
+    config: PublicKey;
+    baseFeeData: Buffer;
+  }
+): Promise<TransactionMetadata | FailedTransactionMetadata> {
+  const { whitelistedOperator, config, baseFeeData } = params;
+  const program = createCpAmmProgram();
+  const transaction = await program.methods
+    .fixConfigFeeParams({ data: Array.from(baseFeeData) })
+    .accountsPartial({
+      config,
+      operator: deriveOperatorAddress(whitelistedOperator.publicKey),
+      signer: whitelistedOperator.publicKey,
+    })
+    .transaction();
+
+  return sendTransaction(svm, transaction, [whitelistedOperator]);
+}
+
 export async function claimProtocolFee2(
   svm: LiteSVM,
   params: {

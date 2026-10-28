@@ -3,9 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::{
-        fee_rate_limiter::PodAlignedFeeRateLimiter, BaseFeeEnumReader, BaseFeeHandlerBuilder,
-    },
+    base_fee::BaseFeeHandlerBuilder,
     constants::{
         fee::{FEE_DENOMINATOR, MAX_BASIS_POINT},
         ONE_Q64,
@@ -49,7 +47,7 @@ pub enum BaseFeeMode {
     FeeTimeSchedulerLinear,
     // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
     FeeTimeSchedulerExponential,
-    /// deprecated. existing pools are still supported. kept for backwards compatibility
+    /// deprecated. existing pools are still supported and charge cliff_fee_numerator as a flat base fee. kept for backwards compatibility
     RateLimiter,
     // fee = cliff_fee_numerator - passed_period * reduction_factor
     // passed_period = changed_price / sqrt_price_step_bps
@@ -98,22 +96,6 @@ const_assert_eq!(PoolFeesStruct::INIT_SPACE, 160);
 pub struct BaseFeeStruct {
     pub base_fee_info: BaseFeeInfo,
     pub padding_1: u64,
-}
-
-impl BaseFeeStruct {
-    pub fn to_fee_rate_limiter(&self) -> Result<PodAlignedFeeRateLimiter> {
-        let base_fee_mode = self.base_fee_info.get_base_fee_mode()?;
-        require!(
-            base_fee_mode == BaseFeeMode::RateLimiter,
-            PoolError::InvalidBaseFeeMode
-        );
-
-        let fee_rate_limiter =
-            *bytemuck::try_from_bytes::<PodAlignedFeeRateLimiter>(&self.base_fee_info.data)
-                .map_err(|_| PoolError::UndeterminedError)?;
-
-        Ok(fee_rate_limiter)
-    }
 }
 
 const_assert_eq!(BaseFeeStruct::INIT_SPACE, 40);
