@@ -8,6 +8,8 @@ import {
   createToken,
   encodePermissions,
   expectThrowsErrorCode,
+  fixConfigFeeParams,
+  fixPoolFeeParams,
   generateKpAndFund,
   getCpAmmProgramErrorCode,
   initializeCustomizablePool,
@@ -32,6 +34,7 @@ import {
 } from "./helpers/feeCodec";
 import {
   setDeprecatedRateLimiterConfig,
+  setDeprecatedRateLimiterPool,
   RateLimiterParams,
 } from "./helpers/deprecatedRateLimiter";
 import { LiteSVM } from "./helpers/litesvmCompat";
@@ -39,6 +42,8 @@ import { LiteSVM } from "./helpers/litesvmCompat";
 const DEPRECATED_BASE_FEE_MODE = getCpAmmProgramErrorCode(
   "DeprecatedBaseFeeMode"
 );
+// fix_pool_fee_params and fix_config_fee_params only change parameters that fail validation
+const CANNOT_UPDATE_BASE_FEE = getCpAmmProgramErrorCode("CannotUpdateBaseFee");
 
 const rateLimiter: RateLimiterParams = {
   cliffFeeNumerator: new BN(10_000_000),
@@ -71,7 +76,10 @@ describe("Deprecated base fee mode: rate limiter", () => {
     await createOperator(svm, {
       admin,
       whitelistAddress: whitelistedAccount.publicKey,
-      permission: encodePermissions([OperatorPermission.CreateConfigKey]),
+      permission: encodePermissions([
+        OperatorPermission.CreateConfigKey,
+        OperatorPermission.UpdatePoolFees,
+      ]),
     });
   });
 
@@ -187,8 +195,8 @@ describe("Deprecated base fee mode: rate limiter", () => {
     );
   });
 
-  it("rejects initialize_pool against a pre-existing rate limiter config", async () => {
-    // placeholder config. overriden as rate limiter
+  async function createPlaceholderStaticConfig(): Promise<PublicKey> {
+    // placeholder config. overriden as rate limiter by the caller
     const data = encodeFeeTimeSchedulerParams(
       BigInt(2_500_000),
       0,
@@ -212,12 +220,16 @@ describe("Deprecated base fee mode: rate limiter", () => {
       collectFeeMode: 1,
     };
 
-    const placeholder = await createConfigIx(
+    return createConfigIx(
       svm,
       whitelistedAccount,
       new BN(randomID()),
       configParams
     );
+  }
+
+  it("rejects initialize_pool against a pre-existing rate limiter config", async () => {
+    const placeholder = await createPlaceholderStaticConfig();
     setDeprecatedRateLimiterConfig(svm, placeholder, rateLimiter);
 
     const initPoolParams: InitializePoolParams = {

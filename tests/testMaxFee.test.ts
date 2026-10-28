@@ -27,7 +27,6 @@ import {
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
 import { setDeprecatedRateLimiterPool } from "./helpers/deprecatedRateLimiter";
-import { getRateLimiterFeeNumeratorFromIncludedFeeAmount } from "./helpers/rateLimiterUtils";
 import { LiteSVM } from "./helpers/litesvmCompat";
 
 const sqrtPrice = new BN("4880549731789001291");
@@ -395,7 +394,7 @@ describe("Test max fee 99%", () => {
     expect(actualFee.toString()).eq(totalTradingFee.toString());
   });
 
-  it("Rate limiter with max fee 99%", async () => {
+  it("Rate limiter with max fee 99% charges the cliff fee", async () => {
     const referenceAmount = new BN(LAMPORTS_PER_SOL); // 0.1 SOL
     const maxRateLimiterDuration = new BN(10);
     const maxFeeBps = 9900;
@@ -462,20 +461,10 @@ describe("Test max fee 99%", () => {
     let totalTradingFee = poolState.metrics.totalLpBFee.add(
       poolState.metrics.totalProtocolBFee
     );
-    // first 1 SOL: 10%
-    // next amount: 60%
-    // next amount: 99%
-    const feeNumerator = getRateLimiterFeeNumeratorFromIncludedFeeAmount(
-      cliffFeeNumerator,
-      feeIncrementBps,
-      maxFeeBps,
-      referenceAmount,
-      amountIn
-    );
-
+    // the whole amount pays the 10% cliff fee
     const actualFee = referenceAmount
       .muln(3)
-      .mul(feeNumerator)
+      .mul(cliffFeeNumerator)
       .add(new BN(FEE_DENOMINATOR))
       .sub(new BN(1))
       .div(new BN(FEE_DENOMINATOR));

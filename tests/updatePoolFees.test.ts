@@ -461,19 +461,9 @@ describe("Admin update pool fees parameters", () => {
       referenceAmount,
     });
 
-    // update new cliff fee numerator
+    // update new cliff fee numerator. a rate limiter pool is always static,
+    // so this works inside the former limiter window
     const cliffFeeNumerator = new BN(5_000_000);
-
-    const errorCode = getCpAmmProgramErrorCode("CannotUpdateBaseFee");
-    const res = await updatePoolFeesParameters(svm, {
-      whitelistedOperator,
-      pool: poolAddress,
-      cliffFeeNumerator,
-      dynamicFee: null,
-    });
-    expectThrowsErrorCode(res, errorCode);
-
-    warpSlotBy(svm, maxRateLimiterDuration.addn(1));
 
     let poolState = getPool(svm, poolAddress);
 

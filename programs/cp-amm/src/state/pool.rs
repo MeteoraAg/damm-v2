@@ -722,9 +722,7 @@ impl Pool {
         let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
         // We can compute the trade_fee_numerator here. Instead of separately for amount_in, and amount_out.
-        // This is because FeeRateLimiter (fee rate scale based on amount) only applied when fee_mode.fees_on_input
-        // (a.k.a TradeDirection::QuoteToBase + CollectFeeMode::QuoteToken)
-        // For the rest of the time, the fee rate is not dependent on amount.
+        // This is because the fee rate is not dependent on amount
         let trade_fee_numerator = self
             .pool_fees
             .get_total_trading_fee_from_included_fee_amount(

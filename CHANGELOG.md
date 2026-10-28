@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Update to anchor 1.2.1 and solana 4.1.2
 - Enabled Anchor's `legacy_idl` option so the legacy on-chain IDL can be kept up to date.
+- Removed the rate limiter logic from pools with `BaseFeeMode::RateLimiter`. Endpoints `swap` and `swap2` charge `cliff_fee_numerator` as a flat base fee, allow several swaps to the same pool in one transaction, and no longer require the instruction sysvar account. Endpoint `update_pool_fees` accepts a new `cliff_fee_numerator` at any time. This does not change the behaviour of any existing pool. No pool can be created with `BaseFeeMode::RateLimiter` since 0.2.3, a pool's `activation_point` is at most 31 days / 6,696,000 slots after its creation, and `max_limiter_duration` is at most 12 hours / 108,000 slots. So every existing rate limiter pool was already outside its rate limiter window before this release.
 
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 
