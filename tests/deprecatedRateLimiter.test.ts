@@ -8,8 +8,6 @@ import {
   createToken,
   encodePermissions,
   expectThrowsErrorCode,
-  fixConfigFeeParams,
-  fixPoolFeeParams,
   generateKpAndFund,
   getCpAmmProgramErrorCode,
   initializeCustomizablePool,
@@ -42,8 +40,6 @@ import { LiteSVM } from "./helpers/litesvmCompat";
 const DEPRECATED_BASE_FEE_MODE = getCpAmmProgramErrorCode(
   "DeprecatedBaseFeeMode"
 );
-// fix_pool_fee_params and fix_config_fee_params only change parameters that fail validation
-const CANNOT_UPDATE_BASE_FEE = getCpAmmProgramErrorCode("CannotUpdateBaseFee");
 
 const rateLimiter: RateLimiterParams = {
   cliffFeeNumerator: new BN(10_000_000),

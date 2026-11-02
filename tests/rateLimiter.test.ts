@@ -298,7 +298,7 @@ describe("Rate limiter", () => {
     expect(result).instanceOf(TransactionMetadata);
   });
 
-  it("Swap succeeds without the instruction sysvar account since rate limiter is no longer applied", async () => {
+  it("Swap still succeeds when the client passes the instruction sysvar account", async () => {
     const pool = await deprecatedCustomizablePool();
 
     const transaction = await swapInstruction(svm, {
@@ -310,8 +310,12 @@ describe("Rate limiter", () => {
       minimumAmountOut: new BN(0),
       referralTokenAccount: null,
     });
-    const sysvarAccount = transaction.instructions[0].keys.pop();
-    expect(sysvarAccount.pubkey.equals(SYSVAR_INSTRUCTIONS_PUBKEY)).to.be.true;
+    // clients built for the rate limiter might still append the instruction sysvar account
+    transaction.instructions[0].keys.push({
+      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+      isSigner: false,
+      isWritable: false,
+    });
 
     const result = sendTransaction(svm, transaction, [creator]);
     expect(result).instanceOf(TransactionMetadata);

@@ -39,7 +39,6 @@ pub fn get_trade_direction(
 pub fn p_handle_swap(
     _program_id: &pinocchio::pubkey::Pubkey,
     accounts: &[AccountInfo],
-    _remaining_accounts: &[AccountInfo],
     params: &SwapParameters2,
 ) -> Result<()> {
     //validate accounts to match with anchor macro
@@ -63,7 +62,6 @@ pub fn p_handle_swap(
         referral_token_account,
         event_authority,
         _program,
-        ..
     ] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys.into());
     };

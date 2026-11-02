@@ -20,7 +20,7 @@ const POOL_BASE_FEE_INFO_OFFSET = 8;
 const CONFIG_BASE_FEE_INFO_OFFSET = 72;
 const BASE_FEE_INFO_LEN = 32;
 
-export function encodePodAlignedRateLimiter(params: RateLimiterParams): Buffer {
+function encodePodAlignedRateLimiter(params: RateLimiterParams): Buffer {
   const podAligned: PodAlignedRateLimiter = {
     cliffFeeNumerator: params.cliffFeeNumerator,
     baseFeeMode: BaseFeeMode.RateLimiter,

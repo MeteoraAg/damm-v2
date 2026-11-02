@@ -27,7 +27,6 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
-  SYSVAR_INSTRUCTIONS_PUBKEY,
   Transaction,
 } from "@solana/web3.js";
 import { expect } from "chai";
@@ -64,10 +63,8 @@ import {
 import {
   BaseFeeMode,
   decodeFeeMarketCapSchedulerParams,
-  decodeFeeRateLimiterParams,
   decodeFeeTimeSchedulerParams,
   decodePodAlignedFeeMarketCapScheduler,
-  decodePodAlignedFeeRateLimiter,
   decodePodAlignedFeeTimeScheduler,
 } from "./feeCodec";
 import { expectThrowsErrorCode, sendTransaction } from "./svm";
@@ -316,31 +313,6 @@ export async function createConfigIx(
       );
 
       break;
-    case BaseFeeMode.RateLimiter:
-      const rateLimiterParams = decodeFeeRateLimiterParams(
-        Buffer.from(params.poolFees.baseFee.data)
-      );
-
-      const podAlignedRateLimiter = decodePodAlignedFeeRateLimiter(
-        Buffer.from(configState.poolFees.baseFee.data)
-      );
-
-      expect(rateLimiterParams.baseFeeMode).eq(
-        podAlignedRateLimiter.baseFeeMode
-      );
-      expect(rateLimiterParams.cliffFeeNumerator.toString()).eq(
-        podAlignedRateLimiter.cliffFeeNumerator.toString()
-      );
-      expect(rateLimiterParams.feeIncrementBps).eq(
-        podAlignedRateLimiter.feeIncrementBps
-      );
-      expect(rateLimiterParams.maxLimiterDuration).eq(
-        podAlignedRateLimiter.maxLimiterDuration
-      );
-      expect(rateLimiterParams.referenceAmount.toString()).eq(
-        podAlignedRateLimiter.referenceAmount.toString()
-      );
-      break;
     default:
       throw new Error("Unreachable");
   }
@@ -515,50 +487,6 @@ export async function updatePoolFeesParameters(
 
   const result = sendTransaction(svm, transaction, [whitelistedOperator]);
   return result;
-}
-
-export async function fixPoolFeeParams(
-  svm: LiteSVM,
-  params: {
-    whitelistedOperator: Keypair;
-    pool: PublicKey;
-    baseFeeData: Buffer;
-  }
-): Promise<TransactionMetadata | FailedTransactionMetadata> {
-  const { whitelistedOperator, pool, baseFeeData } = params;
-  const program = createCpAmmProgram();
-  const transaction = await program.methods
-    .fixPoolFeeParams({ data: Array.from(baseFeeData) })
-    .accountsPartial({
-      pool,
-      operator: deriveOperatorAddress(whitelistedOperator.publicKey),
-      signer: whitelistedOperator.publicKey,
-    })
-    .transaction();
-
-  return sendTransaction(svm, transaction, [whitelistedOperator]);
-}
-
-export async function fixConfigFeeParams(
-  svm: LiteSVM,
-  params: {
-    whitelistedOperator: Keypair;
-    config: PublicKey;
-    baseFeeData: Buffer;
-  }
-): Promise<TransactionMetadata | FailedTransactionMetadata> {
-  const { whitelistedOperator, config, baseFeeData } = params;
-  const program = createCpAmmProgram();
-  const transaction = await program.methods
-    .fixConfigFeeParams({ data: Array.from(baseFeeData) })
-    .accountsPartial({
-      config,
-      operator: deriveOperatorAddress(whitelistedOperator.publicKey),
-      signer: whitelistedOperator.publicKey,
-    })
-    .transaction();
-
-  return sendTransaction(svm, transaction, [whitelistedOperator]);
 }
 
 export async function claimProtocolFee2(
@@ -1115,31 +1043,6 @@ export async function initializeCustomizablePool(
         podAlignedMarketCapScheduler.reductionFactor.toString()
       );
 
-      break;
-    case BaseFeeMode.RateLimiter:
-      const rateLimiterParams = decodeFeeRateLimiterParams(
-        Buffer.from(params.poolFees.baseFee.data)
-      );
-
-      const podAlignedRateLimiter = decodePodAlignedFeeRateLimiter(
-        Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
-      );
-
-      expect(rateLimiterParams.baseFeeMode).eq(
-        podAlignedRateLimiter.baseFeeMode
-      );
-      expect(rateLimiterParams.cliffFeeNumerator.toString()).eq(
-        podAlignedRateLimiter.cliffFeeNumerator.toString()
-      );
-      expect(rateLimiterParams.feeIncrementBps).eq(
-        podAlignedRateLimiter.feeIncrementBps
-      );
-      expect(rateLimiterParams.maxLimiterDuration).eq(
-        podAlignedRateLimiter.maxLimiterDuration
-      );
-      expect(rateLimiterParams.referenceAmount.toString()).eq(
-        podAlignedRateLimiter.referenceAmount.toString()
-      );
       break;
     default:
       throw new Error("Unreachable");
@@ -2000,16 +1903,6 @@ export async function swapInstruction(
       tokenBMint,
       referralTokenAccount,
     })
-    .remainingAccounts(
-      // TODO should check condition to add this in remaining accounts
-      [
-        {
-          isSigner: false,
-          isWritable: false,
-          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-        },
-      ]
-    )
     .transaction();
 
   return transaction;
@@ -2087,16 +1980,6 @@ export async function swap2Instruction(svm: LiteSVM, params: Swap2Params) {
       tokenBMint,
       referralTokenAccount,
     })
-    .remainingAccounts(
-      // TODO should check condition to add this in remaining accounts
-      [
-        {
-          isSigner: false,
-          isWritable: false,
-          pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
-        },
-      ]
-    )
     .transaction();
 
   return transaction;
