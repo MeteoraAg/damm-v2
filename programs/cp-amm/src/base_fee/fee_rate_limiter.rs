@@ -3,10 +3,7 @@ use crate::{
     activation_handler::ActivationType,
     base_fee::{BaseFeeEnumReader, BorshBaseFeeSerde, PodAlignedBaseFeeSerde},
     constants::fee::{FEE_DENOMINATOR, MIN_FEE_NUMERATOR},
-    params::{
-        fee_parameters::{to_numerator, BaseFeeParameters},
-        swap::TradeDirection,
-    },
+    params::fee_parameters::{to_numerator, BaseFeeParameters},
     state::{BaseFeeInfo, CollectFeeMode},
     PoolError,
 };
@@ -109,24 +106,10 @@ impl BaseFeeHandler for PodAlignedFeeRateLimiter {
         Ok(())
     }
 
-    fn get_base_fee_numerator_from_included_fee_amount(
+    fn get_current_base_fee_numerator(
         &self,
         _current_point: u64,
         _activation_point: u64,
-        _trade_direction: TradeDirection,
-        _included_fee_amount: u64,
-        _init_sqrt_price: u128,
-        _current_sqrt_price: u128,
-    ) -> Result<u64> {
-        Ok(self.cliff_fee_numerator)
-    }
-
-    fn get_base_fee_numerator_from_excluded_fee_amount(
-        &self,
-        _current_point: u64,
-        _activation_point: u64,
-        _trade_direction: TradeDirection,
-        _excluded_fee_amount: u64,
         _init_sqrt_price: u128,
         _current_sqrt_price: u128,
     ) -> Result<u64> {

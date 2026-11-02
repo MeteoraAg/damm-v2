@@ -120,45 +120,18 @@ impl PoolFeesStruct {
     }
 
     // in numerator
-    pub fn get_total_trading_fee_from_included_fee_amount(
+    pub fn get_total_trading_fee(
         &self,
         current_point: u64,
         activation_point: u64,
-        included_fee_amount: u64,
-        trade_direction: TradeDirection,
         max_fee_numerator: u64,
         sqrt_price: u128,
     ) -> Result<u64> {
         let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
 
-        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
+        let base_fee_numerator = base_fee_handler.get_current_base_fee_numerator(
             current_point,
             activation_point,
-            trade_direction,
-            included_fee_amount,
-            self.init_sqrt_price,
-            sqrt_price,
-        )?;
-
-        self.get_total_fee_numerator(base_fee_numerator, max_fee_numerator)
-    }
-
-    pub fn get_total_trading_fee_from_excluded_fee_amount(
-        &self,
-        current_point: u64,
-        activation_point: u64,
-        excluded_fee_amount: u64,
-        trade_direction: TradeDirection,
-        max_fee_numerator: u64,
-        sqrt_price: u128,
-    ) -> Result<u64> {
-        let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
-
-        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
-            current_point,
-            activation_point,
-            trade_direction,
-            excluded_fee_amount,
             self.init_sqrt_price,
             sqrt_price,
         )?;

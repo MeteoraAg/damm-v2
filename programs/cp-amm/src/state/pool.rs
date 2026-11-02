@@ -473,20 +473,16 @@ impl Pool {
 
         let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
+        let trade_fee_numerator = self.pool_fees.get_total_trading_fee(
+            current_point,
+            self.activation_point,
+            max_fee_numerator,
+            self.sqrt_price,
+        )?;
+
         let included_fee_amount_out = if fee_mode.fees_on_input {
             amount_out
         } else {
-            let trade_fee_numerator = self
-                .pool_fees
-                .get_total_trading_fee_from_excluded_fee_amount(
-                    current_point,
-                    self.activation_point,
-                    amount_out,
-                    trade_direction,
-                    max_fee_numerator,
-                    self.sqrt_price,
-                )?;
-
             let (included_fee_amount_out, fee_amount) =
                 PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, amount_out)?;
 
@@ -520,17 +516,6 @@ impl Pool {
         }?;
 
         let included_fee_input_amount = if fee_mode.fees_on_input {
-            let trade_fee_numerator = self
-                .pool_fees
-                .get_total_trading_fee_from_excluded_fee_amount(
-                    current_point,
-                    self.activation_point,
-                    input_amount,
-                    trade_direction,
-                    max_fee_numerator,
-                    self.sqrt_price,
-                )?;
-
             let (included_fee_input_amount, fee_amount) =
                 PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, input_amount)?;
 
@@ -582,16 +567,12 @@ impl Pool {
 
         let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
-        let trade_fee_numerator = self
-            .pool_fees
-            .get_total_trading_fee_from_included_fee_amount(
-                current_point,
-                self.activation_point,
-                amount_in,
-                trade_direction,
-                max_fee_numerator,
-                self.sqrt_price,
-            )?;
+        let trade_fee_numerator = self.pool_fees.get_total_trading_fee(
+            current_point,
+            self.activation_point,
+            max_fee_numerator,
+            self.sqrt_price,
+        )?;
 
         let mut actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
@@ -633,17 +614,6 @@ impl Pool {
             actual_amount_in = actual_amount_in.safe_sub(amount_left)?;
 
             if fee_mode.fees_on_input {
-                let trade_fee_numerator = self
-                    .pool_fees
-                    .get_total_trading_fee_from_excluded_fee_amount(
-                        current_point,
-                        self.activation_point,
-                        actual_amount_in,
-                        trade_direction,
-                        max_fee_numerator,
-                        self.sqrt_price,
-                    )?;
-
                 let (included_fee_amount_in, fee_amount) =
                     PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, actual_amount_in)?;
 
@@ -721,18 +691,12 @@ impl Pool {
 
         let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
-        // We can compute the trade_fee_numerator here. Instead of separately for amount_in, and amount_out.
-        // This is because the fee rate is not dependent on amount
-        let trade_fee_numerator = self
-            .pool_fees
-            .get_total_trading_fee_from_included_fee_amount(
-                current_point,
-                self.activation_point,
-                amount_in,
-                trade_direction,
-                max_fee_numerator,
-                self.sqrt_price,
-            )?;
+        let trade_fee_numerator = self.pool_fees.get_total_trading_fee(
+            current_point,
+            self.activation_point,
+            max_fee_numerator,
+            self.sqrt_price,
+        )?;
 
         let actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {

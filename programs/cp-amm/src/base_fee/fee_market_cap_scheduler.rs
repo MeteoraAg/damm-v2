@@ -6,10 +6,7 @@ use crate::{
         MIN_FEE_NUMERATOR,
     },
     fee_math::get_fee_in_period,
-    params::{
-        fee_parameters::{validate_fee_fraction, BaseFeeParameters},
-        swap::TradeDirection,
-    },
+    params::fee_parameters::{validate_fee_fraction, BaseFeeParameters},
     safe_math::SafeMath,
     state::{fee::BaseFeeMode, BaseFeeInfo, CollectFeeMode},
     PoolError,
@@ -203,29 +200,10 @@ impl BaseFeeHandler for PodAlignedFeeMarketCapScheduler {
         Ok(())
     }
 
-    fn get_base_fee_numerator_from_excluded_fee_amount(
+    fn get_current_base_fee_numerator(
         &self,
         current_point: u64,
         activation_point: u64,
-        _trade_direction: TradeDirection,
-        _excluded_fee_amount: u64,
-        init_sqrt_price: u128,
-        current_sqrt_price: u128,
-    ) -> Result<u64> {
-        self.get_base_fee_numerator(
-            current_point,
-            activation_point,
-            init_sqrt_price,
-            current_sqrt_price,
-        )
-    }
-
-    fn get_base_fee_numerator_from_included_fee_amount(
-        &self,
-        current_point: u64,
-        activation_point: u64,
-        _trade_direction: TradeDirection,
-        _included_fee_amount: u64,
         init_sqrt_price: u128,
         current_sqrt_price: u128,
     ) -> Result<u64> {

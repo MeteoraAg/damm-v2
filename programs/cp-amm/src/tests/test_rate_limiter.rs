@@ -2,7 +2,7 @@ use crate::{
     activation_handler::ActivationType,
     base_fee::{fee_rate_limiter::PodAlignedFeeRateLimiter, BaseFeeHandler},
     constants::fee::{FEE_DENOMINATOR, MIN_FEE_NUMERATOR},
-    params::{fee_parameters::to_numerator, swap::TradeDirection},
+    params::fee_parameters::to_numerator,
     state::{fee::BaseFeeMode, CollectFeeMode},
 };
 
@@ -25,35 +25,12 @@ fn test_rate_limiter_always_charges_cliff_fee() {
     let rate_limiter = deprecated_rate_limiter(cliff_fee_numerator);
     let activation_point = 100;
 
-    for trade_direction in [TradeDirection::AtoB, TradeDirection::BtoA] {
-        // before, inside and after the former limiter window
-        for current_point in [0, activation_point, activation_point + 30, u64::MAX] {
-            for amount in [1, 1_000_000_000, 3_000_000_000, u64::MAX] {
-                let included_fee_numerator = rate_limiter
-                    .get_base_fee_numerator_from_included_fee_amount(
-                        current_point,
-                        activation_point,
-                        trade_direction,
-                        amount,
-                        0,
-                        0,
-                    )
-                    .unwrap();
-                assert_eq!(included_fee_numerator, cliff_fee_numerator);
-
-                let excluded_fee_numerator = rate_limiter
-                    .get_base_fee_numerator_from_excluded_fee_amount(
-                        current_point,
-                        activation_point,
-                        trade_direction,
-                        amount,
-                        0,
-                        0,
-                    )
-                    .unwrap();
-                assert_eq!(excluded_fee_numerator, cliff_fee_numerator);
-            }
-        }
+    // before, inside and after the former limiter window
+    for current_point in [0, activation_point, activation_point + 30, u64::MAX] {
+        let fee_numerator = rate_limiter
+            .get_current_base_fee_numerator(current_point, activation_point, 0, 0)
+            .unwrap();
+        assert_eq!(fee_numerator, cliff_fee_numerator);
     }
 
     assert_eq!(
