@@ -44,22 +44,17 @@ fn test_rate_limiter_always_charges_cliff_fee() {
 }
 
 #[test]
-fn test_validate_rate_limiter_only_checks_cliff_fee() {
-    // the cliff fee is capped by the pool's own max_fee_bps (5000 bps)
+fn test_validate_rate_limiter_accepts_any_parameters() {
+    // fix_pool_fee_params and fix_config_fee_params only change parameters that fail validate,
+    // so validate must pass for every stored rate limiter to keep them out of reach
     let max_fee_numerator = to_numerator(5000, FEE_DENOMINATOR.into()).unwrap();
 
     for collect_fee_mode in [CollectFeeMode::BothToken, CollectFeeMode::OnlyB] {
         for activation_type in [ActivationType::Slot, ActivationType::Timestamp] {
-            for cliff_fee_numerator in [MIN_FEE_NUMERATOR, max_fee_numerator] {
+            for cliff_fee_numerator in [0, MIN_FEE_NUMERATOR, max_fee_numerator + 1, u64::MAX] {
                 assert!(deprecated_rate_limiter(cliff_fee_numerator)
                     .validate(collect_fee_mode, activation_type)
                     .is_ok());
-            }
-
-            for cliff_fee_numerator in [MIN_FEE_NUMERATOR - 1, max_fee_numerator + 1] {
-                assert!(deprecated_rate_limiter(cliff_fee_numerator)
-                    .validate(collect_fee_mode, activation_type)
-                    .is_err());
             }
         }
     }
