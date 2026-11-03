@@ -489,6 +489,30 @@ export async function updatePoolFeesParameters(
   return result;
 }
 
+export type ZeroPoolRateLimiterParams = {
+  pool: PublicKey;
+  whitelistedOperator: Keypair;
+};
+
+export async function zeroPoolRateLimiter(
+  svm: LiteSVM,
+  params: ZeroPoolRateLimiterParams
+): Promise<TransactionMetadata | FailedTransactionMetadata> {
+  const { pool, whitelistedOperator } = params;
+  const program = createCpAmmProgram();
+  const transaction = await program.methods
+    .zeroPoolRateLimiter()
+    .accountsPartial({
+      pool,
+      operator: deriveOperatorAddress(whitelistedOperator.publicKey),
+      signer: whitelistedOperator.publicKey,
+    })
+    .transaction();
+
+  const result = sendTransaction(svm, transaction, [whitelistedOperator]);
+  return result;
+}
+
 export async function claimProtocolFee2(
   svm: LiteSVM,
   params: {

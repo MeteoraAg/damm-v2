@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## cp_amm [0.2.6] [#PR 236](https://github.com/MeteoraAg/damm-v2/pull/236)
 
+### Added
+
+- Added operator endpoint `zero_pool_rate_limiter` for operators with the `FixPool` permission. It sets `reference_amount`, `max_limiter_duration`, `max_fee_bps` and `fee_increment_bps` to zero on a pool with `BaseFeeMode::RateLimiter` and leaves `cliff_fee_numerator` unchanged.
+
 ### Changed
 
 - Update to anchor 1.2.1 and solana 4.1.2

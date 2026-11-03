@@ -23,18 +23,26 @@ import {
   OperatorPermission,
   randomID,
   startSvm,
+  swapExactIn,
+  zeroPoolRateLimiter,
+  parseEventInstruction,
+  getPool,
 } from "./helpers";
 import {
   BaseFeeMode,
+  decodePodAlignedFeeRateLimiter,
   encodeFeeMarketCapSchedulerParams,
   encodeFeeRateLimiterParams,
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
 import {
   setDeprecatedRateLimiterConfig,
+  setDeprecatedRateLimiterPool,
   RateLimiterParams,
 } from "./helpers/deprecatedRateLimiter";
 import { LiteSVM } from "./helpers/litesvmCompat";
+import { expect } from "chai";
+import { FailedTransactionMetadata, TransactionMetadata } from "litesvm";
 
 const DEPRECATED_BASE_FEE_MODE = getCpAmmProgramErrorCode(
   "DeprecatedBaseFeeMode"
@@ -234,5 +242,181 @@ describe("Deprecated base fee mode: rate limiter", () => {
     const { result } = await initializePool(svm, initPoolParams);
 
     expectThrowsErrorCode(result, DEPRECATED_BASE_FEE_MODE);
+  });
+
+  describe("zero_pool_rate_limiter", () => {
+    const INVALID_BASE_FEE_MODE =
+      getCpAmmProgramErrorCode("InvalidBaseFeeMode");
+    const INVALID_PERMISSION = getCpAmmProgramErrorCode("InvalidPermission");
+
+    let fixPoolOperator: Keypair;
+
+    beforeEach(async () => {
+      fixPoolOperator = generateKpAndFund(svm);
+      await createOperator(svm, {
+        admin,
+        whitelistAddress: fixPoolOperator.publicKey,
+        permission: encodePermissions([OperatorPermission.FixPool]),
+      });
+    });
+
+    // placeholder pool with a fee time scheduler base fee. tests override it as a rate limiter pool
+    async function placeholderPool(): Promise<PublicKey> {
+      const data = encodeFeeTimeSchedulerParams(
+        BigInt(rateLimiter.cliffFeeNumerator.toString()),
+        0,
+        BigInt(0),
+        BigInt(0),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      );
+
+      const configParams: CreateConfigParams = {
+        poolFees: {
+          baseFee: { data: Array.from(data) },
+          compoundingFeeBps: 0,
+          padding: 0,
+          dynamicFee: null,
+        },
+        sqrtMinPrice: new BN(MIN_SQRT_PRICE),
+        sqrtMaxPrice: new BN(MAX_SQRT_PRICE),
+        vaultConfigKey: PublicKey.default,
+        poolCreatorAuthority: PublicKey.default,
+        activationType: 0,
+        collectFeeMode: 1,
+      };
+
+      const config = await createConfigIx(
+        svm,
+        whitelistedAccount,
+        new BN(randomID()),
+        configParams
+      );
+
+      const initPoolParams: InitializePoolParams = {
+        payer: creator,
+        creator: creator.publicKey,
+        config,
+        tokenAMint: tokenA,
+        tokenBMint: tokenB,
+        liquidity: new BN(MIN_LP_AMOUNT),
+        sqrtPrice: new BN(MIN_SQRT_PRICE.muln(2)),
+        activationPoint: null,
+      };
+      const { pool } = await initializePool(svm, initPoolParams);
+      return pool;
+    }
+
+    function rateLimiterState(pool: PublicKey) {
+      const poolState = getPool(svm, pool);
+      return decodePodAlignedFeeRateLimiter(
+        Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+    }
+
+    async function swapFee(pool: PublicKey, amountIn: BN): Promise<BN> {
+      const before = getPool(svm, pool).metrics;
+      await swapExactIn(svm, {
+        payer: creator,
+        pool,
+        inputTokenMint: tokenB,
+        outputTokenMint: tokenA,
+        amountIn,
+        minimumAmountOut: new BN(0),
+        referralTokenAccount: null,
+      });
+      const after = getPool(svm, pool).metrics;
+      return after.totalLpBFee
+        .add(after.totalProtocolBFee)
+        .sub(before.totalLpBFee)
+        .sub(before.totalProtocolBFee);
+    }
+
+    it("rejects a pool whose base fee mode is not RateLimiter", async () => {
+      const pool = await placeholderPool();
+
+      const result = await zeroPoolRateLimiter(svm, {
+        pool,
+        whitelistedOperator: fixPoolOperator,
+      });
+
+      expectThrowsErrorCode(result, INVALID_BASE_FEE_MODE);
+    });
+
+    it("rejects an operator without the FixPool permission", async () => {
+      const pool = await placeholderPool();
+      setDeprecatedRateLimiterPool(svm, pool, rateLimiter);
+
+      const result = await zeroPoolRateLimiter(svm, {
+        pool,
+        whitelistedOperator: whitelistedAccount,
+      });
+
+      expectThrowsErrorCode(result, INVALID_PERMISSION);
+    });
+
+    it("zeroes the rate limiter parameters and emits EvtZeroPoolRateLimiter", async () => {
+      const pool = await placeholderPool();
+      setDeprecatedRateLimiterPool(svm, pool, rateLimiter);
+
+      const amountIn = new BN(LAMPORTS_PER_SOL).muln(2);
+      const feeBefore = await swapFee(pool, amountIn);
+
+      const result = await zeroPoolRateLimiter(svm, {
+        pool,
+        whitelistedOperator: fixPoolOperator,
+      });
+      expect(result).instanceOf(TransactionMetadata);
+
+      const state = rateLimiterState(pool);
+      expect(state.baseFeeMode).eq(BaseFeeMode.RateLimiter);
+      expect(state.cliffFeeNumerator.toString()).eq(
+        rateLimiter.cliffFeeNumerator.toString()
+      );
+      expect(state.feeIncrementBps).eq(0);
+      expect(state.maxLimiterDuration).eq(0);
+      expect(state.maxFeeBps).eq(0);
+      expect(state.referenceAmount.toString()).eq("0");
+
+      const event = parseEventInstruction(
+        result as TransactionMetadata,
+        "evtZeroPoolRateLimiter"
+      );
+      expect(event).not.null;
+      expect(event!.data.pool.toString()).eq(pool.toString());
+      expect(event!.data.operator.toString()).eq(
+        fixPoolOperator.publicKey.toString()
+      );
+
+      const feeAfter = await swapFee(pool, amountIn);
+      expect(feeAfter.toString()).eq(feeBefore.toString());
+      expect(feeAfter.toString()).eq(amountIn.divn(100).toString());
+    });
+
+    it("is a no-op on a pool whose rate limiter parameters are already zero", async () => {
+      const pool = await placeholderPool();
+      setDeprecatedRateLimiterPool(svm, pool, {
+        ...rateLimiter,
+        feeIncrementBps: 0,
+        maxLimiterDuration: 0,
+        maxFeeBps: 0,
+        referenceAmount: new BN(0),
+      });
+      const dataBefore = Buffer.from(svm.getAccount(pool)!.data);
+
+      const result = await zeroPoolRateLimiter(svm, {
+        pool,
+        whitelistedOperator: fixPoolOperator,
+      });
+      expect(result).instanceOf(TransactionMetadata);
+
+      const dataAfter = Buffer.from(svm.getAccount(pool)!.data);
+      expect(dataAfter.equals(dataBefore)).true;
+
+      const event = parseEventInstruction(
+        result as TransactionMetadata,
+        "evtZeroPoolRateLimiter"
+      );
+      expect(event).null;
+    });
   });
 });
