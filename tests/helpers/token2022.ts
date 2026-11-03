@@ -1,5 +1,6 @@
 import {
   AuthorityType,
+  createCreateNativeMintInstruction,
   createInitializeMint2Instruction,
   createInitializePermanentDelegateInstruction,
   createInitializeTransferFeeConfigInstruction,
@@ -9,6 +10,7 @@ import {
   createUpdateTransferHookInstruction,
   ExtensionType,
   getMintLen,
+  NATIVE_MINT_2022,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 import {
@@ -177,4 +179,21 @@ export async function revokeAuthorityAndProgramIdTransferHook(
   const result = sendTransaction(svm, transaction, [authority]);
 
   expect(result).instanceOf(TransactionMetadata);
+}
+
+export function createNativeMintToken2022(svm: LiteSVM): PublicKey {
+  const payer = Keypair.generate();
+  svm.airdrop(payer.publicKey, BigInt(LAMPORTS_PER_SOL));
+  const transaction = new Transaction().add(
+    createCreateNativeMintInstruction(
+      payer.publicKey,
+      NATIVE_MINT_2022,
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+
+  const result = sendTransaction(svm, transaction, [payer]);
+  expect(result).instanceOf(TransactionMetadata);
+
+  return NATIVE_MINT_2022;
 }

@@ -99,7 +99,7 @@ pub fn handle_claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()
     let fee_b_pending = position.fee_b_pending;
     position
         .metrics
-        .accumulate_claimed_fee(fee_a_pending, fee_b_pending)?;
+        .accumulate_claimed_fee(fee_a_pending, fee_b_pending);
 
     if fee_a_pending > 0 {
         // send to user

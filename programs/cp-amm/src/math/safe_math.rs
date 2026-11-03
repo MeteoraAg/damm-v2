@@ -1,5 +1,5 @@
 use anchor_lang::solana_program::msg;
-use ruint::aliases::{U256, U512};
+use ruint::aliases::{U256, U384, U512};
 use std::panic::Location;
 
 use crate::{
@@ -118,6 +118,7 @@ checked_impl!(i128, u32);
 checked_impl!(usize, u32);
 checked_impl!(U256, usize);
 checked_impl!(U512, usize);
+checked_impl!(U384, usize);
 
 pub trait SafeCast<T>: Sized {
     fn safe_cast(self) -> Result<T, PoolError>;
@@ -145,6 +146,7 @@ try_into_impl!(u128, u64);
 try_into_impl!(i64, u64);
 try_into_impl!(usize, u16);
 try_into_impl!(U512, u64);
+try_into_impl!(U384, u64);
 try_into_impl!(u8, TokenProgramFlags);
 try_into_impl!(u8, CollectFeeMode);
 try_into_impl!(u8, LayoutVersion);
