@@ -29,5 +29,7 @@ pub fn handle_zero_pool_rate_limiter(ctx: Context<ZeroPoolRateLimiterCtx>) -> Re
         });
     }
 
+    // no-op if pool is already zero rate limiter
+
     Ok(())
 }
