@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the rate limiter logic from pools with `BaseFeeMode::RateLimiter`. Endpoints `swap` and `swap2` charge `cliff_fee_numerator` as a flat base fee, allow several swaps to the same pool in one transaction, and no longer require the instruction sysvar account. Swaps on existing pools behave the same as before, because every rate limiter window had already ended. No pool can be created with `BaseFeeMode::RateLimiter` since 0.2.3, a pool's `activation_point` is at most 31 days / 6,696,000 slots after its creation, and `max_limiter_duration` is at most 12 hours / 108,000 slots.
 - Operator endpoint `update_pool_fees` accepts a new `cliff_fee_numerator` from 0.01% to 10% for pools with `BaseFeeMode::RateLimiter`, regardless of the pool's `max_fee_bps`. This behaviour matches the other fee modes.
 
+### Removed
+
+- Removed the operator endpoints `fix_pool_fee_params` and `fix_config_fee_params`. Every pool and config on mainnet with invalid base fee parameters has already been fixed, so the endpoints are no longer needed.
+
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 
 ### Changed
