@@ -31,7 +31,6 @@ import {
 import {
   BaseFeeMode,
   decodePodAlignedFeeRateLimiter,
-  encodeFeeMarketCapSchedulerParams,
   encodeFeeRateLimiterParams,
   encodeFeeTimeSchedulerParams,
 } from "./helpers/feeCodec";
@@ -42,7 +41,7 @@ import {
 } from "./helpers/deprecatedRateLimiter";
 import { LiteSVM } from "./helpers/litesvmCompat";
 import { expect } from "chai";
-import { FailedTransactionMetadata, TransactionMetadata } from "litesvm";
+import { TransactionMetadata } from "litesvm";
 
 const DEPRECATED_BASE_FEE_MODE = getCpAmmProgramErrorCode(
   "DeprecatedBaseFeeMode"

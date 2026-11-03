@@ -49,7 +49,6 @@ import { LiteSVM } from "./helpers/litesvmCompat";
 // 0.2.6 these pools always charge cliff_fee_numerator as a flat base fee and
 // no longer limit a transaction to one swap per pool.
 // this is fine since there are no more live rate limiter Pools.
-// So the behaviour is identical to a Pool that was initially set as rate limiter but the rate limiter is no longer active
 describe("Rate limiter", () => {
   const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
   const maxRateLimiterDuration = new BN(10);
