@@ -315,7 +315,7 @@ pub fn get_delta_amount_a_unsigned_unchecked(
 
     assert!(denominator > U256::ZERO);
     let result = mul_div_u256(numerator_1, numerator_2, denominator, round)
-        .ok_or_else(|| PoolError::MathOverflow)?;
+        .ok_or(PoolError::MathOverflow)?;
     Ok(result)
 }
 
@@ -411,10 +411,10 @@ pub fn get_next_sqrt_price_from_output(
 ///
 /// Always round up because
 /// 1. In the exact output case, token_a supply decreases leading to price increase.
-/// Move price up so that exact output is met.
+///    Move price up so that exact output is met.
 /// 2. In the exact input case, token_a supply increases leading to price decrease.
-/// Do not round down to minimize price impact. We only need to meet input
-/// change and not guarantee exact output.
+///    Do not round down to minimize price impact. We only need to meet input
+///    change and not guarantee exact output.
 ///
 /// Use function for exact input or exact output swaps for token_a
 ///
@@ -446,7 +446,7 @@ pub fn get_next_sqrt_price_from_amount_in_a_rounding_up(
     let product = U256::from(amount).safe_mul(sqrt_price)?;
     let denominator = liquidity.safe_add(U256::from(product))?;
     let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
-        .ok_or_else(|| PoolError::MathOverflow)?;
+        .ok_or(PoolError::MathOverflow)?;
     Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
@@ -462,7 +462,7 @@ pub fn get_next_sqrt_price_from_amount_out_a_rounding_up(
     let product = U256::from(amount).safe_mul(sqrt_price)?;
     let denominator = liquidity.safe_sub(U256::from(product))?;
     let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
-        .ok_or_else(|| PoolError::MathOverflow)?;
+        .ok_or(PoolError::MathOverflow)?;
     Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
@@ -470,10 +470,10 @@ pub fn get_next_sqrt_price_from_amount_out_a_rounding_up(
 ///
 /// Always round down because
 /// 1. In the exact output case, token_b supply decreases leading to price decrease.
-/// Move price down by rounding down so that exact output of token_a is met.
+///    Move price down by rounding down so that exact output of token_a is met.
 /// 2. In the exact input case, token_b supply increases leading to price increase.
-/// Do not round down to minimize price impact. We only need to meet input
-/// change and not guarantee exact output for token_a.
+///    Do not round down to minimize price impact. We only need to meet input
+///    change and not guarantee exact output for token_a.
 ///
 ///
 /// # Formula

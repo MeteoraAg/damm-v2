@@ -1,5 +1,3 @@
-use std::{u128, u64};
-
 use crate::{
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     params::swap::TradeDirection,
@@ -135,7 +133,7 @@ proptest! {
 fn test_reserve_wont_lost_when_swap_from_b_to_a_single() {
     let liquidity = LIQUIDITY_MAX;
     let sqrt_price = 19163436944492510497018124036;
-    let amount_in = 1_000_0000;
+    let amount_in = 10_000_000;
     let trade_direction = TradeDirection::BtoA;
 
     let sqrt_min_price = MIN_SQRT_PRICE;

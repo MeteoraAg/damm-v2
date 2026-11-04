@@ -35,9 +35,7 @@ pub fn handle_update_reward_funder<'info>(
     reward_index: u8,
     new_funder: Pubkey,
 ) -> Result<()> {
-    let index: usize = reward_index
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index.into();
     ctx.accounts.validate(index, new_funder)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;
@@ -45,8 +43,8 @@ pub fn handle_update_reward_funder<'info>(
     if !pool.check_pool_creator_to_edit_reward(index, ctx.accounts.signer.key()) {
         let operator_account = ctx
             .remaining_accounts
-            .get(0)
-            .ok_or_else(|| PoolError::MissingOperatorAccount)?;
+            .first()
+            .ok_or(PoolError::MissingOperatorAccount)?;
         let operator_loader: AccountLoader<'info, Operator> =
             AccountLoader::try_from(operator_account)?;
         let operator = operator_loader.load()?;

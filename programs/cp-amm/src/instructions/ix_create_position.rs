@@ -37,7 +37,7 @@ pub struct CreatePositionCtx<'info> {
     /// position nft account
     #[account(
         init,
-        seeds = [POSITION_NFT_ACCOUNT_PREFIX.as_ref(), position_nft_mint.key().as_ref()],
+        seeds = [POSITION_NFT_ACCOUNT_PREFIX, position_nft_mint.key().as_ref()],
         token::mint = position_nft_mint,
         token::authority = owner,
         token::token_program = token_program,
@@ -52,7 +52,7 @@ pub struct CreatePositionCtx<'info> {
     #[account(
         init,
         seeds = [
-            POSITION_PREFIX.as_ref(),
+            POSITION_PREFIX,
             position_nft_mint.key().as_ref()
         ],
         bump,

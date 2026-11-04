@@ -80,7 +80,6 @@ impl PodAlignedBaseFeeSerde for PodAlignedFeeTimeScheduler {
             period_frequency: self.period_frequency,
             reduction_factor: self.reduction_factor,
             base_fee_mode: self.base_fee_mode,
-            ..Default::default()
         };
         let mut bytes = [0u8; BaseFeeParameters::INIT_SPACE];
         // Shall not happen

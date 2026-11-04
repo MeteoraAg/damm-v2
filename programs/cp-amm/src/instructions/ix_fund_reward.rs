@@ -57,9 +57,7 @@ pub fn handle_fund_reward(
     amount: u64,
     carry_forward: bool,
 ) -> Result<()> {
-    let index: usize = reward_index
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index.into();
     ctx.accounts.validate(index)?;
 
     // actual amount need to transfer

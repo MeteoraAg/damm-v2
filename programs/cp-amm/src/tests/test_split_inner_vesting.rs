@@ -30,13 +30,13 @@ fn build_position(
         ..Default::default()
     };
 
-    let mut position = Position::default();
-    position.vested_liquidity =
-        total_release_liquidity_at_end_point - total_release_liquidity_at_current_point;
-    position.unlocked_liquidity = total_release_liquidity_at_current_point;
-    position.inner_vesting = inner_vesting;
-
-    position
+    Position {
+        vested_liquidity: total_release_liquidity_at_end_point
+            - total_release_liquidity_at_current_point,
+        unlocked_liquidity: total_release_liquidity_at_current_point,
+        inner_vesting,
+        ..Default::default()
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

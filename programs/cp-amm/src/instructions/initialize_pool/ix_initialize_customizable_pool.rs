@@ -59,7 +59,7 @@ pub fn validate_initial_sqrt_price(
     if collect_fee_mode == CollectFeeMode::Compounding {
         // we still have a boundary for initial sqrt price
         require!(
-            sqrt_price >= MIN_SQRT_PRICE && sqrt_price <= MAX_SQRT_PRICE,
+            (MIN_SQRT_PRICE..=MAX_SQRT_PRICE).contains(&sqrt_price),
             PoolError::InvalidPriceRange
         );
     } else {
@@ -138,7 +138,7 @@ pub struct InitializeCustomizablePoolCtx<'info> {
     /// position nft account
     #[account(
         init,
-        seeds = [POSITION_NFT_ACCOUNT_PREFIX.as_ref(), position_nft_mint.key().as_ref()],
+        seeds = [POSITION_NFT_ACCOUNT_PREFIX, position_nft_mint.key().as_ref()],
         token::mint = position_nft_mint,
         token::authority = creator,
         token::token_program = token_2022_program,
@@ -161,7 +161,7 @@ pub struct InitializeCustomizablePoolCtx<'info> {
     #[account(
         init,
         seeds = [
-            CUSTOMIZABLE_POOL_PREFIX.as_ref(),
+            CUSTOMIZABLE_POOL_PREFIX,
             &max_key(&token_a_mint.key(), &token_b_mint.key()),
             &min_key(&token_a_mint.key(), &token_b_mint.key()),
         ],
@@ -174,7 +174,7 @@ pub struct InitializeCustomizablePoolCtx<'info> {
     #[account(
         init,
         seeds = [
-            POSITION_PREFIX.as_ref(),
+            POSITION_PREFIX,
             position_nft_mint.key().as_ref()
         ],
         bump,
@@ -200,7 +200,7 @@ pub struct InitializeCustomizablePoolCtx<'info> {
     #[account(
         init,
         seeds = [
-            TOKEN_VAULT_PREFIX.as_ref(),
+            TOKEN_VAULT_PREFIX,
             token_a_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
@@ -216,7 +216,7 @@ pub struct InitializeCustomizablePoolCtx<'info> {
     #[account(
         init,
         seeds = [
-            TOKEN_VAULT_PREFIX.as_ref(),
+            TOKEN_VAULT_PREFIX,
             token_b_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
@@ -256,7 +256,7 @@ pub fn handle_initialize_customizable_pool<'info>(
     validate_mint(
         &ctx.accounts.token_a_mint,
         false,
-        ctx.remaining_accounts.get(0),
+        ctx.remaining_accounts.first(),
     )?;
     validate_mint(
         &ctx.accounts.token_b_mint,

@@ -102,7 +102,6 @@ impl PodAlignedBaseFeeSerde for PodAlignedFeeRateLimiter {
             max_fee_bps: self.max_fee_bps,
             reference_amount: self.reference_amount,
             base_fee_mode: self.base_fee_mode,
-            ..Default::default()
         };
         let mut bytes = [0u8; BaseFeeParameters::INIT_SPACE];
         // Shall not happen
@@ -212,9 +211,8 @@ impl PodAlignedFeeRateLimiter {
             // reverse to fee numerator
             // input_amount * numerator / FEE_DENOMINATOR = trading_fee
             // then numerator = trading_fee * FEE_DENOMINATOR / input_amount
-            let fee_numerator =
-                safe_mul_div_cast_u64(trading_fee, FEE_DENOMINATOR, input_amount, Rounding::Up)?;
-            fee_numerator
+
+            safe_mul_div_cast_u64(trading_fee, FEE_DENOMINATOR, input_amount, Rounding::Up)?
         };
 
         Ok(fee_numerator)
@@ -293,9 +291,8 @@ impl PodAlignedFeeRateLimiter {
             let z = two * ex * d * x0;
 
             // solve quaratic equation
-            let included_fee_amount = (y - sqrt_u256(y * y - four * x * z)
-                .ok_or_else(|| PoolError::MathOverflow)?)
-                / (two * x);
+            let included_fee_amount =
+                (y - sqrt_u256(y * y - four * x * z).ok_or(PoolError::MathOverflow)?) / (two * x);
             let a_plus_one = included_fee_amount.safe_div(x0)?;
 
             let first_excluded_fee_amount = self.get_excluded_fee_amount(
@@ -317,10 +314,10 @@ impl PodAlignedFeeRateLimiter {
 
             let total_in_amount =
                 included_fee_amount.safe_add(U256::from(included_fee_remaining_amount))?;
-            let total_in_amount = total_in_amount
-                .try_into()
-                .map_err(|_| PoolError::TypeCastFailed)?;
+
             total_in_amount
+                .try_into()
+                .map_err(|_| PoolError::TypeCastFailed)?
         } else {
             // excluded_fee_amount > checked_excluded_fee_amount
             if is_overflow {
@@ -334,9 +331,7 @@ impl PodAlignedFeeRateLimiter {
                 excluded_fee_remaining_amount,
             )?;
 
-            let total_amount_in =
-                included_fee_remaining_amount.safe_add(checked_included_fee_amount)?;
-            total_amount_in
+            included_fee_remaining_amount.safe_add(checked_included_fee_amount)?
         };
 
         let trading_fee = included_fee_amount.safe_sub(excluded_fee_amount)?;
@@ -403,8 +398,7 @@ impl BaseFeeHandler for PodAlignedFeeRateLimiter {
             PoolError::InvalidFeeRateLimiter
         );
 
-        let max_fee_bps_u64 =
-            u64::try_from(self.max_fee_bps).map_err(|_| PoolError::TypeCastFailed)?;
+        let max_fee_bps_u64 = u64::from(self.max_fee_bps);
         require!(
             max_fee_bps_u64 <= get_max_fee_bps(CURRENT_POOL_VERSION)?,
             PoolError::InvalidFeeRateLimiter

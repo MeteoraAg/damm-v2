@@ -117,8 +117,7 @@ pub fn p_load_mut_unchecked<T: Pod + Discriminator + Owner>(
 // get number of accounts in instruction
 // refer: https://github.com/anza-xyz/pinocchio/blob/183a17634e1ad2a33921fd5b0de38c151fb2ec2f/sdk/src/sysvars/instructions.rs#L183
 pub fn p_get_number_of_accounts_in_instruction(instruction: &IntrospectedInstruction) -> u16 {
-    let num_accounts = u16::from_le_bytes(unsafe { *(instruction.raw as *const [u8; 2]) });
-    num_accounts
+    u16::from_le_bytes(unsafe { *(instruction.raw as *const [u8; 2]) })
 }
 
 pub fn p_accessor_mint(token_account: &AccountInfo) -> Result<Pubkey> {

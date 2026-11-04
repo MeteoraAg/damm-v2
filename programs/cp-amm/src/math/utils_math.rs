@@ -11,7 +11,7 @@ use crate::{
 /// safe_mul_shr_cast
 #[inline]
 pub fn safe_mul_shr_cast<T: FromPrimitive>(x: u128, y: u128, offset: u8) -> Result<T> {
-    T::from_u128(mul_shr(x, y, offset).ok_or_else(|| PoolError::MathOverflow)?)
+    T::from_u128(mul_shr(x, y, offset).ok_or(PoolError::MathOverflow)?)
         .ok_or_else(|| PoolError::TypeCastFailed.into())
 }
 
@@ -62,7 +62,7 @@ pub fn safe_shl_div_cast<T: FromPrimitive>(
     offset: u8,
     rounding: Rounding,
 ) -> Result<T> {
-    T::from_u128(shl_div(x, y, offset, rounding).ok_or_else(|| PoolError::MathOverflow)?)
+    T::from_u128(shl_div(x, y, offset, rounding).ok_or(PoolError::MathOverflow)?)
         .ok_or_else(|| PoolError::TypeCastFailed.into())
 }
 
