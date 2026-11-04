@@ -2,6 +2,7 @@ use super::BaseFeeHandler;
 use crate::{
     activation_handler::ActivationType,
     base_fee::{BaseFeeEnumReader, BorshBaseFeeSerde, PodAlignedBaseFeeSerde},
+    constants::fee::{get_max_fee_numerator, CURRENT_POOL_VERSION, MIN_FEE_NUMERATOR},
     params::fee_parameters::BaseFeeParameters,
     state::{BaseFeeInfo, CollectFeeMode},
     PoolError,
@@ -94,6 +95,11 @@ impl BaseFeeHandler for PodAlignedFeeRateLimiter {
         _collect_fee_mode: CollectFeeMode,
         _activation_type: ActivationType,
     ) -> Result<()> {
+        require!(
+            self.cliff_fee_numerator >= MIN_FEE_NUMERATOR
+                && self.cliff_fee_numerator <= get_max_fee_numerator(CURRENT_POOL_VERSION)?,
+            PoolError::InvalidFeeRateLimiter
+        );
         Ok(())
     }
 

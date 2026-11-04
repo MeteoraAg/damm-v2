@@ -8,7 +8,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use crate::activation_handler::{ActivationHandler, ActivationType};
 use crate::base_fee::{BaseFeeHandlerBuilder, UpdateCliffFeeNumerator};
 use crate::constants::fee::{
-    get_max_fee_numerator, CURRENT_POOL_VERSION, MAX_FEE_NUMERATOR_POST_UPDATE, MIN_FEE_NUMERATOR,
+    get_max_fee_numerator, CURRENT_POOL_VERSION, MAX_FEE_NUMERATOR_POST_UPDATE,
 };
 use crate::safe_math::SafeCast;
 use crate::state::fee::{FeeOnAmountResult, SplitFees};
@@ -1173,8 +1173,7 @@ impl Pool {
                 // because base fee is static, so we just need to use min base fee numerator
                 let current_base_fee_numerator = base_fee_handler.get_min_fee_numerator()?;
                 require!(
-                    current_base_fee_numerator >= MIN_FEE_NUMERATOR
-                        && current_base_fee_numerator <= MAX_FEE_NUMERATOR_POST_UPDATE,
+                    current_base_fee_numerator <= MAX_FEE_NUMERATOR_POST_UPDATE,
                     PoolError::InvalidUpdatePoolFeesParameters
                 );
             }

@@ -535,21 +535,18 @@ describe("Admin update pool fees parameters", () => {
       referenceAmount: new BN(LAMPORTS_PER_SOL),
     });
 
-    const errorCode = getCpAmmProgramErrorCode(
-      "InvalidUpdatePoolFeesParameters"
-    );
-
-    for (const cliffFeeNumerator of [
-      new BN(99_999), // below 0.01%
-      new BN(100_000_001), // above 10%
-    ]) {
+    // below 0.01% is rejected by the rate limiter validate, above 10% by the update cap
+    for (const [cliffFeeNumerator, errorName] of [
+      [new BN(99_999), "InvalidFeeRateLimiter"],
+      [new BN(100_000_001), "InvalidUpdatePoolFeesParameters"],
+    ] as const) {
       const res = await updatePoolFeesParameters(svm, {
         whitelistedOperator,
         pool: poolAddress,
         cliffFeeNumerator,
         dynamicFee: null,
       });
-      expectThrowsErrorCode(res, errorCode);
+      expectThrowsErrorCode(res, getCpAmmProgramErrorCode(errorName));
     }
 
     for (const cliffFeeNumerator of [

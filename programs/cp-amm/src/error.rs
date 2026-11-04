@@ -153,7 +153,6 @@ pub enum PoolError {
     #[msg("Invalid base fee mode")]
     InvalidBaseFeeMode,
 
-    /// deprecated
     #[msg("Invalid fee rate limiter")]
     InvalidFeeRateLimiter,
 
