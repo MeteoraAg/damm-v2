@@ -59,7 +59,7 @@ pub enum BaseFeeMode {
 
 #[zero_copy]
 /// Information regarding fee charges
-/// trading_fee = amount * trade_fee_numerator / denominator
+/// trading_fee = amount * trading_fee_numerator / denominator
 /// protocol_fee = trading_fee * protocol_fee_percentage / 100
 /// referral_fee = protocol_fee * referral_percentage / 100
 #[derive(Debug, InitSpace, Default)]
@@ -120,7 +120,7 @@ impl PoolFeesStruct {
     }
 
     // in numerator
-    pub fn get_total_trading_fee(
+    pub fn get_total_trading_fee_numerator(
         &self,
         current_point: u64,
         activation_point: u64,
@@ -142,11 +142,11 @@ impl PoolFeesStruct {
     pub fn get_fee_on_amount(
         &self,
         amount: u64,
-        trade_fee_numerator: u64,
+        trading_fee_numerator: u64,
         has_referral: bool,
     ) -> Result<FeeOnAmountResult> {
         let (amount, trading_fee) =
-            PoolFeesStruct::get_excluded_fee_amount(trade_fee_numerator, amount)?;
+            PoolFeesStruct::get_excluded_fee_amount(trading_fee_numerator, amount)?;
 
         let SplitFees {
             claiming_fee,
@@ -165,12 +165,12 @@ impl PoolFeesStruct {
     }
 
     pub fn get_excluded_fee_amount(
-        trade_fee_numerator: u64,
+        trading_fee_numerator: u64,
         included_fee_amount: u64,
     ) -> Result<(u64, u64)> {
         let trading_fee: u64 = safe_mul_div_cast_u64(
             included_fee_amount,
-            trade_fee_numerator,
+            trading_fee_numerator,
             FEE_DENOMINATOR,
             Rounding::Up,
         )?;
@@ -179,13 +179,13 @@ impl PoolFeesStruct {
     }
 
     pub fn get_included_fee_amount(
-        trade_fee_numerator: u64,
+        trading_fee_numerator: u64,
         excluded_fee_amount: u64,
     ) -> Result<(u64, u64)> {
         let included_fee_amount: u64 = safe_mul_div_cast_u64(
             excluded_fee_amount,
             FEE_DENOMINATOR,
-            FEE_DENOMINATOR.safe_sub(trade_fee_numerator)?,
+            FEE_DENOMINATOR.safe_sub(trading_fee_numerator)?,
             Rounding::Up,
         )?;
         let fee_amount = included_fee_amount.safe_sub(excluded_fee_amount)?;
