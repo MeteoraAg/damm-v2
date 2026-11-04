@@ -3,6 +3,7 @@ name = "derive-variant-count"
 version = "0.1.0"
 description = "Derive macro that exposes a VARIANT_COUNT constant for structs (field count) and enums (variant count)."
 edition = "2021"
+publish = false
 
 [lib]
 proc-macro = true
