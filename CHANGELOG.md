@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed the operator endpoints `fix_pool_fee_params` and `fix_config_fee_params`. Every pool and config on mainnet with invalid base fee parameters has already been fixed, so the endpoints are no longer needed.
+- Removed the operator endpoint `fix_pool_layout_version`. Endpoints `add_liquidity`, `remove_liquidity`, `swap` and `swap2` no longer upgrade a pool from `layout_version` 0 to 1 before running. Every pool on mainnet and devnet is already on `layout_version` 1, so the upgrade is no longer needed.
 
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 

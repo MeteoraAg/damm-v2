@@ -99,8 +99,6 @@ pub fn handle_add_liquidity(
         PositionDelegatePermission::AddLiquidity,
     )?;
 
-    pool.update_layout_version_if_needed()?;
-
     // update current pool reward & postion reward before any logic
     let current_time = Clock::get()?.unix_timestamp as u64;
     position.update_rewards(&mut pool, current_time)?;

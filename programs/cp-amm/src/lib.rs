@@ -182,11 +182,6 @@ pub mod cp_amm {
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::FixPool))]
-    pub fn fix_pool_layout_version(ctx: Context<FixPoolLayoutVersionCtx>) -> Result<()> {
-        instructions::handle_fix_pool_layout_version(ctx)
-    }
-
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::FixPool))]
     pub fn zero_pool_rate_limiter(ctx: Context<ZeroPoolRateLimiterCtx>) -> Result<()> {
         instructions::handle_zero_pool_rate_limiter(ctx)
     }

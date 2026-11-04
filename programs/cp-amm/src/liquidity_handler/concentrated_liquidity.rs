@@ -232,24 +232,6 @@ impl LiquidityHandler for ConcentratedLiquidity {
         })
     }
 
-    fn get_reserves_amount(&self) -> Result<(u64, u64)> {
-        let reserve_a_amount = get_delta_amount_a_unsigned(
-            self.sqrt_price,
-            self.sqrt_max_price,
-            self.liquidity,
-            Rounding::Up,
-        )?;
-
-        let reserve_b_amount = get_delta_amount_b_unsigned(
-            self.sqrt_min_price,
-            self.sqrt_price,
-            self.liquidity,
-            Rounding::Up,
-        )?;
-
-        Ok((reserve_a_amount, reserve_b_amount))
-    }
-
     // It does nothing because next_sqrt_price is computed by swap-path + rounding direction.
     fn get_next_sqrt_price(&self, next_sqrt_price: u128) -> Result<u128> {
         Ok(next_sqrt_price)

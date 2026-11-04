@@ -77,8 +77,6 @@ pub fn p_handle_swap(
         );
     }
 
-    pool.update_layout_version_if_needed()?;
-
     let &SwapParameters2 {
         amount_0,
         amount_1,

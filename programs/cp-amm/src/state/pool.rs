@@ -101,7 +101,7 @@ pub enum PoolType {
     AnchorSerialize,
 )]
 pub enum LayoutVersion {
-    V0, // 0
+    V0, // 0. No pool uses this anymore. Kept for backwards compatibility.
     V1, // 1
 }
 
@@ -1127,18 +1127,6 @@ impl Pool {
 
     pub fn check_pool_creator_to_edit_reward(&self, reward_index: usize, signer: Pubkey) -> bool {
         signer == self.creator && reward_index == 0
-    }
-
-    pub fn update_layout_version_if_needed(&mut self) -> Result<()> {
-        let layout_version: LayoutVersion = self.layout_version.safe_cast()?;
-        if layout_version == LayoutVersion::V0 {
-            let liquidity_handler = self.get_liquidity_handler()?;
-            let (token_a_amount, token_b_amount) = liquidity_handler.get_reserves_amount()?;
-            self.token_a_amount = token_a_amount;
-            self.token_b_amount = token_b_amount;
-            self.layout_version = LayoutVersion::V1.into();
-        }
-        Ok(())
     }
 
     pub fn validate_and_update_pool_fees(
