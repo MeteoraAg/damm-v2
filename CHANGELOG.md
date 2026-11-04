@@ -31,11 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enabled Anchor's `legacy_idl` option so the legacy on-chain IDL can be kept up to date.
 - Removed the rate limiter logic from pools with `BaseFeeMode::RateLimiter`. Endpoints `swap` and `swap2` charge `cliff_fee_numerator` as a flat base fee, allow several swaps to the same pool in one transaction, and no longer require the instruction sysvar account. Swaps on existing pools behave the same as before, because every rate limiter window had already ended. No pool can be created with `BaseFeeMode::RateLimiter` since 0.2.3, a pool's `activation_point` is at most 31 days / 6,696,000 slots after its creation, and `max_limiter_duration` is at most 12 hours / 108,000 slots.
 - Operator endpoint `update_pool_fees` accepts a new `cliff_fee_numerator` from 0.01% to 10% for pools with `BaseFeeMode::RateLimiter`, regardless of the pool's `max_fee_bps`. This behaviour matches the other fee modes.
+- Operator endpoint `fix_pool_fee_params` now accepts a pool whose fee scheduler is still running when the pool's min and max base fee numerators are equal, since such a pool charges the same base fee at every point in time.
 
 ### Removed
 
-- Removed the operator endpoints `fix_pool_fee_params` and `fix_config_fee_params`. Every pool and config on mainnet with invalid base fee parameters has already been fixed, so the endpoints are no longer needed.
-- Removed the operator endpoint `fix_pool_layout_version`. Endpoints `add_liquidity`, `remove_liquidity`, `swap` and `swap2` no longer upgrade a pool from `layout_version` 0 to 1 before running. Every pool on mainnet and devnet is already on `layout_version` 1, so the upgrade is no longer needed.
+- Removed the operator endpoint `fix_config_fee_params`. Every config on mainnet and devnet with invalid base fee parameters has already been fixed, so the endpoint is no longer needed.
+- Removed the operator endpoint `fix_pool_layout_version`. Endpoints `add_liquidity`, `remove_liquidity`, `swap` and `swap2` no longer upgrade a pool from `layout_version` 0 to 1 before running. Every pool on mainnet and devnet is already on `layout_version` 1, so this endpoint is no longer needed.
 
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 

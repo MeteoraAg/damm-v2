@@ -20,5 +20,7 @@ pub mod ix_close_token_badge;
 pub use ix_close_token_badge::*;
 pub mod ix_update_pool_fees;
 pub use ix_update_pool_fees::*;
+pub mod ix_fix_pool_fee_params;
+pub use ix_fix_pool_fee_params::*;
 pub mod ix_zero_pool_rate_limiter;
 pub use ix_zero_pool_rate_limiter::*;

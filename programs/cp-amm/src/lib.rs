@@ -29,6 +29,7 @@ pub mod pool_action_access;
 pub use pool_action_access::*;
 pub mod access_control;
 pub use access_control::*;
+use params::fee_parameters::BaseFeeParameters;
 use state::OperatorPermission;
 
 #[cfg(not(feature = "no-custom-entrypoint"))]
@@ -109,6 +110,14 @@ pub mod cp_amm {
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::RemoveConfigKey))]
     pub fn close_config(ctx: Context<CloseConfigCtx>) -> Result<()> {
         instructions::handle_close_config(ctx)
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
+    pub fn fix_pool_fee_params(
+        ctx: Context<FixPoolFeeParamsCtx>,
+        params: BaseFeeParameters,
+    ) -> Result<()> {
+        instructions::handle_fix_pool_fee_params(ctx, params)
     }
 
     pub fn initialize_reward<'info>(
