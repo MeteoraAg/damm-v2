@@ -1,0 +1,162 @@
+# Advisories OSV-Scanner ignores in CI. It can't tell dev dependencies apart in bun.lock, so
+# dev only ones are listed too. Drop an entry once upstream moves to the patched version.
+
+[[IgnoredVulns]]
+id = "GHSA-3gc7-fjrx-p6mg"
+reason = "bigint-buffer has no patched version. @solana/spl-token > @solana/buffer-layout-utils only passes it the fixed length buffers of its u64/u128 layouts"
+
+[[IgnoredVulns]]
+id = "GHSA-378v-28hj-76wf"
+reason = "bn.js 5.2.2 (fixed in 5.2.3): @solana/web3.js pins it; the advisory is in `toRed`/`fromRed` RedBN and the tests never construct one"
+
+[[IgnoredVulns]]
+id = "GHSA-3jxr-9vmj-r5cp"
+reason = "brace-expansion 1.1.12 (dev, pinned by mocha/minimatch): mocha only matches the repo's own `--exclude` globs, the advisory needs an attacker controlled pattern"
+
+[[IgnoredVulns]]
+id = "GHSA-6j4f-fj2g-mc7p"
+reason = "brace-expansion 1.1.12 (dev, pinned by mocha/minimatch): mocha only matches the repo's own `--exclude` globs, the advisory needs an attacker controlled pattern"
+
+[[IgnoredVulns]]
+id = "GHSA-f886-m6hf-6m8v"
+reason = "brace-expansion 1.1.12 (dev, pinned by mocha/minimatch): mocha only matches the repo's own `--exclude` globs, the advisory needs an attacker controlled pattern"
+
+[[IgnoredVulns]]
+id = "GHSA-mh99-v99m-4gvg"
+reason = "brace-expansion 1.1.12 (dev, pinned by mocha/minimatch): mocha only matches the repo's own `--exclude` globs, the advisory needs an attacker controlled pattern"
+
+[[IgnoredVulns]]
+id = "GHSA-q2hr-2g5m-vwhr"
+reason = "brace-expansion 1.1.12 (dev, pinned by mocha/minimatch): mocha only matches the repo's own `--exclude` globs, the advisory needs an attacker controlled pattern"
+
+[[IgnoredVulns]]
+id = "GHSA-qhr7-859c-m2p7"
+reason = "brace-expansion 1.1.12 (dev, pinned by mocha/minimatch): mocha only matches the repo's own `--exclude` globs, the advisory needs an attacker controlled pattern"
+
+[[IgnoredVulns]]
+id = "GHSA-rgw5-rvv9-x895"
+reason = "brace-expansion 1.1.12 (dev, pinned by mocha/minimatch): mocha only matches the repo's own `--exclude` globs, the advisory needs an attacker controlled pattern"
+
+[[IgnoredVulns]]
+id = "GHSA-528h-pc64-c93x"
+reason = "stream-json 1 (fixed in 3): @solana/web3.js > jayson only uses it in its server and stream utils, web3.js loads `jayson/lib/client/browser`"
+
+[[IgnoredVulns]]
+id = "GHSA-hqr4-qq8f-hg3x"
+reason = "stream-json 1 (fixed in 3): @solana/web3.js > jayson only uses it in its server and stream utils, web3.js loads `jayson/lib/client/browser`"
+
+[[IgnoredVulns]]
+id = "GHSA-mjw6-4jj6-33hc"
+reason = "stream-json 1 (fixed in 3): @solana/web3.js > jayson only uses it in its server and stream utils, web3.js loads `jayson/lib/client/browser`"
+
+[[IgnoredVulns]]
+id = "GHSA-4qx8-w7c3-pj3p"
+reason = "toml 3 (fixed in 5): @anchor-lang/core only parses Anchor.toml in `workspace`, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-82x6-q7mm-w9cf"
+reason = "toml 3 (fixed in 5): @anchor-lang/core only parses Anchor.toml in `workspace`, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-9j65-hcg3-gc64"
+reason = "toml 3 (fixed in 5): @anchor-lang/core only parses Anchor.toml in `workspace`, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-9qmh-m7c6-f92p"
+reason = "toml 3 (fixed in 5): @anchor-lang/core only parses Anchor.toml in `workspace`, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-h895-cgqg-jf52"
+reason = "toml 3 (fixed in 5): @anchor-lang/core only parses Anchor.toml in `workspace`, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-v5mp-jgw5-2x6j"
+reason = "toml 3 (fixed in 5): @anchor-lang/core only parses Anchor.toml in `workspace`, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-w5hq-g745-h8pq"
+reason = "uuid 8 (fixed in 11): jayson only calls v4, the advisory is v3/v5/v6 with `buf`"
+
+[[IgnoredVulns]]
+id = "GHSA-73rr-hh4g-fpgx"
+reason = "diff 3.5.0 / 5.0.0 (dev, pinned by mocha 9): mocha only calls `createPatch` to print assertion diffs, the advisory is in `parsePatch`/`applyPatch`"
+
+[[IgnoredVulns]]
+id = "GHSA-2883-xcg3-v3hh"
+reason = "js-yaml 4.1.0 (dev, pinned by mocha 9): mocha only loads it for a `.mocharc.yaml` config, which the repo doesn't have"
+
+[[IgnoredVulns]]
+id = "GHSA-52cp-r559-cp3m"
+reason = "js-yaml 4.1.0 (dev, pinned by mocha 9): mocha only loads it for a `.mocharc.yaml` config, which the repo doesn't have"
+
+[[IgnoredVulns]]
+id = "GHSA-5p4m-2wfm-xmqj"
+reason = "js-yaml 4.1.0 (dev, pinned by mocha 9): mocha only loads it for a `.mocharc.yaml` config, which the repo doesn't have"
+
+[[IgnoredVulns]]
+id = "GHSA-h67p-54hq-rp68"
+reason = "js-yaml 4.1.0 (dev, pinned by mocha 9): mocha only loads it for a `.mocharc.yaml` config, which the repo doesn't have"
+
+[[IgnoredVulns]]
+id = "GHSA-mh29-5h37-fv8m"
+reason = "js-yaml 4.1.0 (dev, pinned by mocha 9): mocha only loads it for a `.mocharc.yaml` config, which the repo doesn't have"
+
+[[IgnoredVulns]]
+id = "GHSA-23c5-xmqv-rm74"
+reason = "minimatch 3.1.2 / 4.2.1 (dev, pinned by glob 7 and mocha 9): needs an attacker controlled pattern, mocha only matches the repo's own `--exclude` globs"
+
+[[IgnoredVulns]]
+id = "GHSA-3ppc-4f35-3m26"
+reason = "minimatch 3.1.2 / 4.2.1 (dev, pinned by glob 7 and mocha 9): needs an attacker controlled pattern, mocha only matches the repo's own `--exclude` globs"
+
+[[IgnoredVulns]]
+id = "GHSA-7r86-cg39-jmmj"
+reason = "minimatch 3.1.2 / 4.2.1 (dev, pinned by glob 7 and mocha 9): needs an attacker controlled pattern, mocha only matches the repo's own `--exclude` globs"
+
+[[IgnoredVulns]]
+id = "GHSA-28wg-ghj8-5hjv"
+reason = "nanoid 3.3.1 (dev, pinned by mocha 9): mocha only calls `nanoid()` with the default size, the advisories need a custom generator or a zero, negative, non-integer or >= 2^31 size"
+
+[[IgnoredVulns]]
+id = "GHSA-2v37-7h3g-55p8"
+reason = "nanoid 3.3.1 (dev, pinned by mocha 9): mocha only calls `nanoid()` with the default size, the advisories need a custom generator or a zero, negative, non-integer or >= 2^31 size"
+
+[[IgnoredVulns]]
+id = "GHSA-mwcw-c2x4-8c55"
+reason = "nanoid 3.3.1 (dev, pinned by mocha 9): mocha only calls `nanoid()` with the default size, the advisories need a custom generator or a zero, negative, non-integer or >= 2^31 size"
+
+[[IgnoredVulns]]
+id = "GHSA-xwg4-73v4-xw9w"
+reason = "nanoid 3.3.1 (dev, pinned by mocha 9): mocha only calls `nanoid()` with the default size, the advisories need a custom generator or a zero, negative, non-integer or >= 2^31 size"
+
+[[IgnoredVulns]]
+id = "GHSA-3v7f-55p6-f55p"
+reason = "picomatch 2.3.1 (dev, pinned by mocha > chokidar > anymatch / readdirp): mocha only matches the repo's own watch globs, the advisory needs an attacker controlled pattern"
+
+[[IgnoredVulns]]
+id = "GHSA-c2c7-rcm5-vvqj"
+reason = "picomatch 2.3.1 (dev, pinned by mocha > chokidar > anymatch / readdirp): mocha only matches the repo's own watch globs, the advisory needs an attacker controlled pattern"
+
+[[IgnoredVulns]]
+id = "GHSA-5c6j-r48x-rmvq"
+reason = "serialize-javascript 6.0.0 (dev, pinned by mocha 9): mocha only uses it to pass its own options to `--parallel` workers, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-76p7-773f-r4q5"
+reason = "serialize-javascript 6.0.0 (dev, pinned by mocha 9): mocha only uses it to pass its own options to `--parallel` workers, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-m5mm-p8h7-m29v"
+reason = "serialize-javascript 6.0.0 (dev, pinned by mocha 9): mocha only uses it to pass its own options to `--parallel` workers, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-qj8w-gfj5-8c6v"
+reason = "serialize-javascript 6.0.0 (dev, pinned by mocha 9): mocha only uses it to pass its own options to `--parallel` workers, which the tests don't use"
+
+[[IgnoredVulns]]
+id = "GHSA-96hv-2xvq-fx4p"
+reason = "ws 7.5.10 / 8.18.3 (fixed in 7.5.13 / 8.19.0; 8.22.1 is after the 2026-10-29 cutoff). @solana/web3.js and rpc-websockets only open sockets to the configured RPC URL"
+
+[[IgnoredVulns]]
+id = "GHSA-58qx-3vcg-4xpx"
+reason = "ws 8.18.3 (fixed in 8.19.0; 8.22.1 is after the 2026-10-29 cutoff). rpc-websockets only opens sockets to the configured RPC URL"

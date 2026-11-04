@@ -93,6 +93,18 @@ jobs:
       - run: cargo test --package rust-sdk
         shell: bash
 
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --locked --all-targets -- -D warnings
+        shell: bash
+
   program_unit_test:
     runs-on: ubuntu-latest
     needs: program_changed_files
