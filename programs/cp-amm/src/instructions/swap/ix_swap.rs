@@ -117,7 +117,6 @@ impl<'info> SwapCtx<'info> {
             referral_token_account,
             event_authority,
             _program,
-            ..
         ] = accounts else {
             return Err(ProgramError::NotEnoughAccountKeys.into());
         };

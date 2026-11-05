@@ -29,8 +29,7 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
     const UNINIT: core::mem::MaybeUninit<pinocchio::account_info::AccountInfo> =
         core::mem::MaybeUninit::<pinocchio::account_info::AccountInfo>::uninit();
     // Create an array of uninitialized account infos.
-    // In rate limiter we may need an additional account for sysvar program id
-    let mut accounts = [UNINIT; SWAP_IX_ACCOUNTS + 1];
+    let mut accounts = [UNINIT; SWAP_IX_ACCOUNTS];
 
     let (program_id, count, instruction_data) =
         pinocchio::entrypoint::deserialize(input, &mut accounts);
@@ -49,19 +48,10 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
     ];
     let result = match instruction_bits {
         [true, false, false] | [false, true, false] => {
-            // https://doc.rust-lang.org/std/primitive.slice.html#method.split_at_unchecked
-            // Calling split_at_unchecked method with an out-of-bounds index is undefined behavior even if the resulting reference is not used.
-            // The caller has to ensure that 0 <= mid <= self.len().
             if accounts.len() < SWAP_IX_ACCOUNTS {
                 return Some(ErrorCode::AccountNotEnoughKeys as u64);
             }
 
-            let (left, right) = accounts.split_at_unchecked(SWAP_IX_ACCOUNTS);
-            let accounts = core::slice::from_raw_parts(left.as_ptr() as _, SWAP_IX_ACCOUNTS);
-            let remaining_accounts = core::slice::from_raw_parts(
-                right.as_ptr() as _,
-                count.checked_sub(SWAP_IX_ACCOUNTS)?,
-            );
             let params = if instruction_bits[0] {
                 let swap_parameters = unwrap_or_return!(
                     SwapParameters::deserialize(
@@ -84,12 +74,7 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
                 swap_parameters
             };
 
-            Some(p_handle_swap(
-                &program_id,
-                accounts,
-                remaining_accounts,
-                &params,
-            ))
+            Some(p_handle_swap(&program_id, accounts, &params))
         }
         [false, false, true] => Some(p_event_dispatch(&program_id, accounts, &instruction_data)),
         _ => None,

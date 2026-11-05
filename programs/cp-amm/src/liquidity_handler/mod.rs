@@ -38,8 +38,6 @@ pub trait LiquidityHandler {
 
     fn calculate_b_to_a_from_amount_out(&self, amount_out: u64) -> Result<SwapAmountFromOutput>;
 
-    fn get_reserves_amount(&self) -> Result<(u64, u64)>;
-
     // Note: Due to different way of concentrated liquidity and compounding liquidity calculating price, compounding and concentrated pools can update dynamic-fee volatility differently for equivalent swap price moves.
     // Additionally the market cap based base fee will also behave differently:
     // Concentrated Amount_In B to A -> Rounding Down

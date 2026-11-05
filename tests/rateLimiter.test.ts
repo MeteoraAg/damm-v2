@@ -2,10 +2,12 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
+  SYSVAR_INSTRUCTIONS_PUBKEY,
   Transaction,
 } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
+import { TransactionMetadata } from "litesvm";
 import {
   CreateConfigParams,
   InitializeCustomizablePoolParams,
@@ -28,9 +30,7 @@ import {
   randomID,
   warpSlotBy,
   startSvm,
-  getCpAmmProgramErrorCode,
   sendTransaction,
-  expectThrowsErrorCode,
 } from "./helpers";
 import {
   BaseFeeMode,
@@ -45,8 +45,10 @@ import { LiteSVM } from "./helpers/litesvmCompat";
 
 // Creating a pool with BaseFeeMode::RateLimiter is rejected as of cp_amm 0.2.3.
 // Pools that predate the deprecation keep working, so every fixture here is
-// set onto a pool created with a non-deprecated base fee mode. The fee
-// assertions are unchanged from when these pools could be created directly.
+// set onto a pool created with a non-deprecated base fee mode. As of cp_amm
+// 0.2.6 these pools always charge cliff_fee_numerator as a flat base fee and
+// no longer limit a transaction to one swap per pool.
+// this is fine since there are no more live rate limiter Pools.
 describe("Rate limiter", () => {
   const referenceAmount = new BN(LAMPORTS_PER_SOL); // 1 SOL
   const maxRateLimiterDuration = new BN(10);
@@ -197,7 +199,7 @@ describe("Rate limiter", () => {
     );
   });
 
-  it("Rate limiter", async () => {
+  it("Rate limiter pool charges the cliff fee for any amount", async () => {
     const pool = await deprecatedPoolFromConfig();
     let poolState = await getPool(svm, pool);
 
@@ -242,7 +244,7 @@ describe("Rate limiter", () => {
     );
     let deltaTradingFee = totalTradingFee1.sub(totalTradingFee);
 
-    expect(deltaTradingFee.toNumber()).gt(
+    expect(deltaTradingFee.toNumber()).eq(
       referenceAmount.mul(new BN(2)).div(new BN(100)).toNumber()
     );
 
@@ -272,7 +274,7 @@ describe("Rate limiter", () => {
     );
   });
 
-  it("Try to send multiple instructions", async () => {
+  it("Allows multiple swap instructions to the same pool in one transaction since rate limiter is no longer applied", async () => {
     const pool = await deprecatedCustomizablePool();
 
     // swap with 1 SOL
@@ -291,10 +293,30 @@ describe("Rate limiter", () => {
       transaction.add(swapIx);
     }
 
-    const errorCode = getCpAmmProgramErrorCode(
-      "FailToValidateSingleSwapInstruction"
-    );
     const result = sendTransaction(svm, transaction, [creator]);
-    expectThrowsErrorCode(result, errorCode);
+    expect(result).instanceOf(TransactionMetadata);
+  });
+
+  it("Swap still succeeds when the client passes the instruction sysvar account", async () => {
+    const pool = await deprecatedCustomizablePool();
+
+    const transaction = await swapInstruction(svm, {
+      payer: creator,
+      pool,
+      inputTokenMint: tokenB,
+      outputTokenMint: tokenA,
+      amountIn: referenceAmount,
+      minimumAmountOut: new BN(0),
+      referralTokenAccount: null,
+    });
+    // clients built for the rate limiter might still append the instruction sysvar account
+    transaction.instructions[0].keys.push({
+      pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+      isSigner: false,
+      isWritable: false,
+    });
+
+    const result = sendTransaction(svm, transaction, [creator]);
+    expect(result).instanceOf(TransactionMetadata);
   });
 });

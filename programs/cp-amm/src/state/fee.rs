@@ -3,9 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::{
-        fee_rate_limiter::PodAlignedFeeRateLimiter, BaseFeeEnumReader, BaseFeeHandlerBuilder,
-    },
+    base_fee::BaseFeeHandlerBuilder,
     constants::{
         fee::{FEE_DENOMINATOR, MAX_BASIS_POINT},
         ONE_Q64,
@@ -49,7 +47,7 @@ pub enum BaseFeeMode {
     FeeTimeSchedulerLinear,
     // fee = cliff_fee_numerator * (1-reduction_factor/10_000)^passed_period
     FeeTimeSchedulerExponential,
-    /// deprecated. existing pools are still supported. kept for backwards compatibility
+    /// deprecated. existing pools are still supported and charge cliff_fee_numerator as a flat base fee. kept for backwards compatibility
     RateLimiter,
     // fee = cliff_fee_numerator - passed_period * reduction_factor
     // passed_period = changed_price / sqrt_price_step_bps
@@ -61,7 +59,7 @@ pub enum BaseFeeMode {
 
 #[zero_copy]
 /// Information regarding fee charges
-/// trading_fee = amount * trade_fee_numerator / denominator
+/// trading_fee = amount * trading_fee_numerator / denominator
 /// protocol_fee = trading_fee * protocol_fee_percentage / 100
 /// referral_fee = protocol_fee * referral_percentage / 100
 #[derive(Debug, InitSpace, Default)]
@@ -100,22 +98,6 @@ pub struct BaseFeeStruct {
     pub padding_1: u64,
 }
 
-impl BaseFeeStruct {
-    pub fn to_fee_rate_limiter(&self) -> Result<PodAlignedFeeRateLimiter> {
-        let base_fee_mode = self.base_fee_info.get_base_fee_mode()?;
-        require!(
-            base_fee_mode == BaseFeeMode::RateLimiter,
-            PoolError::InvalidBaseFeeMode
-        );
-
-        let fee_rate_limiter =
-            *bytemuck::try_from_bytes::<PodAlignedFeeRateLimiter>(&self.base_fee_info.data)
-                .map_err(|_| PoolError::UndeterminedError)?;
-
-        Ok(fee_rate_limiter)
-    }
-}
-
 const_assert_eq!(BaseFeeStruct::INIT_SPACE, 40);
 
 impl PoolFeesStruct {
@@ -138,45 +120,18 @@ impl PoolFeesStruct {
     }
 
     // in numerator
-    pub fn get_total_trading_fee_from_included_fee_amount(
+    pub fn get_total_trading_fee_numerator(
         &self,
         current_point: u64,
         activation_point: u64,
-        included_fee_amount: u64,
-        trade_direction: TradeDirection,
         max_fee_numerator: u64,
         sqrt_price: u128,
     ) -> Result<u64> {
         let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
 
-        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
+        let base_fee_numerator = base_fee_handler.get_current_base_fee_numerator(
             current_point,
             activation_point,
-            trade_direction,
-            included_fee_amount,
-            self.init_sqrt_price,
-            sqrt_price,
-        )?;
-
-        self.get_total_fee_numerator(base_fee_numerator, max_fee_numerator)
-    }
-
-    pub fn get_total_trading_fee_from_excluded_fee_amount(
-        &self,
-        current_point: u64,
-        activation_point: u64,
-        excluded_fee_amount: u64,
-        trade_direction: TradeDirection,
-        max_fee_numerator: u64,
-        sqrt_price: u128,
-    ) -> Result<u64> {
-        let base_fee_handler = self.base_fee.base_fee_info.get_base_fee_handler()?;
-
-        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
-            current_point,
-            activation_point,
-            trade_direction,
-            excluded_fee_amount,
             self.init_sqrt_price,
             sqrt_price,
         )?;
@@ -187,11 +142,11 @@ impl PoolFeesStruct {
     pub fn get_fee_on_amount(
         &self,
         amount: u64,
-        trade_fee_numerator: u64,
+        trading_fee_numerator: u64,
         has_referral: bool,
     ) -> Result<FeeOnAmountResult> {
         let (amount, trading_fee) =
-            PoolFeesStruct::get_excluded_fee_amount(trade_fee_numerator, amount)?;
+            PoolFeesStruct::get_excluded_fee_amount(trading_fee_numerator, amount)?;
 
         let SplitFees {
             claiming_fee,
@@ -210,12 +165,12 @@ impl PoolFeesStruct {
     }
 
     pub fn get_excluded_fee_amount(
-        trade_fee_numerator: u64,
+        trading_fee_numerator: u64,
         included_fee_amount: u64,
     ) -> Result<(u64, u64)> {
         let trading_fee: u64 = safe_mul_div_cast_u64(
             included_fee_amount,
-            trade_fee_numerator,
+            trading_fee_numerator,
             FEE_DENOMINATOR,
             Rounding::Up,
         )?;
@@ -224,13 +179,13 @@ impl PoolFeesStruct {
     }
 
     pub fn get_included_fee_amount(
-        trade_fee_numerator: u64,
+        trading_fee_numerator: u64,
         excluded_fee_amount: u64,
     ) -> Result<(u64, u64)> {
         let included_fee_amount: u64 = safe_mul_div_cast_u64(
             excluded_fee_amount,
             FEE_DENOMINATOR,
-            FEE_DENOMINATOR.safe_sub(trade_fee_numerator)?,
+            FEE_DENOMINATOR.safe_sub(trading_fee_numerator)?,
             Rounding::Up,
         )?;
         let fee_amount = included_fee_amount.safe_sub(excluded_fee_amount)?;
