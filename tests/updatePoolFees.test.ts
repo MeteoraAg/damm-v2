@@ -461,19 +461,9 @@ describe("Admin update pool fees parameters", () => {
       referenceAmount,
     });
 
-    // update new cliff fee numerator
+    // update new cliff fee numerator. a rate limiter pool is always static,
+    // so this works inside the former limiter window
     const cliffFeeNumerator = new BN(5_000_000);
-
-    const errorCode = getCpAmmProgramErrorCode("CannotUpdateBaseFee");
-    const res = await updatePoolFeesParameters(svm, {
-      whitelistedOperator,
-      pool: poolAddress,
-      cliffFeeNumerator,
-      dynamicFee: null,
-    });
-    expectThrowsErrorCode(res, errorCode);
-
-    warpSlotBy(svm, maxRateLimiterDuration.addn(1));
 
     let poolState = getPool(svm, poolAddress);
 
@@ -516,6 +506,69 @@ describe("Admin update pool fees parameters", () => {
     expect(postBaseFee.referenceAmount.toString()).eq(
       beforeBaseFee.referenceAmount.toString()
     );
+  });
+
+  it("rate limiter pool accepts a cliff fee from 0.01% to 10%, ignoring max_fee_bps", async () => {
+    const placeholder = encodeFeeTimeSchedulerParams(
+      BigInt(10_000_000),
+      0,
+      BigInt(0),
+      BigInt(0),
+      BaseFeeMode.FeeTimeSchedulerLinear
+    );
+
+    const poolAddress = await createPool(
+      svm,
+      creator,
+      tokenAMint,
+      tokenBMint,
+      placeholder,
+      null
+    );
+
+    // max_fee_bps below the 10% cap of update_pool_fees
+    setDeprecatedRateLimiterPool(svm, poolAddress, {
+      cliffFeeNumerator: new BN(10_000_000),
+      feeIncrementBps: 10,
+      maxLimiterDuration: 10,
+      maxFeeBps: 200,
+      referenceAmount: new BN(LAMPORTS_PER_SOL),
+    });
+
+    // below 0.01% is rejected by the rate limiter validate, above 10% by the update cap
+    for (const [cliffFeeNumerator, errorName] of [
+      [new BN(99_999), "InvalidFeeRateLimiter"],
+      [new BN(100_000_001), "InvalidUpdatePoolFeesParameters"],
+    ] as const) {
+      const res = await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator,
+        dynamicFee: null,
+      });
+      expectThrowsErrorCode(res, getCpAmmProgramErrorCode(errorName));
+    }
+
+    for (const cliffFeeNumerator of [
+      new BN(100_000), // 0.01%
+      new BN(50_000_000), // 5%, above max_fee_bps
+      new BN(100_000_000), // 10%
+    ]) {
+      await updatePoolFeesParameters(svm, {
+        whitelistedOperator,
+        pool: poolAddress,
+        cliffFeeNumerator,
+        dynamicFee: null,
+      });
+
+      const poolState = getPool(svm, poolAddress);
+      const baseFee = decodeFeeRateLimiterParams(
+        Buffer.from(poolState.poolFees.baseFee.baseFeeInfo.data)
+      );
+      expect(baseFee.cliffFeeNumerator.toString()).eq(
+        cliffFeeNumerator.toString()
+      );
+    }
   });
 
   it("update pool fees for pool with fee market cap scheduler linear", async () => {

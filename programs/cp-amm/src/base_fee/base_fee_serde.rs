@@ -162,3 +162,35 @@ impl UpdateCliffFeeNumerator for BaseFeeInfo {
         Ok(())
     }
 }
+
+pub trait ZeroRateLimiter {
+    /// Returns true when a parameter was changed, false when all of them were already zero
+    fn zero_rate_limiter(&mut self) -> Result<bool>;
+}
+
+impl ZeroRateLimiter for BaseFeeInfo {
+    fn zero_rate_limiter(&mut self) -> Result<bool> {
+        require!(
+            self.get_base_fee_mode()? == BaseFeeMode::RateLimiter,
+            PoolError::InvalidBaseFeeMode
+        );
+        let rate_limiter = bytemuck::try_from_bytes_mut::<PodAlignedFeeRateLimiter>(&mut self.data)
+            .map_err(|_| PoolError::UndeterminedError)?;
+
+        let is_zero_rate_limiter = rate_limiter.reference_amount == 0
+            && rate_limiter.max_limiter_duration == 0
+            && rate_limiter.max_fee_bps == 0
+            && rate_limiter.fee_increment_bps == 0;
+
+        if is_zero_rate_limiter {
+            return Ok(false);
+        }
+
+        rate_limiter.reference_amount = 0;
+        rate_limiter.max_limiter_duration = 0;
+        rate_limiter.max_fee_bps = 0;
+        rate_limiter.fee_increment_bps = 0;
+
+        Ok(true)
+    }
+}

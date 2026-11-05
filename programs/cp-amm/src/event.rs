@@ -306,3 +306,9 @@ pub struct EvtUpdatePoolFees {
     pub operator: Pubkey,
     pub params: UpdatePoolFeesParameters,
 }
+
+#[event]
+pub struct EvtZeroPoolRateLimiter {
+    pub pool: Pubkey,
+    pub operator: Pubkey,
+}

@@ -58,16 +58,6 @@ export function convertToByteArray(value: BN): number[] {
   return Array.from(value.toArrayLike(Buffer, "le", 8));
 }
 
-export function convertToRateLimiterSecondFactor(
-  maxLimiterDuration: BN,
-  maxFeeBps: BN
-): number[] {
-  const buffer1 = maxLimiterDuration.toArrayLike(Buffer, "le", 4);
-  const buffer2 = maxFeeBps.toArrayLike(Buffer, "le", 4);
-  const buffer = Buffer.concat([buffer1, buffer2]);
-  return Array.from(buffer);
-}
-
 export function warpTimestampToPassfilterPeriod(
   svm: LiteSVM,
   poolAddress: PublicKey

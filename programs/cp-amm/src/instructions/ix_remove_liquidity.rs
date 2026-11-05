@@ -112,8 +112,6 @@ pub fn handle_remove_liquidity(
         ],
     )?;
 
-    pool.update_layout_version_if_needed()?;
-
     let current_point = ActivationHandler::get_current_point(pool.activation_type)?;
     position.refresh_inner_vesting(current_point)?;
 

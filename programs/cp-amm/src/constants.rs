@@ -51,19 +51,6 @@ pub const MAX_REWARD_DURATION: u64 = 31536000; // 1 year = 365 * 24 * 3600
 #[constant]
 pub const SPLIT_POSITION_DENOMINATOR: u32 = 1_000_000_000; // 1b
 
-pub const MAX_RATE_LIMITER_DURATION_IN_SECONDS: u32 = 60 * 60 * 12; // 12 hours
-pub const MAX_RATE_LIMITER_DURATION_IN_SLOTS: u32 = 108000; // 12 hours
-
-static_assertions::const_assert_eq!(
-    MAX_RATE_LIMITER_DURATION_IN_SECONDS * 1000 / 400,
-    MAX_RATE_LIMITER_DURATION_IN_SLOTS
-);
-
-const OKX_SMART_WALLET: Pubkey =
-    Pubkey::from_str_const("va1t8sdGkReA6XFgAeZGXmdQoiEtMirwy4ifLv7yGdH");
-
-pub const RATE_LIMITER_STACK_WHITELIST_PROGRAMS: [[u8; 32]; 1] = [OKX_SMART_WALLET.to_bytes()];
-
 pub mod activation {
     #[cfg(not(feature = "local"))]
     pub const SLOT_BUFFER: u64 = 9000; // 1 slot = 400 mls => 1 hour

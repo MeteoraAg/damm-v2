@@ -45,19 +45,21 @@ pub fn handle_fix_pool_fee_params(
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?;
 
-    // Ensure that it's already over the scheduler time window
+    let min_fee_numerator_0 = base_fee_handler_0.get_min_fee_numerator()?;
+    let max_fee_numerator_0 = base_fee_handler_0.get_max_fee_numerator()?;
+    let base_fee_mode_0 = pool.pool_fees.base_fee.base_fee_info.get_base_fee_mode()?;
+
+    // Ensure that it's already over the scheduler time window or the base fee never changes over the scheduler time window
+    let is_static =
+        base_fee_handler_0.validate_base_fee_is_static(current_point, pool.activation_point)?;
     require!(
-        base_fee_handler_0.validate_base_fee_is_static(current_point, pool.activation_point)?,
+        is_static || min_fee_numerator_0 == max_fee_numerator_0,
         PoolError::CannotUpdateBaseFee
     );
 
     // Ensure it has invalid parameters and needs to be fixed
     let validation_result = base_fee_handler_0.validate(collect_fee_mode, activation_type);
     require!(validation_result.is_err(), PoolError::CannotUpdateBaseFee);
-
-    let min_fee_numerator_0 = base_fee_handler_0.get_min_fee_numerator()?;
-    let max_fee_numerator_0 = base_fee_handler_0.get_max_fee_numerator()?;
-    let base_fee_mode_0 = pool.pool_fees.base_fee.base_fee_info.get_base_fee_mode()?;
 
     pool.pool_fees.base_fee = params.to_base_fee_struct()?;
 

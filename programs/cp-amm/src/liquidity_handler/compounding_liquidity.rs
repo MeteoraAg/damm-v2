@@ -144,10 +144,6 @@ impl LiquidityHandler for CompoundingLiquidity {
         })
     }
 
-    fn get_reserves_amount(&self) -> Result<(u64, u64)> {
-        Ok((self.token_a_amount, self.token_b_amount))
-    }
-
     // xyk, the price is determined by the ratio of reserves and it always rounded down.
     fn get_next_sqrt_price(&self, _next_sqrt_price: u128) -> Result<u128> {
         get_sqrt_price_from_amounts(self.token_a_amount, self.token_b_amount)

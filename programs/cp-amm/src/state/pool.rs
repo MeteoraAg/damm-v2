@@ -101,7 +101,7 @@ pub enum PoolType {
     AnchorSerialize,
 )]
 pub enum LayoutVersion {
-    V0, // 0
+    V0, // 0. No pool uses this anymore. Kept for backwards compatibility.
     V1, // 1
 }
 
@@ -474,22 +474,18 @@ impl Pool {
 
         let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
+        let trading_fee_numerator = self.pool_fees.get_total_trading_fee_numerator(
+            current_point,
+            self.activation_point,
+            max_fee_numerator,
+            self.sqrt_price,
+        )?;
+
         let included_fee_amount_out = if fee_mode.fees_on_input {
             amount_out
         } else {
-            let trade_fee_numerator = self
-                .pool_fees
-                .get_total_trading_fee_from_excluded_fee_amount(
-                    current_point,
-                    self.activation_point,
-                    amount_out,
-                    trade_direction,
-                    max_fee_numerator,
-                    self.sqrt_price,
-                )?;
-
             let (included_fee_amount_out, fee_amount) =
-                PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, amount_out)?;
+                PoolFeesStruct::get_included_fee_amount(trading_fee_numerator, amount_out)?;
 
             let SplitFees {
                 compounding_fee,
@@ -521,19 +517,8 @@ impl Pool {
         }?;
 
         let included_fee_input_amount = if fee_mode.fees_on_input {
-            let trade_fee_numerator = self
-                .pool_fees
-                .get_total_trading_fee_from_excluded_fee_amount(
-                    current_point,
-                    self.activation_point,
-                    input_amount,
-                    trade_direction,
-                    max_fee_numerator,
-                    self.sqrt_price,
-                )?;
-
             let (included_fee_input_amount, fee_amount) =
-                PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, input_amount)?;
+                PoolFeesStruct::get_included_fee_amount(trading_fee_numerator, input_amount)?;
 
             let SplitFees {
                 claiming_fee,
@@ -583,16 +568,12 @@ impl Pool {
 
         let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
-        let trade_fee_numerator = self
-            .pool_fees
-            .get_total_trading_fee_from_included_fee_amount(
-                current_point,
-                self.activation_point,
-                amount_in,
-                trade_direction,
-                max_fee_numerator,
-                self.sqrt_price,
-            )?;
+        let trading_fee_numerator = self.pool_fees.get_total_trading_fee_numerator(
+            current_point,
+            self.activation_point,
+            max_fee_numerator,
+            self.sqrt_price,
+        )?;
 
         let mut actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
@@ -603,7 +584,7 @@ impl Pool {
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
                 amount_in,
-                trade_fee_numerator,
+                trading_fee_numerator,
                 fee_mode.has_referral,
             )?;
 
@@ -634,19 +615,10 @@ impl Pool {
             actual_amount_in = actual_amount_in.safe_sub(amount_left)?;
 
             if fee_mode.fees_on_input {
-                let trade_fee_numerator = self
-                    .pool_fees
-                    .get_total_trading_fee_from_excluded_fee_amount(
-                        current_point,
-                        self.activation_point,
-                        actual_amount_in,
-                        trade_direction,
-                        max_fee_numerator,
-                        self.sqrt_price,
-                    )?;
-
-                let (included_fee_amount_in, fee_amount) =
-                    PoolFeesStruct::get_included_fee_amount(trade_fee_numerator, actual_amount_in)?;
+                let (included_fee_amount_in, fee_amount) = PoolFeesStruct::get_included_fee_amount(
+                    trading_fee_numerator,
+                    actual_amount_in,
+                )?;
 
                 let SplitFees {
                     claiming_fee,
@@ -681,7 +653,7 @@ impl Pool {
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
                 output_amount,
-                trade_fee_numerator,
+                trading_fee_numerator,
                 fee_mode.has_referral,
             )?;
 
@@ -722,20 +694,12 @@ impl Pool {
 
         let max_fee_numerator = get_max_fee_numerator(self.fee_version)?;
 
-        // We can compute the trade_fee_numerator here. Instead of separately for amount_in, and amount_out.
-        // This is because FeeRateLimiter (fee rate scale based on amount) only applied when fee_mode.fees_on_input
-        // (a.k.a TradeDirection::QuoteToBase + CollectFeeMode::QuoteToken)
-        // For the rest of the time, the fee rate is not dependent on amount.
-        let trade_fee_numerator = self
-            .pool_fees
-            .get_total_trading_fee_from_included_fee_amount(
-                current_point,
-                self.activation_point,
-                amount_in,
-                trade_direction,
-                max_fee_numerator,
-                self.sqrt_price,
-            )?;
+        let trading_fee_numerator = self.pool_fees.get_total_trading_fee_numerator(
+            current_point,
+            self.activation_point,
+            max_fee_numerator,
+            self.sqrt_price,
+        )?;
 
         let actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
@@ -746,7 +710,7 @@ impl Pool {
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
                 amount_in,
-                trade_fee_numerator,
+                trading_fee_numerator,
                 fee_mode.has_referral,
             )?;
 
@@ -784,7 +748,7 @@ impl Pool {
                 referral_fee,
             } = self.pool_fees.get_fee_on_amount(
                 output_amount,
-                trade_fee_numerator,
+                trading_fee_numerator,
                 fee_mode.has_referral,
             )?;
 
@@ -1167,18 +1131,6 @@ impl Pool {
         signer == self.creator && reward_index == 0
     }
 
-    pub fn update_layout_version_if_needed(&mut self) -> Result<()> {
-        let layout_version: LayoutVersion = self.layout_version.safe_cast()?;
-        if layout_version == LayoutVersion::V0 {
-            let liquidity_handler = self.get_liquidity_handler()?;
-            let (token_a_amount, token_b_amount) = liquidity_handler.get_reserves_amount()?;
-            self.token_a_amount = token_a_amount;
-            self.token_b_amount = token_b_amount;
-            self.layout_version = LayoutVersion::V1.into();
-        }
-        Ok(())
-    }
-
     pub fn validate_and_update_pool_fees(
         &mut self,
         params: &UpdatePoolFeesParameters,
@@ -1219,7 +1171,7 @@ impl Pool {
                 // validate base fee again after update new cliff fee numerator
                 base_fee_handler.validate(collect_fee_mode, activation_type)?;
 
-                // validate current base fee is smaller than our cap
+                // validate current base fee is within the range the operator may set
                 // because base fee is static, so we just need to use min base fee numerator
                 let current_base_fee_numerator = base_fee_handler.get_min_fee_numerator()?;
                 require!(

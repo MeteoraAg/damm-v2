@@ -127,14 +127,6 @@ pub mod cp_amm {
         instructions::handle_fix_pool_fee_params(ctx, params)
     }
 
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::UpdatePoolFees))]
-    pub fn fix_config_fee_params(
-        ctx: Context<FixConfigFeeParamsCtx>,
-        params: BaseFeeParameters,
-    ) -> Result<()> {
-        instructions::handle_fix_config_fee_params(ctx, params)
-    }
-
     pub fn initialize_reward<'info>(
         ctx: Context<'info, InitializeRewardCtx<'info>>,
         reward_index: u8,
@@ -203,6 +195,11 @@ pub mod cp_amm {
         params: UpdatePoolFeesParameters,
     ) -> Result<()> {
         instructions::handle_update_pool_fees(ctx, params)
+    }
+
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::FixPool))]
+    pub fn zero_pool_rate_limiter(ctx: Context<ZeroPoolRateLimiterCtx>) -> Result<()> {
+        instructions::handle_zero_pool_rate_limiter(ctx)
     }
 
     // USER FUNCTIONS
@@ -330,11 +327,6 @@ pub mod cp_amm {
                 inner_vesting_liquidity_numerator: numerator,
             },
         )
-    }
-
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::FixPool))]
-    pub fn fix_pool_layout_version(ctx: Context<FixPoolLayoutVersionCtx>) -> Result<()> {
-        instructions::handle_fix_pool_layout_version(ctx)
     }
 
     pub fn update_delegate_permission(
