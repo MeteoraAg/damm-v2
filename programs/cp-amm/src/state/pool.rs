@@ -334,7 +334,7 @@ impl RewardInfo {
 
     pub fn get_seconds_elapsed_since_last_update(&self, current_time: u64) -> Result<u64> {
         let last_time_reward_applicable = min(current_time, self.reward_duration_end);
-        let time_period = last_time_reward_applicable.safe_sub(self.last_update_time.into())?;
+        let time_period = last_time_reward_applicable.safe_sub(self.last_update_time)?;
 
         Ok(time_period)
     }
@@ -348,10 +348,10 @@ impl RewardInfo {
         let time_period: u128 = self
             .get_seconds_elapsed_since_last_update(current_time)?
             .into();
-        let total_reward = time_period.safe_mul(self.reward_rate.into())?;
+        let total_reward = time_period.safe_mul(self.reward_rate)?;
 
         let reward_per_token_stored = shl_div_256(total_reward, liquidity_supply, LIQUIDITY_SCALE)
-            .ok_or_else(|| PoolError::MathOverflow)?;
+            .ok_or(PoolError::MathOverflow)?;
         Ok(reward_per_token_stored)
     }
 
@@ -408,6 +408,7 @@ impl RewardInfo {
 }
 
 impl Pool {
+    #[allow(clippy::too_many_arguments)]
     pub fn initialize(
         &mut self,
         creator: Pubkey,
@@ -794,7 +795,7 @@ impl Pool {
 
         let fee_per_token_stored =
             shl_div_256(claiming_fee.into(), self.liquidity, LIQUIDITY_SCALE)
-                .ok_or_else(|| PoolError::MathOverflow)?;
+                .ok_or(PoolError::MathOverflow)?;
 
         let trading_fee = claiming_fee.safe_add(compounding_fee)?;
 
@@ -882,6 +883,7 @@ impl Pool {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn apply_split_position(
         &self,
         first_position: &mut Position,

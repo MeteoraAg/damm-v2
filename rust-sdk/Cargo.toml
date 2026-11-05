@@ -3,6 +3,7 @@ name = "rust-sdk"
 version = "0.2.6"
 edition = "2021"
 description = "cp-amm sdk"
+publish = false
 
 [dependencies]
 anyhow = { workspace = true }

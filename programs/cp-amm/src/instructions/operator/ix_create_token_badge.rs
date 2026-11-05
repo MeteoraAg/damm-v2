@@ -15,7 +15,7 @@ pub struct CreateTokenBadgeCtx<'info> {
         init,
         payer = payer,
         seeds = [
-            TOKEN_BADGE_PREFIX.as_ref(),
+            TOKEN_BADGE_PREFIX,
             token_mint.key().as_ref(),
         ],
         bump,

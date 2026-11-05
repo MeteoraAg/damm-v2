@@ -343,5 +343,5 @@ fn execute_swap_liquidity(
                 .unwrap();
         }
     }
-    return true;
+    true
 }

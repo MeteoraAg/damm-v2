@@ -1,5 +1,3 @@
-use std::u128;
-
 use proptest::proptest;
 
 use anchor_lang::prelude::{Pubkey, Result};
@@ -34,8 +32,10 @@ proptest! {
 const ONE_DAY: u64 = MIN_REWARD_DURATION;
 
 fn pool_with_full_reward_accumulator() -> Result<Pool> {
-    let mut pool = Pool::default();
-    pool.liquidity = 1;
+    let mut pool = Pool {
+        liquidity: 1,
+        ..Default::default()
+    };
     pool.reward_infos[0].init_reward(
         Pubkey::new_unique(),
         Pubkey::new_unique(),
@@ -81,8 +81,10 @@ fn test_position_reward_delta_survives_a_wrap() -> Result<()> {
     let growth = U256::from(1u128) << TOTAL_REWARD_SCALE; // one raw token per unit of liquidity
 
     let start: U256 = U256::MAX - (growth >> 1);
-    let mut wrapped = UserRewardInfo::default();
-    wrapped.reward_per_token_checkpoint = start.to_le_bytes();
+    let mut wrapped = UserRewardInfo {
+        reward_per_token_checkpoint: start.to_le_bytes(),
+        ..Default::default()
+    };
     wrapped.update_rewards(liquidity, start.wrapping_add(growth))?;
 
     let mut unwrapped = UserRewardInfo::default();

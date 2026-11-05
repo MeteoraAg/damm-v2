@@ -85,7 +85,7 @@ pub fn p_handle_swap(
 
     let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::InvalidInput)?;
 
-    let trade_direction = get_trade_direction(&input_token_account, token_a_mint)?;
+    let trade_direction = get_trade_direction(input_token_account, token_a_mint)?;
     let (
         token_in_mint,
         token_out_mint,
@@ -166,9 +166,9 @@ pub fn p_handle_swap(
     // send to user
     p_transfer_from_pool(
         pool_authority,
-        &token_out_mint,
-        &output_vault_account,
-        &output_token_account,
+        token_out_mint,
+        output_vault_account,
+        output_token_account,
         output_program,
         included_transfer_fee_amount_out,
     )
@@ -222,11 +222,7 @@ pub fn p_handle_swap(
 
 fn p_emit_cpi(inner_data: Vec<u8>, authority_info: &AccountInfo) -> pinocchio::ProgramResult {
     let disc = anchor_lang::event::EVENT_IX_TAG_LE;
-    let ix_data: Vec<u8> = disc
-        .into_iter()
-        .map(|b| *b)
-        .chain(inner_data.into_iter())
-        .collect();
+    let ix_data: Vec<u8> = disc.iter().copied().chain(inner_data).collect();
     let instruction = pinocchio::instruction::Instruction {
         program_id: crate::ID.as_array(),
         data: &ix_data,

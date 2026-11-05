@@ -27,7 +27,7 @@ pub struct StaticConfigParameters {
 pub struct CreateConfigCtx<'info> {
     #[account(
         init,
-        seeds = [CONFIG_PREFIX.as_ref(), index.to_le_bytes().as_ref()],
+        seeds = [CONFIG_PREFIX, index.to_le_bytes().as_ref()],
         bump,
         payer = payer,
         space = 8 + Config::INIT_SPACE

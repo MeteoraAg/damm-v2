@@ -20,8 +20,7 @@ impl<'info> UpdateRewardDurationCtx<'info> {
         require!(reward_index < NUM_REWARDS, PoolError::InvalidRewardIndex);
 
         require!(
-            new_reward_duration >= MIN_REWARD_DURATION
-                && new_reward_duration <= MAX_REWARD_DURATION,
+            (MIN_REWARD_DURATION..=MAX_REWARD_DURATION).contains(&new_reward_duration),
             PoolError::InvalidRewardDuration
         );
 
@@ -50,9 +49,7 @@ pub fn handle_update_reward_duration<'info>(
     reward_index: u8,
     new_reward_duration: u64,
 ) -> Result<()> {
-    let index: usize = reward_index
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index.into();
 
     ctx.accounts.validate(index, new_reward_duration)?;
 
@@ -61,8 +58,8 @@ pub fn handle_update_reward_duration<'info>(
     if !pool.check_pool_creator_to_edit_reward(index, ctx.accounts.signer.key()) {
         let operator_account = ctx
             .remaining_accounts
-            .get(0)
-            .ok_or_else(|| PoolError::MissingOperatorAccount)?;
+            .first()
+            .ok_or(PoolError::MissingOperatorAccount)?;
         let operator_loader: AccountLoader<'info, Operator> =
             AccountLoader::try_from(operator_account)?;
         let operator = operator_loader.load()?;

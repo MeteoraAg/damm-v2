@@ -13,7 +13,7 @@ pub struct CreateOperatorAccountCtx<'info> {
         init,
         payer = payer,
         seeds = [
-            OPERATOR_PREFIX.as_ref(),
+            OPERATOR_PREFIX,
             whitelisted_address.key().as_ref(),
         ],
         bump,

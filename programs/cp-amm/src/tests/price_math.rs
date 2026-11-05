@@ -10,8 +10,8 @@ pub const ONE: u128 = 1u128 << SCALE_OFFSET;
 pub fn get_price_from_id(active_id: i32, bin_step: u16) -> Result<u128> {
     // Make bin_step into Q64x64, and divided by MAX_BASIS_POINT. If bin_step = 1, we get 0.0001 in Q64x64
     let bps = u128::from(bin_step)
-        .safe_shl(SCALE_OFFSET.into())?
-        .safe_div(MAX_BASIS_POINT as u128)?;
+        .safe_shl(SCALE_OFFSET)?
+        .safe_div(MAX_BASIS_POINT)?;
     // Add 1 to bps, we get 1.0001 in Q64.64
     let base = ONE.safe_add(bps)?;
     pow(base, active_id).ok_or_else(|| PoolError::MathOverflow.into())

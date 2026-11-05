@@ -25,7 +25,7 @@ pub struct InitializeRewardCtx<'info> {
 
     #[account(
         init,
-        seeds = [REWARD_VAULT_PREFIX.as_ref(), pool.key().as_ref(), reward_index.to_le_bytes().as_ref()],
+        seeds = [REWARD_VAULT_PREFIX, pool.key().as_ref(), reward_index.to_le_bytes().as_ref()],
         bump,
         payer = payer,
         token::mint = reward_mint,
@@ -52,7 +52,7 @@ impl<'info> InitializeRewardCtx<'info> {
         require!(reward_index < NUM_REWARDS, PoolError::InvalidRewardIndex);
 
         require!(
-            reward_duration >= MIN_REWARD_DURATION && reward_duration <= MAX_REWARD_DURATION,
+            (MIN_REWARD_DURATION..=MAX_REWARD_DURATION).contains(&reward_duration),
             PoolError::InvalidRewardDuration
         );
 
@@ -72,11 +72,9 @@ pub fn handle_initialize_reward<'info>(
     validate_mint(
         &ctx.accounts.reward_mint,
         false,
-        ctx.remaining_accounts.get(0),
+        ctx.remaining_accounts.first(),
     )?;
-    let index: usize = reward_index
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index.into();
 
     ctx.accounts.validate(index, reward_duration)?;
 
@@ -86,7 +84,7 @@ pub fn handle_initialize_reward<'info>(
         let operator_account = ctx
             .remaining_accounts
             .get(1)
-            .ok_or_else(|| PoolError::MissingOperatorAccount)?;
+            .ok_or(PoolError::MissingOperatorAccount)?;
         let operator_loader: AccountLoader<'info, Operator> =
             AccountLoader::try_from(operator_account)?;
         let operator = operator_loader.load()?;

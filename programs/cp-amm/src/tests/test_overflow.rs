@@ -1,5 +1,3 @@
-use std::u128;
-
 use proptest::proptest;
 use ruint::aliases::U256;
 
@@ -63,7 +61,7 @@ fn test_get_initialize_amounts_single_case() {
 fn get_next_sqrt_price_from_input_single_test() {
     let sqrt_price = MAX_SQRT_PRICE / 2;
     let liquidity = 1372985471608509983;
-    let amount_in = 100_000_00;
+    let amount_in = 10_000_000;
     let next_price =
         get_next_sqrt_price_from_input(sqrt_price, liquidity, amount_in, true).unwrap();
     println!("{}", next_price);

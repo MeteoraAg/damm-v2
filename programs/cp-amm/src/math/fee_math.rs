@@ -20,10 +20,10 @@ pub fn get_fee_in_period(
     }
     // Make bin_step into Q64x64, and divided by MAX_BASIS_POINT. If bin_step = 1, we get 0.0001 in Q64x64
     let bps = u128::from(reduction_factor)
-        .safe_shl(SCALE_OFFSET.into())?
+        .safe_shl(SCALE_OFFSET)?
         .safe_div(MAX_BASIS_POINT.into())?;
     let base = ONE_Q64.safe_sub(bps)?;
-    let result = pow(base, passed_period.into()).ok_or_else(|| PoolError::MathOverflow)?;
+    let result = pow(base, passed_period.into()).ok_or(PoolError::MathOverflow)?;
 
     let (fee, _) = result
         .safe_mul(cliff_fee_numerator.into())?
@@ -49,7 +49,11 @@ pub fn pow(base: u128, exp: i32) -> Option<u128> {
     }
 
     // Make the exponential positive. Which will compute the result later by 1 / base^exp
-    let exp: u32 = if invert { exp.abs() as u32 } else { exp as u32 };
+    let exp: u32 = if invert {
+        exp.unsigned_abs()
+    } else {
+        exp as u32
+    };
 
     // No point to continue the calculation as it will overflow the maximum value Q64.64 can support
     if exp >= MAX_EXPONENTIAL {

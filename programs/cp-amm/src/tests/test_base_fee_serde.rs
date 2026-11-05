@@ -11,7 +11,7 @@ use crate::params::fee_parameters::BaseFeeParameters;
 use crate::state::fee::BaseFeeMode;
 use anchor_lang::prelude::borsh;
 
-use anchor_lang::{AnchorDeserialize, AnchorSerialize};
+use anchor_lang::AnchorDeserialize;
 #[test]
 fn test_base_fee_serde_rate_limiter() {
     let fee = BorshFeeRateLimiter {
@@ -21,7 +21,6 @@ fn test_base_fee_serde_rate_limiter() {
         max_fee_bps: 4000,
         reference_amount: 5_000_000_000,
         base_fee_mode: BaseFeeMode::RateLimiter.into(),
-        ..Default::default()
     };
 
     // convert to base fee params
@@ -80,7 +79,6 @@ fn test_base_fee_serde_time_scheduler() {
         period_frequency: 300,
         reduction_factor: 271,
         base_fee_mode: BaseFeeMode::FeeTimeSchedulerExponential.into(),
-        ..Default::default()
     };
 
     // convert to base fee params
@@ -139,7 +137,6 @@ fn test_base_fee_serde_market_cap_scheduler() {
         reduction_factor: 271,
         scheduler_expiration_duration: 800,
         base_fee_mode: BaseFeeMode::FeeMarketCapSchedulerExponential.into(),
-        ..Default::default()
     };
 
     // convert to base fee params

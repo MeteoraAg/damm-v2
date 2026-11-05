@@ -47,7 +47,7 @@ pub struct InitializePoolWithDynamicConfigCtx<'info> {
     /// position nft account
     #[account(
         init,
-        seeds = [POSITION_NFT_ACCOUNT_PREFIX.as_ref(), position_nft_mint.key().as_ref()],
+        seeds = [POSITION_NFT_ACCOUNT_PREFIX, position_nft_mint.key().as_ref()],
         token::mint = position_nft_mint,
         token::authority = creator,
         token::token_program = token_2022_program,
@@ -76,7 +76,7 @@ pub struct InitializePoolWithDynamicConfigCtx<'info> {
     #[account(
         init,
         seeds = [
-            POOL_PREFIX.as_ref(),
+            POOL_PREFIX,
             config.key().as_ref(),
             &max_key(&token_a_mint.key(), &token_b_mint.key()),
             &min_key(&token_a_mint.key(), &token_b_mint.key()),
@@ -90,7 +90,7 @@ pub struct InitializePoolWithDynamicConfigCtx<'info> {
     #[account(
         init,
         seeds = [
-            POSITION_PREFIX.as_ref(),
+            POSITION_PREFIX,
             position_nft_mint.key().as_ref()
         ],
         bump,
@@ -116,7 +116,7 @@ pub struct InitializePoolWithDynamicConfigCtx<'info> {
     #[account(
         init,
         seeds = [
-            TOKEN_VAULT_PREFIX.as_ref(),
+            TOKEN_VAULT_PREFIX,
             token_a_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
@@ -132,7 +132,7 @@ pub struct InitializePoolWithDynamicConfigCtx<'info> {
     #[account(
         init,
         seeds = [
-            TOKEN_VAULT_PREFIX.as_ref(),
+            TOKEN_VAULT_PREFIX,
             token_b_mint.key().as_ref(),
             pool.key().as_ref(),
         ],
@@ -177,7 +177,7 @@ pub fn handle_initialize_pool_with_dynamic_config<'info>(
     validate_mint(
         &ctx.accounts.token_a_mint,
         skip_mint_validation,
-        ctx.remaining_accounts.get(0),
+        ctx.remaining_accounts.first(),
     )?;
     validate_mint(
         &ctx.accounts.token_b_mint,

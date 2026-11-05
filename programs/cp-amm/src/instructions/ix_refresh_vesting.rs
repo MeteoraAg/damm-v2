@@ -57,7 +57,7 @@ pub fn handle_refresh_vesting<'info>(ctx: Context<'info, RefreshVestingCtx<'info
     let mut position = ctx.accounts.position.load_mut()?;
     position.refresh_inner_vesting(current_point)?;
 
-    let mut remaining_accounts = &ctx.remaining_accounts[..];
+    let mut remaining_accounts = ctx.remaining_accounts;
 
     loop {
         if remaining_accounts.is_empty() {

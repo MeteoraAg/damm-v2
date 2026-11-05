@@ -62,7 +62,7 @@ impl DynamicFeeModel {
 
         self.sqrt_price_current = sqrt_price;
         self.last_update_timestamp = current_timestamp;
-        return price;
+        price
     }
     pub fn update_references(&mut self, current_timestamp: u64) {
         let elapsed = current_timestamp

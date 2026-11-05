@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 pub mod alpha_vault {
     use anchor_lang::prelude::Pubkey;
     use anchor_lang::pubkey;

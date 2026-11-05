@@ -15,8 +15,6 @@ use crate::{CompoundingLiquidity, LiquidityHandler};
 use anchor_lang::prelude::*;
 use proptest::prelude::*;
 use ruint::aliases::U256;
-use std::u64;
-
 pub fn get_sqrt_price_and_liquidity_from_amounts(
     initial_amount_a: u64,
     initial_amount_b: u64,
@@ -31,7 +29,7 @@ pub fn get_sqrt_price_and_liquidity_from_amounts(
     .unwrap();
     let sqrt_price: u128 = sqrt_price.try_into().unwrap();
     require!(
-        sqrt_price >= MIN_SQRT_PRICE && sqrt_price <= MAX_SQRT_PRICE,
+        (MIN_SQRT_PRICE..=MAX_SQRT_PRICE).contains(&sqrt_price),
         PoolError::InvalidPriceRange
     );
     let liquidity = sqrt_u256(
