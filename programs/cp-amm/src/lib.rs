@@ -62,7 +62,7 @@ pub struct DummyParams {
         base_fee::fee_market_cap_scheduler::BorshFeeMarketCapScheduler,
 }
 
-#[program]
+#[program(legacy_idl)]
 pub mod cp_amm {
 
     use super::*;

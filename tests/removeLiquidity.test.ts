@@ -27,7 +27,7 @@ import {
   mintToToken2022,
 } from "./helpers/token2022";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Remove liquidity", () => {
   describe("SPL Token", () => {

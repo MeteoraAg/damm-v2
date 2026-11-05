@@ -3,12 +3,8 @@ import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, Signer, SystemProgram, Transaction } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import {
-  AccountInfoBytes,
-  FailedTransactionMetadata,
-  LiteSVM,
-  TransactionMetadata,
-} from "litesvm";
+import { FailedTransactionMetadata, TransactionMetadata } from "litesvm";
+import { AccountInfoBytes, LiteSVM } from "./litesvmCompat";
 import path from "path";
 import {
   ALPHA_VAULT_PROGRAM_ID,
@@ -20,6 +16,8 @@ import { TRANSFER_HOOK_COUNTER_PROGRAM_ID } from "./transferHook";
 
 export function startSvm() {
   const svm = new LiteSVM();
+  // litesvm 1.x starts the clock at a mainnet-like slot. The tests assume the chain starts at slot 0 and advance the slot themselves
+  svm.warpToSlot(BigInt(0));
   const sourceFileCpammPath = path.resolve("./target/deploy/cp_amm.so");
   const sourceFileAlphaVaultPath = path.resolve(
     "./tests/fixtures/alpha_vault.so"

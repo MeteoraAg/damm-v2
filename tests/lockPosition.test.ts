@@ -37,7 +37,7 @@ import {
   mintToToken2022,
 } from "./helpers/token2022";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Lock position", () => {
   describe("SPL Token", () => {
@@ -314,8 +314,7 @@ describe("Lock position", () => {
           ).to.be.true;
         }
 
-        const vesting = svm.getAccount(vestings[0]);
-        expect(vesting.data.length).eq(0);
+        expect(svm.getAccount(vestings[0])).to.be.null;
 
         const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.isZero()).to.be.true;
@@ -634,8 +633,7 @@ describe("Lock position", () => {
           ).to.be.true;
         }
 
-        const vesting = svm.getAccount(vestings[0]);
-        expect(vesting.data.length).eq(0);
+        expect(svm.getAccount(vestings[0])).to.be.null;
 
         const positionState = getPosition(svm, position);
         expect(positionState.vestedLiquidity.isZero()).to.be.true;

@@ -1,7 +1,7 @@
 import { IdlTypes } from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import { CpAmm } from "../../target/types/cp_amm";
 import { createCpAmmProgram } from "./cpAmm";
 import { BaseFeeMode } from "./feeCodec";

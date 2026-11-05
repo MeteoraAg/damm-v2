@@ -38,7 +38,7 @@ import {
 } from "./helpers/token2022";
 import { expect } from "chai";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Swap token", () => {
   describe("SPL Token", () => {
