@@ -34,7 +34,7 @@ import {
   setDeprecatedRateLimiterConfig,
   RateLimiterParams,
 } from "./helpers/deprecatedRateLimiter";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 const DEPRECATED_BASE_FEE_MODE = getCpAmmProgramErrorCode(
   "DeprecatedBaseFeeMode"

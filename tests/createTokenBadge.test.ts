@@ -12,7 +12,7 @@ import {
   createPermenantDelegateExtensionWithInstruction,
   createToken2022,
 } from "./helpers/token2022";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Admin function: Create token badge", () => {
   let svm: LiteSVM;

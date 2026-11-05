@@ -27,7 +27,7 @@ import {
 } from "./helpers";
 import { generateKpAndFund, randomID } from "./helpers/common";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 import { expect } from "chai";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 

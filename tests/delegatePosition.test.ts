@@ -11,11 +11,8 @@ import {
 import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
-import {
-  FailedTransactionMetadata,
-  LiteSVM,
-  TransactionMetadata,
-} from "litesvm";
+import { FailedTransactionMetadata, TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 import {
   ANCHOR_CONSTRAINT_TOKEN_OWNER_ERROR_CODE,
   addLiquidity,

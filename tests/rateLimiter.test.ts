@@ -41,7 +41,7 @@ import {
   setDeprecatedRateLimiterPool,
   RateLimiterParams,
 } from "./helpers/deprecatedRateLimiter";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 // Creating a pool with BaseFeeMode::RateLimiter is rejected as of cp_amm 0.2.3.
 // Pools that predate the deprecation keep working, so every fixture here is

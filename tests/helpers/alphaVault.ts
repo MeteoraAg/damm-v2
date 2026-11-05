@@ -21,11 +21,8 @@ import { ALPHA_VAULT_PROGRAM_ID } from "./constants";
 import { createCpAmmProgram, getPool } from "./cpAmm";
 import { derivePoolAuthority } from "./accounts";
 import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
-import {
-  FailedTransactionMetadata,
-  LiteSVM,
-  TransactionMetadata,
-} from "litesvm";
+import { TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import { sendTransaction } from "./svm";
 import { expect } from "chai";
 

@@ -17,7 +17,7 @@ import {
 } from "./helpers";
 import BN from "bn.js";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Dynamic config test", () => {
   let svm: LiteSVM;

@@ -29,7 +29,7 @@ import {
 } from "./helpers/token2022";
 import { createExtraAccountMetaListAndCounter } from "./helpers/transferHook";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
-import { LiteSVM } from "litesvm";
+import { LiteSVM } from "./helpers/litesvmCompat";
 
 describe("Permissionless transfer hook", () => {
   let svm: LiteSVM;
