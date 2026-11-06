@@ -9,6 +9,17 @@ pub fn is_admin(signer: &Pubkey) -> Result<()> {
     Ok(())
 }
 
+pub fn is_admin_or_operator_self<'info>(
+    operator: &AccountLoader<'info, Operator>,
+    signer: &Pubkey,
+) -> Result<()> {
+    if assert_eq_admin(signer.key()) || operator.load()?.whitelisted_address.eq(signer) {
+        Ok(())
+    } else {
+        err!(PoolError::InvalidPermission)
+    }
+}
+
 pub fn is_valid_operator_role<'info>(
     operator: &AccountLoader<'info, Operator>,
     signer: &Pubkey,

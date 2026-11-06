@@ -234,4 +234,7 @@ pub enum PoolError {
 
     #[msg("Invalid config permission")]
     InvalidConfigPermission,
+
+    #[msg("Rent receiver must be an admin")]
+    InvalidRentReceiver,
 }

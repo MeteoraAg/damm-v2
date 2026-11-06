@@ -2,7 +2,7 @@ use crate::{
     constants::seeds::OPERATOR_PREFIX,
     state::{Operator, OperatorPermission},
     utils::bits::bitmask_max,
-    PoolError,
+    EvtCreateOperatorAccount, PoolError,
 };
 use anchor_lang::prelude::*;
 
@@ -43,5 +43,12 @@ pub fn handle_create_operator(
 
     let mut operator = ctx.accounts.operator.load_init()?;
     operator.initialize(ctx.accounts.whitelisted_address.key(), permission);
+
+    emit_cpi!(EvtCreateOperatorAccount {
+        operator: ctx.accounts.operator.key(),
+        whitelisted_address: ctx.accounts.whitelisted_address.key(),
+        permission,
+    });
+
     Ok(())
 }
