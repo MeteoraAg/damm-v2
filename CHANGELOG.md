@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Endpoint `close_operator_account` now accepts the whitelisted address of the operator account as `signer`, in addition to an admin.
+
 ### Deprecated
 
 ### Removed
@@ -18,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Breaking Changes
+
+- Endpoint `close_operator_account` requires `rent_receiver` to be the admin and returns `InvalidRentReceiver` otherwise. Previously any `rent_receiver` was accepted.
 
 ## cp_amm [0.2.6] [#PR 236](https://github.com/MeteoraAg/damm-v2/pull/236)
 

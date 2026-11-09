@@ -6,7 +6,6 @@ use crate::{
 };
 use anchor_lang::prelude::*;
 
-#[event_cpi]
 #[derive(Accounts)]
 pub struct CreateOperatorAccountCtx<'info> {
     #[account(
@@ -43,5 +42,12 @@ pub fn handle_create_operator(
 
     let mut operator = ctx.accounts.operator.load_init()?;
     operator.initialize(ctx.accounts.whitelisted_address.key(), permission);
+
+    msg!("Operator created: {}", operator.whitelisted_address);
+    msg!(
+        "Permissions: {:?} (raw: {:#b})",
+        Operator::permission_names(permission),
+        permission
+    );
     Ok(())
 }

@@ -51,4 +51,11 @@ impl Operator {
         let result = self.permission & (1u128 << Into::<u8>::into(permission));
         result != 0
     }
+
+    pub fn permission_names(permission: u128) -> Vec<OperatorPermission> {
+        (0..OperatorPermission::VARIANT_COUNT as u8)
+            .filter(|bit| permission & (1u128 << bit) != 0)
+            .filter_map(|bit| OperatorPermission::try_from(bit).ok())
+            .collect()
+    }
 }
