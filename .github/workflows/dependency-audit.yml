@@ -16,7 +16,7 @@ jobs:
   # advisories, licenses, bans and sources, see deny.toml
   cargo_deny:
     name: Cargo Deny
-    runs-on: ubuntu-latest
+    runs-on: &runner ubuntu-26.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -29,7 +29,7 @@ jobs:
   # advisories of every dependency in bun.lock, dev ones included, ignored ones are in osv-scanner.toml
   osv_scanner:
     name: OSV Scanner
-    runs-on: ubuntu-latest
+    runs-on: *runner
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
