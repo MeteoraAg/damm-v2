@@ -351,7 +351,7 @@ impl RewardInfo {
         let total_reward = time_period.safe_mul(self.reward_rate)?;
 
         let reward_per_token_stored = shl_div_256(total_reward, liquidity_supply, LIQUIDITY_SCALE)
-            .ok_or(PoolError::MathOverflow)?;
+            .ok_or_else(|| PoolError::MathOverflow)?;
         Ok(reward_per_token_stored)
     }
 
@@ -795,7 +795,7 @@ impl Pool {
 
         let fee_per_token_stored =
             shl_div_256(claiming_fee.into(), self.liquidity, LIQUIDITY_SCALE)
-                .ok_or(PoolError::MathOverflow)?;
+                .ok_or_else(|| PoolError::MathOverflow)?;
 
         let trading_fee = claiming_fee.safe_add(compounding_fee)?;
 

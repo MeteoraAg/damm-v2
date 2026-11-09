@@ -6,18 +6,20 @@ on:
       - main
       - release_*
 
+# The runner and every action used more than once are YAML anchors (`&name`), set where
+# they're first used and reused with `*name`. Bump them there.
 jobs:
   program_changed_files:
-    runs-on: ubuntu-latest
+    runs-on: &runner ubuntu-26.04
     outputs:
       program: ${{steps.changed-files-specific.outputs.any_changed}}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: &checkout actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
       - name: Get specific changed files
         id: changed-files-specific
-        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
+        uses: &changed_files tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           files: |
             programs/cp-amm/**
@@ -33,26 +35,26 @@ jobs:
             .github/**
 
   rust_sdk_changed_files:
-    runs-on: ubuntu-latest
+    runs-on: *runner
     outputs:
       rust_sdk: ${{steps.changed-files-specific.outputs.any_changed}}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: *checkout
         with:
           fetch-depth: 0
       - name: Get specific changed files
         id: changed-files-specific
-        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
+        uses: *changed_files
         with:
           files: |
             rust-sdk/**
 
   cargo_fmt:
-    runs-on: ubuntu-latest
+    runs-on: *runner
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: *checkout
       - uses: ./.github/actions/setup-versions
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master (2026-10-16)
+      - uses: &rust_toolchain dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master (2026-10-16)
         with:
           toolchain: ${{ env.TOOLCHAIN }}
           components: rustfmt
@@ -60,11 +62,11 @@ jobs:
         shell: bash
 
   anchor_build:
-    runs-on: ubuntu-latest
+    runs-on: *runner
     needs: program_changed_files
     if: needs.program_changed_files.outputs.program == 'true'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: *checkout
         with:
           fetch-depth: 1
       - uses: ./.github/actions/setup-versions
@@ -72,13 +74,13 @@ jobs:
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
       # Install bun
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: &setup_bun oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         # Cache rust, cargo
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: &rust_cache Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           cache-targets: "true"
           cache-on-failure: true
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: &cache actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.anchor
           key: anchor-${{ runner.os }}-${{ hashFiles('Anchor.toml') }}
@@ -86,75 +88,75 @@ jobs:
         shell: bash
 
   rust_sdk_unit_test:
-    runs-on: ubuntu-latest
+    runs-on: *runner
     needs: [program_changed_files, rust_sdk_changed_files]
     if: needs.program_changed_files.outputs.program == 'true' || needs.rust_sdk_changed_files.outputs.rust_sdk == 'true'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: *checkout
       - uses: ./.github/actions/setup-versions
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master (2026-10-16)
+      - uses: *rust_toolchain
         with:
           toolchain: ${{ env.TOOLCHAIN }}
           components: clippy
       # Cache rust, cargo
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: *rust_cache
       - run: cargo test --package rust-sdk
         shell: bash
 
   clippy:
-    runs-on: &runner ubuntu-26.04
+    runs-on: *runner
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: *checkout
       - uses: ./.github/actions/setup-versions
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master (2026-10-16)
+      - uses: *rust_toolchain
         with:
           toolchain: ${{ env.TOOLCHAIN }}
           components: clippy
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: *rust_cache
       - run: cargo clippy --locked --all-targets -- -D warnings
         shell: bash
 
   program_unit_test:
-    runs-on: ubuntu-latest
+    runs-on: *runner
     needs: program_changed_files
     if: needs.program_changed_files.outputs.program == 'true'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: *checkout
       - uses: ./.github/actions/setup-versions
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master (2026-10-16)
+      - uses: *rust_toolchain
         with:
           toolchain: ${{ env.TOOLCHAIN }}
           components: clippy
       # Cache rust, cargo
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: *rust_cache
       - run: cargo test --package cp-amm
         shell: bash
 
   program_integration_test:
-    runs-on: ubuntu-latest
+    runs-on: *runner
     needs: program_changed_files
     if: needs.program_changed_files.outputs.program == 'true'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: *checkout
       - uses: ./.github/actions/setup-versions
       - uses: ./.github/actions/setup-solana
       - uses: ./.github/actions/setup-dep
       - uses: ./.github/actions/setup-anchor
       # Install rust + toolchain
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master (2026-10-16)
+      - uses: *rust_toolchain
         with:
           toolchain: ${{ env.TOOLCHAIN }}
           components: clippy
       # Cache rust, cargo
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: *rust_cache
       # Cache node_modules
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: *cache
         id: cache-node-modules
         with:
           path: ./node_modules
           key: ${{ runner.os }}-${{ hashFiles('./bun.lock') }}
       # Install bun
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: *setup_bun
       - run: bun install
         shell: bash
       - run: bun run build-local-test

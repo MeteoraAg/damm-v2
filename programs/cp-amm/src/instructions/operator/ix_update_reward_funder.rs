@@ -44,7 +44,7 @@ pub fn handle_update_reward_funder<'info>(
         let operator_account = ctx
             .remaining_accounts
             .first()
-            .ok_or(PoolError::MissingOperatorAccount)?;
+            .ok_or_else(|| PoolError::MissingOperatorAccount)?;
         let operator_loader: AccountLoader<'info, Operator> =
             AccountLoader::try_from(operator_account)?;
         let operator = operator_loader.load()?;

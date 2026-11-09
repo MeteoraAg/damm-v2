@@ -84,7 +84,7 @@ pub fn handle_initialize_reward<'info>(
         let operator_account = ctx
             .remaining_accounts
             .get(1)
-            .ok_or(PoolError::MissingOperatorAccount)?;
+            .ok_or_else(|| PoolError::MissingOperatorAccount)?;
         let operator_loader: AccountLoader<'info, Operator> =
             AccountLoader::try_from(operator_account)?;
         let operator = operator_loader.load()?;

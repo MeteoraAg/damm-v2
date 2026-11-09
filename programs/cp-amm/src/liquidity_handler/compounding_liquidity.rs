@@ -158,7 +158,7 @@ impl LiquidityHandler for CompoundingLiquidity {
 fn get_sqrt_price_from_amounts(token_a_amount: u64, token_b_amount: u64) -> Result<u128> {
     let token_b_amount = U256::from(token_b_amount).safe_shl(128)?;
     let price = token_b_amount.safe_div(U256::from(token_a_amount))?;
-    let sqrt_price = sqrt_u256(price).ok_or(PoolError::MathOverflow)?;
+    let sqrt_price = sqrt_u256(price).ok_or_else(|| PoolError::MathOverflow)?;
     Ok(sqrt_price
         .try_into()
         .map_err(|_| PoolError::TypeCastFailed)?)

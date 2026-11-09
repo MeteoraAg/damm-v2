@@ -23,7 +23,7 @@ pub fn get_fee_in_period(
         .safe_shl(SCALE_OFFSET)?
         .safe_div(MAX_BASIS_POINT.into())?;
     let base = ONE_Q64.safe_sub(bps)?;
-    let result = pow(base, passed_period.into()).ok_or(PoolError::MathOverflow)?;
+    let result = pow(base, passed_period.into()).ok_or_else(|| PoolError::MathOverflow)?;
 
     let (fee, _) = result
         .safe_mul(cliff_fee_numerator.into())?

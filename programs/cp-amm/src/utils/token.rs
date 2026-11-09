@@ -74,10 +74,10 @@ pub fn calculate_transfer_fee_excluded_amount(
     if let Some(epoch_transfer_fee) = get_epoch_transfer_fee(token_mint_data)? {
         let transfer_fee = epoch_transfer_fee
             .calculate_fee(transfer_fee_included_amount)
-            .ok_or(PoolError::MathOverflow)?;
+            .ok_or_else(|| PoolError::MathOverflow)?;
         let transfer_fee_excluded_amount = transfer_fee_included_amount
             .checked_sub(transfer_fee)
-            .ok_or(PoolError::MathOverflow)?;
+            .ok_or_else(|| PoolError::MathOverflow)?;
         return Ok(TransferFeeExcludedAmount {
             amount: transfer_fee_excluded_amount,
             transfer_fee,
@@ -278,7 +278,7 @@ pub fn validate_mint<'info>(
         return Ok(());
     }
 
-    let token_badge = token_badge.ok_or(PoolError::InvalidTokenBadge)?;
+    let token_badge = token_badge.ok_or_else(|| PoolError::InvalidTokenBadge)?;
     let token_badge: AccountLoader<'_, TokenBadge> = AccountLoader::try_from(token_badge)?;
     let token_badge = token_badge.load()?;
     require!(

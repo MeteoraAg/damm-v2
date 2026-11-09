@@ -297,7 +297,7 @@ pub fn get_delta_amount_a_unsigned_unchecked(
 
     assert!(denominator > U256::ZERO);
     let result = mul_div_u256(numerator_1, numerator_2, denominator, round)
-        .ok_or(PoolError::MathOverflow)?;
+        .ok_or_else(|| PoolError::MathOverflow)?;
     Ok(result)
 }
 
@@ -428,7 +428,7 @@ pub fn get_next_sqrt_price_from_amount_in_a_rounding_up(
     let product = U256::from(amount).safe_mul(sqrt_price)?;
     let denominator = liquidity.safe_add(U256::from(product))?;
     let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
-        .ok_or(PoolError::MathOverflow)?;
+        .ok_or_else(|| PoolError::MathOverflow)?;
     Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
@@ -444,7 +444,7 @@ pub fn get_next_sqrt_price_from_amount_out_a_rounding_up(
     let product = U256::from(amount).safe_mul(sqrt_price)?;
     let denominator = liquidity.safe_sub(U256::from(product))?;
     let result = mul_div_u256(liquidity, sqrt_price, denominator, Rounding::Up)
-        .ok_or(PoolError::MathOverflow)?;
+        .ok_or_else(|| PoolError::MathOverflow)?;
     Ok(result.try_into().map_err(|_| PoolError::TypeCastFailed)?)
 }
 
