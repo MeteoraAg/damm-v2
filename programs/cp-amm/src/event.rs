@@ -312,18 +312,3 @@ pub struct EvtZeroPoolRateLimiter {
     pub pool: Pubkey,
     pub operator: Pubkey,
 }
-
-#[event]
-pub struct EvtCreateOperatorAccount {
-    pub operator: Pubkey,
-    pub whitelisted_address: Pubkey,
-    pub permission: u128,
-}
-
-#[event]
-pub struct EvtCloseOperatorAccount {
-    pub operator: Pubkey,
-    pub whitelisted_address: Pubkey,
-    pub permission: u128,
-    pub signer: Pubkey,
-}

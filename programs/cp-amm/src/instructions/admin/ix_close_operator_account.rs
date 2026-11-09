@@ -1,7 +1,6 @@
-use crate::{admin::admin::ADMINS, state::Operator, EvtCloseOperatorAccount, PoolError};
+use crate::{admin::admin::ADMIN, state::Operator, PoolError};
 use anchor_lang::prelude::*;
 
-#[event_cpi]
 #[derive(Accounts)]
 pub struct CloseOperatorAccountCtx<'info> {
     #[account(
@@ -12,22 +11,20 @@ pub struct CloseOperatorAccountCtx<'info> {
 
     pub signer: Signer<'info>,
 
-    /// CHECK: Account to receive closed account rental SOL, must be an admin
-    #[account(
-        mut,
-        constraint = ADMINS.contains(&rent_receiver.key()) @ PoolError::InvalidRentReceiver
-    )]
+    /// CHECK: Account to receive closed account rental SOL, must be the admin
+    #[account(mut, address = ADMIN @ PoolError::InvalidRentReceiver)]
     pub rent_receiver: UncheckedAccount<'info>,
 }
 
 pub fn handle_close_operator(ctx: Context<CloseOperatorAccountCtx>) -> Result<()> {
     let operator = ctx.accounts.operator.load()?;
 
-    emit_cpi!(EvtCloseOperatorAccount {
-        operator: ctx.accounts.operator.key(),
-        whitelisted_address: operator.whitelisted_address,
-        permission: operator.permission,
-        signer: ctx.accounts.signer.key(),
-    });
+    msg!("Operator removed: {}", operator.whitelisted_address);
+    msg!("Closed by: {}", ctx.accounts.signer.key());
+    msg!(
+        "Revoked permissions: {:?} (raw: {:#b})",
+        Operator::permission_names(operator.permission),
+        operator.permission
+    );
     Ok(())
 }

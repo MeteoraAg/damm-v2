@@ -4,10 +4,8 @@ pub mod admin {
     use anchor_lang::prelude::Pubkey;
     use anchor_lang::pubkey;
 
-    pub const ADMINS: [Pubkey; 2] = [
-        pubkey!("5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"),
-        pubkey!("DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX"),
-    ];
+    // https://app.squads.so/squads/3YyYuJDv6nxq94DLioHnh6dizBDy5vjhnbipUTNU4z6r/members
+    pub const ADMIN: Pubkey = pubkey!("3YyYuJDv6nxq94DLioHnh6dizBDy5vjhnbipUTNU4z6r");
 }
 
 #[cfg(feature = "local")]
@@ -17,7 +15,5 @@ pub fn assert_eq_admin(_admin: Pubkey) -> bool {
 
 #[cfg(not(feature = "local"))]
 pub fn assert_eq_admin(admin: Pubkey) -> bool {
-    crate::admin::admin::ADMINS
-        .iter()
-        .any(|predefined_admin| predefined_admin.eq(&admin))
+    admin.eq(&crate::admin::admin::ADMIN)
 }
