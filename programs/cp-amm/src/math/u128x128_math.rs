@@ -9,7 +9,7 @@ pub enum Rounding {
     Down,
 }
 
-/// (x * y) / denominator
+// (x * y) / denominator
 // pub fn mul_div(x: u128, y: u128, denominator: u128, rounding: Rounding) -> Option<u128> {
 //     if denominator == 0 {
 //         return None;

@@ -82,7 +82,6 @@ impl PodAlignedBaseFeeSerde for PodAlignedFeeMarketCapScheduler {
             scheduler_expiration_duration: self.scheduler_expiration_duration,
             reduction_factor: self.reduction_factor,
             base_fee_mode: self.base_fee_mode,
-            ..Default::default()
         };
         let mut bytes = [0u8; BaseFeeParameters::INIT_SPACE];
         // Shall not happen

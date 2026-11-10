@@ -151,7 +151,7 @@ impl LiquidityHandler for CompoundingLiquidity {
 
     #[cfg(test)]
     fn get_max_amount_in(&self, _trade_direction: TradeDirection) -> Result<u64> {
-        Ok(std::u64::MAX)
+        Ok(u64::MAX)
     }
 }
 

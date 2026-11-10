@@ -143,12 +143,12 @@ pub fn calculate_transfer_fee_included_amount(
 
 fn get_epoch_transfer_fee(token_mint_data: &[u8]) -> Result<Option<TransferFee>> {
     let token_mint_unpacked =
-        StateWithExtensions::<spl_token_2022::state::Mint>::unpack(&token_mint_data)?;
+        StateWithExtensions::<spl_token_2022::state::Mint>::unpack(token_mint_data)?;
     if let Ok(transfer_fee_config) =
         token_mint_unpacked.get_extension::<extension::transfer_fee::TransferFeeConfig>()
     {
         let epoch = Clock::get()?.epoch;
-        return Ok(Some(transfer_fee_config.get_epoch_fee(epoch).clone()));
+        return Ok(Some(*transfer_fee_config.get_epoch_fee(epoch)));
     }
 
     Ok(None)

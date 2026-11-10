@@ -20,8 +20,8 @@ fn get_pool_account(pool_address: &str) -> Pool {
     let path = format!("./fixtures/{}.bin", pool_address);
     let account_data = fs::read(&path).expect("Failed to read account data");
 
-    let mut data_without_discriminator = account_data[8..].to_vec();
-    let &pool: &Pool = bytemuck::from_bytes(&mut data_without_discriminator);
+    let data_without_discriminator = account_data[8..].to_vec();
+    let &pool: &Pool = bytemuck::from_bytes(&data_without_discriminator);
 
     pool
 }

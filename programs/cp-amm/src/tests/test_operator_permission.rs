@@ -13,54 +13,18 @@ fn test_initialize_with_full_permission() {
         ..Default::default()
     };
 
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::CreateConfigKey),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::RemoveConfigKey),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::CreateTokenBadge),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::CloseTokenBadge),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::SetPoolStatus),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::InitializeReward),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::UpdateRewardDuration),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::UpdateRewardFunder),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::UpdatePoolFees),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::ClaimProtocolFee),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::ZapProtocolFee),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::FixPool),
-        true
-    );
+    assert!(operator.is_permission_allow(OperatorPermission::CreateConfigKey));
+    assert!(operator.is_permission_allow(OperatorPermission::RemoveConfigKey));
+    assert!(operator.is_permission_allow(OperatorPermission::CreateTokenBadge));
+    assert!(operator.is_permission_allow(OperatorPermission::CloseTokenBadge));
+    assert!(operator.is_permission_allow(OperatorPermission::SetPoolStatus));
+    assert!(operator.is_permission_allow(OperatorPermission::InitializeReward));
+    assert!(operator.is_permission_allow(OperatorPermission::UpdateRewardDuration));
+    assert!(operator.is_permission_allow(OperatorPermission::UpdateRewardFunder));
+    assert!(operator.is_permission_allow(OperatorPermission::UpdatePoolFees));
+    assert!(operator.is_permission_allow(OperatorPermission::ClaimProtocolFee));
+    assert!(operator.is_permission_allow(OperatorPermission::ZapProtocolFee));
+    assert!(operator.is_permission_allow(OperatorPermission::FixPool));
 }
 
 #[test]
@@ -69,30 +33,15 @@ fn test_is_permission_allow() {
         permission: 0b0,
         ..Default::default()
     };
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::CreateConfigKey),
-        false
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::RemoveConfigKey),
-        false
-    );
+    assert!(!operator.is_permission_allow(OperatorPermission::CreateConfigKey));
+    assert!(!operator.is_permission_allow(OperatorPermission::RemoveConfigKey));
 
     let operator = Operator {
         permission: 0b101,
         ..Default::default()
     };
 
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::CreateConfigKey),
-        true
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::RemoveConfigKey),
-        false
-    );
-    assert_eq!(
-        operator.is_permission_allow(OperatorPermission::CreateTokenBadge),
-        true
-    );
+    assert!(operator.is_permission_allow(OperatorPermission::CreateConfigKey));
+    assert!(!operator.is_permission_allow(OperatorPermission::RemoveConfigKey));
+    assert!(operator.is_permission_allow(OperatorPermission::CreateTokenBadge));
 }

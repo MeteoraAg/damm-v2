@@ -79,7 +79,6 @@ impl PodAlignedBaseFeeSerde for PodAlignedFeeRateLimiter {
             max_fee_bps: self.max_fee_bps,
             reference_amount: self.reference_amount,
             base_fee_mode: self.base_fee_mode,
-            ..Default::default()
         };
         let mut bytes = [0u8; BaseFeeParameters::INIT_SPACE];
         // Shall not happen

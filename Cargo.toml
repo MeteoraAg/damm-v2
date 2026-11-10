@@ -46,3 +46,8 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 
 [workspace.metadata.cli]
 solana = "4.1.2"
+
+[workspace.lints.clippy]
+# Checked math keeps ok_or_else so the error value is built only when the call fails.
+# ok_or builds that value on the success path too, and the cost shows up inside loops.
+unnecessary_lazy_evaluations = "allow"

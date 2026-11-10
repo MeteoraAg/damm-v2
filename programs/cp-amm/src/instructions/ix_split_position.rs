@@ -44,7 +44,6 @@ impl SplitPositionParameters {
             reward_1_numerator: numerator_factor.safe_mul(self.reward_1_percentage.into())?,
             inner_vesting_liquidity_numerator: numerator_factor
                 .safe_mul(self.inner_vesting_liquidity_percentage.into())?,
-            ..Default::default()
         })
     }
 

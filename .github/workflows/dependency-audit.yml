@@ -1,0 +1,55 @@
+name: Dependency audit
+
+# Runs on every PR, whatever the base branch or the files changed: new advisories are published
+# against dependencies that are already in the lockfile
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The runner and every action used more than once are YAML anchors (`&name`), set where
+# they're first used and reused with `*name`. Bump them there.
+jobs:
+  # advisories, licenses, bans and sources, see deny.toml
+  cargo_deny:
+    name: Cargo Deny
+    runs-on: &runner ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: &checkout actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Check advisories, licenses, bans and sources
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check
+
+  # advisories of every dependency in bun.lock, dev ones included, ignored ones are in osv-scanner.toml
+  osv_scanner:
+    name: OSV Scanner
+    runs-on: *runner
+    steps:
+      - name: Checkout repository
+        uses: *checkout
+
+      - name: Scan bun.lock
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        with:
+          scan-args: |-
+            scan
+            source
+            -L
+            bun.lock
+
+  # unused dependencies. Macro-generated uses are ignored per crate in
+  # `[package.metadata.cargo-machete]`
+  cargo_machete:
+    name: Cargo Machete
+    runs-on: *runner
+    steps:
+      - uses: *checkout
+      - uses: bnjbvr/cargo-machete@ac30a525c0a8d163a92d727b3ff079ee3f6ecb08 # v0.9.2

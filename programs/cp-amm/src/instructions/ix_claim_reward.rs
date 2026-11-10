@@ -70,9 +70,7 @@ pub fn handle_claim_reward(
     reward_index: u8,
     skip_reward: u8,
 ) -> Result<()> {
-    let index: usize = reward_index
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index.into();
     ctx.accounts.validate(index)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;

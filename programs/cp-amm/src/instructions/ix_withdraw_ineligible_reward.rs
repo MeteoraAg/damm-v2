@@ -62,9 +62,7 @@ pub fn handle_withdraw_ineligible_reward(
     ctx: Context<WithdrawIneligibleRewardCtx>,
     reward_index: u8,
 ) -> Result<()> {
-    let index: usize = reward_index
-        .try_into()
-        .map_err(|_| PoolError::TypeCastFailed)?;
+    let index: usize = reward_index.into();
     ctx.accounts.validate(index)?;
 
     let mut pool = ctx.accounts.pool.load_mut()?;

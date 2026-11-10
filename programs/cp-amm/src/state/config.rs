@@ -61,10 +61,12 @@ pub struct BaseFeeInfo {
 const_assert_eq!(BaseFeeInfo::INIT_SPACE, 32);
 
 impl BaseFeeInfo {
+    #[allow(clippy::wrong_self_convention)]
     fn to_base_fee_parameters(&self) -> Result<BaseFeeParameters> {
         base_fee_info_to_base_fee_parameters(self)
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn to_base_fee_struct(&self) -> BaseFeeStruct {
         BaseFeeStruct {
             base_fee_info: *self,
@@ -155,6 +157,7 @@ pub struct DynamicFeeConfig {
 const_assert_eq!(DynamicFeeConfig::INIT_SPACE, 48);
 
 impl DynamicFeeConfig {
+    #[allow(clippy::wrong_self_convention)]
     fn to_dynamic_fee_struct(&self) -> DynamicFeeStruct {
         if self.initialized == 0 {
             DynamicFeeStruct::default()
@@ -288,6 +291,7 @@ impl Config {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn init_static_config(
         &mut self,
         index: u64,

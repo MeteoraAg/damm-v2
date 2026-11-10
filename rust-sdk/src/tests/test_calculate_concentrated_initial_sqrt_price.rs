@@ -1,5 +1,3 @@
-use std::u64;
-
 use cp_amm::{
     constants::{MAX_SQRT_PRICE, MIN_SQRT_PRICE},
     math::safe_math::SafeMath,
@@ -36,9 +34,9 @@ fn get_initial_liquidity_from_amount_b(
     let price_delta = U256::from(sqrt_price.safe_sub(sqrt_min_price).unwrap());
     let quote_amount = U256::from(quote_amount).safe_shl(128).unwrap();
     let liquidity = quote_amount.safe_div(price_delta).unwrap(); // round down
-    return Ok(liquidity
+    Ok(liquidity
         .try_into()
-        .map_err(|_| anyhow::anyhow!("Type cast failed"))?);
+        .map_err(|_| anyhow::anyhow!("Type cast failed"))?)
 }
 
 fn get_liquidity_for_adding_liquidity(

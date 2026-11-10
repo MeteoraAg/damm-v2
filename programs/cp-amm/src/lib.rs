@@ -1,3 +1,10 @@
+// #[event_cpi] injects AccountInfo fields; the Accounts derive flags those as
+// deprecated (UncheckedAccount) in the impl it generates next to the struct.
+// #[program] type-checks instruction arguments with `let _: T = panic!()` at
+// the crate root, which trips diverging_sub_expression. Anchor 1.1.2+ generates neither.
+#![allow(deprecated)]
+#![allow(clippy::diverging_sub_expression)]
+
 use anchor_lang::prelude::*;
 
 #[macro_use]
@@ -67,7 +74,7 @@ pub mod cp_amm {
 
     use super::*;
 
-    /// ADMIN FUNCTIONS /////
+    // ADMIN FUNCTIONS
     #[access_control(is_admin(ctx.accounts.signer.key))]
     pub fn create_operator_account(
         ctx: Context<CreateOperatorAccountCtx>,
@@ -195,7 +202,7 @@ pub mod cp_amm {
         instructions::handle_zero_pool_rate_limiter(ctx)
     }
 
-    /// USER FUNCTIONS ////
+    // USER FUNCTIONS
 
     pub fn initialize_pool<'info>(
         ctx: Context<'info, InitializePoolCtx<'info>>,

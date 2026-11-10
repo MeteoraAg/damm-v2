@@ -4,7 +4,7 @@ use derive_variant_count::VariantCount;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use ruint::aliases::{U256, U384};
 use static_assertions::const_assert_eq;
-use std::{cell::RefMut, u64};
+use std::cell::RefMut;
 
 use crate::{
     constants::{
@@ -306,14 +306,14 @@ impl Position {
     pub fn update_position_reward(&mut self, pool: &Pool) -> Result<()> {
         let position_liquidity = self.get_total_liquidity()?;
         let position_reward_infos = &mut self.reward_infos;
-        for reward_idx in 0..NUM_REWARDS {
-            let pool_reward_info = pool.reward_infos[reward_idx];
-
+        for (position_reward_info, pool_reward_info) in position_reward_infos
+            .iter_mut()
+            .zip(pool.reward_infos.iter())
+        {
             if pool_reward_info.initialized() {
                 let reward_per_token_stored =
                     U256::from_le_bytes(pool_reward_info.reward_per_token_stored);
-                position_reward_infos[reward_idx]
-                    .update_rewards(position_liquidity, reward_per_token_stored)?;
+                position_reward_info.update_rewards(position_liquidity, reward_per_token_stored)?;
             }
         }
 

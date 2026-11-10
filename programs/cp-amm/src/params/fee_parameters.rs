@@ -125,6 +125,7 @@ pub struct DynamicFeeParameters {
 }
 
 impl DynamicFeeParameters {
+    #[allow(clippy::wrong_self_convention)]
     fn to_dynamic_fee_config(&self) -> DynamicFeeConfig {
         DynamicFeeConfig {
             initialized: 1,
@@ -170,7 +171,7 @@ impl DynamicFeeParameters {
 
         // reduction factor decide the decay rate of variable fee, max reduction_factor is MAX_BASIS_POINT = 100% reduction
         require!(
-            self.reduction_factor <= MAX_BASIS_POINT as u16,
+            self.reduction_factor <= MAX_BASIS_POINT,
             PoolError::InvalidInput
         );
 
@@ -226,7 +227,7 @@ pub fn to_bps(numerator: u128, denominator: u128) -> Option<u64> {
 
 pub fn to_numerator(bps: u128, denominator: u128) -> Result<u64> {
     let numerator = bps
-        .safe_mul(denominator.into())?
+        .safe_mul(denominator)?
         .safe_div(MAX_BASIS_POINT.into())?;
     Ok(u64::try_from(numerator).map_err(|_| PoolError::TypeCastFailed)?)
 }

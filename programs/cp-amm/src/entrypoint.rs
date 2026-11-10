@@ -74,9 +74,9 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
                 swap_parameters
             };
 
-            Some(p_handle_swap(&program_id, accounts, &params))
+            Some(p_handle_swap(program_id, accounts, &params))
         }
-        [false, false, true] => Some(p_event_dispatch(&program_id, accounts, &instruction_data)),
+        [false, false, true] => Some(p_event_dispatch(program_id, accounts, instruction_data)),
         _ => None,
     };
 
@@ -89,8 +89,10 @@ unsafe fn p_entrypoint(input: *mut u8) -> Option<u64> {
     })
 }
 
-/// Hot path pinocchio entrypoint with anchor fallback otherwise
-
+/// Hot path pinocchio entrypoint with anchor fallback otherwise.
+///
+/// # Safety
+/// `input` is the pointer the Solana runtime passes to the program entrypoint.
 #[no_mangle]
 pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
     match p_entrypoint(input) {
