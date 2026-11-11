@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Operator endpoint `update_pool_fees` accepts a new `cliff_fee_numerator` from 0.01% to 10% for pools with `BaseFeeMode::RateLimiter`, regardless of the pool's `max_fee_bps`. This behaviour matches the other fee modes.
 - Operator endpoint `fix_pool_fee_params` now accepts a pool whose fee scheduler is still running when the pool's min and max base fee numerators are equal, since such a pool charges the same base fee at every point in time.
 - Endpoint `close_operator_account` now accepts the whitelisted address of the operator account as `signer`, in addition to an admin.
+- Clients should pass the access-registry `TokenBadge` (PDA `["token_badge", token_mint]` under `regUFehW9oycnaV2auYyfqyYjKG1W1uLNT7rtUeemQr`) to `initialize_pool`, `initialize_pool_with_dynamic_config`, `initialize_customizable_pool` and `initialize_reward`. The legacy cp-amm token badge is still accepted during the transition and will stop working once support for it is removed.
 
 ### Deprecated
 
@@ -39,7 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced the two admin keys `5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi` and `DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX` with a single admin, the Squads multisig `3YyYuJDv6nxq94DLioHnh6dizBDy5vjhnbipUTNU4z6r`. Admin endpoints signed by the old keys now fail.
 - Endpoint `close_operator_account` requires `rent_receiver` to be the admin and returns `InvalidRentReceiver` otherwise. Previously any `rent_receiver` was accepted.
 - `create_token_badge` now always fails with the new `DeprecatedEndpoint` error.
-- Clients passing a token badge should derive it under the access-registry program instead of cp-amm.
 
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 
