@@ -20,10 +20,12 @@ import {
   SystemProgram,
 } from "@solana/web3.js";
 import { expect } from "chai";
-import { LiteSVM, TransactionMetadata } from "litesvm";
+import { TransactionMetadata } from "litesvm";
+import { LiteSVM } from "./litesvmCompat";
 import AccessRegistryIDL from "../../idls/access_registry.json";
 import { AccessRegistry } from "../fixtures/access_registry";
 import CpAmmIDL from "../../target/idl/cp_amm.json";
+import { deriveTokenBadgeAddress } from "./accounts";
 import { CP_AMM_PROGRAM_ID } from "./constants";
 import { sendTransaction } from "./svm";
 
@@ -66,6 +68,17 @@ export function deriveAccessRegistryTokenBadge(
     [Buffer.from("token_badge"), tokenMint.toBuffer()],
     ACCESS_REGISTRY_PROGRAM_ID
   )[0];
+}
+
+/** The mint's access-registry badge, else its legacy cp-amm badge, else undefined. */
+export function findTokenBadge(
+  svm: LiteSVM,
+  tokenMint: PublicKey
+): PublicKey | undefined {
+  return [
+    deriveAccessRegistryTokenBadge(tokenMint),
+    deriveTokenBadgeAddress(tokenMint),
+  ].find((badge) => svm.getAccount(badge));
 }
 
 export async function createAccessRegistryOperator(
@@ -140,7 +153,7 @@ export function setLegacyTokenBadge(
   svm.setAccount(tokenBadge, {
     data,
     executable: false,
-    lamports: Number(svm.minimumBalanceForRentExemption(BigInt(data.length))),
+    lamports: Number(svm.getRent().minimumBalance(BigInt(data.length))),
     owner,
   });
 }

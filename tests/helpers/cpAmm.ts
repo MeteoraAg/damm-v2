@@ -68,7 +68,7 @@ import {
   decodePodAlignedFeeTimeScheduler,
 } from "./feeCodec";
 import { expectThrowsErrorCode, sendTransaction } from "./svm";
-import { deriveAccessRegistryTokenBadge } from "./accessRegistry";
+import { findTokenBadge } from "./accessRegistry";
 import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
@@ -614,13 +614,13 @@ export async function initializePool(
   );
 
   // token badges are read from remaining accounts: index 0 for token A, index 1 for token B
-  const tokenABadge = deriveTokenBadgeAddress(tokenAMint);
-  const tokenBBadge = deriveTokenBadgeAddress(tokenBMint);
+  const tokenABadge = findTokenBadge(svm, tokenAMint);
+  const tokenBBadge = findTokenBadge(svm, tokenBMint);
   const remainingAccounts: AccountMeta[] = [];
-  if (svm.getAccount(tokenABadge) || svm.getAccount(tokenBBadge)) {
+  if (tokenABadge || tokenBBadge) {
     for (const tokenBadge of [tokenABadge, tokenBBadge]) {
       remainingAccounts.push({
-        pubkey: svm.getAccount(tokenBadge) ? tokenBadge : CP_AMM_PROGRAM_ID,
+        pubkey: tokenBadge ?? CP_AMM_PROGRAM_ID,
         isSigner: false,
         isWritable: false,
       });
@@ -1104,11 +1104,7 @@ export async function initializeReward(
   const rewardVault = deriveRewardVaultAddress(pool, index);
 
   const tokenProgram = svm.getAccount(rewardMint)!.owner;
-  // prefer the access-registry badge, fall back to a legacy cp-amm one
-  const tokenBadge = [
-    deriveAccessRegistryTokenBadge(rewardMint),
-    deriveTokenBadgeAddress(rewardMint),
-  ].find((badge) => svm.getAccount(badge));
+  const tokenBadge = findTokenBadge(svm, rewardMint);
   const remainingAccounts: AccountMeta[] = [];
 
   if (tokenBadge) {

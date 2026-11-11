@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added operator endpoint `zero_pool_rate_limiter` for operators with the `FixPool` permission. It sets `reference_amount`, `max_limiter_duration`, `max_fee_bps` and `fee_increment_bps` to zero on a pool with `BaseFeeMode::RateLimiter` and leaves `cliff_fee_numerator` unchanged.
-- Token badges are now read from the access-registry program (`regUFehW9oycnaV2auYyfqyYjKG1W1uLNT7rtUeemQr`). `initialize_pool`, `initialize_pool_with_dynamic_config`, `initialize_customizable_pool` and `initialize_reward` accept an access-registry `TokenBadge` (PDA `["token_badge", token_mint]` under the access-registry program) in the same remaining account position as before. Its `mint_score` is ignored: any access-registry badge of the mint is enough.
 
 ### Changed
 
@@ -24,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
-- `create_token_badge` is deprecated in favour of creating the badge in the access-registry program. Existing cp-amm token badges are still accepted during the transition, and `close_token_badge` can still close them to recover the rent.
+- `create_token_badge` is deprecated in favour of creating the badge in the access-registry program.
 
 ### Removed
 

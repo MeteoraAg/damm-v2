@@ -4,15 +4,17 @@ import { expect } from "chai";
 import { TransactionMetadata } from "litesvm";
 import { LiteSVM } from "./helpers/litesvmCompat";
 import {
+  AccessRegistryOperatorPermission,
   addLiquidity,
   claimPositionFee,
   claimReward,
   createConfigIx,
   CreateConfigParams,
+  createAccessRegistryOperator,
+  createAccessRegistryTokenBadge,
   createOperator,
   createPosition,
   createToken,
-  createTokenBadge,
   deriveOperatorAddress,
   encodePermissions,
   expectThrowsErrorCode,
@@ -90,7 +92,6 @@ describe("Pool with permissioned burn extension", () => {
       whitelistAddress: whitelistedAccount.publicKey,
       permission: encodePermissions([
         OperatorPermission.CreateConfigKey,
-        OperatorPermission.CreateTokenBadge,
         OperatorPermission.InitializeReward,
       ]),
     });
@@ -145,10 +146,13 @@ describe("Pool with permissioned burn extension", () => {
   });
 
   it("Full flow with token badge", async () => {
-    await createTokenBadge(svm, {
-      tokenMint: tokenAMint,
-      whitelistedAddress: whitelistedAccount,
-    });
+    await createAccessRegistryOperator(
+      svm,
+      admin,
+      whitelistedAccount.publicKey,
+      [AccessRegistryOperatorPermission.CreateTokenBadge]
+    );
+    await createAccessRegistryTokenBadge(svm, whitelistedAccount, tokenAMint);
 
     const { pool, result } = await initializePool(svm, initPoolParams());
     expect(result).instanceOf(TransactionMetadata);
