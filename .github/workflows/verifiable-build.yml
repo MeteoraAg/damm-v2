@@ -35,5 +35,6 @@ jobs:
         if: steps.cache-solana-verify.outputs.cache-hit != 'true'
         working-directory: ${{ runner.temp }}
         run: cargo install solana-verify --version 0.5.2 --locked
+      # Same toolchain as the deploy build in package.json: platform-tools v1.57, SBPF v3
       - name: Verifiable build
-        run: solana-verify build --library-name cp_amm
+        run: solana-verify build --library-name cp_amm --arch v3 --cargo-build-sbf-args="--tools-version v1.57"
