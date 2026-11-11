@@ -1,8 +1,7 @@
 name: Verifiable build
 
-# solana-verify builds the program inside the pinned Docker image for the Solana version it
-# resolves from Cargo.toml / Cargo.lock. That image's toolchain is older than the one the other
-# jobs use, so a Cargo.lock bump that passes them can still break the verifiable build.
+# solana-verify builds in a pinned Docker image whose cargo and platform-tools can lag the ones
+# the other jobs use, so a Cargo.lock bump can pass CI and still break this build.
 on:
   pull_request:
     paths:
