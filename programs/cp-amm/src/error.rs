@@ -237,4 +237,7 @@ pub enum PoolError {
 
     #[msg("Rent receiver must be an admin")]
     InvalidRentReceiver,
+
+    #[msg("Deprecated endpoint")]
+    DeprecatedEndpoint,
 }

@@ -4,8 +4,7 @@ use anchor_spl::token_interface::Mint;
 use crate::{
     constants::seeds::TOKEN_BADGE_PREFIX,
     state::{Operator, TokenBadge},
-    token::is_permissionless_supported_mint,
-    EvtCreateTokenBadge, PoolError,
+    PoolError,
 };
 
 #[event_cpi]
@@ -35,17 +34,8 @@ pub struct CreateTokenBadgeCtx<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_token_badge(ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
-    require!(
-        !is_permissionless_supported_mint(&ctx.accounts.token_mint)?,
-        PoolError::CannotCreateTokenBadgeOnSupportedMint
-    );
-    let mut token_badge = ctx.accounts.token_badge.load_init()?;
-    token_badge.initialize(ctx.accounts.token_mint.key())?;
-
-    emit_cpi!(EvtCreateTokenBadge {
-        token_mint: ctx.accounts.token_mint.key(),
-    });
-
-    Ok(())
+/// Deprecated: token badges are created in the access-registry program, which `validate_mint` accepts.
+/// Existing cp-amm token badges stay valid during the transition and can still be closed.
+pub fn handle_create_token_badge(_ctx: Context<CreateTokenBadgeCtx>) -> Result<()> {
+    err!(PoolError::DeprecatedEndpoint)
 }

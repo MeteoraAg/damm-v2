@@ -68,6 +68,7 @@ import {
   decodePodAlignedFeeTimeScheduler,
 } from "./feeCodec";
 import { expectThrowsErrorCode, sendTransaction } from "./svm";
+import { findTokenBadge } from "./accessRegistry";
 import { getOrCreateAssociatedTokenAccount, wrapSOL } from "./token";
 
 export type Pool = IdlAccounts<CpAmm>["pool"];
@@ -368,12 +369,8 @@ export async function createTokenBadge(
     })
     .transaction();
 
-  const result = sendTransaction(svm, transaction, [whitelistedAddress]);
-  expect(result).instanceOf(TransactionMetadata);
-
-  const tokenBadgeState = getTokenBadge(svm, tokenBadge);
-
-  expect(tokenBadgeState.tokenMint.toString()).eq(tokenMint.toString());
+  // create_token_badge is deprecated, badges are created in access-registry instead
+  return sendTransaction(svm, transaction, [whitelistedAddress]);
 }
 
 export type CloseTokenBadgeParams = {
@@ -617,13 +614,13 @@ export async function initializePool(
   );
 
   // token badges are read from remaining accounts: index 0 for token A, index 1 for token B
-  const tokenABadge = deriveTokenBadgeAddress(tokenAMint);
-  const tokenBBadge = deriveTokenBadgeAddress(tokenBMint);
+  const tokenABadge = findTokenBadge(svm, tokenAMint);
+  const tokenBBadge = findTokenBadge(svm, tokenBMint);
   const remainingAccounts: AccountMeta[] = [];
-  if (svm.getAccount(tokenABadge) || svm.getAccount(tokenBBadge)) {
+  if (tokenABadge || tokenBBadge) {
     for (const tokenBadge of [tokenABadge, tokenBBadge]) {
       remainingAccounts.push({
-        pubkey: svm.getAccount(tokenBadge) ? tokenBadge : CP_AMM_PROGRAM_ID,
+        pubkey: tokenBadge ?? CP_AMM_PROGRAM_ID,
         isSigner: false,
         isWritable: false,
       });
@@ -882,6 +879,8 @@ export type InitializeCustomizablePoolParams = {
   activationType: number;
   collectFeeMode: number;
   activationPoint: BN | null;
+  // token badges of token A and token B, passed as remaining accounts
+  tokenBadges?: PublicKey[];
 };
 
 export async function initializeCustomizablePool(
@@ -903,6 +902,7 @@ export async function initializeCustomizablePool(
     collectFeeMode,
     activationPoint,
     activationType,
+    tokenBadges = [],
   } = params;
   const program = createCpAmmProgram();
 
@@ -968,6 +968,13 @@ export async function initializeCustomizablePool(
       tokenBProgram,
       systemProgram: SystemProgram.programId,
     })
+    .remainingAccounts(
+      tokenBadges.map((pubkey) => ({
+        pubkey,
+        isSigner: false,
+        isWritable: false,
+      }))
+    )
     .transaction();
   // requires more compute budget than usual
   transaction.add(
@@ -1097,10 +1104,10 @@ export async function initializeReward(
   const rewardVault = deriveRewardVaultAddress(pool, index);
 
   const tokenProgram = svm.getAccount(rewardMint)!.owner;
-  const tokenBadge = deriveTokenBadgeAddress(rewardMint);
+  const tokenBadge = findTokenBadge(svm, rewardMint);
   const remainingAccounts: AccountMeta[] = [];
 
-  if (svm.getAccount(tokenBadge)) {
+  if (tokenBadge) {
     remainingAccounts.push({
       pubkey: tokenBadge,
       isSigner: false,

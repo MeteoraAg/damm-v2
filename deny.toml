@@ -118,6 +118,7 @@ exceptions = [
     { allow = ["LicenseRef-Meteora-Noncommercial"], crate = "cp-amm" },
     { allow = ["LicenseRef-Meteora-Noncommercial"], crate = "derive-variant-count" },
     { allow = ["LicenseRef-Meteora-Noncommercial"], crate = "rust-sdk" },
+    { allow = ["LicenseRef-Meteora-Noncommercial"], crate = "access-registry" },
 ]
 
 # damm-v2 crates have no `license` field, the repo is under its own license.md
@@ -133,6 +134,11 @@ license-files = []
 
 [[licenses.clarify]]
 crate = "rust-sdk"
+expression = "LicenseRef-Meteora-Noncommercial"
+license-files = []
+
+[[licenses.clarify]]
+crate = "access-registry"
 expression = "LicenseRef-Meteora-Noncommercial"
 license-files = []
 

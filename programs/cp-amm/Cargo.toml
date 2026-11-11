@@ -35,6 +35,7 @@ const-crypto = { workspace = true }
 pinocchio = { workspace = true }
 pinocchio-token-2022 = { workspace = true }
 derive-variant-count = { workspace = true }
+access-registry = { path = "../../libs/access-registry" }
 
 [lints]
 workspace = true
