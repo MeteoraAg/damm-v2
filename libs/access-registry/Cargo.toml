@@ -16,3 +16,7 @@ bytemuck = { workspace = true, features = ["min_const_generics"] }
 
 [lints]
 workspace = true
+
+# bytemuck is used by the zero-copy accounts that `declare_program!` generates
+[package.metadata.cargo-machete]
+ignored = ["bytemuck"]
