@@ -6,6 +6,9 @@ on:
       - main
       - release_*
 
+permissions:
+  contents: read
+
 # The runner and every action used more than once are YAML anchors (`&name`), set where
 # they're first used and reused with `*name`. Bump them there.
 jobs:
