@@ -9,10 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added operator endpoint `zero_pool_rate_limiter` for operators with the `FixPool` permission. It sets `reference_amount`, `max_limiter_duration`, `max_fee_bps` and `fee_increment_bps` to zero on a pool with `BaseFeeMode::RateLimiter` and leaves `cliff_fee_numerator` unchanged.
 - Token badges are now read from the access-registry program (`regUFehW9oycnaV2auYyfqyYjKG1W1uLNT7rtUeemQr`). `initialize_pool`, `initialize_pool_with_dynamic_config`, `initialize_customizable_pool` and `initialize_reward` accept an access-registry `TokenBadge` (PDA `["token_badge", token_mint]` under the access-registry program) in the same remaining account position as before. Its `mint_score` is ignored: any access-registry badge of the mint is enough.
 
 ### Changed
 
+- Update to anchor 1.2.1 and solana 4.1.2
+- Enabled Anchor's `legacy_idl` option so the legacy on-chain IDL can be kept up to date.
+- Removed the rate limiter logic from pools with `BaseFeeMode::RateLimiter`. Endpoints `swap` and `swap2` charge `cliff_fee_numerator` as a flat base fee, allow several swaps to the same pool in one transaction, and no longer require the instruction sysvar account. Swaps on existing pools behave the same as before, because every rate limiter window had already ended. No pool can be created with `BaseFeeMode::RateLimiter` since 0.2.3, a pool's `activation_point` is at most 31 days / 6,696,000 slots after its creation, and `max_limiter_duration` is at most 12 hours / 108,000 slots.
+- Operator endpoint `update_pool_fees` accepts a new `cliff_fee_numerator` from 0.01% to 10% for pools with `BaseFeeMode::RateLimiter`, regardless of the pool's `max_fee_bps`. This behaviour matches the other fee modes.
+- Operator endpoint `fix_pool_fee_params` now accepts a pool whose fee scheduler is still running when the pool's min and max base fee numerators are equal, since such a pool charges the same base fee at every point in time.
 - Endpoint `close_operator_account` now accepts the whitelisted address of the operator account as `signer`, in addition to an admin.
 
 ### Deprecated
@@ -21,34 +27,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed the operator endpoint `fix_config_fee_params`. Every config on mainnet and devnet with invalid base fee parameters has already been fixed, so the endpoint is no longer needed.
+- Removed the operator endpoint `fix_pool_layout_version`. Endpoints `add_liquidity`, `remove_liquidity`, `swap` and `swap2` no longer upgrade a pool from `layout_version` 0 to 1 before running. Every pool on mainnet and devnet is already on `layout_version` 1, so this endpoint is no longer needed.
+
 ### Fixed
 
 ### Security
 
 ### Breaking Changes
 
+- Replaced the two admin keys `5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi` and `DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX` with a single admin, the Squads multisig `3YyYuJDv6nxq94DLioHnh6dizBDy5vjhnbipUTNU4z6r`. Admin endpoints signed by the old keys now fail.
+- Endpoint `close_operator_account` requires `rent_receiver` to be the admin and returns `InvalidRentReceiver` otherwise. Previously any `rent_receiver` was accepted.
 - `create_token_badge` now always fails with the new `DeprecatedEndpoint` error.
 - Clients passing a token badge should derive it under the access-registry program instead of cp-amm.
-- Endpoint `close_operator_account` requires `rent_receiver` to be the admin and returns `InvalidRentReceiver` otherwise. Previously any `rent_receiver` was accepted.
-
-## cp_amm [0.2.6] [#PR 236](https://github.com/MeteoraAg/damm-v2/pull/236)
-
-### Added
-
-- Added operator endpoint `zero_pool_rate_limiter` for operators with the `FixPool` permission. It sets `reference_amount`, `max_limiter_duration`, `max_fee_bps` and `fee_increment_bps` to zero on a pool with `BaseFeeMode::RateLimiter` and leaves `cliff_fee_numerator` unchanged.
-
-### Changed
- d
-- Update to anchor 1.2.1 and solana 4.1.2
-- Enabled Anchor's `legacy_idl` option so the legacy on-chain IDL can be kept up to date.
-- Removed the rate limiter logic from pools with `BaseFeeMode::RateLimiter`. Endpoints `swap` and `swap2` charge `cliff_fee_numerator` as a flat base fee, allow several swaps to the same pool in one transaction, and no longer require the instruction sysvar account. Swaps on existing pools behave the same as before, because every rate limiter window had already ended. No pool can be created with `BaseFeeMode::RateLimiter` since 0.2.3, a pool's `activation_point` is at most 31 days / 6,696,000 slots after its creation, and `max_limiter_duration` is at most 12 hours / 108,000 slots.
-- Operator endpoint `update_pool_fees` accepts a new `cliff_fee_numerator` from 0.01% to 10% for pools with `BaseFeeMode::RateLimiter`, regardless of the pool's `max_fee_bps`. This behaviour matches the other fee modes.
-- Operator endpoint `fix_pool_fee_params` now accepts a pool whose fee scheduler is still running when the pool's min and max base fee numerators are equal, since such a pool charges the same base fee at every point in time.
-
-### Removed
-
-- Removed the operator endpoint `fix_config_fee_params`. Every config on mainnet and devnet with invalid base fee parameters has already been fixed, so the endpoint is no longer needed.
-- Removed the operator endpoint `fix_pool_layout_version`. Endpoints `add_liquidity`, `remove_liquidity`, `swap` and `swap2` no longer upgrade a pool from `layout_version` 0 to 1 before running. Every pool on mainnet and devnet is already on `layout_version` 1, so this endpoint is no longer needed.
 
 ## cp_amm [0.2.5] [#PR 229](https://github.com/MeteoraAg/damm-v2/pull/229)
 
