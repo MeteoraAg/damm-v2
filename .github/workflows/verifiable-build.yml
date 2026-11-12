@@ -1,0 +1,39 @@
+name: Verifiable build
+
+# solana-verify builds in a pinned Docker image whose cargo and platform-tools can lag the ones
+# the other jobs use, so a Cargo.lock bump can pass CI and still break this build.
+on:
+  pull_request:
+    paths:
+      - "programs/**"
+      - "libs/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/verifiable-build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  solana_verify:
+    name: solana-verify build
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        id: cache-solana-verify
+        with:
+          path: ~/.cargo/bin/solana-verify
+          key: solana-verify-0.5.2-${{ runner.os }}
+      # Installed outside the checkout so the repo's rust-toolchain.toml doesn't apply
+      - name: Install solana-verify
+        if: steps.cache-solana-verify.outputs.cache-hit != 'true'
+        working-directory: ${{ runner.temp }}
+        run: cargo install solana-verify --version 0.5.2 --locked
+      # Same toolchain as the deploy build in package.json: platform-tools v1.57, SBPF v3
+      - name: Verifiable build
+        run: solana-verify build --library-name cp_amm --arch v3 --cargo-build-sbf-args="--tools-version v1.57"

@@ -88,7 +88,7 @@ anchor build --ignore-keys --tools-version v1.57 --arch v3
 Solana verifiable build
 
 ```
-solana-verify build --library-name cp_amm --arch v3
+solana-verify build --library-name cp_amm --arch v3 --cargo-build-sbf-args="--tools-version v1.57"
 ```
 
 ### Test
