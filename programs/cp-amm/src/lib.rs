@@ -1,10 +1,4 @@
-// #[event_cpi] injects AccountInfo fields; the Accounts derive flags those as
-// deprecated (UncheckedAccount) in the impl it generates next to the struct.
-// #[program] type-checks instruction arguments with `let _: T = panic!()` at
-// the crate root, which trips diverging_sub_expression. Anchor 1.1.2+ generates neither.
 #![allow(deprecated)]
-#![allow(clippy::diverging_sub_expression)]
-
 use anchor_lang::prelude::*;
 
 #[macro_use]
@@ -18,7 +12,6 @@ pub mod error;
 pub mod state;
 pub use error::*;
 
-#[allow(deprecated)]
 pub mod event;
 
 pub use event::*;
