@@ -1,16 +1,35 @@
 use std::mem;
 
 use anchor_lang::{
-    error::ErrorCode,
+    error::{Error, ErrorCode},
     prelude::{ProgramError, Pubkey},
     require, system_program, CheckOwner, Discriminator, Owner, Result,
 };
 use anchor_spl::token_interface::TokenAccount;
 use bytemuck::Pod;
+
+use crate::{
+    state::{ActionGroup, CircuitBreaker},
+    PoolError,
+};
 use pinocchio::{
-    account_info::{AccountInfo, RefMut},
+    account_info::{AccountInfo, Ref, RefMut},
     ProgramResult,
 };
+
+pub fn p_check_circuit_breaker(pool_authority: &AccountInfo, action: ActionGroup) -> Result<()> {
+    if pool_authority.owner().eq(&system_program::ID.to_bytes()) && pool_authority.data_is_empty() {
+        return Ok(());
+    }
+
+    // checks the owner and the discriminator
+    let circuit_breaker = p_load_checked::<CircuitBreaker>(pool_authority)?;
+    require!(
+        circuit_breaker.is_action_enabled(action),
+        PoolError::ActionDisabled
+    );
+    Ok(())
+}
 
 pub fn p_transfer_from_user(
     authority: &AccountInfo,
@@ -95,6 +114,49 @@ pub fn p_load_mut_checked<T: Pod + Discriminator + Owner>(
     Ok(RefMut::map(data, |data| {
         // just panic if it is wrong
         bytemuck::from_bytes_mut(&mut data[disc.len()..mem::size_of::<T>() + disc.len()])
+    }))
+}
+
+fn p_validate_discriminator_and_owner<T: Discriminator + Owner>(
+    acc_info: &AccountInfo,
+) -> Result<()> {
+    if acc_info.owner() != &T::owner().to_bytes() {
+        return Err(Error::from(ErrorCode::AccountOwnedByWrongProgram)
+            .with_pubkeys((Pubkey::new_from_array(*acc_info.owner()), T::owner())));
+    }
+
+    let data = acc_info
+        .try_borrow_data()
+        .map_err(|err| ProgramError::from(u64::from(err)))?;
+    let disc = T::DISCRIMINATOR;
+    if data.len() < disc.len() {
+        return Err(ErrorCode::AccountDiscriminatorNotFound.into());
+    }
+
+    let given_disc = &data[..disc.len()];
+    if given_disc != disc {
+        return Err(ErrorCode::AccountDiscriminatorMismatch.into());
+    }
+    Ok(())
+}
+
+pub fn p_load_checked<T: Pod + Discriminator + Owner>(
+    acc_info: &AccountInfo,
+) -> Result<Ref<'_, T>> {
+    p_validate_discriminator_and_owner::<T>(acc_info)?;
+    p_load_unchecked::<T>(acc_info)
+}
+
+fn p_load_unchecked<T: Pod + Discriminator>(acc_info: &AccountInfo) -> Result<Ref<'_, T>> {
+    let data = acc_info
+        .try_borrow_data()
+        .map_err(|err| ProgramError::from(u64::from(err)))?;
+
+    Ok(Ref::map(data, |data| {
+        // just panic if it is wrong
+        bytemuck::from_bytes(
+            &data[T::DISCRIMINATOR.len()..mem::size_of::<T>() + T::DISCRIMINATOR.len()],
+        )
     }))
 }
 
