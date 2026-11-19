@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Breaking Changes
+
+## cp_amm [0.2.6]
+
+### Added
+
 - Added operator endpoint `zero_pool_rate_limiter` for operators with the `FixPool` permission. It sets `reference_amount`, `max_limiter_duration`, `max_fee_bps` and `fee_increment_bps` to zero on a pool with `BaseFeeMode::RateLimiter` and leaves `cliff_fee_numerator` unchanged.
 
 ### Changed
@@ -29,10 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the operator endpoint `fix_config_fee_params`. Every config on mainnet and devnet with invalid base fee parameters has already been fixed, so the endpoint is no longer needed.
 - Removed the operator endpoint `fix_pool_layout_version`. Endpoints `add_liquidity`, `remove_liquidity`, `swap` and `swap2` no longer upgrade a pool from `layout_version` 0 to 1 before running. Every pool on mainnet and devnet is already on `layout_version` 1, so this endpoint is no longer needed.
-
-### Fixed
-
-### Security
 
 ### Breaking Changes
 
