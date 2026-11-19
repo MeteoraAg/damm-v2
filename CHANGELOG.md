@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-- Replaced the two admin keys `5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi` and `DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX` with a single admin, the Squads multisig `3YyYuJDv6nxq94DLioHnh6dizBDy5vjhnbipUTNU4z6r`. Admin endpoints signed by the old keys now fail.
+- On mainnet, the Squads multisig `3YyYuJDv6nxq94DLioHnh6dizBDy5vjhnbipUTNU4z6r` replaces the admin keys `5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi` and `DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX`. On devnet, the admin key `5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi` is removed, leaving `DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX` as the only admin. Admin endpoints signed by a removed key now fail.
 - Endpoint `close_operator_account` requires `rent_receiver` to be the admin and returns `InvalidRentReceiver` otherwise. Previously any `rent_receiver` was accepted.
 - `create_token_badge` now always fails with the new `DeprecatedEndpoint` error.
 
