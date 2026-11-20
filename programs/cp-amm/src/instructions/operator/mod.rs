@@ -24,3 +24,7 @@ pub mod ix_fix_pool_fee_params;
 pub use ix_fix_pool_fee_params::*;
 pub mod ix_zero_pool_rate_limiter;
 pub use ix_zero_pool_rate_limiter::*;
+pub mod ix_initialize_circuit_breaker;
+pub use ix_initialize_circuit_breaker::*;
+pub mod ix_set_circuit_breaker;
+pub use ix_set_circuit_breaker::*;

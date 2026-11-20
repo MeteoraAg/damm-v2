@@ -157,6 +157,15 @@ pub struct EvtSetPoolStatus {
     pub status: u8,
 }
 
+#[event]
+pub struct EvtSetCircuitBreaker {
+    pub signer: Pubkey,
+    pub old_disabled_actions: u64,
+    pub disabled_actions: u64,
+    /// The nonce after the update, which the next update must pass
+    pub nonce: u64,
+}
+
 // Initialize reward
 #[event]
 pub struct EvtInitializeReward {

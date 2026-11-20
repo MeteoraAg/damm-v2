@@ -57,3 +57,6 @@ mod test_const_pda;
 
 #[cfg(test)]
 mod test_position_delegate_permission;
+
+#[cfg(test)]
+mod test_circuit_breaker;
