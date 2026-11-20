@@ -87,34 +87,13 @@ pub fn p_transfer_from_pool(
 pub fn p_load_mut_checked<T: Pod + Discriminator + Owner>(
     acc_info: &AccountInfo,
 ) -> Result<RefMut<'_, T>> {
-    // validate owner
-    require!(
-        acc_info.owner().eq(&T::owner().to_bytes()),
-        ErrorCode::AccountOwnedByWrongProgram
-    );
+    p_validate_discriminator_and_owner::<T>(acc_info)?;
 
     if !acc_info.is_writable() {
         return Err(ErrorCode::AccountNotMutable.into());
     }
 
-    let disc = T::DISCRIMINATOR;
-    let data = acc_info
-        .try_borrow_mut_data()
-        .map_err(|err| ProgramError::from(u64::from(err)))?;
-
-    if data.len() < disc.len() {
-        return Err(ErrorCode::AccountDiscriminatorNotFound.into());
-    }
-
-    let given_disc = &data[..disc.len()];
-    if given_disc != disc {
-        return Err(ErrorCode::AccountDiscriminatorMismatch.into());
-    }
-
-    Ok(RefMut::map(data, |data| {
-        // just panic if it is wrong
-        bytemuck::from_bytes_mut(&mut data[disc.len()..mem::size_of::<T>() + disc.len()])
-    }))
+    p_load_mut_unchecked::<T>(acc_info)
 }
 
 fn p_validate_discriminator_and_owner<T: Discriminator + Owner>(

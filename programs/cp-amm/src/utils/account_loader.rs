@@ -1,6 +1,6 @@
-use anchor_lang::{error::ErrorCode, prelude::*, Discriminator, Owner, Space};
+use anchor_lang::{error::ErrorCode, prelude::*, Discriminator, Owner};
 use bytemuck::Pod;
-use std::cell::Ref;
+use std::{cell::Ref, mem};
 
 fn validate_discriminator_and_owner<T: Discriminator + Owner>(
     acc_info: &AccountInfo,
@@ -23,20 +23,18 @@ fn validate_discriminator_and_owner<T: Discriminator + Owner>(
     Ok(())
 }
 
-fn load_unchecked<'a, T: Pod + Space + Discriminator>(
-    acc_info: &'a AccountInfo,
-) -> Result<Ref<'a, T>> {
+fn load_unchecked<'a, T: Pod + Discriminator>(acc_info: &'a AccountInfo) -> Result<Ref<'a, T>> {
     let data = acc_info.try_borrow_data()?;
 
     Ok(Ref::map(data, |data| {
         // just panic if it is wrong
         bytemuck::from_bytes(
-            &data[T::DISCRIMINATOR.len()..(T::INIT_SPACE + T::DISCRIMINATOR.len())],
+            &data[T::DISCRIMINATOR.len()..mem::size_of::<T>() + T::DISCRIMINATOR.len()],
         )
     }))
 }
 
-pub fn load_checked<'a, T: Pod + Space + Discriminator + Owner>(
+pub fn load_checked<'a, T: Pod + Discriminator + Owner>(
     acc_info: &'a AccountInfo,
 ) -> Result<Ref<'a, T>> {
     validate_discriminator_and_owner::<T>(acc_info)?;
