@@ -1,4 +1,8 @@
-use crate::state::{ActionGroup, CircuitBreaker};
+use crate::{
+    state::{ActionGroup, CircuitBreaker},
+    strip_leading_event_cpi_accounts,
+};
+use anchor_lang::prelude::{AccountInfo, Pubkey};
 
 const ALL_ACTION_GROUPS: [ActionGroup; ActionGroup::VARIANT_COUNT] = [
     ActionGroup::Swap,
@@ -57,10 +61,10 @@ fn test_action_group_bits_are_stable() {
 /// How an endpoint of `lib.rs` is expected to check the circuit breaker
 #[derive(Debug, PartialEq)]
 enum Check {
-    /// `check_circuit_breaker` on the `pool_authority` account of the endpoint
-    PoolAuthority(&'static str),
-    /// `check_optional_circuit_breaker` on the last remaining account
-    LastRemainingAccount(&'static str),
+    /// `check_circuit_breaker` on the `event_authority` account of the endpoint
+    EventAuthority(&'static str),
+    /// `check_optional_circuit_breaker` on the first two remaining accounts
+    LeadingRemainingAccounts(&'static str),
     /// `swap` and `swap2` never reach `lib.rs`: the entrypoint sends them to `p_handle_swap`
     InPinocchioSwap,
     /// Endpoints that only an admin or an operator can call are never disabled
@@ -81,80 +85,81 @@ const EXPECTED_CHECKS: &[(&str, Check)] = &[
     ("zero_pool_rate_limiter", Check::Never),
     ("initialize_circuit_breaker", Check::Never),
     ("set_circuit_breaker", Check::Never),
+    ("close_circuit_breaker", Check::Never),
     ("dummy_ix", Check::Never),
     ("swap", Check::InPinocchioSwap),
     ("swap2", Check::InPinocchioSwap),
-    ("create_position", Check::PoolAuthority("AddLiquidity")),
-    ("add_liquidity", Check::LastRemainingAccount("AddLiquidity")),
-    ("remove_liquidity", Check::PoolAuthority("RemoveLiquidity")),
+    ("create_position", Check::EventAuthority("AddLiquidity")),
+    ("add_liquidity", Check::EventAuthority("AddLiquidity")),
+    ("remove_liquidity", Check::EventAuthority("RemoveLiquidity")),
     (
         "remove_all_liquidity",
-        Check::PoolAuthority("RemoveLiquidity"),
+        Check::EventAuthority("RemoveLiquidity"),
     ),
-    ("claim_position_fee", Check::PoolAuthority("ClaimFee")),
-    ("claim_protocol_fee2", Check::PoolAuthority("ClaimFee")),
-    ("claim_reward", Check::PoolAuthority("ClaimReward")),
+    ("claim_position_fee", Check::EventAuthority("ClaimFee")),
+    (
+        "claim_protocol_fee2",
+        Check::LeadingRemainingAccounts("ClaimFee"),
+    ),
+    ("claim_reward", Check::EventAuthority("ClaimReward")),
     (
         "withdraw_ineligible_reward",
-        Check::PoolAuthority("ClaimReward"),
+        Check::EventAuthority("ClaimReward"),
     ),
     (
         "withdraw_dead_liquidity_reward",
-        Check::PoolAuthority("ClaimReward"),
+        Check::EventAuthority("ClaimReward"),
     ),
-    ("close_position", Check::PoolAuthority("PositionManagement")),
     (
-        "lock_position",
-        Check::LastRemainingAccount("PositionManagement"),
+        "close_position",
+        Check::EventAuthority("PositionManagement"),
     ),
+    ("lock_position", Check::EventAuthority("PositionManagement")),
     (
         "lock_inner_position",
-        Check::LastRemainingAccount("PositionManagement"),
+        Check::EventAuthority("PositionManagement"),
     ),
     (
         "permanent_lock_position",
-        Check::LastRemainingAccount("PositionManagement"),
+        Check::EventAuthority("PositionManagement"),
     ),
     (
         "refresh_vesting",
-        Check::LastRemainingAccount("PositionManagement"),
+        Check::LeadingRemainingAccounts("PositionManagement"),
     ),
     (
         "split_position",
-        Check::LastRemainingAccount("PositionManagement"),
+        Check::EventAuthority("PositionManagement"),
     ),
     (
         "split_position2",
-        Check::LastRemainingAccount("PositionManagement"),
+        Check::EventAuthority("PositionManagement"),
     ),
     (
         "update_delegate_permission",
-        Check::LastRemainingAccount("PositionManagement"),
+        Check::EventAuthority("PositionManagement"),
     ),
     (
         "initialize_reward",
-        Check::PoolAuthority("RewardManagement"),
+        Check::EventAuthority("RewardManagement"),
     ),
-    (
-        "fund_reward",
-        Check::LastRemainingAccount("RewardManagement"),
-    ),
+    ("fund_reward", Check::EventAuthority("RewardManagement")),
     (
         "update_reward_funder",
-        Check::LastRemainingAccount("RewardManagement"),
+        Check::EventAuthority("RewardManagement"),
     ),
     (
         "update_reward_duration",
-        Check::LastRemainingAccount("RewardManagement"),
+        Check::EventAuthority("RewardManagement"),
     ),
-    ("initialize_pool", Check::PoolAuthority("CreatePool")),
+    ("initialize_pool", Check::EventAuthority("CreatePool")),
     (
         "initialize_pool_with_dynamic_config",
-        Check::PoolAuthority("CreatePool"),
+        Check::EventAuthority("CreatePool"),
     ),
     (
         "initialize_customizable_pool",
-        Check::PoolAuthority("CreatePool"),
+        Check::EventAuthority("CreatePool"),
     ),
 ];
 
@@ -200,9 +205,9 @@ fn test_every_endpoint_checks_circuit_breaker() {
             .unwrap_or_else(|| panic!("{name} is missing from EXPECTED_CHECKS"));
 
         let check = if let Some((_, rest)) =
-            attributes.split_once("check_circuit_breaker(&ctx.accounts.pool_authority, ")
+            attributes.split_once("check_circuit_breaker(&ctx.accounts.event_authority, ")
         {
-            Some(("pool_authority", rest))
+            Some(("event_authority", rest))
         } else {
             attributes
                 .split_once("check_optional_circuit_breaker(ctx.remaining_accounts, ")
@@ -216,10 +221,13 @@ fn test_every_endpoint_checks_circuit_breaker() {
         };
 
         match (expected, check) {
-            (Check::PoolAuthority(expected_group), Some(("pool_authority", rest))) => {
+            (Check::EventAuthority(expected_group), Some(("event_authority", rest))) => {
                 assert_eq!(group(rest), *expected_group, "{name}")
             }
-            (Check::LastRemainingAccount(expected_group), Some(("remaining_accounts", rest))) => {
+            (
+                Check::LeadingRemainingAccounts(expected_group),
+                Some(("remaining_accounts", rest)),
+            ) => {
                 assert_eq!(group(rest), *expected_group, "{name}")
             }
             (Check::InPinocchioSwap | Check::Never, None) => {}
@@ -230,7 +238,79 @@ fn test_every_endpoint_checks_circuit_breaker() {
     // pinocchio impl
     assert!(
         include_str!("../instructions/swap/ix_p_swap.rs")
-            .contains("p_check_circuit_breaker(pool_authority, ActionGroup::Swap)?;"),
+            .contains("p_check_circuit_breaker(event_authority, ActionGroup::Swap)?;"),
         "p_handle_swap must check the circuit breaker"
     );
+}
+
+struct MockAccountData {
+    data: [u8; 1],
+    lamports: u64,
+    owner: Pubkey,
+    key: Pubkey,
+}
+
+/// Runs `strip_leading_event_cpi_accounts` on accounts with these keys. Returns whether it
+/// returned an event authority and the keys of the accounts left for the handler
+fn strip_leading_keys(keys: &[Pubkey]) -> (bool, Vec<Pubkey>) {
+    let mut mock_account_data = keys
+        .iter()
+        .map(|key| MockAccountData {
+            data: [0],
+            lamports: 0,
+            owner: Pubkey::default(),
+            key: *key,
+        })
+        .collect::<Vec<_>>();
+    let accounts = mock_account_data
+        .iter_mut()
+        .map(|data| {
+            AccountInfo::new(
+                &data.key,
+                false,
+                false,
+                &mut data.lamports,
+                &mut data.data,
+                &data.owner,
+                false,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let (event_authority, rest) = strip_leading_event_cpi_accounts(&accounts);
+    (
+        event_authority.is_some(),
+        rest.iter().map(|account| *account.key).collect(),
+    )
+}
+
+#[test]
+fn test_strip_leading_event_cpi_accounts() {
+    let event_authority = crate::EVENT_AUTHORITY_AND_BUMP.0;
+    let program = crate::ID;
+    let own_accounts = [Pubkey::new_unique(), Pubkey::new_unique()];
+
+    // Both accounts first, in order: they are split off and the rest is left for the handler
+    assert_eq!(
+        strip_leading_keys(&[event_authority, program, own_accounts[0], own_accounts[1]]),
+        (true, own_accounts.to_vec())
+    );
+    assert_eq!(
+        strip_leading_keys(&[event_authority, program]),
+        (true, vec![])
+    );
+
+    // Any other list is left unchanged for the handler, like the list of a client built before
+    // the circuit breaker
+    for keys in [
+        vec![],
+        own_accounts.to_vec(),
+        vec![event_authority],
+        vec![event_authority, own_accounts[0], own_accounts[1]],
+        vec![program],
+        vec![program, event_authority],
+        vec![own_accounts[0], event_authority, program],
+    ] {
+        assert_eq!(strip_leading_keys(&keys), (false, keys));
+    }
 }

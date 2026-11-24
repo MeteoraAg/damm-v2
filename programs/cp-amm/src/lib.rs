@@ -120,7 +120,7 @@ pub mod cp_amm {
         instructions::handle_fix_pool_fee_params(ctx, params)
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::RewardManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::RewardManagement))]
     pub fn initialize_reward<'info>(
         ctx: Context<'info, InitializeRewardCtx<'info>>,
         reward_index: u8,
@@ -130,7 +130,7 @@ pub mod cp_amm {
         instructions::handle_initialize_reward(ctx, reward_index, reward_duration, funder)
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::RewardManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::RewardManagement))]
     pub fn fund_reward(
         ctx: Context<FundRewardCtx>,
         reward_index: u8,
@@ -140,7 +140,7 @@ pub mod cp_amm {
         instructions::handle_fund_reward(ctx, reward_index, amount, carry_forward)
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::ClaimReward))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::ClaimReward))]
     pub fn withdraw_ineligible_reward(
         ctx: Context<WithdrawIneligibleRewardCtx>,
         reward_index: u8,
@@ -148,7 +148,7 @@ pub mod cp_amm {
         instructions::handle_withdraw_ineligible_reward(ctx, reward_index)
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::ClaimReward))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::ClaimReward))]
     pub fn withdraw_dead_liquidity_reward(
         ctx: Context<WithdrawDeadLiquidityRewardCtx>,
         reward_index: u8,
@@ -156,7 +156,7 @@ pub mod cp_amm {
         instructions::handle_withdraw_dead_liquidity_reward(ctx, reward_index)
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::RewardManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::RewardManagement))]
     pub fn update_reward_funder<'info>(
         ctx: Context<'info, UpdateRewardFunderCtx<'info>>,
         reward_index: u8,
@@ -165,7 +165,7 @@ pub mod cp_amm {
         instructions::handle_update_reward_funder(ctx, reward_index, new_funder)
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::RewardManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::RewardManagement))]
     pub fn update_reward_duration<'info>(
         ctx: Context<'info, UpdateRewardDurationCtx<'info>>,
         reward_index: u8,
@@ -179,7 +179,7 @@ pub mod cp_amm {
         instructions::handle_set_pool_status(ctx, status)
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::ClaimFee))]
+    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::ClaimFee))]
     pub fn claim_protocol_fee2(ctx: Context<ClaimProtocolFee2Ctx>, max_amount: u64) -> Result<()> {
         instructions::handle_claim_protocol_fee2(ctx, max_amount)
     }
@@ -203,8 +203,11 @@ pub mod cp_amm {
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CircuitBreaker))]
-    pub fn initialize_circuit_breaker(ctx: Context<InitializeCircuitBreakerCtx>) -> Result<()> {
-        instructions::handle_initialize_circuit_breaker(ctx)
+    pub fn initialize_circuit_breaker(
+        ctx: Context<InitializeCircuitBreakerCtx>,
+        disabled_actions: u64,
+    ) -> Result<()> {
+        instructions::handle_initialize_circuit_breaker(ctx, disabled_actions)
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CircuitBreaker))]
@@ -216,9 +219,17 @@ pub mod cp_amm {
         instructions::handle_set_circuit_breaker(ctx, disabled_actions, expected_nonce)
     }
 
+    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CircuitBreaker))]
+    pub fn close_circuit_breaker(
+        ctx: Context<CloseCircuitBreakerCtx>,
+        expected_nonce: u64,
+    ) -> Result<()> {
+        instructions::handle_close_circuit_breaker(ctx, expected_nonce)
+    }
+
     // USER FUNCTIONS
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::CreatePool))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::CreatePool))]
     pub fn initialize_pool<'info>(
         ctx: Context<'info, InitializePoolCtx<'info>>,
         params: InitializePoolParameters,
@@ -226,7 +237,7 @@ pub mod cp_amm {
         instructions::handle_initialize_pool(ctx, params)
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::CreatePool))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::CreatePool))]
     pub fn initialize_pool_with_dynamic_config<'info>(
         ctx: Context<'info, InitializePoolWithDynamicConfigCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
@@ -234,7 +245,7 @@ pub mod cp_amm {
         instructions::handle_initialize_pool_with_dynamic_config(ctx, params)
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::CreatePool))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::CreatePool))]
     pub fn initialize_customizable_pool<'info>(
         ctx: Context<'info, InitializeCustomizablePoolCtx<'info>>,
         params: InitializeCustomizablePoolParameters,
@@ -242,12 +253,12 @@ pub mod cp_amm {
         instructions::handle_initialize_customizable_pool(ctx, params)
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::AddLiquidity))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::AddLiquidity))]
     pub fn create_position(ctx: Context<CreatePositionCtx>) -> Result<()> {
         instructions::handle_create_position(ctx)
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::AddLiquidity))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::AddLiquidity))]
     pub fn add_liquidity(
         ctx: Context<AddLiquidityCtx>,
         params: AddLiquidityParameters,
@@ -255,7 +266,7 @@ pub mod cp_amm {
         instructions::handle_add_liquidity(ctx, params)
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::RemoveLiquidity))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::RemoveLiquidity))]
     pub fn remove_liquidity(
         ctx: Context<RemoveLiquidityCtx>,
         params: RemoveLiquidityParameters,
@@ -268,7 +279,7 @@ pub mod cp_amm {
         )
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::RemoveLiquidity))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::RemoveLiquidity))]
     pub fn remove_all_liquidity(
         ctx: Context<RemoveLiquidityCtx>,
         token_a_amount_threshold: u64,
@@ -282,7 +293,7 @@ pub mod cp_amm {
         )
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::PositionManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::PositionManagement))]
     pub fn close_position(ctx: Context<ClosePositionCtx>) -> Result<()> {
         instructions::handle_close_position(ctx)
     }
@@ -295,17 +306,17 @@ pub mod cp_amm {
         Ok(())
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::ClaimFee))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::ClaimFee))]
     pub fn claim_position_fee(ctx: Context<ClaimPositionFeeCtx>) -> Result<()> {
         instructions::handle_claim_position_fee(ctx)
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::PositionManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::PositionManagement))]
     pub fn lock_position(ctx: Context<LockPositionCtx>, params: VestingParameters) -> Result<()> {
         instructions::handle_lock_position(ctx, params)
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::PositionManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::PositionManagement))]
     pub fn lock_inner_position(
         ctx: Context<LockInnerPositionCtx>,
         params: VestingParameters,
@@ -318,7 +329,7 @@ pub mod cp_amm {
         instructions::handle_refresh_vesting(ctx)
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::PositionManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::PositionManagement))]
     pub fn permanent_lock_position(
         ctx: Context<PermanentLockPositionCtx>,
         permanent_lock_liquidity: u128,
@@ -326,7 +337,7 @@ pub mod cp_amm {
         instructions::handle_permanent_lock_position(ctx, permanent_lock_liquidity)
     }
 
-    #[access_control(check_circuit_breaker(&ctx.accounts.pool_authority, ActionGroup::ClaimReward))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::ClaimReward))]
     pub fn claim_reward(
         ctx: Context<ClaimRewardCtx>,
         reward_index: u8,
@@ -335,7 +346,7 @@ pub mod cp_amm {
         instructions::handle_claim_reward(ctx, reward_index, skip_reward)
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::PositionManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::PositionManagement))]
     pub fn split_position(
         ctx: Context<SplitPositionCtx>,
         params: SplitPositionParameters,
@@ -343,7 +354,7 @@ pub mod cp_amm {
         instructions::handle_split_position2(ctx, params.get_split_position_parameters()?)
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::PositionManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::PositionManagement))]
     pub fn split_position2(ctx: Context<SplitPositionCtx>, numerator: u32) -> Result<()> {
         instructions::handle_split_position2(
             ctx,
@@ -359,7 +370,7 @@ pub mod cp_amm {
         )
     }
 
-    #[access_control(check_optional_circuit_breaker(ctx.remaining_accounts, ActionGroup::PositionManagement))]
+    #[access_control(check_circuit_breaker(&ctx.accounts.event_authority, ActionGroup::PositionManagement))]
     pub fn update_delegate_permission(
         ctx: Context<UpdateDelegatePermissionCtx>,
         permission: u32,

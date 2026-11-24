@@ -246,4 +246,7 @@ pub enum PoolError {
 
     #[msg("Circuit breaker changed since the transaction was built")]
     UnexpectedCircuitBreakerState,
+
+    #[msg("Circuit breaker must enable every action before it is closed")]
+    CircuitBreakerHasDisabledActions,
 }

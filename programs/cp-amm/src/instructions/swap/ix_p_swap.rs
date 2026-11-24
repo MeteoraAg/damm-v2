@@ -67,7 +67,7 @@ pub fn p_handle_swap(
         return Err(ProgramError::NotEnoughAccountKeys.into());
     };
 
-    p_check_circuit_breaker(pool_authority, ActionGroup::Swap)?;
+    p_check_circuit_breaker(event_authority, ActionGroup::Swap)?;
 
     let pool_key = pool.key();
     let mut pool: pinocchio::account_info::RefMut<'_, Pool> = p_load_mut_unchecked(pool)?;

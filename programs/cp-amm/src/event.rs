@@ -158,11 +158,29 @@ pub struct EvtSetPoolStatus {
 }
 
 #[event]
+pub struct EvtInitializeCircuitBreaker {
+    /// Operator that signed the initialization
+    pub signer: Pubkey,
+    /// Bitmask of disabled action groups
+    pub disabled_actions: u64,
+    /// Initial nonce, which the next update must pass
+    pub nonce: u64,
+}
+
+#[event]
 pub struct EvtSetCircuitBreaker {
     pub signer: Pubkey,
     pub old_disabled_actions: u64,
     pub disabled_actions: u64,
     /// The nonce after the update, which the next update must pass
+    pub nonce: u64,
+}
+
+#[event]
+pub struct EvtCloseCircuitBreaker {
+    /// Operator that signed the close
+    pub signer: Pubkey,
+    /// Nonce of the circuit breaker when it was closed
     pub nonce: u64,
 }
 

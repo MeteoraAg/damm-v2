@@ -80,6 +80,22 @@ export function sendTransaction(
   return result;
 }
 
+// Signs `transaction` with `signers` only, and sends it without signature verification. The first
+// signer pays the fee
+export function sendTransactionWithoutSigverify(
+  svm: LiteSVM,
+  transaction: Transaction,
+  signers: Signer[]
+) {
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.feePayer = signers[0].publicKey;
+  transaction.partialSign(...signers);
+  const result = svm.sendTransactionWithoutSigverify(transaction);
+  svm.expireBlockhash();
+
+  return result;
+}
+
 export function sendTransactionOrExpectThrowError(
   svm: LiteSVM,
   transaction: Transaction,

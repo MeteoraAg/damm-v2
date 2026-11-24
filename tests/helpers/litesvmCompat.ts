@@ -82,6 +82,23 @@ export class LiteSVM {
     return this.inner.sendTransaction(getTransactionDecoder().decode(wire));
   }
 
+  // Sends `tx` with signature verification turned off, so a signer can be a PDA of a program that
+  // isn't deployed in the tests
+  sendTransactionWithoutSigverify(
+    tx: Transaction
+  ): TransactionMetadata | FailedTransactionMetadata {
+    const wire = tx.serialize({
+      requireAllSignatures: false,
+      verifySignatures: false,
+    });
+    this.inner.withSigverify(false);
+    try {
+      return this.inner.sendTransaction(getTransactionDecoder().decode(wire));
+    } finally {
+      this.inner.withSigverify(true);
+    }
+  }
+
   latestBlockhash(): string {
     return this.inner.latestBlockhash();
   }

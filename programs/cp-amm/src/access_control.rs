@@ -1,6 +1,5 @@
 use crate::account_loader::load_checked;
 use crate::assert_eq_admin;
-use crate::const_pda;
 use crate::state::ActionGroup;
 use crate::state::CircuitBreaker;
 use crate::state::Operator;
@@ -38,35 +37,32 @@ pub fn is_valid_operator_role<'info>(
     }
 }
 
-/// Checks that `action` is enabled by the circuit breaker, which is stored in the pool authority.
+/// Checks that `action` is enabled by the circuit breaker, which is stored in the event authority.
 ///
-/// Until `initialize_circuit_breaker` runs, the pool authority is an empty system account and
-/// every action is enabled. Only this program can put data at its PDA, and no instruction removes
-/// it once it's there, so it can't go back to that state.
+/// Until `initialize_circuit_breaker` runs, and again after `close_circuit_breaker`, the event
+/// authority is an empty system account and every action is enabled. Only this program can put
+/// data at its PDA, and `close_circuit_breaker` only closes it when every action is already
+/// enabled, so closing never enables an action that was disabled.
 ///
-/// Once initialized, the pool authority is owned by this program instead of the system program.
-/// It still signs every transfer out of the vaults, so transfer hook programs receive a
-/// program-owned account as the transfer authority.
+/// Once initialized, the event authority is owned by this program instead of the system program.
+/// It still signs every event CPI, which only checks its key and its signature.
 ///
 /// `swap` and `swap2` use the pinocchio version, [crate::p_helper::p_check_circuit_breaker].
-pub fn check_circuit_breaker(pool_authority: &AccountInfo, action: ActionGroup) -> Result<()> {
-    // The endpoints already checked the key with `address = const_pda::pool_authority::ID` on
-    // their `pool_authority` account. Checked again so that a new caller can't pass any other
-    // account
+pub fn check_circuit_breaker(event_authority: &AccountInfo, action: ActionGroup) -> Result<()> {
+    // The endpoints with `#[event_cpi]` already checked the key with
+    // `address = crate::EVENT_AUTHORITY_AND_BUMP.0` on their `event_authority` account. Checked
+    // again so that a new caller can't pass any other account
     require!(
-        pool_authority.key.eq(&const_pda::pool_authority::ID),
+        event_authority.key.eq(&crate::EVENT_AUTHORITY_AND_BUMP.0),
         ErrorCode::ConstraintAddress
     );
 
-    // Currently we are not requiring the pool_authority account to be non writable since that's breaking
-    // we will require this in the future
-
-    if pool_authority.owner.eq(&System::id()) && pool_authority.data_is_empty() {
+    if event_authority.owner.eq(&System::id()) && event_authority.data_is_empty() {
         return Ok(());
     }
 
     // checks the owner and the discriminator
-    let circuit_breaker = load_checked::<CircuitBreaker>(pool_authority)?;
+    let circuit_breaker = load_checked::<CircuitBreaker>(event_authority)?;
     require!(
         circuit_breaker.is_action_enabled(action),
         PoolError::ActionDisabled
@@ -74,20 +70,33 @@ pub fn check_circuit_breaker(pool_authority: &AccountInfo, action: ActionGroup) 
     Ok(())
 }
 
-/// Checks the circuit breaker for an endpoint that doesn't take `pool_authority` as a named
-/// account. Such an endpoint takes it as its last remaining account instead, after any other
-/// remaining accounts, so the positions of those don't change.
-///
-/// The account is optional for now, so that clients built before the circuit breaker keep working:
-/// a caller that leaves it out isn't checked. A later release will require it.
+/// Checks the circuit breaker for an endpoint that doesn't have `#[event_cpi]`. The caller can pass
+/// the event authority and the program as the first two remaining accounts. If they aren't passed,
+/// the check is skipped, so clients built before the circuit breaker keep working.
 pub fn check_optional_circuit_breaker(
     remaining_accounts: &[AccountInfo],
     action: ActionGroup,
 ) -> Result<()> {
-    match remaining_accounts.last() {
-        Some(last) if last.key.eq(&const_pda::pool_authority::ID) => {
-            check_circuit_breaker(last, action)
+    match strip_leading_event_cpi_accounts(remaining_accounts) {
+        (Some(event_authority), _) => check_circuit_breaker(event_authority, action),
+        (None, _) => Ok(()),
+    }
+}
+
+/// Splits off the event authority and the program when the client passes them as the first two
+/// remaining accounts, in that order, the position that `#[event_cpi]` gives them. For any other
+/// list, e.g. from a client built before the circuit breaker, the remaining accounts are returned
+/// unchanged with `None`
+pub fn strip_leading_event_cpi_accounts<'a, 'info>(
+    remaining_accounts: &'a [AccountInfo<'info>],
+) -> (Option<&'a AccountInfo<'info>>, &'a [AccountInfo<'info>]) {
+    match remaining_accounts {
+        [event_authority, program, rest @ ..]
+            if event_authority.key.eq(&crate::EVENT_AUTHORITY_AND_BUMP.0)
+                && program.key.eq(&crate::ID) =>
+        {
+            (Some(event_authority), rest)
         }
-        _ => Ok(()),
+        _ => (None, remaining_accounts),
     }
 }

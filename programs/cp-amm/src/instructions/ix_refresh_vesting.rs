@@ -5,9 +5,8 @@ use std::collections::BTreeSet;
 
 use crate::{
     activation_handler::ActivationHandler,
-    const_pda,
     state::{Pool, Position, Vesting},
-    PoolError,
+    strip_leading_event_cpi_accounts, PoolError,
 };
 
 #[derive(Accounts)]
@@ -58,11 +57,7 @@ pub fn handle_refresh_vesting<'info>(ctx: Context<'info, RefreshVestingCtx<'info
     let mut position = ctx.accounts.position.load_mut()?;
     position.refresh_inner_vesting(current_point)?;
 
-    // last remaining account is optionally the pool_authority. In that case, strip it out
-    let mut remaining_accounts = match ctx.remaining_accounts.split_last() {
-        Some((last, rest)) if last.key.eq(&const_pda::pool_authority::ID) => rest,
-        _ => ctx.remaining_accounts,
-    };
+    let (_, mut remaining_accounts) = strip_leading_event_cpi_accounts(ctx.remaining_accounts);
 
     loop {
         if remaining_accounts.is_empty() {

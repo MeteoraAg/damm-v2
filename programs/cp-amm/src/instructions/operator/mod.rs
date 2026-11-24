@@ -28,3 +28,5 @@ pub mod ix_initialize_circuit_breaker;
 pub use ix_initialize_circuit_breaker::*;
 pub mod ix_set_circuit_breaker;
 pub use ix_set_circuit_breaker::*;
+pub mod ix_close_circuit_breaker;
+pub use ix_close_circuit_breaker::*;

@@ -1,76 +1,102 @@
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import BN from "bn.js";
 import { expect } from "chai";
 import { FailedTransactionMetadata, TransactionMetadata } from "litesvm";
 import {
-  ActionGroup,
-  addLiquidity,
-  claimPositionFee,
-  claimReward,
-  closePosition,
-  createDynamicConfigIx,
-  initializeCustomizablePool,
-  initializePoolWithCustomizeConfig,
-  initializeReward,
-  removeAllLiquidity,
-  setPoolStatus,
+  deriveEventAuthority,
   deriveOperatorAddress,
   derivePositionNftAccount,
-  encodeDelegatePermissions,
-  fundReward,
-  getPool,
-  getPosition,
-  getVesting,
-  lockPosition,
-  permanentLockPosition,
-  PositionDelegatePermission,
-  refreshVestings,
-  SPLIT_POSITION_DENOMINATOR,
-  splitPosition,
-  splitPosition2,
-  updateDelegatePermission,
-  updateRewardDuration,
-  updateRewardFunder,
-  warpSlotBy,
-  warpToTimestamp,
-  withoutCircuitBreakerAccount,
-  swap2ExactIn,
-  swap2ExactOut,
-  swap2PartialFillIn,
-  withdrawDeadLiquidityReward,
-  withdrawIneligibleReward,
+} from "./helpers/accounts";
+import { generateKpAndFund, getCpAmmProgramErrorCode } from "./helpers/common";
+import {
   CP_AMM_PROGRAM_ID,
-  createConfigIx,
-  CreateConfigParams,
-  createOperator,
-  createPosition,
-  createToken,
-  derivePoolAuthority,
-  encodeActionGroups,
-  encodePermissions,
-  expectThrowsErrorCode,
-  getCircuitBreaker,
-  getCpAmmProgramErrorCode,
-  initializeCircuitBreaker,
-  initializePool,
   MAX_SQRT_PRICE,
   MIN_LP_AMOUNT,
   MIN_SQRT_PRICE,
-  mintSplTokenTo,
+  SPLIT_POSITION_DENOMINATOR,
+} from "./helpers/constants";
+import {
+  ActionGroup,
+  addLiquidity,
+  claimPositionFee,
+  claimProtocolFee2Transaction,
+  claimReward,
+  closeCircuitBreaker,
+  closePosition,
+  createConfigIx,
+  CreateConfigParams,
+  createDynamicConfigIx,
+  createOperator,
+  createPosition,
+  encodeActionGroups,
+  encodeDelegatePermissions,
+  encodePermissions,
+  fundReward,
+  getCircuitBreaker,
+  getPool,
+  getPosition,
+  getVesting,
+  initializeCircuitBreaker,
+  initializeCustomizablePool,
+  initializePool,
+  initializePoolWithCustomizeConfig,
+  initializeReward,
+  lockPosition,
   OperatorPermission,
-  parseEventInstruction,
+  permanentLockPosition,
+  PositionDelegatePermission,
+  refreshVestingsTransaction,
+  removeAllLiquidity,
   removeLiquidity,
-  sendTransaction,
   setCircuitBreaker,
   setCircuitBreakerTransaction,
-  startSvm,
+  setPoolStatus,
+  splitPosition,
+  splitPosition2,
+  swap2ExactIn,
+  swap2ExactOut,
+  swap2PartialFillIn,
   swapExactIn,
-} from "./helpers";
-import { generateKpAndFund } from "./helpers/common";
+  swapInstruction,
+  updateDelegatePermission,
+  updateRewardDuration,
+  updateRewardFunder,
+  withdrawDeadLiquidityReward,
+  withdrawIneligibleReward,
+} from "./helpers/cpAmm";
 import { BaseFeeMode, encodeFeeTimeSchedulerParams } from "./helpers/feeCodec";
 import { LiteSVM } from "./helpers/litesvmCompat";
+import {
+  expectThrowsErrorCode,
+  parseEventInstruction,
+  sendTransaction,
+  sendTransactionWithoutSigverify,
+  startSvm,
+  warpSlotBy,
+  warpToTimestamp,
+} from "./helpers/svm";
+import { createToken, getTokenBalance, mintSplTokenTo } from "./helpers/token";
 
 const ANCHOR_ACCOUNT_OWNED_BY_WRONG_PROGRAM = 3007;
+
+const ALL_ACTION_GROUPS = [
+  ActionGroup.Swap,
+  ActionGroup.AddLiquidity,
+  ActionGroup.RemoveLiquidity,
+  ActionGroup.ClaimFee,
+  ActionGroup.ClaimReward,
+  ActionGroup.PositionManagement,
+  ActionGroup.RewardManagement,
+  ActionGroup.CreatePool,
+];
+
+// `claim_protocol_fee2` must be signed by this PDA of the protocol fee program, which isn't
+// deployed in these tests
+const PROTOCOL_FEE_AUTHORITY = PublicKey.findProgramAddressSync(
+  [Buffer.from("protocol_fee_authority")],
+  new PublicKey("pFee3tb7qh5z53jRF4PbLwmNd148Q8ypLNZbqsMeinA")
+)[0];
 
 describe("Circuit breaker", () => {
   let svm: LiteSVM;
@@ -121,17 +147,10 @@ describe("Circuit breaker", () => {
       permission: encodePermissions([OperatorPermission.SetPoolStatus]),
     });
 
-    const data = encodeFeeTimeSchedulerParams(
-      BigInt(2_500_000),
-      0,
-      BigInt(0),
-      BigInt(0),
-      BaseFeeMode.FeeTimeSchedulerLinear
-    );
     const createConfigParams: CreateConfigParams = {
       poolFees: {
         baseFee: {
-          data: Array.from(data),
+          data: baseFeeData(),
         },
         compoundingFeeBps: 0,
         padding: 0,
@@ -170,8 +189,26 @@ describe("Circuit breaker", () => {
     });
   });
 
-  async function swap() {
-    await swapExactIn(svm, {
+  function baseFeeData() {
+    return Array.from(
+      encodeFeeTimeSchedulerParams(
+        BigInt(2_500_000),
+        0,
+        BigInt(0),
+        BigInt(0),
+        BaseFeeMode.FeeTimeSchedulerLinear
+      )
+    );
+  }
+
+  function createFundedMint() {
+    const mint = createToken(svm, admin.publicKey, admin.publicKey);
+    mintSplTokenTo(svm, mint, admin, creator.publicKey);
+    return mint;
+  }
+
+  function swapParams() {
+    return {
       payer: user,
       pool,
       inputTokenMint: tokenAMint,
@@ -179,7 +216,20 @@ describe("Circuit breaker", () => {
       amountIn: new BN(10),
       minimumAmountOut: new BN(0),
       referralTokenAccount: null,
-    });
+    };
+  }
+
+  function tokenAccount(mint: PublicKey) {
+    return getAssociatedTokenAddressSync(
+      mint,
+      user.publicKey,
+      true,
+      svm.getAccount(mint)!.owner
+    );
+  }
+
+  async function swap() {
+    await swapExactIn(svm, swapParams());
   }
 
   async function removeSomeLiquidity() {
@@ -193,196 +243,29 @@ describe("Circuit breaker", () => {
     });
   }
 
-  async function disable(actions: ActionGroup[]) {
-    const result = await setCircuitBreaker(svm, {
-      whitelistedAddress: operator,
-      disabledActions: encodeActionGroups(actions),
-      expectedNonce: getCircuitBreaker(svm).nonce,
-    });
+  function currentNonce(): BN {
+    return getCircuitBreaker(svm)!.nonce;
+  }
+
+  async function initialize(disabledActions?: BN) {
+    const result = await initializeCircuitBreaker(
+      svm,
+      operator,
+      disabledActions
+    );
     expect(result).instanceOf(TransactionMetadata);
     return result as TransactionMetadata;
   }
 
-  describe("initialize_circuit_breaker", () => {
-    it("turns the pool authority into a circuit breaker with every action enabled", async () => {
-      const poolAuthority = derivePoolAuthority();
-      expect(svm.getAccount(poolAuthority)).to.be.null;
-
-      const result = await initializeCircuitBreaker(svm, operator);
-      expect(result).instanceOf(TransactionMetadata);
-
-      expect(
-        new PublicKey(svm.getAccount(poolAuthority)!.owner).equals(
-          CP_AMM_PROGRAM_ID
-        )
-      ).to.be.true;
-      const circuitBreaker = getCircuitBreaker(svm);
-      expect(circuitBreaker.disabledActions.isZero()).to.be.true;
-      expect(circuitBreaker.nonce.isZero()).to.be.true;
+  async function disable(actions: ActionGroup[]) {
+    const result = await setCircuitBreaker(svm, {
+      whitelistedAddress: operator,
+      disabledActions: encodeActionGroups(actions),
+      expectedNonce: currentNonce(),
     });
-
-    it("works when the pool authority already holds lamports", async () => {
-      const poolAuthority = derivePoolAuthority();
-      svm.setAccount(poolAuthority, {
-        data: new Uint8Array(),
-        executable: false,
-        lamports: 180_000_000_000,
-        owner: SystemProgram.programId,
-      });
-
-      const result = await initializeCircuitBreaker(svm, operator);
-      expect(result).instanceOf(TransactionMetadata);
-      expect(Number(svm.getAccount(poolAuthority)!.lamports)).eq(
-        180_000_000_000
-      );
-      expect(getCircuitBreaker(svm).disabledActions.isZero()).to.be.true;
-    });
-
-    it("fails for an operator without the CircuitBreaker permission", async () => {
-      const result = await initializeCircuitBreaker(svm, otherOperator);
-      expectThrowsErrorCode(
-        result,
-        getCpAmmProgramErrorCode("InvalidPermission")
-      );
-    });
-
-    it("fails the second time", async () => {
-      expect(await initializeCircuitBreaker(svm, operator)).instanceOf(
-        TransactionMetadata
-      );
-      expect(await initializeCircuitBreaker(svm, operator)).instanceOf(
-        FailedTransactionMetadata
-      );
-    });
-
-    it("the pool authority still signs transfers once initialized", async () => {
-      expect(await initializeCircuitBreaker(svm, operator)).instanceOf(
-        TransactionMetadata
-      );
-      await swap();
-      await removeSomeLiquidity();
-    });
-  });
-
-  describe("set_circuit_breaker", () => {
-    it("fails before the circuit breaker is initialized", async () => {
-      const result = await setCircuitBreaker(svm, {
-        whitelistedAddress: operator,
-        disabledActions: encodeActionGroups([ActionGroup.Swap]),
-        expectedNonce: new BN(0),
-      });
-      expectThrowsErrorCode(result, ANCHOR_ACCOUNT_OWNED_BY_WRONG_PROGRAM);
-    });
-
-    describe("once initialized", () => {
-      beforeEach(async () => {
-        expect(await initializeCircuitBreaker(svm, operator)).instanceOf(
-          TransactionMetadata
-        );
-      });
-
-      it("replaces the bitmask, increments the nonce and emits an event", async () => {
-        const disabledActions = encodeActionGroups([
-          ActionGroup.Swap,
-          ActionGroup.CreatePool,
-        ]);
-        const result = await disable([
-          ActionGroup.Swap,
-          ActionGroup.CreatePool,
-        ]);
-
-        let circuitBreaker = getCircuitBreaker(svm);
-        expect(circuitBreaker.disabledActions.eq(disabledActions)).to.be.true;
-        expect(circuitBreaker.nonce.eqn(1)).to.be.true;
-
-        const event = parseEventInstruction(
-          result,
-          "evtSetCircuitBreaker"
-        )!.data;
-        expect(event.signer.equals(operator.publicKey)).to.be.true;
-        expect(event.oldDisabledActions.isZero()).to.be.true;
-        expect(event.disabledActions.eq(disabledActions)).to.be.true;
-        expect(event.nonce.eqn(1)).to.be.true;
-
-        await disable([ActionGroup.RemoveLiquidity]);
-        circuitBreaker = getCircuitBreaker(svm);
-        expect(
-          circuitBreaker.disabledActions.eq(
-            encodeActionGroups([ActionGroup.RemoveLiquidity])
-          )
-        ).to.be.true;
-        expect(circuitBreaker.nonce.eqn(2)).to.be.true;
-      });
-
-      it("fails for an operator without the CircuitBreaker permission", async () => {
-        const result = await setCircuitBreaker(svm, {
-          whitelistedAddress: otherOperator,
-          disabledActions: encodeActionGroups([ActionGroup.Swap]),
-          expectedNonce: new BN(0),
-        });
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("InvalidPermission")
-        );
-      });
-
-      it("a transaction built before another update fails", async () => {
-        const staleTransaction = await setCircuitBreakerTransaction({
-          whitelistedAddress: operator,
-          disabledActions: encodeActionGroups([ActionGroup.AddLiquidity]),
-          expectedNonce: new BN(0),
-        });
-        await disable([ActionGroup.Swap]);
-
-        const result = sendTransaction(svm, staleTransaction, [operator]);
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
-        );
-      });
-
-      it("a stale transaction fails even when the bitmask went back to the value it was built from", async () => {
-        const staleTransaction = await setCircuitBreakerTransaction({
-          whitelistedAddress: operator,
-          disabledActions: encodeActionGroups([ActionGroup.AddLiquidity]),
-          expectedNonce: new BN(0),
-        });
-        await disable([ActionGroup.Swap]);
-        await disable([]);
-        expect(getCircuitBreaker(svm).disabledActions.isZero()).to.be.true;
-
-        const result = sendTransaction(svm, staleTransaction, [operator]);
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
-        );
-      });
-
-      it("rejects an unchanged bitmask", async () => {
-        const result = await setCircuitBreaker(svm, {
-          whitelistedAddress: operator,
-          disabledActions: new BN(0),
-          expectedNonce: new BN(0),
-        });
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("InvalidParameters")
-        );
-      });
-
-      it("rejects a bit above the last action group", async () => {
-        const result = await setCircuitBreaker(svm, {
-          whitelistedAddress: operator,
-          disabledActions: new BN(1).shln(ActionGroup.CreatePool + 1),
-          expectedNonce: new BN(0),
-        });
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("InvalidParameters")
-        );
-      });
-    });
-  });
+    expect(result).instanceOf(TransactionMetadata);
+    return result as TransactionMetadata;
+  }
 
   // Runs `action` and expects its transaction to fail with `errorName`. Most helpers assert
   // success themselves and don't return the result, so the result is read from the svm instead
@@ -413,46 +296,422 @@ describe("Circuit breaker", () => {
     expectThrowsErrorCode(failure!, getCpAmmProgramErrorCode(errorName));
   }
 
-  function baseFeeData() {
-    return Array.from(
-      encodeFeeTimeSchedulerParams(
-        BigInt(2_500_000),
-        0,
-        BigInt(0),
-        BigInt(0),
-        BaseFeeMode.FeeTimeSchedulerLinear
-      )
-    );
-  }
+  describe("initialize_circuit_breaker", () => {
+    it("stores the circuit breaker in the event authority with the given bitmask and the nonce at the current slot, and emits an event", async () => {
+      const eventAuthority = deriveEventAuthority();
+      expect(svm.getAccount(eventAuthority)).to.be.null;
 
-  function createFundedMint() {
-    const mint = createToken(svm, admin.publicKey, admin.publicKey);
-    mintSplTokenTo(svm, mint, admin, creator.publicKey);
-    return mint;
-  }
+      const disabledActions = encodeActionGroups([
+        ActionGroup.Swap,
+        ActionGroup.ClaimFee,
+      ]);
+      svm.warpToSlot(BigInt(1_000));
+      const result = await initialize(disabledActions);
 
-  describe("endpoints that take the pool authority", () => {
-    let rewardMint: PublicKey;
+      const account = svm.getAccount(eventAuthority)!;
+      expect(account.owner.equals(CP_AMM_PROGRAM_ID)).to.be.true;
+      // 8 bytes of discriminator and 64 bytes of data
+      expect(account.data.length).eq(72);
+      const circuitBreaker = getCircuitBreaker(svm)!;
+      expect(circuitBreaker.disabledActions.eq(disabledActions)).to.be.true;
+      expect(circuitBreaker.nonce.eqn(1_000)).to.be.true;
+
+      const event = parseEventInstruction(
+        result,
+        "evtInitializeCircuitBreaker"
+      )!.data;
+      expect(event.signer.equals(operator.publicKey)).to.be.true;
+      expect(event.disabledActions.eq(disabledActions)).to.be.true;
+      expect(event.nonce.eqn(1_000)).to.be.true;
+
+      await expectActionDisabled(swap);
+      await removeSomeLiquidity();
+    });
+
+    it("enables every action when the bitmask is zero", async () => {
+      await initialize();
+      expect(getCircuitBreaker(svm)!.disabledActions.isZero()).to.be.true;
+      await swap();
+    });
+
+    it("works when the event authority already holds lamports", async () => {
+      const eventAuthority = deriveEventAuthority();
+      svm.setAccount(eventAuthority, {
+        data: new Uint8Array(),
+        executable: false,
+        lamports: 180_000_000_000,
+        owner: SystemProgram.programId,
+      });
+
+      await initialize();
+      expect(svm.getAccount(eventAuthority)!.lamports).eq(180_000_000_000);
+      expect(getCircuitBreaker(svm)!.disabledActions.isZero()).to.be.true;
+    });
+
+    it("rejects a bit above the last action group", async () => {
+      const result = await initializeCircuitBreaker(
+        svm,
+        operator,
+        new BN(1).shln(ActionGroup.CreatePool + 1)
+      );
+      expectThrowsErrorCode(
+        result,
+        getCpAmmProgramErrorCode("InvalidParameters")
+      );
+      expect(getCircuitBreaker(svm)).to.be.null;
+    });
+
+    it("fails for an operator without the CircuitBreaker permission", async () => {
+      const result = await initializeCircuitBreaker(svm, otherOperator);
+      expectThrowsErrorCode(
+        result,
+        getCpAmmProgramErrorCode("InvalidPermission")
+      );
+      expect(getCircuitBreaker(svm)).to.be.null;
+    });
+
+    it("fails the second time", async () => {
+      await initialize();
+      expect(await initializeCircuitBreaker(svm, operator)).instanceOf(
+        FailedTransactionMetadata
+      );
+    });
+  });
+
+  describe("the event authority as a program-owned account", () => {
+    beforeEach(async () => {
+      await initialize();
+    });
+
+    it("still signs the event CPI of swap", async () => {
+      const balanceBefore = new BN(
+        getTokenBalance(svm, tokenAccount(tokenAMint))
+      );
+      const transaction = await swapInstruction(svm, swapParams());
+      const result = sendTransaction(svm, transaction, [user]);
+      expect(result).instanceOf(TransactionMetadata);
+
+      const event = parseEventInstruction(
+        result as TransactionMetadata,
+        "evtSwap2"
+      );
+      expect(event).not.to.be.null;
+      expect(
+        new BN(getTokenBalance(svm, tokenAccount(tokenAMint))).eq(
+          balanceBefore.subn(10)
+        )
+      ).to.be.true;
+    });
+
+    it("lets a swap with a writable event authority run", async () => {
+      const transaction = await swapInstruction(svm, swapParams());
+      const instruction =
+        transaction.instructions[transaction.instructions.length - 1];
+      instruction.keys.find((key) =>
+        key.pubkey.equals(deriveEventAuthority())
+      )!.isWritable = true;
+
+      expect(sendTransaction(svm, transaction, [user])).instanceOf(
+        TransactionMetadata
+      );
+    });
+
+    it("lets anchor user endpoints run", async () => {
+      await removeSomeLiquidity();
+      await claimPositionFee(svm, { owner: user, pool, position });
+      await createPosition(svm, user, user.publicKey, pool);
+    });
+  });
+
+  describe("set_circuit_breaker", () => {
+    it("fails before the circuit breaker is initialized", async () => {
+      const result = await setCircuitBreaker(svm, {
+        whitelistedAddress: operator,
+        disabledActions: encodeActionGroups([ActionGroup.Swap]),
+        expectedNonce: new BN(0),
+      });
+      expectThrowsErrorCode(result, ANCHOR_ACCOUNT_OWNED_BY_WRONG_PROGRAM);
+    });
+
+    describe("once initialized", () => {
+      let initialNonce: BN;
+
+      beforeEach(async () => {
+        svm.warpToSlot(BigInt(500));
+        await initialize();
+        initialNonce = currentNonce();
+        expect(initialNonce.eqn(500)).to.be.true;
+      });
+
+      it("replaces the bitmask, increments the nonce and emits an event", async () => {
+        const disabledActions = encodeActionGroups([
+          ActionGroup.Swap,
+          ActionGroup.CreatePool,
+        ]);
+        const result = await disable([
+          ActionGroup.Swap,
+          ActionGroup.CreatePool,
+        ]);
+
+        let circuitBreaker = getCircuitBreaker(svm)!;
+        expect(circuitBreaker.disabledActions.eq(disabledActions)).to.be.true;
+        expect(circuitBreaker.nonce.eq(initialNonce.addn(1))).to.be.true;
+
+        const event = parseEventInstruction(
+          result,
+          "evtSetCircuitBreaker"
+        )!.data;
+        expect(event.signer.equals(operator.publicKey)).to.be.true;
+        expect(event.oldDisabledActions.isZero()).to.be.true;
+        expect(event.disabledActions.eq(disabledActions)).to.be.true;
+        expect(event.nonce.eq(initialNonce.addn(1))).to.be.true;
+
+        await disable([ActionGroup.RemoveLiquidity]);
+        circuitBreaker = getCircuitBreaker(svm)!;
+        expect(
+          circuitBreaker.disabledActions.eq(
+            encodeActionGroups([ActionGroup.RemoveLiquidity])
+          )
+        ).to.be.true;
+        expect(circuitBreaker.nonce.eq(initialNonce.addn(2))).to.be.true;
+      });
+
+      it("fails for an operator without the CircuitBreaker permission", async () => {
+        const result = await setCircuitBreaker(svm, {
+          whitelistedAddress: otherOperator,
+          disabledActions: encodeActionGroups([ActionGroup.Swap]),
+          expectedNonce: initialNonce,
+        });
+        expectThrowsErrorCode(
+          result,
+          getCpAmmProgramErrorCode("InvalidPermission")
+        );
+      });
+
+      it("rejects a nonce that isn't the current one", async () => {
+        for (const nonce of [initialNonce.subn(1), initialNonce.addn(1)]) {
+          const result = await setCircuitBreaker(svm, {
+            whitelistedAddress: operator,
+            disabledActions: encodeActionGroups([ActionGroup.Swap]),
+            expectedNonce: nonce,
+          });
+          expectThrowsErrorCode(
+            result,
+            getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
+          );
+        }
+        expect(getCircuitBreaker(svm)!.disabledActions.isZero()).to.be.true;
+      });
+
+      it("a transaction built before another update fails", async () => {
+        const staleTransaction = await setCircuitBreakerTransaction({
+          whitelistedAddress: operator,
+          disabledActions: encodeActionGroups([ActionGroup.AddLiquidity]),
+          expectedNonce: initialNonce,
+        });
+        await disable([ActionGroup.Swap]);
+
+        const result = sendTransaction(svm, staleTransaction, [operator]);
+        expectThrowsErrorCode(
+          result,
+          getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
+        );
+      });
+
+      it("a stale transaction fails even when the bitmask went back to the value it was built from", async () => {
+        const staleTransaction = await setCircuitBreakerTransaction({
+          whitelistedAddress: operator,
+          disabledActions: encodeActionGroups([ActionGroup.AddLiquidity]),
+          expectedNonce: initialNonce,
+        });
+        await disable([ActionGroup.Swap]);
+        await disable([]);
+        expect(getCircuitBreaker(svm)!.disabledActions.isZero()).to.be.true;
+
+        const result = sendTransaction(svm, staleTransaction, [operator]);
+        expectThrowsErrorCode(
+          result,
+          getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
+        );
+      });
+
+      it("rejects an unchanged bitmask", async () => {
+        const result = await setCircuitBreaker(svm, {
+          whitelistedAddress: operator,
+          disabledActions: new BN(0),
+          expectedNonce: initialNonce,
+        });
+        expectThrowsErrorCode(
+          result,
+          getCpAmmProgramErrorCode("InvalidParameters")
+        );
+      });
+
+      it("rejects a bit above the last action group", async () => {
+        const result = await setCircuitBreaker(svm, {
+          whitelistedAddress: operator,
+          disabledActions: new BN(1).shln(ActionGroup.CreatePool + 1),
+          expectedNonce: initialNonce,
+        });
+        expectThrowsErrorCode(
+          result,
+          getCpAmmProgramErrorCode("InvalidParameters")
+        );
+      });
+    });
+  });
+
+  describe("close_circuit_breaker", () => {
+    it("fails before the circuit breaker is initialized", async () => {
+      const result = await closeCircuitBreaker(svm, {
+        whitelistedAddress: operator,
+        expectedNonce: new BN(0),
+      });
+      expectThrowsErrorCode(result, ANCHOR_ACCOUNT_OWNED_BY_WRONG_PROGRAM);
+    });
+
+    describe("once initialized", () => {
+      beforeEach(async () => {
+        svm.warpToSlot(BigInt(100));
+        await initialize();
+      });
+
+      it("closes the circuit breaker, sends its rent to the receiver, emits an event and enables every action", async () => {
+        await disable([ActionGroup.Swap]);
+        await expectActionDisabled(swap);
+        await disable([]);
+
+        const nonce = currentNonce();
+        const eventAuthority = deriveEventAuthority();
+        const rent = svm.getAccount(eventAuthority)!.lamports;
+        const rentReceiver = Keypair.generate().publicKey;
+
+        const result = await closeCircuitBreaker(svm, {
+          whitelistedAddress: operator,
+          expectedNonce: nonce,
+          rentReceiver,
+        });
+        expect(result).instanceOf(TransactionMetadata);
+
+        expect(svm.getAccount(eventAuthority)).to.be.null;
+        expect(getCircuitBreaker(svm)).to.be.null;
+        expect(svm.getAccount(rentReceiver)!.lamports).eq(rent);
+
+        const event = parseEventInstruction(
+          result as TransactionMetadata,
+          "evtCloseCircuitBreaker"
+        )!.data;
+        expect(event.signer.equals(operator.publicKey)).to.be.true;
+        expect(event.nonce.eq(nonce)).to.be.true;
+
+        // the event authority is an empty system account again, which still signs the event CPI
+        const transaction = await swapInstruction(svm, swapParams());
+        const swapResult = sendTransaction(svm, transaction, [user]);
+        expect(swapResult).instanceOf(TransactionMetadata);
+        expect(
+          parseEventInstruction(swapResult as TransactionMetadata, "evtSwap2")
+        ).not.to.be.null;
+        await removeSomeLiquidity();
+      });
+
+      it("rejects a circuit breaker that disables an action", async () => {
+        await disable([ActionGroup.Swap]);
+        const result = await closeCircuitBreaker(svm, {
+          whitelistedAddress: operator,
+          expectedNonce: currentNonce(),
+        });
+        expectThrowsErrorCode(
+          result,
+          getCpAmmProgramErrorCode("CircuitBreakerHasDisabledActions")
+        );
+        expect(getCircuitBreaker(svm)).not.to.be.null;
+        await expectActionDisabled(swap);
+      });
+
+      it("rejects a nonce that isn't the current one", async () => {
+        const nonce = currentNonce();
+        for (const staleNonce of [nonce.subn(1), nonce.addn(1)]) {
+          const result = await closeCircuitBreaker(svm, {
+            whitelistedAddress: operator,
+            expectedNonce: staleNonce,
+          });
+          expectThrowsErrorCode(
+            result,
+            getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
+          );
+        }
+        expect(getCircuitBreaker(svm)).not.to.be.null;
+      });
+
+      it("fails for an operator without the CircuitBreaker permission", async () => {
+        const result = await closeCircuitBreaker(svm, {
+          whitelistedAddress: otherOperator,
+          expectedNonce: currentNonce(),
+        });
+        expectThrowsErrorCode(
+          result,
+          getCpAmmProgramErrorCode("InvalidPermission")
+        );
+        expect(getCircuitBreaker(svm)).not.to.be.null;
+      });
+
+      it("initializes again after the close, with a nonce that an update built for the closed circuit breaker can't reuse", async () => {
+        const closedNonce = currentNonce();
+        const staleTransaction = await setCircuitBreakerTransaction({
+          whitelistedAddress: operator,
+          disabledActions: encodeActionGroups([ActionGroup.AddLiquidity]),
+          expectedNonce: closedNonce,
+        });
+        expect(
+          await closeCircuitBreaker(svm, {
+            whitelistedAddress: operator,
+            expectedNonce: closedNonce,
+          })
+        ).instanceOf(TransactionMetadata);
+
+        warpSlotBy(svm, new BN(10));
+        await initialize(encodeActionGroups([ActionGroup.Swap]));
+        const circuitBreaker = getCircuitBreaker(svm)!;
+        expect(circuitBreaker.nonce.gt(closedNonce)).to.be.true;
+        await expectActionDisabled(swap);
+
+        const result = sendTransaction(svm, staleTransaction, [operator]);
+        expectThrowsErrorCode(
+          result,
+          getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
+        );
+        expect(
+          getCircuitBreaker(svm)!.disabledActions.eq(
+            encodeActionGroups([ActionGroup.Swap])
+          )
+        ).to.be.true;
+      });
+    });
+  });
+
+  describe("endpoints with #[event_cpi]", () => {
     let dynamicConfig: PublicKey;
+    let secondPosition: PublicKey;
 
     beforeEach(async () => {
-      rewardMint = createFundedMint();
       expect(
         await initializeReward(svm, {
           index: 0,
           payer: creator,
           rewardDuration: new BN(24 * 60 * 60),
           pool,
-          rewardMint,
+          rewardMint: createFundedMint(),
           funder: creator.publicKey,
         })
       ).instanceOf(TransactionMetadata);
       dynamicConfig = await createDynamicConfigIx(svm, operator, new BN(2), {
         poolCreatorAuthority: creator.publicKey,
       });
-      expect(await initializeCircuitBreaker(svm, operator)).instanceOf(
-        TransactionMetadata
-      );
+      secondPosition = await createPosition(svm, user, user.publicKey, pool);
+      // update_reward_duration requires the current time to be past the end of the campaign,
+      // which is zero for a reward that was never funded
+      warpToTimestamp(svm, new BN(1));
+      await initialize();
     });
 
     const customizablePoolParams = () => ({
@@ -478,17 +737,74 @@ describe("Circuit breaker", () => {
       collectFeeMode: 0,
     });
 
-    const endpoints: [ActionGroup, string, () => Promise<unknown>][] = [
-      [
-        ActionGroup.AddLiquidity,
-        "create_position",
-        () => createPosition(svm, user, user.publicKey, pool),
-      ],
-      [ActionGroup.RemoveLiquidity, "remove_liquidity", removeSomeLiquidity],
-      [
-        ActionGroup.RemoveLiquidity,
-        "remove_all_liquidity",
-        () =>
+    const vestingParams = () => ({
+      cliffPoint: null,
+      periodFrequency: new BN(1),
+      cliffUnlockLiquidity: new BN(100),
+      liquidityPerPeriod: new BN(100),
+      numberOfPeriod: 10,
+    });
+
+    const splitAccounts = () => ({
+      firstPositionOwner: user,
+      secondPositionOwner: user,
+      pool,
+      firstPosition: position,
+      firstPositionNftAccount: derivePositionNftAccount(
+        getPosition(svm, position).nftMint
+      ),
+      secondPosition,
+      secondPositionNftAccount: derivePositionNftAccount(
+        getPosition(svm, secondPosition).nftMint
+      ),
+    });
+
+    async function expectSuccess(
+      call: () => Promise<TransactionMetadata | FailedTransactionMetadata>
+    ) {
+      expect(await call()).instanceOf(TransactionMetadata);
+    }
+
+    type Endpoint = {
+      group: ActionGroup;
+      name: string;
+      call: () => Promise<unknown>;
+      // true when `call` succeeds in the state that `beforeEach` sets up, so the test can also
+      // check that the endpoint runs while its group is enabled
+      succeeds?: boolean;
+    };
+
+    const endpoints: Endpoint[] = [
+      {
+        group: ActionGroup.AddLiquidity,
+        name: "create_position",
+        call: () => createPosition(svm, user, user.publicKey, pool),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.AddLiquidity,
+        name: "add_liquidity",
+        call: () =>
+          addLiquidity(svm, {
+            owner: user,
+            pool,
+            position,
+            liquidityDelta,
+            tokenAAmountThreshold: new BN(2_000_000_000),
+            tokenBAmountThreshold: new BN(2_000_000_000),
+          }),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.RemoveLiquidity,
+        name: "remove_liquidity",
+        call: removeSomeLiquidity,
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.RemoveLiquidity,
+        name: "remove_all_liquidity",
+        call: () =>
           removeAllLiquidity(svm, {
             owner: user,
             pool,
@@ -496,16 +812,17 @@ describe("Circuit breaker", () => {
             tokenAAmountThreshold: new BN(0),
             tokenBAmountThreshold: new BN(0),
           }),
-      ],
-      [
-        ActionGroup.ClaimFee,
-        "claim_position_fee",
-        () => claimPositionFee(svm, { owner: user, pool, position }),
-      ],
-      [
-        ActionGroup.ClaimReward,
-        "claim_reward",
-        () =>
+      },
+      {
+        group: ActionGroup.ClaimFee,
+        name: "claim_position_fee",
+        call: () => claimPositionFee(svm, { owner: user, pool, position }),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.ClaimReward,
+        name: "claim_reward",
+        call: () =>
           claimReward(svm, {
             index: 0,
             user,
@@ -513,28 +830,91 @@ describe("Circuit breaker", () => {
             pool,
             skipReward: 0,
           }),
-      ],
-      [
-        ActionGroup.ClaimReward,
-        "withdraw_ineligible_reward",
-        () =>
+      },
+      {
+        group: ActionGroup.ClaimReward,
+        name: "withdraw_ineligible_reward",
+        call: () =>
           withdrawIneligibleReward(svm, { index: 0, pool, funder: creator }),
-      ],
-      [
-        ActionGroup.ClaimReward,
-        "withdraw_dead_liquidity_reward",
-        () =>
+      },
+      {
+        group: ActionGroup.ClaimReward,
+        name: "withdraw_dead_liquidity_reward",
+        call: () =>
           withdrawDeadLiquidityReward(svm, { index: 0, pool, funder: creator }),
-      ],
-      [
-        ActionGroup.PositionManagement,
-        "close_position",
-        () => closePosition(svm, { owner: user, pool, position }),
-      ],
-      [
-        ActionGroup.RewardManagement,
-        "initialize_reward",
-        () =>
+      },
+      {
+        group: ActionGroup.PositionManagement,
+        name: "close_position",
+        call: () => closePosition(svm, { owner: user, pool, position }),
+      },
+      {
+        group: ActionGroup.PositionManagement,
+        name: "lock_position",
+        call: () => lockPosition(svm, position, user, user, vestingParams()),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.PositionManagement,
+        name: "lock_inner_position",
+        call: () =>
+          lockPosition(svm, position, user, user, vestingParams(), true),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.PositionManagement,
+        name: "permanent_lock_position",
+        call: () => permanentLockPosition(svm, position, user, user),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.PositionManagement,
+        name: "split_position",
+        call: () =>
+          expectSuccess(() =>
+            splitPosition(svm, {
+              ...splitAccounts(),
+              permanentLockedLiquidityPercentage: 0,
+              unlockedLiquidityPercentage: 50,
+              feeAPercentage: 50,
+              feeBPercentage: 50,
+              reward0Percentage: 50,
+              reward1Percentage: 50,
+              innerVestingLiquidityPercentage: 0,
+            })
+          ),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.PositionManagement,
+        name: "split_position2",
+        call: () =>
+          expectSuccess(() =>
+            splitPosition2(svm, {
+              ...splitAccounts(),
+              numerator: SPLIT_POSITION_DENOMINATOR / 2,
+            })
+          ),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.PositionManagement,
+        name: "update_delegate_permission",
+        call: () =>
+          updateDelegatePermission(svm, {
+            owner: user,
+            position,
+            delegate: creator.publicKey,
+            permission: encodeDelegatePermissions([
+              PositionDelegatePermission.AddLiquidity,
+            ]),
+          }),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.RewardManagement,
+        name: "initialize_reward",
+        call: () =>
           initializeReward(svm, {
             index: 1,
             payer: creator,
@@ -543,11 +923,48 @@ describe("Circuit breaker", () => {
             rewardMint: createFundedMint(),
             funder: creator.publicKey,
           }),
-      ],
-      [
-        ActionGroup.CreatePool,
-        "initialize_pool",
-        () =>
+      },
+      {
+        group: ActionGroup.RewardManagement,
+        name: "fund_reward",
+        call: () =>
+          fundReward(svm, {
+            funder: creator,
+            index: 0,
+            pool,
+            carryForward: true,
+            amount: new BN(1_000_000),
+          }),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.RewardManagement,
+        name: "update_reward_funder",
+        call: () =>
+          updateRewardFunder(svm, {
+            index: 0,
+            signer: creator,
+            pool,
+            newFunder: user.publicKey,
+          }),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.RewardManagement,
+        name: "update_reward_duration",
+        call: () =>
+          updateRewardDuration(svm, {
+            index: 0,
+            signer: creator,
+            pool,
+            newDuration: new BN(2 * 24 * 60 * 60),
+          }),
+        succeeds: true,
+      },
+      {
+        group: ActionGroup.CreatePool,
+        name: "initialize_pool",
+        call: () =>
           initializePool(svm, {
             payer: creator,
             creator: creator.publicKey,
@@ -558,29 +975,36 @@ describe("Circuit breaker", () => {
             sqrtPrice: new BN(MIN_SQRT_PRICE),
             activationPoint: null,
           }),
-      ],
-      [
-        ActionGroup.CreatePool,
-        "initialize_pool_with_dynamic_config",
-        () =>
+      },
+      {
+        group: ActionGroup.CreatePool,
+        name: "initialize_pool_with_dynamic_config",
+        call: () =>
           initializePoolWithCustomizeConfig(svm, {
             ...customizablePoolParams(),
             poolCreatorAuthority: creator,
             customizeConfigAddress: dynamicConfig,
           }),
-      ],
-      [
-        ActionGroup.CreatePool,
-        "initialize_customizable_pool",
-        () => initializeCustomizablePool(svm, customizablePoolParams()),
-      ],
+      },
+      {
+        group: ActionGroup.CreatePool,
+        name: "initialize_customizable_pool",
+        call: () => initializeCustomizablePool(svm, customizablePoolParams()),
+      },
     ];
 
-    for (const [group, name, call] of endpoints) {
+    for (const { group, name, call, succeeds } of endpoints) {
       it(`${name} fails while ${ActionGroup[group]} is disabled`, async () => {
         await disable([group]);
         await expectActionDisabled(call);
       });
+
+      if (succeeds) {
+        it(`${name} works while ${ActionGroup[group]} is the only enabled group`, async () => {
+          await disable(ALL_ACTION_GROUPS.filter((other) => other !== group));
+          await call();
+        });
+      }
     }
 
     const swap2Params = () => ({
@@ -636,22 +1060,10 @@ describe("Circuit breaker", () => {
     }
 
     it("swap works while every other group is disabled", async () => {
-      await disable([
-        ActionGroup.AddLiquidity,
-        ActionGroup.RemoveLiquidity,
-        ActionGroup.ClaimFee,
-        ActionGroup.ClaimReward,
-        ActionGroup.PositionManagement,
-        ActionGroup.RewardManagement,
-        ActionGroup.CreatePool,
-      ]);
+      await disable(
+        ALL_ACTION_GROUPS.filter((group) => group !== ActionGroup.Swap)
+      );
       await swap();
-    });
-
-    it("a disabled group leaves the other groups enabled", async () => {
-      await disable([ActionGroup.AddLiquidity, ActionGroup.CreatePool]);
-      await removeSomeLiquidity();
-      await claimPositionFee(svm, { owner: user, pool, position });
     });
 
     it("re-enabling a group restores its endpoints", async () => {
@@ -663,238 +1075,7 @@ describe("Circuit breaker", () => {
       await createPosition(svm, user, user.publicKey, pool);
     });
 
-    it("operator endpoints work while every group is disabled", async () => {
-      await disable([
-        ActionGroup.Swap,
-        ActionGroup.AddLiquidity,
-        ActionGroup.RemoveLiquidity,
-        ActionGroup.ClaimFee,
-        ActionGroup.ClaimReward,
-        ActionGroup.PositionManagement,
-        ActionGroup.RewardManagement,
-        ActionGroup.CreatePool,
-      ]);
-      await setPoolStatus(svm, {
-        whitelistedAddress: otherOperator,
-        pool,
-        status: 1,
-      });
-    });
-  });
-
-  describe("endpoints that take the pool authority as the last remaining account", () => {
-    let rewardMint: PublicKey;
-    let secondPosition: PublicKey;
-
-    beforeEach(async () => {
-      rewardMint = createFundedMint();
-      expect(
-        await initializeReward(svm, {
-          index: 0,
-          payer: creator,
-          rewardDuration: new BN(24 * 60 * 60),
-          pool,
-          rewardMint,
-          funder: creator.publicKey,
-        })
-      ).instanceOf(TransactionMetadata);
-      secondPosition = await createPosition(svm, user, user.publicKey, pool);
-      // update_reward_duration requires the current time to be past the end of the campaign,
-      // which is zero for a reward that was never funded
-      warpToTimestamp(svm, new BN(1));
-      expect(await initializeCircuitBreaker(svm, operator)).instanceOf(
-        TransactionMetadata
-      );
-    });
-
-    const vestingParams = () => ({
-      cliffPoint: null,
-      periodFrequency: new BN(1),
-      cliffUnlockLiquidity: new BN(100),
-      liquidityPerPeriod: new BN(100),
-      numberOfPeriod: 10,
-    });
-
-    const splitAccounts = () => ({
-      firstPositionOwner: user,
-      secondPositionOwner: user,
-      pool,
-      firstPosition: position,
-      firstPositionNftAccount: derivePositionNftAccount(
-        getPosition(svm, position).nftMint
-      ),
-      secondPosition,
-      secondPositionNftAccount: derivePositionNftAccount(
-        getPosition(svm, secondPosition).nftMint
-      ),
-    });
-
-    async function expectSuccess(
-      call: () => Promise<TransactionMetadata | FailedTransactionMetadata>
-    ) {
-      expect(await call()).instanceOf(TransactionMetadata);
-    }
-
-    const endpoints: [ActionGroup, string, () => Promise<unknown>][] = [
-      [
-        ActionGroup.AddLiquidity,
-        "add_liquidity",
-        () =>
-          addLiquidity(svm, {
-            owner: user,
-            pool,
-            position,
-            liquidityDelta,
-            tokenAAmountThreshold: new BN(2_000_000_000),
-            tokenBAmountThreshold: new BN(2_000_000_000),
-          }),
-      ],
-      [
-        ActionGroup.PositionManagement,
-        "lock_position",
-        () => lockPosition(svm, position, user, user, vestingParams()),
-      ],
-      [
-        ActionGroup.PositionManagement,
-        "lock_inner_position",
-        () => lockPosition(svm, position, user, user, vestingParams(), true),
-      ],
-      [
-        ActionGroup.PositionManagement,
-        "permanent_lock_position",
-        () => permanentLockPosition(svm, position, user, user),
-      ],
-      [
-        ActionGroup.PositionManagement,
-        "refresh_vesting",
-        () => refreshVestings(svm, position, pool, user.publicKey, user, []),
-      ],
-      [
-        ActionGroup.PositionManagement,
-        "split_position",
-        () =>
-          expectSuccess(() =>
-            splitPosition(svm, {
-              ...splitAccounts(),
-              permanentLockedLiquidityPercentage: 0,
-              unlockedLiquidityPercentage: 50,
-              feeAPercentage: 50,
-              feeBPercentage: 50,
-              reward0Percentage: 50,
-              reward1Percentage: 50,
-              innerVestingLiquidityPercentage: 0,
-            })
-          ),
-      ],
-      [
-        ActionGroup.PositionManagement,
-        "split_position2",
-        () =>
-          expectSuccess(() =>
-            splitPosition2(svm, {
-              ...splitAccounts(),
-              numerator: SPLIT_POSITION_DENOMINATOR / 2,
-            })
-          ),
-      ],
-      [
-        ActionGroup.PositionManagement,
-        "update_delegate_permission",
-        () =>
-          updateDelegatePermission(svm, {
-            owner: user,
-            position,
-            delegate: creator.publicKey,
-            permission: encodeDelegatePermissions([
-              PositionDelegatePermission.AddLiquidity,
-            ]),
-          }),
-      ],
-      [
-        ActionGroup.RewardManagement,
-        "fund_reward",
-        () =>
-          fundReward(svm, {
-            funder: creator,
-            index: 0,
-            pool,
-            carryForward: true,
-            amount: new BN(1_000_000),
-          }),
-      ],
-      [
-        ActionGroup.RewardManagement,
-        "update_reward_funder",
-        () =>
-          updateRewardFunder(svm, {
-            index: 0,
-            signer: creator,
-            pool,
-            newFunder: user.publicKey,
-          }),
-      ],
-      [
-        ActionGroup.RewardManagement,
-        "update_reward_duration",
-        () =>
-          updateRewardDuration(svm, {
-            index: 0,
-            signer: creator,
-            pool,
-            newDuration: new BN(2 * 24 * 60 * 60),
-          }),
-      ],
-    ];
-
-    for (const [group, name, call] of endpoints) {
-      it(`${name} fails with the pool authority while ${ActionGroup[group]} is disabled, and works without it`, async () => {
-        await disable([group]);
-        await expectActionDisabled(call);
-        await withoutCircuitBreakerAccount(call);
-      });
-
-      it(`${name} works with the pool authority while ${ActionGroup[group]} is enabled`, async () => {
-        const otherGroups = [
-          ActionGroup.AddLiquidity,
-          ActionGroup.PositionManagement,
-          ActionGroup.RewardManagement,
-        ].filter((other) => other !== group);
-        await disable(otherGroups);
-        await call();
-      });
-    }
-
-    it("refresh_vesting releases every vesting account passed before the pool authority", async () => {
-      const vestings = [
-        await lockPosition(svm, position, user, user, vestingParams()),
-        await lockPosition(svm, position, user, user, vestingParams()),
-      ];
-      expect(getPosition(svm, position).vestedLiquidity.eqn(2_200)).to.be.true;
-
-      warpSlotBy(svm, new BN(5));
-      await refreshVestings(
-        svm,
-        position,
-        pool,
-        user.publicKey,
-        user,
-        vestings
-      );
-
-      for (const vesting of vestings) {
-        expect(
-          getVesting(svm, vesting).innerVesting.totalReleasedLiquidity.gtn(0)
-        ).to.be.true;
-      }
-      expect(getPosition(svm, position).vestedLiquidity.ltn(2_200)).to.be.true;
-
-      await disable([ActionGroup.PositionManagement]);
-      await expectActionDisabled(() =>
-        refreshVestings(svm, position, pool, user.publicKey, user, vestings)
-      );
-    });
-
-    it("update_reward_funder and update_reward_duration read the operator before the pool authority", async () => {
+    it("update_reward_funder and update_reward_duration signed by an operator check the circuit breaker", async () => {
       await updateRewardFunder(svm, {
         index: 0,
         signer: operator,
@@ -922,6 +1103,153 @@ describe("Circuit breaker", () => {
           operator: deriveOperatorAddress(operator.publicKey),
         })
       );
+    });
+
+    it("operator endpoints work while every group is disabled", async () => {
+      await disable(ALL_ACTION_GROUPS);
+      await setPoolStatus(svm, {
+        whitelistedAddress: otherOperator,
+        pool,
+        status: 1,
+      });
+    });
+  });
+
+  describe("endpoints that take the event authority as optional leading remaining accounts", () => {
+    beforeEach(async () => {
+      await initialize();
+    });
+
+    describe("refresh_vesting", () => {
+      const vestingParams = () => ({
+        cliffPoint: null,
+        periodFrequency: new BN(1),
+        cliffUnlockLiquidity: new BN(100),
+        liquidityPerPeriod: new BN(100),
+        numberOfPeriod: 10,
+      });
+
+      async function refresh(
+        vestings: PublicKey[],
+        includeCircuitBreaker: boolean
+      ) {
+        const transaction = await refreshVestingsTransaction(
+          svm,
+          position,
+          pool,
+          user.publicKey,
+          vestings,
+          includeCircuitBreaker
+        );
+        return sendTransaction(svm, transaction, [user]);
+      }
+
+      it("fails with the leading accounts while PositionManagement is disabled, and works without them", async () => {
+        await disable([ActionGroup.PositionManagement]);
+        expectThrowsErrorCode(
+          await refresh([], true),
+          getCpAmmProgramErrorCode("ActionDisabled")
+        );
+        expect(await refresh([], false)).instanceOf(TransactionMetadata);
+      });
+
+      it("works with the leading accounts while PositionManagement is the only enabled group", async () => {
+        await disable(
+          ALL_ACTION_GROUPS.filter(
+            (group) => group !== ActionGroup.PositionManagement
+          )
+        );
+        expect(await refresh([], true)).instanceOf(TransactionMetadata);
+      });
+
+      for (const includeCircuitBreaker of [true, false]) {
+        it(`releases every vesting account passed ${
+          includeCircuitBreaker
+            ? "after the leading accounts"
+            : "by an old client"
+        }`, async () => {
+          const vestings = [
+            await lockPosition(svm, position, user, user, vestingParams()),
+            await lockPosition(svm, position, user, user, vestingParams()),
+          ];
+          expect(getPosition(svm, position).vestedLiquidity.eqn(2_200)).to.be
+            .true;
+
+          warpSlotBy(svm, new BN(5));
+          expect(await refresh(vestings, includeCircuitBreaker)).instanceOf(
+            TransactionMetadata
+          );
+
+          for (const vesting of vestings) {
+            expect(
+              getVesting(svm, vesting).innerVesting.totalReleasedLiquidity.gtn(
+                0
+              )
+            ).to.be.true;
+          }
+          expect(getPosition(svm, position).vestedLiquidity.ltn(2_200)).to.be
+            .true;
+        });
+      }
+    });
+
+    describe("claim_protocol_fee2", () => {
+      let receiverTokenAccount: PublicKey;
+
+      beforeEach(async () => {
+        for (let i = 0; i < 4; i++) {
+          await swapExactIn(svm, {
+            ...swapParams(),
+            inputTokenMint: tokenBMint,
+            outputTokenMint: tokenAMint,
+            amountIn: new BN(10_000),
+          });
+        }
+        // the fee is taken from the output token, A
+        expect(getPool(svm, pool).protocolAFee.gtn(0)).to.be.true;
+        receiverTokenAccount = tokenAccount(tokenAMint);
+      });
+
+      // The signer is a PDA of the protocol fee program, so the transaction is sent without
+      // signature verification. The user pays the fee
+      async function claim(includeCircuitBreaker: boolean) {
+        const transaction = await claimProtocolFee2Transaction(svm, {
+          signer: PROTOCOL_FEE_AUTHORITY,
+          pool,
+          isTokenA: true,
+          receiverTokenAccount,
+          includeCircuitBreaker,
+        });
+        return sendTransactionWithoutSigverify(svm, transaction, [user]);
+      }
+
+      it("fails with the leading accounts while ClaimFee is disabled, and works without them", async () => {
+        await disable([ActionGroup.ClaimFee]);
+        expectThrowsErrorCode(
+          await claim(true),
+          getCpAmmProgramErrorCode("ActionDisabled")
+        );
+
+        const protocolFee = getPool(svm, pool).protocolAFee;
+        const balanceBefore = new BN(
+          getTokenBalance(svm, receiverTokenAccount)
+        );
+        expect(await claim(false)).instanceOf(TransactionMetadata);
+        expect(
+          new BN(getTokenBalance(svm, receiverTokenAccount)).eq(
+            balanceBefore.add(protocolFee)
+          )
+        ).to.be.true;
+        expect(getPool(svm, pool).protocolAFee.isZero()).to.be.true;
+      });
+
+      it("works with the leading accounts while ClaimFee is the only enabled group", async () => {
+        await disable(
+          ALL_ACTION_GROUPS.filter((group) => group !== ActionGroup.ClaimFee)
+        );
+        expect(await claim(true)).instanceOf(TransactionMetadata);
+        expect(getPool(svm, pool).protocolAFee.isZero()).to.be.true;
+      });
     });
   });
 });

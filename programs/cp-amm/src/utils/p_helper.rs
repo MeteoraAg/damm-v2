@@ -17,13 +17,14 @@ use pinocchio::{
     ProgramResult,
 };
 
-pub fn p_check_circuit_breaker(pool_authority: &AccountInfo, action: ActionGroup) -> Result<()> {
-    if pool_authority.owner().eq(&system_program::ID.to_bytes()) && pool_authority.data_is_empty() {
+pub fn p_check_circuit_breaker(event_authority: &AccountInfo, action: ActionGroup) -> Result<()> {
+    if event_authority.owner().eq(&system_program::ID.to_bytes()) && event_authority.data_is_empty()
+    {
         return Ok(());
     }
 
     // checks the owner and the discriminator
-    let circuit_breaker = p_load_checked::<CircuitBreaker>(pool_authority)?;
+    let circuit_breaker = p_load_checked::<CircuitBreaker>(event_authority)?;
     require!(
         circuit_breaker.is_action_enabled(action),
         PoolError::ActionDisabled
