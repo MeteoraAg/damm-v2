@@ -27,10 +27,6 @@ pub struct InitializeCircuitBreakerCtx<'info> {
     pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
-
-    /// CHECK: manually add program account (normally from event_cpi macro)
-    #[account(address = crate::ID)]
-    pub program: UncheckedAccount<'info>,
 }
 
 pub fn handle_initialize_circuit_breaker(
@@ -38,21 +34,19 @@ pub fn handle_initialize_circuit_breaker(
     disabled_actions: u64,
 ) -> Result<()> {
     require!(
-        u128::from(disabled_actions) <= bitmask_max(ActionGroup::VARIANT_COUNT),
+        disabled_actions > 0
+            && u128::from(disabled_actions) <= bitmask_max(ActionGroup::VARIANT_COUNT),
         PoolError::InvalidParameters
     );
 
     let mut circuit_breaker = ctx.accounts.event_authority.load_init()?;
     circuit_breaker.disabled_actions = disabled_actions;
-    circuit_breaker.nonce = Clock::get()?.slot;
-    let nonce = circuit_breaker.nonce;
 
     drop(circuit_breaker);
 
-    emit_cpi!(EvtInitializeCircuitBreaker {
+    emit!(EvtInitializeCircuitBreaker {
         signer: ctx.accounts.signer.key(),
         disabled_actions,
-        nonce,
     });
 
     Ok(())

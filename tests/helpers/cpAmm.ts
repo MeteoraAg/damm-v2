@@ -28,6 +28,7 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
+  TransactionInstruction,
 } from "@solana/web3.js";
 import { expect } from "chai";
 import Decimal from "decimal.js";
@@ -472,81 +473,104 @@ export function encodeActionGroups(actions: ActionGroup[]): BN {
   }, new BN(0));
 }
 
-export async function initializeCircuitBreaker(
-  svm: LiteSVM,
-  whitelistedAddress: Keypair,
-  disabledActions: BN = new BN(0)
-): Promise<TransactionMetadata | FailedTransactionMetadata> {
+function initializeCircuitBreakerInstruction(
+  whitelistedAddress: PublicKey,
+  disabledActions: BN
+): Promise<TransactionInstruction> {
   const program = createCpAmmProgram();
-  const transaction = await program.methods
+  return program.methods
     .initializeCircuitBreaker(disabledActions)
     .accountsPartial({
       eventAuthority: deriveEventAuthority(),
-      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      signer: whitelistedAddress.publicKey,
-      payer: whitelistedAddress.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress),
+      signer: whitelistedAddress,
+      payer: whitelistedAddress,
       systemProgram: SystemProgram.programId,
-      program: CP_AMM_PROGRAM_ID,
     })
-    .transaction();
+    .instruction();
+}
 
+export async function initializeCircuitBreaker(
+  svm: LiteSVM,
+  whitelistedAddress: Keypair,
+  disabledActions: BN
+): Promise<TransactionMetadata | FailedTransactionMetadata> {
+  const transaction = new Transaction().add(
+    await initializeCircuitBreakerInstruction(
+      whitelistedAddress.publicKey,
+      disabledActions
+    )
+  );
   return sendTransaction(svm, transaction, [whitelistedAddress]);
 }
 
-export type SetCircuitBreakerParams = {
-  whitelistedAddress: Keypair;
-  disabledActions: BN;
-  expectedNonce: BN;
-};
-
-export async function setCircuitBreakerTransaction(
-  params: SetCircuitBreakerParams
-): Promise<Transaction> {
-  const { whitelistedAddress, disabledActions, expectedNonce } = params;
+function closeCircuitBreakerInstruction(
+  whitelistedAddress: PublicKey,
+  rentReceiver: PublicKey
+): Promise<TransactionInstruction> {
   const program = createCpAmmProgram();
   return program.methods
-    .setCircuitBreaker(disabledActions, expectedNonce)
+    .closeCircuitBreaker()
     .accountsPartial({
-      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      signer: whitelistedAddress.publicKey,
+      operator: deriveOperatorAddress(whitelistedAddress),
+      signer: whitelistedAddress,
+      rentReceiver,
       eventAuthority: deriveEventAuthority(),
-      program: CP_AMM_PROGRAM_ID,
     })
-    .transaction();
+    .instruction();
 }
-
-export async function setCircuitBreaker(
-  svm: LiteSVM,
-  params: SetCircuitBreakerParams
-): Promise<TransactionMetadata | FailedTransactionMetadata> {
-  const transaction = await setCircuitBreakerTransaction(params);
-  return sendTransaction(svm, transaction, [params.whitelistedAddress]);
-}
-
-export type CloseCircuitBreakerParams = {
-  whitelistedAddress: Keypair;
-  expectedNonce: BN;
-  rentReceiver?: PublicKey;
-};
 
 export async function closeCircuitBreaker(
   svm: LiteSVM,
-  params: CloseCircuitBreakerParams
+  whitelistedAddress: Keypair,
+  rentReceiver: PublicKey = whitelistedAddress.publicKey
 ): Promise<TransactionMetadata | FailedTransactionMetadata> {
-  const { whitelistedAddress, expectedNonce } = params;
-  const program = createCpAmmProgram();
-  const transaction = await program.methods
-    .closeCircuitBreaker(expectedNonce)
-    .accountsPartial({
-      operator: deriveOperatorAddress(whitelistedAddress.publicKey),
-      signer: whitelistedAddress.publicKey,
-      rentReceiver: params.rentReceiver ?? whitelistedAddress.publicKey,
-      eventAuthority: deriveEventAuthority(),
-      program: CP_AMM_PROGRAM_ID,
-    })
-    .transaction();
-
+  const transaction = new Transaction().add(
+    await closeCircuitBreakerInstruction(
+      whitelistedAddress.publicKey,
+      rentReceiver
+    )
+  );
   return sendTransaction(svm, transaction, [whitelistedAddress]);
+}
+
+// Changes the bitmask in one transaction. It closes the circuit breaker when it exists, and
+// initializes it again unless `disabledActions` is zero, because the operator can simply close the
+// circuit breaker to enable every action
+export async function setDisabledActions(
+  svm: LiteSVM,
+  whitelistedAddress: Keypair,
+  disabledActions: BN
+) {
+  const transaction = new Transaction();
+  if (getCircuitBreaker(svm) !== null) {
+    transaction.add(
+      await closeCircuitBreakerInstruction(
+        whitelistedAddress.publicKey,
+        whitelistedAddress.publicKey
+      )
+    );
+  }
+  if (!disabledActions.isZero()) {
+    transaction.add(
+      await initializeCircuitBreakerInstruction(
+        whitelistedAddress.publicKey,
+        disabledActions
+      )
+    );
+  }
+  if (transaction.instructions.length > 0) {
+    expect(
+      sendTransaction(svm, transaction, [whitelistedAddress])
+    ).instanceOf(TransactionMetadata);
+  }
+
+  const circuitBreaker = getCircuitBreaker(svm);
+  if (disabledActions.isZero()) {
+    expect(circuitBreaker).to.be.null;
+  } else {
+    expect(circuitBreaker!.disabledActions.eq(disabledActions)).to.be.true;
+  }
 }
 
 // Returns null while the event authority doesn't hold the circuit breaker, i.e. before

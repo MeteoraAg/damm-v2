@@ -49,8 +49,7 @@ import {
   refreshVestingsTransaction,
   removeAllLiquidity,
   removeLiquidity,
-  setCircuitBreaker,
-  setCircuitBreakerTransaction,
+  setDisabledActions,
   setPoolStatus,
   splitPosition,
   splitPosition2,
@@ -70,6 +69,7 @@ import { LiteSVM } from "./helpers/litesvmCompat";
 import {
   expectThrowsErrorCode,
   parseEventInstruction,
+  parseEventLog,
   sendTransaction,
   sendTransactionWithoutSigverify,
   startSvm,
@@ -243,11 +243,7 @@ describe("Circuit breaker", () => {
     });
   }
 
-  function currentNonce(): BN {
-    return getCircuitBreaker(svm)!.nonce;
-  }
-
-  async function initialize(disabledActions?: BN) {
+  async function initialize(disabledActions: BN) {
     const result = await initializeCircuitBreaker(
       svm,
       operator,
@@ -258,13 +254,7 @@ describe("Circuit breaker", () => {
   }
 
   async function disable(actions: ActionGroup[]) {
-    const result = await setCircuitBreaker(svm, {
-      whitelistedAddress: operator,
-      disabledActions: encodeActionGroups(actions),
-      expectedNonce: currentNonce(),
-    });
-    expect(result).instanceOf(TransactionMetadata);
-    return result as TransactionMetadata;
+    await setDisabledActions(svm, operator, encodeActionGroups(actions));
   }
 
   // Runs `action` and expects its transaction to fail with `errorName`. Most helpers assert
@@ -297,7 +287,7 @@ describe("Circuit breaker", () => {
   }
 
   describe("initialize_circuit_breaker", () => {
-    it("stores the circuit breaker in the event authority with the given bitmask and the nonce at the current slot, and emits an event", async () => {
+    it("stores the circuit breaker in the event authority with the given bitmask, and emits an event", async () => {
       const eventAuthority = deriveEventAuthority();
       expect(svm.getAccount(eventAuthority)).to.be.null;
 
@@ -305,7 +295,6 @@ describe("Circuit breaker", () => {
         ActionGroup.Swap,
         ActionGroup.ClaimFee,
       ]);
-      svm.warpToSlot(BigInt(1_000));
       const result = await initialize(disabledActions);
 
       const account = svm.getAccount(eventAuthority)!;
@@ -314,24 +303,23 @@ describe("Circuit breaker", () => {
       expect(account.data.length).eq(72);
       const circuitBreaker = getCircuitBreaker(svm)!;
       expect(circuitBreaker.disabledActions.eq(disabledActions)).to.be.true;
-      expect(circuitBreaker.nonce.eqn(1_000)).to.be.true;
 
-      const event = parseEventInstruction(
-        result,
-        "evtInitializeCircuitBreaker"
-      )!.data;
+      const event = parseEventLog(result, "evtInitializeCircuitBreaker")!.data;
       expect(event.signer.equals(operator.publicKey)).to.be.true;
       expect(event.disabledActions.eq(disabledActions)).to.be.true;
-      expect(event.nonce.eqn(1_000)).to.be.true;
 
       await expectActionDisabled(swap);
       await removeSomeLiquidity();
     });
 
-    it("enables every action when the bitmask is zero", async () => {
-      await initialize();
-      expect(getCircuitBreaker(svm)!.disabledActions.isZero()).to.be.true;
-      await swap();
+    // The operator can simply close the circuit breaker to enable every action
+    it("rejects an empty bitmask", async () => {
+      const result = await initializeCircuitBreaker(svm, operator, new BN(0));
+      expectThrowsErrorCode(
+        result,
+        getCpAmmProgramErrorCode("InvalidParameters")
+      );
+      expect(getCircuitBreaker(svm)).to.be.null;
     });
 
     it("works when the event authority already holds lamports", async () => {
@@ -343,9 +331,11 @@ describe("Circuit breaker", () => {
         owner: SystemProgram.programId,
       });
 
-      await initialize();
+      const disabledActions = encodeActionGroups([ActionGroup.Swap]);
+      await initialize(disabledActions);
       expect(svm.getAccount(eventAuthority)!.lamports).eq(180_000_000_000);
-      expect(getCircuitBreaker(svm)!.disabledActions.isZero()).to.be.true;
+      expect(getCircuitBreaker(svm)!.disabledActions.eq(disabledActions)).to
+        .be.true;
     });
 
     it("rejects a bit above the last action group", async () => {
@@ -362,7 +352,11 @@ describe("Circuit breaker", () => {
     });
 
     it("fails for an operator without the CircuitBreaker permission", async () => {
-      const result = await initializeCircuitBreaker(svm, otherOperator);
+      const result = await initializeCircuitBreaker(
+        svm,
+        otherOperator,
+        encodeActionGroups([ActionGroup.Swap])
+      );
       expectThrowsErrorCode(
         result,
         getCpAmmProgramErrorCode("InvalidPermission")
@@ -371,16 +365,17 @@ describe("Circuit breaker", () => {
     });
 
     it("fails the second time", async () => {
-      await initialize();
-      expect(await initializeCircuitBreaker(svm, operator)).instanceOf(
-        FailedTransactionMetadata
-      );
+      const disabledActions = encodeActionGroups([ActionGroup.Swap]);
+      await initialize(disabledActions);
+      expect(
+        await initializeCircuitBreaker(svm, operator, disabledActions)
+      ).instanceOf(FailedTransactionMetadata);
     });
   });
 
   describe("the event authority as a program-owned account", () => {
     beforeEach(async () => {
-      await initialize();
+      await initialize(encodeActionGroups([ActionGroup.CreatePool]));
     });
 
     it("still signs the event CPI of swap", async () => {
@@ -423,186 +418,36 @@ describe("Circuit breaker", () => {
     });
   });
 
-  describe("set_circuit_breaker", () => {
-    it("fails before the circuit breaker is initialized", async () => {
-      const result = await setCircuitBreaker(svm, {
-        whitelistedAddress: operator,
-        disabledActions: encodeActionGroups([ActionGroup.Swap]),
-        expectedNonce: new BN(0),
-      });
-      expectThrowsErrorCode(result, ANCHOR_ACCOUNT_OWNED_BY_WRONG_PROGRAM);
-    });
-
-    describe("once initialized", () => {
-      let initialNonce: BN;
-
-      beforeEach(async () => {
-        svm.warpToSlot(BigInt(500));
-        await initialize();
-        initialNonce = currentNonce();
-        expect(initialNonce.eqn(500)).to.be.true;
-      });
-
-      it("replaces the bitmask, increments the nonce and emits an event", async () => {
-        const disabledActions = encodeActionGroups([
-          ActionGroup.Swap,
-          ActionGroup.CreatePool,
-        ]);
-        const result = await disable([
-          ActionGroup.Swap,
-          ActionGroup.CreatePool,
-        ]);
-
-        let circuitBreaker = getCircuitBreaker(svm)!;
-        expect(circuitBreaker.disabledActions.eq(disabledActions)).to.be.true;
-        expect(circuitBreaker.nonce.eq(initialNonce.addn(1))).to.be.true;
-
-        const event = parseEventInstruction(
-          result,
-          "evtSetCircuitBreaker"
-        )!.data;
-        expect(event.signer.equals(operator.publicKey)).to.be.true;
-        expect(event.oldDisabledActions.isZero()).to.be.true;
-        expect(event.disabledActions.eq(disabledActions)).to.be.true;
-        expect(event.nonce.eq(initialNonce.addn(1))).to.be.true;
-
-        await disable([ActionGroup.RemoveLiquidity]);
-        circuitBreaker = getCircuitBreaker(svm)!;
-        expect(
-          circuitBreaker.disabledActions.eq(
-            encodeActionGroups([ActionGroup.RemoveLiquidity])
-          )
-        ).to.be.true;
-        expect(circuitBreaker.nonce.eq(initialNonce.addn(2))).to.be.true;
-      });
-
-      it("fails for an operator without the CircuitBreaker permission", async () => {
-        const result = await setCircuitBreaker(svm, {
-          whitelistedAddress: otherOperator,
-          disabledActions: encodeActionGroups([ActionGroup.Swap]),
-          expectedNonce: initialNonce,
-        });
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("InvalidPermission")
-        );
-      });
-
-      it("rejects a nonce that isn't the current one", async () => {
-        for (const nonce of [initialNonce.subn(1), initialNonce.addn(1)]) {
-          const result = await setCircuitBreaker(svm, {
-            whitelistedAddress: operator,
-            disabledActions: encodeActionGroups([ActionGroup.Swap]),
-            expectedNonce: nonce,
-          });
-          expectThrowsErrorCode(
-            result,
-            getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
-          );
-        }
-        expect(getCircuitBreaker(svm)!.disabledActions.isZero()).to.be.true;
-      });
-
-      it("a transaction built before another update fails", async () => {
-        const staleTransaction = await setCircuitBreakerTransaction({
-          whitelistedAddress: operator,
-          disabledActions: encodeActionGroups([ActionGroup.AddLiquidity]),
-          expectedNonce: initialNonce,
-        });
-        await disable([ActionGroup.Swap]);
-
-        const result = sendTransaction(svm, staleTransaction, [operator]);
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
-        );
-      });
-
-      it("a stale transaction fails even when the bitmask went back to the value it was built from", async () => {
-        const staleTransaction = await setCircuitBreakerTransaction({
-          whitelistedAddress: operator,
-          disabledActions: encodeActionGroups([ActionGroup.AddLiquidity]),
-          expectedNonce: initialNonce,
-        });
-        await disable([ActionGroup.Swap]);
-        await disable([]);
-        expect(getCircuitBreaker(svm)!.disabledActions.isZero()).to.be.true;
-
-        const result = sendTransaction(svm, staleTransaction, [operator]);
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
-        );
-      });
-
-      it("rejects an unchanged bitmask", async () => {
-        const result = await setCircuitBreaker(svm, {
-          whitelistedAddress: operator,
-          disabledActions: new BN(0),
-          expectedNonce: initialNonce,
-        });
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("InvalidParameters")
-        );
-      });
-
-      it("rejects a bit above the last action group", async () => {
-        const result = await setCircuitBreaker(svm, {
-          whitelistedAddress: operator,
-          disabledActions: new BN(1).shln(ActionGroup.CreatePool + 1),
-          expectedNonce: initialNonce,
-        });
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("InvalidParameters")
-        );
-      });
-    });
-  });
-
   describe("close_circuit_breaker", () => {
     it("fails before the circuit breaker is initialized", async () => {
-      const result = await closeCircuitBreaker(svm, {
-        whitelistedAddress: operator,
-        expectedNonce: new BN(0),
-      });
+      const result = await closeCircuitBreaker(svm, operator);
       expectThrowsErrorCode(result, ANCHOR_ACCOUNT_OWNED_BY_WRONG_PROGRAM);
     });
 
     describe("once initialized", () => {
       beforeEach(async () => {
-        svm.warpToSlot(BigInt(100));
-        await initialize();
+        await initialize(encodeActionGroups([ActionGroup.Swap]));
       });
 
-      it("closes the circuit breaker, sends its rent to the receiver, emits an event and enables every action", async () => {
-        await disable([ActionGroup.Swap]);
+      it("closes a circuit breaker that disables an action, sends its rent to the receiver, emits an event and enables every action", async () => {
         await expectActionDisabled(swap);
-        await disable([]);
 
-        const nonce = currentNonce();
         const eventAuthority = deriveEventAuthority();
         const rent = svm.getAccount(eventAuthority)!.lamports;
         const rentReceiver = Keypair.generate().publicKey;
 
-        const result = await closeCircuitBreaker(svm, {
-          whitelistedAddress: operator,
-          expectedNonce: nonce,
-          rentReceiver,
-        });
+        const result = await closeCircuitBreaker(svm, operator, rentReceiver);
         expect(result).instanceOf(TransactionMetadata);
 
         expect(svm.getAccount(eventAuthority)).to.be.null;
         expect(getCircuitBreaker(svm)).to.be.null;
         expect(svm.getAccount(rentReceiver)!.lamports).eq(rent);
 
-        const event = parseEventInstruction(
+        const event = parseEventLog(
           result as TransactionMetadata,
           "evtCloseCircuitBreaker"
         )!.data;
         expect(event.signer.equals(operator.publicKey)).to.be.true;
-        expect(event.nonce.eq(nonce)).to.be.true;
 
         // the event authority is an empty system account again, which still signs the event CPI
         const transaction = await swapInstruction(svm, swapParams());
@@ -614,40 +459,8 @@ describe("Circuit breaker", () => {
         await removeSomeLiquidity();
       });
 
-      it("rejects a circuit breaker that disables an action", async () => {
-        await disable([ActionGroup.Swap]);
-        const result = await closeCircuitBreaker(svm, {
-          whitelistedAddress: operator,
-          expectedNonce: currentNonce(),
-        });
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("CircuitBreakerHasDisabledActions")
-        );
-        expect(getCircuitBreaker(svm)).not.to.be.null;
-        await expectActionDisabled(swap);
-      });
-
-      it("rejects a nonce that isn't the current one", async () => {
-        const nonce = currentNonce();
-        for (const staleNonce of [nonce.subn(1), nonce.addn(1)]) {
-          const result = await closeCircuitBreaker(svm, {
-            whitelistedAddress: operator,
-            expectedNonce: staleNonce,
-          });
-          expectThrowsErrorCode(
-            result,
-            getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
-          );
-        }
-        expect(getCircuitBreaker(svm)).not.to.be.null;
-      });
-
       it("fails for an operator without the CircuitBreaker permission", async () => {
-        const result = await closeCircuitBreaker(svm, {
-          whitelistedAddress: otherOperator,
-          expectedNonce: currentNonce(),
-        });
+        const result = await closeCircuitBreaker(svm, otherOperator);
         expectThrowsErrorCode(
           result,
           getCpAmmProgramErrorCode("InvalidPermission")
@@ -655,36 +468,21 @@ describe("Circuit breaker", () => {
         expect(getCircuitBreaker(svm)).not.to.be.null;
       });
 
-      it("initializes again after the close, with a nonce that an update built for the closed circuit breaker can't reuse", async () => {
-        const closedNonce = currentNonce();
-        const staleTransaction = await setCircuitBreakerTransaction({
-          whitelistedAddress: operator,
-          disabledActions: encodeActionGroups([ActionGroup.AddLiquidity]),
-          expectedNonce: closedNonce,
-        });
-        expect(
-          await closeCircuitBreaker(svm, {
-            whitelistedAddress: operator,
-            expectedNonce: closedNonce,
-          })
-        ).instanceOf(TransactionMetadata);
-
-        warpSlotBy(svm, new BN(10));
-        await initialize(encodeActionGroups([ActionGroup.Swap]));
-        const circuitBreaker = getCircuitBreaker(svm)!;
-        expect(circuitBreaker.nonce.gt(closedNonce)).to.be.true;
-        await expectActionDisabled(swap);
-
-        const result = sendTransaction(svm, staleTransaction, [operator]);
-        expectThrowsErrorCode(
-          result,
-          getCpAmmProgramErrorCode("UnexpectedCircuitBreakerState")
+      it("initializes again after the close", async () => {
+        expect(await closeCircuitBreaker(svm, operator)).instanceOf(
+          TransactionMetadata
         );
-        expect(
-          getCircuitBreaker(svm)!.disabledActions.eq(
-            encodeActionGroups([ActionGroup.Swap])
-          )
-        ).to.be.true;
+        await swap();
+
+        await initialize(encodeActionGroups([ActionGroup.RemoveLiquidity]));
+        await swap();
+        await expectActionDisabled(removeSomeLiquidity);
+      });
+
+      it("changes the bitmask by closing and initializing again in one transaction", async () => {
+        await disable([ActionGroup.RemoveLiquidity]);
+        await swap();
+        await expectActionDisabled(removeSomeLiquidity);
       });
     });
   });
@@ -711,7 +509,6 @@ describe("Circuit breaker", () => {
       // update_reward_duration requires the current time to be past the end of the campaign,
       // which is zero for a reward that was never funded
       warpToTimestamp(svm, new BN(1));
-      await initialize();
     });
 
     const customizablePoolParams = () => ({
@@ -1116,10 +913,6 @@ describe("Circuit breaker", () => {
   });
 
   describe("endpoints that take the event authority as optional leading remaining accounts", () => {
-    beforeEach(async () => {
-      await initialize();
-    });
-
     describe("refresh_vesting", () => {
       const vestingParams = () => ({
         cliffPoint: null,

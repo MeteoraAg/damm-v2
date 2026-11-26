@@ -84,7 +84,6 @@ const EXPECTED_CHECKS: &[(&str, Check)] = &[
     ("update_pool_fees", Check::Never),
     ("zero_pool_rate_limiter", Check::Never),
     ("initialize_circuit_breaker", Check::Never),
-    ("set_circuit_breaker", Check::Never),
     ("close_circuit_breaker", Check::Never),
     ("dummy_ix", Check::Never),
     ("swap", Check::InPinocchioSwap),

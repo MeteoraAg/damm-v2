@@ -41,8 +41,10 @@ pub fn is_valid_operator_role<'info>(
 ///
 /// Until `initialize_circuit_breaker` runs, and again after `close_circuit_breaker`, the event
 /// authority is an empty system account and every action is enabled. Only this program can put
-/// data at its PDA, and `close_circuit_breaker` only closes it when every action is already
-/// enabled, so closing never enables an action that was disabled.
+/// data at its PDA. `close_circuit_breaker` enables every action.
+///
+/// To change `disabled_actions` without a window in which every
+/// action is enabled, the operator closes and initializes the circuit breaker in one transaction.
 ///
 /// Once initialized, the event authority is owned by this program instead of the system program.
 /// It still signs every event CPI, which only checks its key and its signature.

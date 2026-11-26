@@ -1,3 +1,4 @@
+import { EventParser } from "@anchor-lang/core";
 import { base64 } from "@anchor-lang/core/dist/cjs/utils/bytes";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, Signer, SystemProgram, Transaction } from "@solana/web3.js";
@@ -167,6 +168,18 @@ export function parseEventInstruction(
           return event;
         }
       }
+    }
+  }
+
+  return null;
+}
+
+export function parseEventLog(metadata: TransactionMetadata, eventName: string) {
+  const program = createCpAmmProgram();
+  const parser = new EventParser(program.programId, program.coder);
+  for (const event of parser.parseLogs(metadata.logs())) {
+    if (event.name === eventName) {
+      return event;
     }
   }
 

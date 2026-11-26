@@ -211,20 +211,8 @@ pub mod cp_amm {
     }
 
     #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CircuitBreaker))]
-    pub fn set_circuit_breaker(
-        ctx: Context<SetCircuitBreakerCtx>,
-        disabled_actions: u64,
-        expected_nonce: u64,
-    ) -> Result<()> {
-        instructions::handle_set_circuit_breaker(ctx, disabled_actions, expected_nonce)
-    }
-
-    #[access_control(is_valid_operator_role(&ctx.accounts.operator, ctx.accounts.signer.key, OperatorPermission::CircuitBreaker))]
-    pub fn close_circuit_breaker(
-        ctx: Context<CloseCircuitBreakerCtx>,
-        expected_nonce: u64,
-    ) -> Result<()> {
-        instructions::handle_close_circuit_breaker(ctx, expected_nonce)
+    pub fn close_circuit_breaker(ctx: Context<CloseCircuitBreakerCtx>) -> Result<()> {
+        instructions::handle_close_circuit_breaker(ctx)
     }
 
     // USER FUNCTIONS
