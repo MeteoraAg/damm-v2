@@ -1,3 +1,4 @@
+import { EventParser } from "@anchor-lang/core";
 import { base64 } from "@anchor-lang/core/dist/cjs/utils/bytes";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { PublicKey, Signer, SystemProgram, Transaction } from "@solana/web3.js";
@@ -80,6 +81,22 @@ export function sendTransaction(
   return result;
 }
 
+// Signs `transaction` with `signers` only, and sends it without signature verification. The first
+// signer pays the fee
+export function sendTransactionWithoutSigverify(
+  svm: LiteSVM,
+  transaction: Transaction,
+  signers: Signer[]
+) {
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.feePayer = signers[0].publicKey;
+  transaction.partialSign(...signers);
+  const result = svm.sendTransactionWithoutSigverify(transaction);
+  svm.expireBlockhash();
+
+  return result;
+}
+
 export function sendTransactionOrExpectThrowError(
   svm: LiteSVM,
   transaction: Transaction,
@@ -151,6 +168,18 @@ export function parseEventInstruction(
           return event;
         }
       }
+    }
+  }
+
+  return null;
+}
+
+export function parseEventLog(metadata: TransactionMetadata, eventName: string) {
+  const program = createCpAmmProgram();
+  const parser = new EventParser(program.programId, program.coder);
+  for (const event of parser.parseLogs(metadata.logs())) {
+    if (event.name === eventName) {
+      return event;
     }
   }
 

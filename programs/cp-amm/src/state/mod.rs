@@ -11,3 +11,5 @@ pub mod vesting;
 pub use vesting::*;
 pub mod operator;
 pub use operator::*;
+pub mod circuit_breaker;
+pub use circuit_breaker::*;

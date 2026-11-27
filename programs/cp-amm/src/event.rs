@@ -157,6 +157,20 @@ pub struct EvtSetPoolStatus {
     pub status: u8,
 }
 
+#[event]
+pub struct EvtInitializeCircuitBreaker {
+    /// Operator that signed the initialization
+    pub signer: Pubkey,
+    /// Bitmask of disabled action groups
+    pub disabled_actions: u64,
+}
+
+#[event]
+pub struct EvtCloseCircuitBreaker {
+    /// Operator that signed the close
+    pub signer: Pubkey,
+}
+
 // Initialize reward
 #[event]
 pub struct EvtInitializeReward {

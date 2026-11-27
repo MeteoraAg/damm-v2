@@ -240,4 +240,7 @@ pub enum PoolError {
 
     #[msg("Deprecated endpoint")]
     DeprecatedEndpoint,
+
+    #[msg("Action is disabled by the circuit breaker")]
+    ActionDisabled,
 }

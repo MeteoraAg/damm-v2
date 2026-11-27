@@ -26,9 +26,12 @@ pub enum OperatorPermission {
     UpdateRewardDuration, // 6
     UpdateRewardFunder,   // 7
     UpdatePoolFees,       // 8
-    ClaimProtocolFee,     // 9 - Deprecated. Kept for enum ordering
-    ZapProtocolFee,       // 10 - Deprecated. Kept for enum ordering
+    #[deprecated]
+    ClaimProtocolFee, // 9 - Deprecated. Kept for enum ordering
+    #[deprecated]
+    ZapProtocolFee, // 10 - Deprecated. Kept for enum ordering
     FixPool,              // 11
+    CircuitBreaker,       // 12
 }
 
 #[account(zero_copy)]

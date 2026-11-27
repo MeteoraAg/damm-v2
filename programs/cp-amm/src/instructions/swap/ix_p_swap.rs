@@ -1,8 +1,9 @@
 use crate::const_pda::{EVENT_AUTHORITY_AND_BUMP, EVENT_AUTHORITY_SEEDS};
 use crate::p_helper::{
-    p_accessor_mint, p_load_mut_unchecked, p_transfer_from_pool, p_transfer_from_user,
+    p_accessor_mint, p_check_circuit_breaker, p_load_mut_unchecked, p_transfer_from_pool,
+    p_transfer_from_user,
 };
-use crate::state::CollectFeeMode;
+use crate::state::{ActionGroup, CollectFeeMode};
 use crate::{
     process_swap_exact_in, process_swap_exact_out, process_swap_partial_fill, EvtSwap2,
     ProcessSwapParams, ProcessSwapResult, SwapCtx,
@@ -65,6 +66,8 @@ pub fn p_handle_swap(
     ] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys.into());
     };
+
+    p_check_circuit_breaker(event_authority, ActionGroup::Swap)?;
 
     let pool_key = pool.key();
     let mut pool: pinocchio::account_info::RefMut<'_, Pool> = p_load_mut_unchecked(pool)?;

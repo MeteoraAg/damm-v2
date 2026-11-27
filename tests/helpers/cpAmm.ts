@@ -28,6 +28,7 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
+  TransactionInstruction,
 } from "@solana/web3.js";
 import { expect } from "chai";
 import Decimal from "decimal.js";
@@ -38,6 +39,7 @@ import { CpAmm } from "../../target/types/cp_amm";
 import {
   deriveConfigAddress,
   deriveCustomizablePoolAddress,
+  deriveEventAuthority,
   deriveOperatorAddress,
   derivePoolAddress,
   derivePoolAuthority,
@@ -413,6 +415,7 @@ export enum OperatorPermission {
   ClaimProtocolFee, // 9
   ZapProtocolFee, // 10
   FixPool, // 11
+  CircuitBreaker, // 12
 }
 
 export function encodePermissions(permissions: OperatorPermission[]): BN {
@@ -447,6 +450,156 @@ export async function createOperator(
   const result = sendTransaction(svm, transaction, [admin]);
 
   expect(result).instanceOf(TransactionMetadata);
+}
+
+export type CircuitBreaker = IdlAccounts<CpAmm>["circuitBreaker"];
+
+// Mirrors `ActionGroup` in programs/cp-amm/src/state/circuit_breaker.rs. The value of a group is
+// the bit it uses in `CircuitBreaker::disabled_actions`
+export enum ActionGroup {
+  Swap, // 0
+  AddLiquidity, // 1
+  RemoveLiquidity, // 2
+  ClaimFee, // 3
+  ClaimReward, // 4
+  PositionManagement, // 5
+  RewardManagement, // 6
+  CreatePool, // 7
+}
+
+export function encodeActionGroups(actions: ActionGroup[]): BN {
+  return actions.reduce((acc, action) => {
+    return acc.or(new BN(1).shln(action));
+  }, new BN(0));
+}
+
+function initializeCircuitBreakerInstruction(
+  whitelistedAddress: PublicKey,
+  disabledActions: BN
+): Promise<TransactionInstruction> {
+  const program = createCpAmmProgram();
+  return program.methods
+    .initializeCircuitBreaker(disabledActions)
+    .accountsPartial({
+      eventAuthority: deriveEventAuthority(),
+      operator: deriveOperatorAddress(whitelistedAddress),
+      signer: whitelistedAddress,
+      payer: whitelistedAddress,
+      systemProgram: SystemProgram.programId,
+    })
+    .instruction();
+}
+
+export async function initializeCircuitBreaker(
+  svm: LiteSVM,
+  whitelistedAddress: Keypair,
+  disabledActions: BN
+): Promise<TransactionMetadata | FailedTransactionMetadata> {
+  const transaction = new Transaction().add(
+    await initializeCircuitBreakerInstruction(
+      whitelistedAddress.publicKey,
+      disabledActions
+    )
+  );
+  return sendTransaction(svm, transaction, [whitelistedAddress]);
+}
+
+function closeCircuitBreakerInstruction(
+  whitelistedAddress: PublicKey,
+  rentReceiver: PublicKey
+): Promise<TransactionInstruction> {
+  const program = createCpAmmProgram();
+  return program.methods
+    .closeCircuitBreaker()
+    .accountsPartial({
+      operator: deriveOperatorAddress(whitelistedAddress),
+      signer: whitelistedAddress,
+      rentReceiver,
+      eventAuthority: deriveEventAuthority(),
+    })
+    .instruction();
+}
+
+export async function closeCircuitBreaker(
+  svm: LiteSVM,
+  whitelistedAddress: Keypair,
+  rentReceiver: PublicKey = whitelistedAddress.publicKey
+): Promise<TransactionMetadata | FailedTransactionMetadata> {
+  const transaction = new Transaction().add(
+    await closeCircuitBreakerInstruction(
+      whitelistedAddress.publicKey,
+      rentReceiver
+    )
+  );
+  return sendTransaction(svm, transaction, [whitelistedAddress]);
+}
+
+// Changes the bitmask in one transaction. It closes the circuit breaker when it exists, and
+// initializes it again unless `disabledActions` is zero, because the operator can simply close the
+// circuit breaker to enable every action
+export async function setDisabledActions(
+  svm: LiteSVM,
+  whitelistedAddress: Keypair,
+  disabledActions: BN
+) {
+  const transaction = new Transaction();
+  if (getCircuitBreaker(svm) !== null) {
+    transaction.add(
+      await closeCircuitBreakerInstruction(
+        whitelistedAddress.publicKey,
+        whitelistedAddress.publicKey
+      )
+    );
+  }
+  if (!disabledActions.isZero()) {
+    transaction.add(
+      await initializeCircuitBreakerInstruction(
+        whitelistedAddress.publicKey,
+        disabledActions
+      )
+    );
+  }
+  if (transaction.instructions.length > 0) {
+    expect(
+      sendTransaction(svm, transaction, [whitelistedAddress])
+    ).instanceOf(TransactionMetadata);
+  }
+
+  const circuitBreaker = getCircuitBreaker(svm);
+  if (disabledActions.isZero()) {
+    expect(circuitBreaker).to.be.null;
+  } else {
+    expect(circuitBreaker!.disabledActions.eq(disabledActions)).to.be.true;
+  }
+}
+
+// Returns null while the event authority doesn't hold the circuit breaker, i.e. before
+// `initialize_circuit_breaker` and after `close_circuit_breaker`
+export function getCircuitBreaker(svm: LiteSVM): CircuitBreaker | null {
+  const account = svm.getAccount(deriveEventAuthority());
+  if (!account || !account.owner.equals(CP_AMM_PROGRAM_ID)) {
+    return null;
+  }
+  const program = createCpAmmProgram();
+  return program.coder.accounts.decode(
+    "circuitBreaker",
+    Buffer.from(account.data)
+  );
+}
+
+// `refresh_vesting` and `claim_protocol_fee2` don't have `#[event_cpi]`. They check the circuit
+// breaker when the event authority and the program are their first two remaining accounts, in
+// that order. The helpers pass them by default. `includeCircuitBreaker`: false leaves them out,
+// the way a client built before the circuit breaker sends the transaction
+export function circuitBreakerRemainingAccounts(
+  includeCircuitBreaker = true
+): AccountMeta[] {
+  return includeCircuitBreaker
+    ? [
+        { pubkey: deriveEventAuthority(), isSigner: false, isWritable: false },
+        { pubkey: CP_AMM_PROGRAM_ID, isSigner: false, isWritable: false },
+      ]
+    : [];
 }
 
 export type UpdatePoolFeesParams = {
@@ -510,25 +663,22 @@ export async function zeroPoolRateLimiter(
   return result;
 }
 
-export async function claimProtocolFee2(
-  svm: LiteSVM,
-  params: {
-    signerKP: Keypair;
-    pool: PublicKey;
-    isTokenA: boolean;
-    receiverTokenAccount: PublicKey;
-    maxAmount?: BN;
-  }
-) {
-  const program = createCpAmmProgram();
-  const { signerKP, pool, isTokenA, receiverTokenAccount } = params;
-  const poolAuthority = derivePoolAuthority();
-  const poolState = getPool(svm, pool);
+export type ClaimProtocolFee2Params = {
+  signer: PublicKey;
+  pool: PublicKey;
+  isTokenA: boolean;
+  receiverTokenAccount: PublicKey;
+  maxAmount?: BN;
+  includeCircuitBreaker?: boolean;
+};
 
-  const claimedTokenMint = isTokenA
-    ? poolState.tokenAMint
-    : poolState.tokenBMint;
-  const claimedTokenProgram = svm.getAccount(claimedTokenMint)!.owner;
+export async function claimProtocolFee2Transaction(
+  svm: LiteSVM,
+  params: ClaimProtocolFee2Params
+): Promise<Transaction> {
+  const program = createCpAmmProgram();
+  const { signer, pool, isTokenA, receiverTokenAccount } = params;
+  const poolState = getPool(svm, pool);
 
   const tokenAProgram = svm.getAccount(poolState.tokenAMint)!.owner;
   const tokenBProgram = svm.getAccount(poolState.tokenBMint)!.owner;
@@ -537,23 +687,35 @@ export async function claimProtocolFee2(
     params.maxAmount ??
     (isTokenA ? poolState.protocolAFee : poolState.protocolBFee);
 
-  const transaction = await program.methods
+  return program.methods
     .claimProtocolFee2(maxAmount)
     .accountsPartial({
-      poolAuthority,
+      poolAuthority: derivePoolAuthority(),
       pool,
       receiverTokenAccount,
       tokenAVault: poolState.tokenAVault,
       tokenBVault: poolState.tokenBVault,
       tokenAMint: poolState.tokenAMint,
       tokenBMint: poolState.tokenBMint,
-      signer: signerKP.publicKey,
+      signer,
       tokenAProgram,
       tokenBProgram,
     })
+    .remainingAccounts(
+      circuitBreakerRemainingAccounts(params.includeCircuitBreaker ?? true)
+    )
     .transaction();
+}
 
-  return sendTransaction(svm, transaction, [signerKP]);
+export async function claimProtocolFee2(
+  svm: LiteSVM,
+  params: Omit<ClaimProtocolFee2Params, "signer"> & { signerKP: Keypair }
+) {
+  const transaction = await claimProtocolFee2Transaction(svm, {
+    ...params,
+    signer: params.signerKP.publicKey,
+  });
+  return sendTransaction(svm, transaction, [params.signerKP]);
 }
 
 export type InitializePoolParams = {
@@ -1416,6 +1578,38 @@ export async function withdrawDeadLiquidityReward(
   expect(result).instanceOf(TransactionMetadata);
 }
 
+export async function refreshVestingsTransaction(
+  svm: LiteSVM,
+  position: PublicKey,
+  pool: PublicKey,
+  owner: PublicKey,
+  vestings: PublicKey[],
+  includeCircuitBreaker = true
+): Promise<Transaction> {
+  const program = createCpAmmProgram();
+  const positionState = getPosition(svm, position);
+  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
+  return program.methods
+    .refreshVesting()
+    .accountsPartial({
+      position,
+      positionNftAccount,
+      pool,
+      owner,
+    })
+    .remainingAccounts([
+      ...circuitBreakerRemainingAccounts(includeCircuitBreaker),
+      ...vestings.map((pubkey) => {
+        return {
+          isSigner: false,
+          isWritable: true,
+          pubkey,
+        };
+      }),
+    ])
+    .transaction();
+}
+
 export async function refreshVestings(
   svm: LiteSVM,
   position: PublicKey,
@@ -1424,28 +1618,13 @@ export async function refreshVestings(
   payer: Keypair,
   vestings: PublicKey[]
 ) {
-  const program = createCpAmmProgram();
-  const positionState = getPosition(svm, position);
-  const positionNftAccount = derivePositionNftAccount(positionState.nftMint);
-  const transaction = await program.methods
-    .refreshVesting()
-    .accountsPartial({
-      position,
-      positionNftAccount,
-      pool,
-      owner,
-    })
-    .remainingAccounts(
-      vestings.map((pubkey) => {
-        return {
-          isSigner: false,
-          isWritable: true,
-          pubkey,
-        };
-      })
-    )
-    .transaction();
-
+  const transaction = await refreshVestingsTransaction(
+    svm,
+    position,
+    pool,
+    owner,
+    vestings
+  );
   const result = sendTransaction(svm, transaction, [payer]);
   expect(result).instanceOf(TransactionMetadata);
 }
